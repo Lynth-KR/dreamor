@@ -1,0 +1,10 @@
+# ruff for the Python tools (bench/, tools/). tools/format.sh runs it; CI checks with the same version.
+required-version = "==0.17.1"
+line-length = 120
+target-version = "py310"
+
+[lint]
+# pyflakes and the pycodestyle errors (ruff's classic defaults), plus import sorting and pyupgrade.
+select = ["E4", "E7", "E9", "F", "I", "UP"]
+# The report builders name small Excel-formula lambdas on purpose.
+ignore = ["E731"]

@@ -1,0 +1,4 @@
+# Ported from OR-Tools and walked through line by line in README.md: left as ported, so the
+# diff to upstream stays the one the walkthrough describes.
+DisableFormat: true
+SortIncludes: Never

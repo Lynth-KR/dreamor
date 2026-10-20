@@ -1,0 +1,178 @@
+# AGENTS.md
+
+Instructions for coding agents working **on** this repository. For writing models **with** dreamor, see the skill in
+`skills/dreamor/` (or `README.md`).
+
+dreamor is a header-only C++20 modeling layer: index sets (solver-independent), variable families (`VarTable`), and
+sums (`sumOf`), with two backends, CPLEX Concert (`dreamor::concert`) and OR-Tools MathOpt (`dreamor::mathopt`).
+Version 0.1.0, Apache 2.0.
+
+## Layout
+
+| Path | What |
+|---|---|
+| `include/dreamor/index_set.hpp`, `include/dreamor/index_set/` | Set layer: `Col`, `makeSet`, `IndexSet`, `Grouped`, `Ordered`, set algebra. Must not include any solver header |
+| `include/dreamor/value_table.hpp` | `dreamor::ValueTable`, shared by both backends |
+| `include/dreamor/concert.hpp` | Concert backend |
+| `include/dreamor/mathopt.hpp` | MathOpt backend |
+| `include/dreamor/internal/` | Shared backend machinery (`var_table_core.hpp`, `row_index.hpp`, `sum_builder.hpp`) |
+| `include/dreamor/general/`, `include/dreamor/logger/` | Utilities (`tuple_hash.hpp`, `format_buffer.hpp`, `third_party_headers.hpp`, `logger_light.hpp`) |
+| `examples/` | Lot-sizing example: `production_planning_sets.hpp` (solver-free), `production_planning.hpp` (Concert), `production_planning_mathopt.hpp` (MathOpt), `production_planning_plain.hpp` (without dreamor, for comparison). `mathopt_samples/`: three OR-Tools MathOpt samples ported to dreamor, with a walkthrough of each port (keep Google's license header and the modification notice on these files) |
+| `tests/` | Framework-free tests, `tests/run_tests.sh`, Concert stub (`tests/stub/`), compile-fail cases |
+| `bench/` | Container benchmark without a solver: dreamor vs hand-written `std::map` vs hand-optimized arrays, as a 2^4 factorial (`bench/README.md`). Own lean Concert stub in `bench/stub/`. Not run in CI |
+| `skills/dreamor/` | Agent Skill for users writing dreamor code |
+| `cmake/`, `CMakeLists.txt` | `dreamor::dreamor` INTERFACE target and install/package config |
+
+## Build and test
+
+There is nothing to build; the tests do not go through CMake.
+
+```bash
+tests/run_tests.sh                   # default; needs nothing but a C++20 compiler
+tests/run_tests.sh --cplex [DIR]     # real CPLEX Studio ($CPLEX_STUDIO_DIR, default /opt/ibm/ILOG/CPLEX_Studio2212)
+tests/run_tests.sh --mathopt [DIR]   # OR-Tools C++ prebuilt ($ORTOOLS_DIR, default /opt/ortools), solves with HiGHS
+CXX=clang++-18 tests/run_tests.sh    # compiler choice; default g++
+OPT="-O3 -DNDEBUG" tests/run_tests.sh # optimization; default -O1 -g
+SAN=1 tests/run_tests.sh             # AddressSanitizer + UndefinedBehaviorSanitizer (stub mode only)
+tools/format.sh                      # clang-format (C++) and ruff (Python) in place; --check changes nothing
+```
+
+- **Default mode** runs every `tests/test_*.cpp` against the Concert stub, checks every `tests/compile_fail/*.cpp`,
+  and syntax-checks `tests/cplex/*.cpp` and the Concert example.
+- **`--mathopt`** runs `tests/mathopt/*.cpp`, the MathOpt example, the ported samples in
+  `examples/mathopt_samples/`, and `tests/mathopt/compile_fail/`.
+  `test_cross_backend.cpp` builds the example on both backends and compares the constraints.
+- **`--cplex`** solves with real CPLEX. CPLEX is not on CI, so run it locally when you touch Concert-facing code
+  and have CPLEX available.
+- **Warnings** are what dreamor's own code is held to; the CMake target adds none, so users keep their own flags.
+  The library, the tests, and the examples build with `STRICT` in `tests/run_tests.sh` (`-Wconversion`,
+  `-Wsign-conversion`, `-Wold-style-cast`, `-Wfloat-equal`, ... and `-Werror`): a header that warns there would warn
+  in a user's strict build. The ported samples and the compile_fail cases build with `-Wall -Wextra` only - a
+  warning must not become a compile_fail case's first error. Tests compare doubles with `exactlyEqual` /
+  `isExactlyZero` from `tests/float_compare.hpp`, never with `==`.
+- **CI** (`.github/workflows/ci.yml`) runs the stub job on GCC 13 and Clang 18 at `-O1 -g` and `-O3 -DNDEBUG`,
+  a sanitize job (`SAN=1`, GCC), the MathOpt job on both compilers, a package job that installs the CMake package
+  and builds `tests/cmake_consumer` (and `tests/cmake_consumer_mathopt` in the MathOpt job) through
+  `find_package(dreamor)`, and a format job (`tools/format.sh --check`).
+- **Formatting** is `.clang-format` (clang-format 23.1.3) and `ruff.toml` (ruff 0.17.1), pinned because output differs
+  between versions: `uv tool install clang-format==23.1.3`, `uv tool install ruff==0.17.1`.
+  `examples/mathopt_samples/` is left as ported, and README code blocks are formatted by hand. The script also
+  adds the SPDX license line where it is missing.
+  CI runs `tools/format.sh --check`.
+- **Done means** default mode passes on both compilers, `--mathopt` passes if you touched anything the MathOpt
+  backend or the shared machinery uses, and `tools/format.sh --check` passes.
+
+## Design rules
+
+Changes must keep these. They are the library's reason to exist, not style preferences.
+
+- **Columns are named, not positional.** Callables take the column types they read; lookups take key columns in
+  declaration order or one row. Bare values and braced lists stay rejected.
+- **Sets are immutable.** New sets come from derivation, never mutation.
+- **One VarTable per variable family.** Variables are created only in the `VarTable` constructor, and a table's
+  structure never changes after construction.
+- **No new user-facing concept for performance.** Internal hashing and set sharing are fine; new knobs in the API
+  are not.
+- **One way to do one thing.** No second syntax: no pipe operators, no free-function aliases of members.
+- **The solver's own API stays the solver's.** Constraints, objectives, solving, duals, bounds after construction,
+  and names are not wrapped. Backends take each solver's notation (`IloEnv`/`ILOFLOAT` vs `Model&`/`is_integer`).
+- **Out of scope.** Do not add any of these without the maintainer asking:
+  - constraint tables;
+  - keyed dual or reduced-cost accessors;
+  - column generation;
+  - coefficient-array overloads;
+  - duplicate-variable checks;
+  - constraint programming (interval variables, `noOverlap`, cumulative functions).
+
+## Backend parity
+
+These behave identically on both backends. A change to one is a change to both:
+
+- bounds as numbers or column callables;
+- variable names `<name>_<key0>_<key1>...`;
+- `std::out_of_range` for a lookup outside the set;
+- iteration in set order;
+- `sumOf`'s `where()` / `split()` / `build()`;
+- a `VarTable` as a sum term.
+
+Backend-only features stay in their backend:
+- Concert only: semi-continuous variables, quadratic terms.
+- MathOpt only: `std::logic_error` from `solution()` when there is no feasible solution, because MathOpt would
+  otherwise CHECK-fail.
+
+Shared logic belongs in `include/dreamor/internal/`.
+
+## Benchmark
+
+`bench/` is not part of the test suite or CI. When a change touches what the benchmark exercises
+(`makeSet`, `groupBy`, `VarTable` construction or lookup, `sumOf`), check two things with
+`bench/build.sh` and a quick `python3 run_doe.py --budget-gb 0.15 --reps 2 --out sample.csv`:
+- it still builds;
+- `groups`, `check_groups`, and `check_traverse` agree across arms for each model.
+
+Timing conclusions need the full run (`bench/README.md`). An agent's sandbox is not a benchmark
+machine.
+
+## Diagnostics
+
+Misuse is stopped at compile time with a `static_assert` whose message is one sentence saying what to write
+instead (e.g. `sumOf(...) is not an expression yet: add .build() - ...`). When adding or changing a diagnostic:
+
+1. Add a case to `tests/compile_fail/` (Concert/set layer) or `tests/mathopt/compile_fail/`. Each case is one file
+   that starts with the SPDX line, then a `// expect: <text>` line, and includes `prelude.hpp`.
+2. The runner requires `<text>` in the compiler's **first** error and its notes, not just a rejection. This must
+   hold on both GCC 13 and Clang 18. Arrange overloads so the dreamor message comes first, not a wall of template
+   errors.
+3. `control.cc` in each folder must keep compiling; it proves that a rejection comes from the library.
+4. Update the message table in `skills/dreamor/references/diagnostics.md`.
+
+## Concert stub
+
+`tests/stub/` stands in for the Concert headers so CI runs without CPLEX. It mirrors the real header layout. For
+example, `IloModel` has its own header, as in real Concert, so a missing include fails here as it would against
+CPLEX. If library code starts using another Concert API, add it to the stub the way the real headers declare it.
+Confirm with `--cplex` when possible.
+
+## Code style
+
+Every code file starts with `// SPDX-License-Identifier: Apache-2.0` (`#` in Python, shell, and CMake; after the
+`#!` line in scripts); `tools/format.sh` adds it and CI checks it. Each header then has this convention block.
+Follow it in library code:
+
+- types `PascalCase`;
+- variables `snake_case`, members with a trailing underscore (`rows_`);
+- functions `camelCase`;
+- constants `kPascalCase`;
+- macros `SCREAMING_SNAKE_CASE`, prefixed `DREAMOR_` (a bare `CHECK` collides with Abseil and glog, see
+  `tests/check.hpp`).
+
+User-facing examples (README, header comments, examples, skill) follow the user conventions instead:
+- columns `PascalCaseCol`, sets `sSCREAMING_SNAKE`, variable families `vPascalCase`;
+- callables taking columns in `snake_case`;
+- everything else in `camelCase`.
+
+Primitive types follow the domain, everywhere (library, tests, examples, bench):
+- a count, size, or index is never signed: `std::size_t` by default, a fixed-width `std::uint32_t` (or narrower)
+  where storage size matters;
+- signed only where a negative value means something (negative stock, a step backwards: `std::ptrdiff_t`);
+- prefer types whose size is explicit (`std::size_t`, `std::uint32_t`, `std::int16_t`, ...) over `int`, `long`,
+  `unsigned`. The exceptions are what the language or a mirrored API fixes: `main(int argc, ...)`,
+  `operator++(int)`, the process exit status, `IloInt` in the Concert stubs.
+
+Wrap third-party includes (Concert, OR-Tools) in `DREAMOR_BEGIN_THIRD_PARTY_HEADERS` /
+`DREAMOR_END_THIRD_PARTY_HEADERS` from `general/third_party_headers.hpp`. That way `-Wall -Wextra` (or `-Werror`)
+reports only this library's code.
+
+## Documentation that mirrors code
+
+Several documents are mirrored by code, so they change together:
+
+| If you change | Also change |
+|---|---|
+| A code block in `README.md` | the same block in `README.ko.md` (code is identical; only prose and comments differ), and `tests/test_readme.cpp`, which compiles that code |
+| A usage example in a header comment | `tests/test_docs.cpp`, which compiles those examples |
+| The public API, its defaults, or a runtime exception | `README.md`, `README.ko.md`, `skills/dreamor/SKILL.md`, `skills/dreamor/references/api.md` |
+| A compile-time message | its `// expect:` line and `skills/dreamor/references/diagnostics.md` |
+| The version | `project(... VERSION ...)` in `CMakeLists.txt` (packages use `SameMinorVersion` compatibility), the `find_package(dreamor 0.1 ...)` lines in the READMEs, and the skill's title |
+
+`compile_commands.json` (from `python3 tools/gen_compile_commands.py`) is machine-specific; do not commit it.

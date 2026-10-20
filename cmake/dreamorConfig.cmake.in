@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+@PACKAGE_INIT@
+
+# No dependencies to find here: the solver (CPLEX or OR-Tools) is linked by the user next to
+# dreamor::dreamor, matching the backend header the code includes.
+include("${CMAKE_CURRENT_LIST_DIR}/dreamorTargets.cmake")
+check_required_components(dreamor)

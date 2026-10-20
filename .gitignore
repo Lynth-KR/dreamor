@@ -1,0 +1,38 @@
+# Build output
+/tests/build/
+/build/
+/cmake-build-*/
+
+# Machine-specific: tools/gen_compile_commands.py writes absolute paths
+/compile_commands.json
+
+# Editor and tooling caches (clangd's index lives in .cache)
+/.cache/
+__pycache__/
+
+# VS Code: the shared clangd setup is tracked, personal files (launch.json, ...) are not
+/.vscode/*
+!/.vscode/settings.json
+!/.vscode/extensions.json
+
+# Solver exports (exportModel / writeModel)
+*.lp
+*.mps
+*.sav
+
+# Third-party SDKs unpacked into the repository by mistake (see README: ORTOOLS_DIR)
+/or-tools_*/
+/or-tools_*.tar.gz
+
+# Benchmarks
+bench/bench
+bench/*.csv
+bench/*_meta.json
+bench/*.xlsx
+bench/example/*.xlsx
+
+# Others
+/tools/make_banner.py
+/tools/make_slogan.py
+/tools/rename.sh
+/tools/make_tar.sh

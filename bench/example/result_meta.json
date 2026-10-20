@@ -1,0 +1,56 @@
+{
+  "N": 39000000,
+  "budget_gb": 3.0,
+  "reps": 3,
+  "seed": 20261019,
+  "f2": 50,
+  "f3": 100,
+  "impls": [
+    "dreamor",
+    "map",
+    "flat"
+  ],
+  "design": "2^4 full factorial",
+  "ladder_fractions": [
+    0.0625,
+    0.125,
+    0.25,
+    0.5
+  ],
+  "reference_cells": {
+    "dense-prefix": {
+      "W": "prefix",
+      "O": "shared",
+      "D": "dense",
+      "S": "uniform"
+    },
+    "sparse-mixed": {
+      "W": "mixed",
+      "O": "owned",
+      "D": "sparse",
+      "S": "uniform"
+    }
+  },
+  "pilot_bytes_per_row": {
+    "dreamor": 62.72767145665108,
+    "map": 81.87599274861878,
+    "flat": 61.23559132483924
+  },
+  "pilot_peak_per_row": {
+    "dreamor": 278.8474288142796,
+    "map": 298.6485337866553,
+    "flat": 278.41223969400767
+  },
+  "pilot_sec_per_row": {
+    "dreamor": 6.961471558913698e-07,
+    "map": 1.51403298315967e-06,
+    "flat": 7.794179969724495e-07
+  },
+  "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+  "mem_total_bytes": 16727080960,
+  "llc_bytes": 33554432,
+  "kernel": "6.6.87.2-microsoft-standard-WSL2",
+  "compiler": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+  "python": "3.13.13",
+  "started": "2026-10-19 20:37:55"
+}

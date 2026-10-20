@@ -1,0 +1,83 @@
+name: tests
+on: [push, pull_request]
+jobs:
+  stub:
+    # No CPLEX on CI: tests run against the Concert stub in tests/stub, with GCC and Clang -
+    # the compile_fail cases check that both print our message first.
+    # Real CPLEX: tests/run_tests.sh --cplex [CPLEX_Studio dir], locally.
+    # -O3 -DNDEBUG is CMake's Release: GCC finds more with inlining, and asserts compile away.
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        cxx: [g++-13, clang++-18]
+        opt: ["-O1 -g", "-O3 -DNDEBUG"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clang 18
+        if: matrix.cxx == 'clang++-18'
+        run: command -v clang++-18 || (sudo apt-get update && sudo apt-get install -y clang-18)
+      - run: CXX=${{ matrix.cxx }} OPT="${{ matrix.opt }}" tests/run_tests.sh
+
+  sanitize:
+    # AddressSanitizer and UndefinedBehaviorSanitizer over the stub-mode tests.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: CXX=g++-13 SAN=1 tests/run_tests.sh
+
+  mathopt:
+    # The MathOpt backend against the OR-Tools C++ prebuilt, solving with HiGHS: unit tests,
+    # the example, the Concert-vs-MathOpt comparison of the example's constraints, and the
+    # MathOpt compile_fail cases.
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        cxx: [g++-13, clang++-18]
+    env:
+      ORTOOLS_URL: https://github.com/google/or-tools/releases/download/v9.15/or-tools_amd64_ubuntu-24.04_cpp_v9.15.6755.tar.gz
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clang 18
+        if: matrix.cxx == 'clang++-18'
+        run: command -v clang++-18 || (sudo apt-get update && sudo apt-get install -y clang-18)
+      - name: OR-Tools v9.15 prebuilt
+        run: |
+          mkdir -p "$RUNNER_TEMP/ortools"
+          curl -sSfL "$ORTOOLS_URL" | tar xz -C "$RUNNER_TEMP/ortools" --strip-components=1
+      - run: CXX=${{ matrix.cxx }} tests/run_tests.sh --mathopt "$RUNNER_TEMP/ortools"
+      - name: CMake package with OR-Tools
+        run: |
+          cmake -S . -B "$RUNNER_TEMP/build" -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/prefix"
+          cmake --install "$RUNNER_TEMP/build"
+          cmake -S tests/cmake_consumer_mathopt -B "$RUNNER_TEMP/consumer" -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+                -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/prefix;$RUNNER_TEMP/ortools"
+          cmake --build "$RUNNER_TEMP/consumer" -j4
+          "$RUNNER_TEMP/consumer/lot_sizing"
+
+  format:
+    # clang-format and ruff at the versions tools/format.sh and ruff.toml pin.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: pipx install clang-format==23.1.3 && pipx install ruff==0.17.1
+      - run: tools/format.sh --check
+
+  package:
+    # The installed CMake package, taken the way a user would: find_package(dreamor), link
+    # dreamor::dreamor, build, run - with both compilers.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clang 18
+        run: command -v clang++-18 || (sudo apt-get update && sudo apt-get install -y clang-18)
+      - run: |
+          cmake -S . -B "$RUNNER_TEMP/build" -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/prefix"
+          cmake --install "$RUNNER_TEMP/build"
+          for cxx in g++-13 clang++-18; do
+            cmake -S tests/cmake_consumer -B "$RUNNER_TEMP/consumer-$cxx" -DCMAKE_CXX_COMPILER=$cxx \
+                  -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/prefix"
+            cmake --build "$RUNNER_TEMP/consumer-$cxx"
+            "$RUNNER_TEMP/consumer-$cxx/consumer"
+          done

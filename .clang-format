@@ -1,0 +1,35 @@
+# clang-format 23. tools/format.sh pins the exact version, and CI checks with the same one.
+BasedOnStyle: Google
+Language: Cpp
+Standard: c++20
+ColumnLimit: 120
+
+# Google derives the pointer side per file from what the file already does; fix it instead.
+DerivePointerAlignment: false
+PointerAlignment: Left
+
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortCaseLabelsOnASingleLine: true
+BinPackArguments: false
+BinPackParameters: OnePerLine
+
+# A static_assert message stays one literal, so it can be grepped and matched against its
+# // expect: line and skills/dreamor/references/diagnostics.md.
+BreakStringLiterals: false
+IndentPPDirectives: AfterHash
+# Include groups are by hand (standard, dreamor, wrapped third-party); sort only within each.
+IncludeBlocks: Preserve
+InsertNewlineAtEOF: true
+
+# A block of definitions reads as a table, names on the left and definitions on the right.
+# Only consecutive lines align: a blank line or a comment starts a new block.
+AlignConsecutiveAssignments:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+  AlignCompound: false
+
+# No semicolon after these, so the line after must not be joined to them.
+StatementMacros:
+  - DREAMOR_BEGIN_THIRD_PARTY_HEADERS
+  - DREAMOR_END_THIRD_PARTY_HEADERS

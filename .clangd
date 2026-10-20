@@ -1,0 +1,6 @@
+# clangd reads compile_commands.json (tools/gen_compile_commands.py) for the flags.
+CompileFlags:
+  CompilationDatabase: .
+Diagnostics:
+  # Umbrella headers (index_set.hpp) include on purpose what a file does not use itself.
+  UnusedIncludes: None
