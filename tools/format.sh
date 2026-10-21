@@ -1,7 +1,8 @@
 #!/bin/sh
 # SPDX-License-Identifier: Apache-2.0
-# Formats every tracked C++ file with clang-format and every tracked Python file with ruff, and
-# puts the SPDX license line at the top of every tracked code file (after a #! line, if any).
+# Formats every C++ file with clang-format and every Python file with ruff, and puts the SPDX
+# license line at the top of every code file (after a #! line, if any). "Every" is what git
+# tracks plus what it would add - a new file counts before it is committed; ignored ones do not.
 #
 #   tools/format.sh           format in place (and apply ruff's safe lint fixes)
 #   tools/format.sh --check   change nothing; fail if anything is not formatted (what CI runs)
@@ -24,11 +25,14 @@ if [ "$found" != "$CLANG_FORMAT_VERSION" ]; then
   exit 1
 fi
 
+# files [-z] PATHSPEC...: tracked and not-yet-added files, minus what .gitignore excludes.
+files() { git ls-files --cached --others --exclude-standard "$@"; }
+
 # spdx PREFIX PATHSPEC...: adds "PREFIX $SPDX" where it is missing; with --check, names those files.
 spdx() {
   line="$1 $SPDX"
   shift
-  git ls-files "$@" | while IFS= read -r f; do
+  files "$@" | while IFS= read -r f; do
     head -n 2 "$f" | grep -qxF "$line" && continue
     if [ -n "$CHECK" ]; then
       echo "$f: missing \"$line\""
@@ -45,11 +49,11 @@ if [ -n "$missing" ]; then
 fi
 
 if [ -n "$CHECK" ]; then
-  git ls-files -z '*.hpp' '*.cpp' '*.cc' '*.h' | xargs -0 "$CLANG_FORMAT" --dry-run --Werror
-  git ls-files -z '*.py' | xargs -0 "$RUFF" format --check
-  git ls-files -z '*.py' | xargs -0 "$RUFF" check
+  files -z '*.hpp' '*.cpp' '*.cc' '*.h' | xargs -0 "$CLANG_FORMAT" --dry-run --Werror
+  files -z '*.py' | xargs -0 "$RUFF" format --check
+  files -z '*.py' | xargs -0 "$RUFF" check
 else
-  git ls-files -z '*.hpp' '*.cpp' '*.cc' '*.h' | xargs -0 "$CLANG_FORMAT" -i
-  git ls-files -z '*.py' | xargs -0 "$RUFF" format
-  git ls-files -z '*.py' | xargs -0 "$RUFF" check --fix
+  files -z '*.hpp' '*.cpp' '*.cc' '*.h' | xargs -0 "$CLANG_FORMAT" -i
+  files -z '*.py' | xargs -0 "$RUFF" format
+  files -z '*.py' | xargs -0 "$RUFF" check --fix
 fi
