@@ -34,7 +34,7 @@ inline constexpr bool always_false = false;
 // user-defined conversion, so an overload taking it is chosen only when nothing else fits.
 struct BracedKey {
   template <typename... Any>
-  BracedKey(const Any&... /*unused*/) {}  // NOLINT(google-explicit-constructor)
+  BracedKey(const Any&... /*unused*/) {}  // NOLINT(*-explicit-constructor): catches {i, t} to say what to write
 };
 
 // Args... are exactly Tup's columns, in order (cv and references aside).
@@ -96,8 +96,10 @@ template <typename Tup, typename... Args>
 
   constexpr std::size_t kKeyArgs = sizeof...(Args) - 1;
   return [&]<std::size_t... I>(std::index_sequence<I...>) {
-    return std::pair<Tup, std::ptrdiff_t>{keyOf<Tup>(std::get<I>(all)...),
-                                          static_cast<std::ptrdiff_t>(std::get<kKeyArgs>(all))};
+    return std::pair<Tup, std::ptrdiff_t>{
+        keyOf<Tup>(std::get<I>(all)...),
+        static_cast<std::ptrdiff_t>(std::get<kKeyArgs>(all)),
+    };
   }(std::make_index_sequence<kKeyArgs>{});
 }
 
@@ -148,6 +150,7 @@ consteval bool checkMembershipKey() {
   return isKey<Tup, Args...>();
 }
 
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage): a static_assert message has to be a string literal
 #define DREAMOR_INTERNAL_NO_BRACES_MESSAGE                                                       \
   "Pass the key's columns as arguments, without braces: slice(i, t), prev(t), next(t, 2) - not " \
   "slice({i, t})."

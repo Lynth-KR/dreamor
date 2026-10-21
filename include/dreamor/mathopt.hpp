@@ -74,7 +74,7 @@ class VarTable : private internal::VarTableCore<::operations_research::math_opt:
   using Core = internal::VarTableCore<::operations_research::math_opt::Variable, Keys...>;
 
  public:
-  using Key      = typename Core::Key;
+  using Key      = Core::Key;
   using Variable = ::operations_research::math_opt::Variable;
 
   template <typename Lb = double, typename Ub = double>

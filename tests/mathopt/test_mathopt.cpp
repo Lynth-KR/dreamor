@@ -29,7 +29,8 @@ static std::size_t terms(const math_opt::LinearExpression& e) {
 
 static void varTable() {
   math_opt::Model model("vartable");
-  const std::vector<std::size_t> I{3, 1, 2}, J{10, 20};
+  const std::vector<std::size_t> I{3, 1, 2};
+  const std::vector<std::size_t> J{10, 20};
   const auto IJ = dreamor::makeSet<ICol, JCol>(I, J).collect();
 
   static_assert(!std::is_copy_constructible_v<dreamor::mathopt::VarTable<ICol, JCol>>);
@@ -97,7 +98,8 @@ static void varTable() {
 
 static void sum() {
   math_opt::Model model("sum");
-  const std::vector<std::size_t> I{1, 2, 3}, J{10, 20};
+  const std::vector<std::size_t> I{1, 2, 3};
+  const std::vector<std::size_t> J{10, 20};
   const auto IJ = dreamor::makeSet<ICol, JCol>(I, J).collect();
   const dreamor::mathopt::VarTable<ICol, JCol> x{model, IJ, 0, 1, true, "x"};
   const auto var      = [&x](ICol i, JCol j) { return x(i, j); };
@@ -178,10 +180,12 @@ static void example() {
   }
 }
 
-int main() {
+int main() try {
   varTable();
   sum();
   solution();
   example();
   return report("mathopt");
+} catch (...) {
+  return ::uncaught();
 }

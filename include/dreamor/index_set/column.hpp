@@ -25,9 +25,11 @@ namespace dreamor {
 // Structural type, so it can be a template argument.
 template <std::size_t N>
 struct ColumnName {
-  char value[N]{};  // NOLINT(*-avoid-c-arrays,*-non-private-member-variables-in-classes)
+  // NOLINTNEXTLINE(*-avoid-c-arrays,*-non-private-member-variables-in-classes): a structural NTTP holds the literal
+  char value[N]{};
 
-  consteval ColumnName(const char (&text)[N]) {  // NOLINT(google-explicit-constructor,*-avoid-c-arrays)
+  // NOLINTNEXTLINE(*-explicit-constructor,*-avoid-c-arrays): Col<T, "name"> passes the literal straight in
+  consteval ColumnName(const char (&text)[N]) {
     for (std::size_t i = 0; i < N; ++i) {
       value[i] = text[i];
     }
@@ -39,7 +41,7 @@ struct ColumnName {
 };
 
 template <std::size_t N>
-ColumnName(const char (&)[N]) -> ColumnName<N>;  // NOLINT(*-avoid-c-arrays)
+ColumnName(const char (&)[N]) -> ColumnName<N>;  // NOLINT(*-avoid-c-arrays): deduces N from the literal
 
 template <typename T, ColumnName Name>
 class Col {
@@ -49,9 +51,9 @@ class Col {
   static constexpr std::string_view kName = Name.view();
 
   Col() = default;
-  Col(T value) noexcept : value_{value} {}  // NOLINT(google-explicit-constructor)
+  Col(T value) noexcept : value_{value} {}  // NOLINT(*-explicit-constructor): a column is its value, under a name
 
-  operator T() const noexcept {  // NOLINT(google-explicit-constructor)
+  operator T() const noexcept {  // NOLINT(*-explicit-constructor): and reads as it, m->capacity
     return value_;
   }
   [[nodiscard]] T get() const noexcept { return value_; }
@@ -109,7 +111,7 @@ concept is_column = IsColumn<Column>::value;
 // are taken as they are.
 template <typename Column, typename Element>
 [[nodiscard]] Column toColumn(Element& element) {
-  using Value = typename Column::Value;
+  using Value = Column::Value;
   if constexpr (std::is_pointer_v<Value>) {
     if constexpr (std::is_pointer_v<std::remove_cvref_t<Element>>) {
       return Column{static_cast<Value>(element)};

@@ -103,7 +103,9 @@ template <typename RangeTuple, typename ElemTuple, std::size_t I = 0>
 }
 
 template <std::size_t SourceCount, std::size_t PredCount>
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): one fixpoint loop; split, it no longer reads as one
 [[nodiscard]] consteval std::array<std::size_t, SourceCount> planVisitOrder(
+    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): produces and depends are both column masks per source
     std::array<std::uint64_t, SourceCount> produces,
     std::array<std::uint64_t, SourceCount> depends,
     std::array<std::uint64_t, PredCount> predicates) {

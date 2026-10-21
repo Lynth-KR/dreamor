@@ -11,7 +11,8 @@ class IloModel {
  public:
   explicit IloModel(IloEnv) : cs_(IloStubArena::own(new std::vector<IloConstraintI*>)) {}
   IloEnv getEnv() const { return {}; }
-  void add(const IloConstraint& c) { cs_->push_back(c.impl_); }
-  void add(const IloObjective&) {}
+  // const, as in real Concert: a model is a handle, and adding goes through it.
+  void add(const IloConstraint& c) const { cs_->push_back(c.impl_); }
+  void add(const IloObjective&) const {}
   std::vector<IloConstraintI*>* cs_;
 };

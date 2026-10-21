@@ -4,9 +4,12 @@
 #pragma once
 #include <cstddef>
 #include <cstdio>
+#include <exception>
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): the counters every check bumps
 inline std::size_t g_failures = 0;
 inline std::size_t g_checks   = 0;
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 #define DREAMOR_CHECK(...)                                                                 \
   do {                                                                                     \
@@ -32,7 +35,20 @@ inline std::size_t g_checks   = 0;
     }                                                                                                      \
   } while (0)
 
+// main's function-try-block ends in `catch (...) { return ::uncaught(); }`: an exception that
+// escapes a test is reported as a failure instead of ending the program unexplained.
+inline int uncaught() noexcept {
+  try {
+    throw;
+  } catch (const std::exception& e) {
+    std::fprintf(stderr, "uncaught exception: %s\n", e.what());
+  } catch (...) {
+    std::fprintf(stderr, "uncaught exception, not a std::exception\n");
+  }
+  return 1;
+}
+
 inline int report(const char* name) {
-  std::printf("%-16s %s  (%zu checks, %zu failed)\n", name, g_failures ? "FAIL" : "ok", g_checks, g_failures);
-  return g_failures ? 1 : 0;
+  std::printf("%-16s %s  (%zu checks, %zu failed)\n", name, g_failures != 0 ? "FAIL" : "ok", g_checks, g_failures);
+  return g_failures != 0 ? 1 : 0;
 }

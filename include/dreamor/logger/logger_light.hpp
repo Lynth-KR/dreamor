@@ -14,14 +14,10 @@
 #include <string_view>
 #include <utility>
 
-#if defined(_WIN32)
+#ifdef _WIN32
 #  include <io.h>
-#  define DREAMOR_LOGGER_ISATTY(fd) _isatty(fd)
-#  define DREAMOR_LOGGER_FILENO(f) _fileno(f)
 #else
 #  include <unistd.h>
-#  define DREAMOR_LOGGER_ISATTY(fd) isatty(fd)
-#  define DREAMOR_LOGGER_FILENO(f) fileno(f)
 #endif
 
 // Compile-time switch for the "[+123.456ms]" elapsed-time prefix. On by
@@ -29,6 +25,7 @@
 // header to drop it (e.g. a downstream tool parses a fixed line format that
 // doesn't expect it). Off means zero cost: elapsedMs() is never called.
 #ifndef DREAMOR_LOGGER_ENABLE_TIMESTAMP
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage): a switch users set with -D
 #  define DREAMOR_LOGGER_ENABLE_TIMESTAMP 1
 #endif
 
@@ -42,21 +39,32 @@ inline constexpr std::string_view kColorDim                  = "\033[90m";
 inline constexpr std::array<std::string_view, 3> kLevelColor = {"\033[32m", "\033[33m", "\033[31m"};
 inline constexpr std::array<std::string_view, 3> kLevelTag   = {"INFO", "WARN", "ERROR"};
 
+// Whether `stream` is a terminal; the platforms spell it differently.
+inline bool isTerminal(FILE* stream) noexcept {
+#ifdef _WIN32
+  return _isatty(_fileno(stream)) != 0;
+#else
+  return isatty(fileno(stream)) != 0;
+#endif
+}
+
 // Per-thread output target (default stderr). thread_local so N threads
 // building N models in parallel each get their own log file with zero
 // cross-talk; a spawned thread always starts at the stderr default.
-inline thread_local FILE* g_output = stderr;  // NOLINT
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables): per-thread state, by design
+inline thread_local FILE* g_output = stderr;
 
 // Cached per thread on redirect (see setOutput) rather than re-checked via
 // isatty() on every log() call - that syscall showed up as a real cost.
-inline thread_local bool g_output_is_tty = DREAMOR_LOGGER_ISATTY(DREAMOR_LOGGER_FILENO(stderr)) != 0;  // NOLINT
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables): per-thread state, by design
+inline thread_local bool g_output_is_tty = isTerminal(stderr);
 
 // NO_COLOR (https://no-color.org), read once (lazy static, thread-safe init)
 // instead of on every call. Process-wide on purpose: it's an environment
 // setting, not a per-model preference.
 inline bool noColorRequested() noexcept {
   static const bool requested = [] {
-    const char* no_color = std::getenv("NO_COLOR");  // NOLINT
+    const char* no_color = std::getenv("NO_COLOR");
     return no_color != nullptr && no_color[0] != '\0';
   }();
   return requested;
@@ -83,7 +91,8 @@ inline double elapsedMs() noexcept {
 }
 
 // Relaxed: gates whether a line prints at all, not any data it protects.
-inline std::atomic<Level> g_min_level{Level::kInfo};  // NOLINT
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables): process-wide and atomic, by design
+inline std::atomic<Level> g_min_level{Level::kInfo};
 
 // NOTE: no mutex here. POSIX/glibc guarantees fwrite/fflush/etc. on the SAME
 // stream are already serialized against each other via the stream's own
@@ -96,7 +105,7 @@ inline std::atomic<Level> g_min_level{Level::kInfo};  // NOLINT
 // exactly the bottleneck to avoid when N threads each have their own
 // FileSink.
 
-inline constexpr std::string_view basename(const char* path) noexcept {
+constexpr std::string_view basename(const char* path) noexcept {
   const std::string_view sv(path);
   const auto pos = sv.find_last_of("/\\");
   return pos == std::string_view::npos ? sv : sv.substr(pos + 1);
@@ -133,7 +142,7 @@ inline void log(Level level,
       truncated = true;  // this call alone needed more room than was left
     }
     const auto written = std::min(r.size, cap);
-    out += written;  // NOLINT
+    out += written;
     cap -= written;
   };
   const auto reset_buf = [&]() noexcept {
@@ -143,7 +152,7 @@ inline void log(Level level,
   };
   // Single spot the DREAMOR_LOGGER_ENABLE_TIMESTAMP switch touches; avoids
   // repeating the same #if in the normal path and both catch blocks below.
-  const auto writeTimestamp = [&]() {
+  const auto write_timestamp = [&] {
 #if DREAMOR_LOGGER_ENABLE_TIMESTAMP
     advance(std::format_to_n(out, cap, "{}[+{:.3f}ms]{} ", dim, elapsed_ms, reset));
 #endif
@@ -152,7 +161,7 @@ inline void log(Level level,
   // format_to_n is not noexcept (a user std::formatter<T> can throw); caught
   // here so that can't escape this noexcept function and terminate().
   try {
-    writeTimestamp();
+    write_timestamp();
     advance(std::format_to_n(out, cap, "{}[{}:{}]{} ", dim, file, loc.line(), reset));
     advance(std::format_to_n(out, cap, "{}[{}]{} ", level_color, kLevelTag[idx], reset));
     advance(std::format_to_n(out, cap, fmt, std::forward<Args>(args)...));
@@ -161,7 +170,7 @@ inline void log(Level level,
     // throws, the line is just the newline.
     try {
       reset_buf();
-      writeTimestamp();
+      write_timestamp();
       advance(std::format_to_n(out,
                                cap,
                                "{}[{}:{}]{} [{}] <log formatting threw: {}>",
@@ -177,7 +186,7 @@ inline void log(Level level,
   } catch (...) {
     try {
       reset_buf();
-      writeTimestamp();
+      write_timestamp();
       advance(std::format_to_n(out,
                                cap,
                                "{}[{}:{}]{} [{}] <log formatting threw a non-std::exception>",
@@ -199,10 +208,10 @@ inline void log(Level level,
 
     const auto content_len  = static_cast<std::size_t>(out - buf.data());
     const auto marker_start = content_len > kMarker.size() ? content_len - kMarker.size() : 0;
-    std::copy(kMarker.begin(), kMarker.end(), buf.data() + marker_start);
+    std::ranges::copy(kMarker, buf.data() + marker_start);
     out = buf.data() + marker_start + kMarker.size();
   }
-  *out++ = '\n';  // NOLINT - direct write, guaranteed in-bounds by the reserved byte above
+  *out++ = '\n';  // in bounds: the byte reserved above
 
   const auto length  = static_cast<std::size_t>(out - buf.data());
   FILE* const target = g_output;  // thread_local: no other thread can touch this
@@ -244,7 +253,7 @@ inline Level getLevel() noexcept {
 // calling thread: g_output is thread_local, so there's nothing to lock here.
 inline void setOutput(FILE* target) noexcept {
   detail::g_output        = target;
-  detail::g_output_is_tty = DREAMOR_LOGGER_ISATTY(DREAMOR_LOGGER_FILENO(target)) != 0;
+  detail::g_output_is_tty = detail::isTerminal(target);
 }
 
 inline FILE* getOutput() noexcept {
@@ -291,7 +300,7 @@ class FileSink {
     if (file_ != nullptr) {
       flush();
       setOutput(previous_);
-      std::fclose(file_);
+      std::fclose(file_);  // NOLINT(cppcoreguidelines-owning-memory): FileSink owns the FILE it opened
     }
   }
 
@@ -309,24 +318,22 @@ class FileSink {
 
 }  // namespace dreamor::logger
 
-// NOLINTNEXTLINE
+// NOLINTBEGIN(cppcoreguidelines-macro-usage): a log call captures its call site and checks its
+// format string at compile time, and the DEBUG ones vanish under NDEBUG, arguments and all.
 #define DREAMOR_LOG_INFO(fmt, ...) \
   ::dreamor::logger::detail::log(  \
       ::dreamor::logger::detail::Level::kInfo, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
 
-// NOLINTNEXTLINE
 #define DREAMOR_LOG_WARNING(fmt, ...) \
   ::dreamor::logger::detail::log(     \
       ::dreamor::logger::detail::Level::kWarning, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
 
-// NOLINTNEXTLINE
 #define DREAMOR_LOG_ERROR(fmt, ...) \
   ::dreamor::logger::detail::log(   \
       ::dreamor::logger::detail::Level::kError, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
 
 // Always fatal in every build (unlike DREAMOR_DEBUG_FATAL). Mirrors CHECK vs
 // DCHECK in glog/Abseil.
-// NOLINTNEXTLINE
 #define DREAMOR_LOG_FATAL(fmt, ...) \
   ::dreamor::logger::detail::fatal(std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
 
@@ -347,3 +354,4 @@ class FileSink {
 #  define DREAMOR_DEBUG_ERROR(fmt, ...) static_cast<void>(0)
 #  define DREAMOR_DEBUG_FATAL(fmt, ...) static_cast<void>(0)
 #endif
+// NOLINTEND(cppcoreguidelines-macro-usage)

@@ -14,9 +14,10 @@ static std::size_t terms(const IloExpr& e) {
   return e.expr_->terms.size();
 }
 
-int main() {
-  IloEnv env;
-  const std::vector<std::size_t> I{1, 2, 3}, J{10, 20};
+int main() try {
+  const IloEnv env;
+  const std::vector<std::size_t> I{1, 2, 3};
+  const std::vector<std::size_t> J{10, 20};
   const auto IJ = dreamor::makeSet<ICol, JCol>(I, J).collect();
   const dreamor::concert::VarTable<ICol, JCol> x{env, IJ, 0, 1, ILOINT, "x"};
   const auto var      = [&x](ICol i, JCol j) { return x(i, j); };
@@ -51,4 +52,6 @@ int main() {
   const auto IKJ = dreamor::makeSet<ICol, KCol, JCol>(I, I, J).collect();  // more columns than the table's keys
   DREAMOR_CHECK(terms(dreamor::concert::sumOf(env, IKJ, x).build()) == 18);
   return report("sum");
+} catch (...) {
+  return ::uncaught();
 }

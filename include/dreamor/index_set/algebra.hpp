@@ -110,6 +110,7 @@ template <typename Tup>
 
 // A ∩ B
 template <typename Tup>
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): two sets of one type is what intersecting means
 [[nodiscard]] IndexSet<Tup> intersect(const IndexSet<Tup>& left, const IndexSet<Tup>& right) {
   const std::unordered_set<Tup, ::dreamor::general::TupleHash> rhs{right.begin(), right.end()};
   std::unordered_set<Tup, ::dreamor::general::TupleHash> emitted;
@@ -124,6 +125,7 @@ template <typename Tup>
 
 // A \ B
 template <typename Tup>
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): two sets of one type is what A \ B means
 [[nodiscard]] IndexSet<Tup> difference(const IndexSet<Tup>& left, const IndexSet<Tup>& right) {
   const std::unordered_set<Tup, ::dreamor::general::TupleHash> rhs{right.begin(), right.end()};
   std::unordered_set<Tup, ::dreamor::general::TupleHash> emitted;
@@ -188,7 +190,7 @@ Membership<Tup> IndexSet<Tup>::membership() const {
 // Returns the same set, so it drops into a declaration.
 template <typename Tup>
 template <typename... Columns>
-IndexSet<Tup> IndexSet<Tup>::assertUnique() const {
+IndexSet<Tup> IndexSet<Tup>::assertUnique() const {  // NOLINT(modernize-use-nodiscard): see the declaration
 #ifndef NDEBUG
   const auto& rows = internal::SetAccess::rows(*this);
   if constexpr (sizeof...(Columns) > 0) {

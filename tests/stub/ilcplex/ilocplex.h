@@ -28,7 +28,7 @@ class IloCplex {
   explicit IloCplex(IloModel) {}
   IloEnv getEnv() const { return {}; }
   void setOut(std::ostream&) {}
-  bool solve() { return false; }
+  IloBool solve() { return IloFalse; }
   IloAlgorithm::Status getStatus() const { return IloAlgorithm::Unknown; }
   IloNum getObjValue() const { return 0; }
   IloNum getValue(const IloNumVar&) const { return 0; }

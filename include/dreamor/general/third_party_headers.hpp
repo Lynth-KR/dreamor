@@ -13,7 +13,7 @@
 #pragma once
 
 // clang-format off: one _Pragma per line; clang-format would chain them into a staircase.
-#if defined(__clang__)
+#ifdef __clang__
 #  define DREAMOR_BEGIN_THIRD_PARTY_HEADERS \
     _Pragma("clang diagnostic push") _Pragma("clang diagnostic ignored \"-Weverything\"")
 #  define DREAMOR_END_THIRD_PARTY_HEADERS _Pragma("clang diagnostic pop")

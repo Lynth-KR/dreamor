@@ -67,7 +67,7 @@ template <typename Key>
   if constexpr (has_key_name<Key>) {
     return keyName(key);
   } else {
-    return (key);
+    return key;
   }
 }
 
@@ -121,14 +121,15 @@ class VarTableCore {
     return {rows().data() + rows().size(), vars_.data() + vars_.size()};
   }
 
+  // Copy is deleted: a variable is a handle, so a copy would quietly alias the same columns
+  // under two names. Move is fine - nothing here points at itself.
+  VarTableCore(const VarTableCore&)            = delete;
+  VarTableCore& operator=(const VarTableCore&) = delete;
+
  protected:
   explicit VarTableCore(const IndexSet<Key>& keys)
       : keys_{keys}, index_{std::make_shared<const FlatIndex<Key>>(rows())} {}
 
-  // Copy is deleted: a variable is a handle, so a copy would quietly alias the same columns
-  // under two names. Move is fine - nothing here points at itself.
-  VarTableCore(const VarTableCore&)                = delete;
-  VarTableCore& operator=(const VarTableCore&)     = delete;
   VarTableCore(VarTableCore&&) noexcept            = default;
   VarTableCore& operator=(VarTableCore&&) noexcept = default;
   ~VarTableCore() noexcept = default;  // Solver objects follow their own owner; nothing is ended here.
@@ -160,7 +161,9 @@ class VarTableCore {
   //
   // kLogAndClear (not kThrow): construction is reached from noexcept modeling code, where a
   // throw would mean std::terminate rather than a recoverable error.
-  using NameBuilder = ::dreamor::general::NameBuilder<256, ::dreamor::general::OnFormatOverflow::kLogAndClear>;
+  static constexpr std::size_t kNameBufferSize = 256;  // a variable's name, terminator included
+  using NameBuilder =
+      ::dreamor::general::NameBuilder<kNameBufferSize, ::dreamor::general::OnFormatOverflow::kLogAndClear>;
 
   [[nodiscard]] static const char* nameOf(NameBuilder& names, const Key& key) {
     std::size_t length = names.rootLength();
@@ -168,6 +171,7 @@ class VarTableCore {
     return names.name();
   }
 
+  // NOLINTNEXTLINE(*-non-private-member-variables-in-classes): the backends deriving from this fill it
   std::vector<Var> vars_;  // vars_[i] is the variable of row i.
 
  private:

@@ -36,6 +36,7 @@ OPT="-O3 -DNDEBUG" tests/run_tests.sh # optimization; default -O1 -g
 SAN=1 tests/run_tests.sh             # AddressSanitizer + UndefinedBehaviorSanitizer (stub mode only)
 JOBS=4 tests/run_tests.sh            # parallel compiles; default every core (tests still report in order)
 tools/format.sh                      # clang-format (C++) and ruff (Python) in place; --check changes nothing
+tools/tidy.sh                        # clang-tidy; needs compile_commands.json (tools/gen_compile_commands.py)
 ```
 
 - **Default mode** runs every `tests/test_*.cpp` against the Concert stub, checks every `tests/compile_fail/*.cpp`,
@@ -54,8 +55,8 @@ tools/format.sh                      # clang-format (C++) and ruff (Python) in p
 - **CI** (`.github/workflows/ci.yml`) runs the stub job on GCC 13 and Clang 18 at `-O1 -g` and `-O3 -DNDEBUG`,
   a sanitize job (`SAN=1`, GCC), gcc-latest and clang-latest (stub mode on the newest releases), the MathOpt job
   on both compilers, a package job that installs the CMake package and builds `tests/cmake_consumer` (and
-  `tests/cmake_consumer_mathopt` in the MathOpt job) through `find_package(dreamor)`, and a format job
-  (`tools/format.sh --check`).
+  `tests/cmake_consumer_mathopt` in the MathOpt job) through `find_package(dreamor)`, a tidy job (`tools/tidy.sh`),
+  and a format job (`tools/format.sh --check`).
 - **Compiler support** is a range tested at both ends, nothing in between: the floor is GCC 13 / Clang 18 (raising
   it is a decision, not a cleanup), the ceiling the newest releases (GCC 16 from the `gcc:16` image, Clang 23 from
   apt.llvm.org). Bump the ceiling at each major release - GCC every spring, LLVM every March and September - in
@@ -70,8 +71,14 @@ tools/format.sh                      # clang-format (C++) and ruff (Python) in p
   `tools/format.sh` and the pipx line in CI; `required-version` in `ruff.toml` and the pipx line), run
   `tools/format.sh`, commit only the reformatting, and add that commit to `.git-blame-ignore-revs`. Time to bump:
   when clangd in the editor gets ahead of the pin and format-on-save starts to disagree with CI.
+- **Linting** is `.clang-tidy` (clang-tidy 23.1.3, `uv tool install clang-tidy==23.1.3`): broad check families, with
+  the few that clash with this codebase turned off and the reason written beside each. tests/ and examples/ relax
+  what test and example code does on purpose; tests/stub, the compile_fail cases, the ported samples and bench/ are
+  not checked. An exception to a check that stays on is `NOLINT(check): reason` - never a bare NOLINT. Review what
+  `tools/tidy.sh --fix` writes: applied from several translation units at once, a fix can land twice or garble a
+  call, and const goes on the right.
 - **Done means** default mode passes on both compilers, `--mathopt` passes if you touched anything the MathOpt
-  backend or the shared machinery uses, and `tools/format.sh --check` passes.
+  backend or the shared machinery uses, `tools/format.sh --check` passes, and `tools/tidy.sh` reports nothing.
 
 ## Design rules
 

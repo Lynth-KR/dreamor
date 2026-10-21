@@ -110,7 +110,7 @@ namespace dreamor::concert {
 
 // Tag for the semi-continuous constructor: VarTable(semiContinuous, env, set, sclb, ub, ...).
 inline constexpr struct SemiContinuous {
-} semiContinuous{};
+} semiContinuous{};  // NOLINT(readability-identifier-naming): a public tag object, named like std::in_place
 
 template <typename... Keys>
   requires(sizeof...(Keys) > 0 && (internal::is_nameable<Keys> && ...))
@@ -118,7 +118,7 @@ class VarTable : private internal::VarTableCore<IloNumVar, Keys...> {
   using Core = internal::VarTableCore<IloNumVar, Keys...>;
 
  public:
-  using Key = typename Core::Key;
+  using Key = Core::Key;
 
   template <typename Lb = IloNum, typename Ub = IloNum>
   VarTable(const IloEnv& env,

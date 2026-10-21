@@ -11,8 +11,10 @@
 #include <utility>
 #include <vector>
 
-using IloNum = double;
-using IloInt = long;
+using IloNum                      = double;
+using IloInt                      = long;
+using IloBool                     = IloInt;
+inline constexpr IloBool IloFalse = 0;  // a macro in real Concert; compared the same way
 
 inline constexpr IloNum IloInfinity = 1e20;
 

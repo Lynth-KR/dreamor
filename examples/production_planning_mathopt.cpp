@@ -2,12 +2,13 @@
 // Builds the lot-sizing example on the MathOpt backend, solves it with HiGHS and prints the
 // plan. tests/run_tests.sh --mathopt [OR-Tools dir] builds and runs it.
 #include <cstdio>
+#include <exception>
 #include <iostream>
 
 #include "ortools/math_opt/cpp/math_opt.h"
 #include "production_planning_mathopt.hpp"
 
-int main() {
+int main() try {
   namespace math_opt = ::operations_research::math_opt;
   using namespace planning;
   const Instance in = Instance::make(3, 6, 5);
@@ -40,4 +41,10 @@ int main() {
         std::printf("  %s: %6.1f in stock\n", std::get<ItemCol>(row)->name.c_str(), qty);
   }
   return 0;
+} catch (const std::exception& e) {
+  std::fprintf(stderr, "error: %s\n", e.what());
+  return 1;
+} catch (...) {
+  std::fprintf(stderr, "error: an exception that is not a std::exception\n");
+  return 1;
 }

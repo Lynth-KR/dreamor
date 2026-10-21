@@ -1,0 +1,2 @@
+# Not checked: the benchmark is outside the test suite and CI.
+Checks: "-*"

@@ -61,14 +61,14 @@ template <typename Pred>
 struct ColumnsOfPredicate<Pred> {
   static constexpr bool known = true;
 
-  using type = typename PredicateColumns<std::remove_cvref_t<Pred>>::type;
+  using type = PredicateColumns<std::remove_cvref_t<Pred>>::type;
 };
 template <typename Pred>
   requires(!requires { typename PredicateColumns<std::remove_cvref_t<Pred>>::type; } && has_deducible_signature<Pred>)
 struct ColumnsOfPredicate<Pred> {
   static constexpr bool known = true;
 
-  using type = typename PredicateSignature<decltype(&std::remove_cvref_t<Pred>::operator())>::type;
+  using type = PredicateSignature<decltype(&std::remove_cvref_t<Pred>::operator())>::type;
 };
 
 // Position of a column in the element tuple, or tuple_size when absent. makeSet guarantees

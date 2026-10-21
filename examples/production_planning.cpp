@@ -5,21 +5,22 @@
 //       examples/production_planning.cpp -L$CPLEX/cplex/lib/x86-64_linux/static_pic
 //       -L$CPLEX/concert/lib/x86-64_linux/static_pic -lilocplex -lconcert -lcplex -lm -lpthread -ldl
 #include <cstdio>
+#include <exception>
 
 #include "production_planning.hpp"
 
-int main() {
+int main() try {
   using namespace planning;
   const Instance in = Instance::make(3, 6, 5);
   IloEnv env;
   try {
-    IloModel model(env);
+    const IloModel model(env);
     const Model lotSizing{env, in};
     lotSizing.build(env, model);
 
     IloCplex cplex(model);
     cplex.setOut(env.getNullStream());
-    if (!cplex.solve()) {
+    if (cplex.solve() == IloFalse) {
       std::printf("no solution\n");
       env.end();
       return 1;
@@ -44,4 +45,10 @@ int main() {
   }
   env.end();
   return 0;
+} catch (const std::exception& e) {
+  std::fprintf(stderr, "error: %s\n", e.what());
+  return 1;
+} catch (...) {
+  std::fprintf(stderr, "error: an exception that is not a std::exception\n");
+  return 1;
 }

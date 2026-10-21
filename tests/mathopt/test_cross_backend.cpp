@@ -21,9 +21,9 @@ namespace math_opt = ::operations_research::math_opt;
 
 static std::string number(double x) {
   if (std::isinf(x)) return x > 0 ? "+inf" : "-inf";
-  char buf[64];
-  std::snprintf(buf, sizeof buf, "%.9g", x + 0.0);  // + 0.0: -0 and 0 print alike
-  return buf;
+  std::array<char, 64> buf{};
+  std::snprintf(buf.data(), buf.size(), "%.9g", x + 0.0);  // + 0.0: -0 and 0 print alike
+  return buf.data();
 }
 
 static std::string row(double lower, double upper, const std::map<std::string, double>& terms) {
@@ -58,15 +58,17 @@ static std::multiset<std::string> mathoptRows(const math_opt::Model& model) {
   return out;
 }
 
-int main() {
+int main() try {
   using namespace planning;
-  for (const auto& [M, I, T] : {std::array<std::size_t, 3>{2, 3, 4},
-                                std::array<std::size_t, 3>{3, 6, 5},
-                                std::array<std::size_t, 3>{5, 12, 8}}) {
+  for (const auto& [M, I, T] : {
+           std::array<std::size_t, 3>{2, 3, 4},
+           std::array<std::size_t, 3>{3, 6, 5},
+           std::array<std::size_t, 3>{5, 12, 8},
+       }) {
     const Instance in = Instance::make(M, I, T);
 
-    IloEnv env;
-    IloModel concertModel(env);
+    const IloEnv env;
+    const IloModel concertModel(env);
     const Model concert{env, in};
     concert.build(env, concertModel);
 
@@ -74,7 +76,8 @@ int main() {
     const MathOptModel mathopt{mathoptModel, in};
     mathopt.build(mathoptModel);
 
-    const auto a = concertRows(concertModel), b = mathoptRows(mathoptModel);
+    const auto a = concertRows(concertModel);
+    const auto b = mathoptRows(mathoptModel);
     DREAMOR_CHECK(!a.empty() && a.size() == b.size());
     DREAMOR_CHECK(a == b);
     if (a != b) {
@@ -93,4 +96,6 @@ int main() {
                   static_cast<std::size_t>(mathoptModel.num_variables()));
   }
   return report("cross_backend");
+} catch (...) {
+  return ::uncaught();
 }

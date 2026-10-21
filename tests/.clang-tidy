@@ -1,0 +1,15 @@
+# The library's checks, minus what test code does on purpose: a framework-free check macro
+# (printf, do-while(0), !(...)), long lists of checks in main(), plain data structs, literal data.
+# Names follow the user conventions here, so the library's naming check is off too.
+InheritParentConfig: true
+Checks: >
+  -readability-identifier-naming,
+  -cppcoreguidelines-pro-type-vararg,
+  -cppcoreguidelines-avoid-do-while,
+  -readability-simplify-boolean-expr,
+  -readability-function-cognitive-complexity,
+  -misc-non-private-member-variables-in-classes,
+  -cppcoreguidelines-non-private-member-variables-in-classes,
+  -modernize-use-designated-initializers,
+  -readability-magic-numbers,
+  -cppcoreguidelines-avoid-magic-numbers

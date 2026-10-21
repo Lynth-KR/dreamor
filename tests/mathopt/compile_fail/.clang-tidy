@@ -1,0 +1,2 @@
+# Not checked: code that must not compile.
+Checks: "-*"

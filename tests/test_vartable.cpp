@@ -19,6 +19,8 @@ using JCol = dreamor::Col<std::size_t, "j">;
 
 // An entity whose name token's formatter throws: the variable name stops after the separator,
 // with a warning, instead of the throw ending the noexcept naming in std::terminate.
+namespace {
+
 namespace throwing {
 struct Token {};
 struct Thing {};
@@ -26,28 +28,35 @@ inline Token keyName(const Thing* /*thing*/) {
   return {};
 }
 }  // namespace throwing
+}  // namespace
+
 template <>
 struct std::formatter<throwing::Token> {
-  constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin(); }
-  auto format(const throwing::Token& /*token*/, std::format_context& ctx) const -> decltype(ctx.out()) {
+  static constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin(); }
+  static auto format(const throwing::Token& /*token*/, std::format_context& ctx) -> decltype(ctx.out()) {
     throw std::runtime_error("this token cannot be formatted");
   }
 };
 using ThingCol = dreamor::Col<const throwing::Thing*, "thing">;
 
+namespace {
+
 // Stands in for IloCplex: getEnv() and getValues(IloNumArray, IloNumVarArray).
 struct FakeAlgorithm {
   IloEnv env;
-  IloEnv getEnv() const { return env; }
+  [[nodiscard]] IloEnv getEnv() const { return env; }
   // "Solution" = lb + ub, so each value is checkable from the variable itself.
-  void getValues(IloNumArray out, const IloNumVarArray vars) const {
+  static void getValues(IloNumArray out, const IloNumVarArray vars) {
     for (IloInt i = 0; i < vars.getSize(); ++i) out.add(vars[i].getLB() + vars[i].getUB());
   }
 };
 
-int main() {
-  IloEnv env;
-  const std::vector<std::size_t> I{3, 1, 2}, J{10, 20};
+}  // namespace
+
+int main() try {
+  const IloEnv env;
+  const std::vector<std::size_t> I{3, 1, 2};
+  const std::vector<std::size_t> J{10, 20};
   const auto IJ = dreamor::makeSet<ICol, JCol>(I, J).collect();
 
   static_assert(!std::is_copy_constructible_v<dreamor::concert::VarTable<ICol, JCol>>);
@@ -102,8 +111,9 @@ int main() {
                        dreamor::concert::VarTable<ICol, JCol>{env, dreamor::concat(IJ, IJ), 0, 1});
 
   // solution: one call, values keyed like the table, temporaries ended
-  const std::size_t arraysBefore = IloNumVarArray::ended, numsBefore = IloNumArray::ended;
-  const auto v = y.solution(FakeAlgorithm{env});
+  const std::size_t arraysBefore = IloNumVarArray::ended;
+  const std::size_t numsBefore   = IloNumArray::ended;
+  const auto v                   = y.solution(FakeAlgorithm{env});
   DREAMOR_CHECK(IloNumVarArray::ended == arraysBefore + 1 && IloNumArray::ended == numsBefore + 1);
   DREAMOR_CHECK(v.size() == 6 && exactlyEqual(v(ICol{2}, JCol{20}), -2 + 40) && v.contains(ICol{1}, JCol{10}));
   DREAMOR_CHECK_THROWS(std::out_of_range, v(ICol{9}, JCol{9}));
@@ -121,7 +131,7 @@ int main() {
 
   // move keeps lookups working
   dreamor::concert::VarTable<ICol, JCol> moved{env, IJ, 0, 1, ILOINT, "w"};
-  const auto before = moved(ICol{1}, JCol{10}).getImpl();
+  const auto* const before = moved(ICol{1}, JCol{10}).getImpl();
   const dreamor::concert::VarTable<ICol, JCol> moved2{std::move(moved)};
   DREAMOR_CHECK(moved2(ICol{1}, JCol{10}).getImpl() == before);
 
@@ -131,4 +141,6 @@ int main() {
   const dreamor::concert::VarTable<ThingCol> t{env, sTHINGS, 0, 1, ILOFLOAT, "t"};
   DREAMOR_CHECK(std::string{t(ThingCol{things.data()}).getName()} == "t_");
   return report("vartable");
+} catch (...) {
+  return ::uncaught();
 }

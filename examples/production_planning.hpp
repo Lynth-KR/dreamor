@@ -22,7 +22,7 @@ struct Model : Sets {
         vSetup{env, sPRODUCE, 0, 1, ILOBOOL, "Setup"},
         vStock{env, sSTOCK, 0, IloInfinity, ILOFLOAT, "Stock"} {}
 
-  void build(IloEnv env, IloModel model) const {
+  void build(IloEnv env, const IloModel& model) const {
     const auto machine_usage = [&](MachineCol m, ItemCol i, PeriodCol t) { return i->time * vYield(m, i, t); };
 
     // balance: stock carried in + made - demand = stock carried out

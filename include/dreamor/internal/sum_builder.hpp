@@ -306,7 +306,7 @@ class UnbuiltSum {
       if (std::ranges::none_of(hits, std::identity{})) {
         continue;
       }
-      auto term_value = callColumnsOf(term_, row);
+      const auto term_value = callColumnsOf(term_, row);
       ((hits[Is] ? static_cast<void>(totals[Is] += term_value) : static_cast<void>(0)), ...);
     }
     return totals;
@@ -372,7 +372,12 @@ template <typename... Columns, typename MakeZero, std::ranges::input_range Rows,
                   "ItemCol>(machines, items).collect();` - then sumOf(env, sASSIGN, term). A "
                   "temporary container is held by an owning view, which cannot be copied.");
     return UnbuiltSum<decltype(view), Held, MakeZero>{
-        std::move(zero), std::move(view), holdTerm(std::forward<Term>(term)), {}, {}};
+        std::move(zero),
+        std::move(view),
+        holdTerm(std::forward<Term>(term)),
+        {},
+        {},
+    };
   }
 }
 

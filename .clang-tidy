@@ -1,0 +1,65 @@
+# clang-tidy 23. tools/tidy.sh pins the exact version, and CI checks with the same one.
+#
+# Off everywhere, and why:
+#   modernize-use-trailing-return-type   style only; the code is Google style
+#   readability-identifier-length        lb, ub, i, t, m: the model reads like its math
+#   misc-include-cleaner                 umbrella headers include on purpose (as in .clangd)
+#   cppcoreguidelines-pro-bounds-*       indices are checked once, then used; the tests run
+#                                        under sanitizers and against a reference instead
+#   readability-braces-around-statements one-line ifs are Google style, and clang-format's
+#   misc-use-anonymous-namespace         misc-use-internal-linkage asks for the opposite; static wins
+# An exception to a check that stays on is a NOLINT(check) with the reason beside it.
+Checks: >
+  -*,
+  bugprone-*,
+  clang-analyzer-*,
+  cppcoreguidelines-*,
+  google-explicit-constructor,
+  misc-*,
+  modernize-*,
+  performance-*,
+  readability-*,
+  -modernize-use-trailing-return-type,
+  -readability-identifier-length,
+  -misc-include-cleaner,
+  -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access,
+  -cppcoreguidelines-pro-bounds-constant-array-index,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -readability-braces-around-statements,
+  -misc-use-anonymous-namespace
+WarningsAsErrors: "*"
+HeaderFilterRegex: "/include/dreamor/"
+CheckOptions:
+  # Report, never rewrite: whether a function goes static or into a namespace is ours to decide.
+  misc-use-internal-linkage.FixMode: None
+  # The naming convention of AGENTS.md (library code; tests/ and examples/ turn this off).
+  readability-identifier-naming.NamespaceCase: lower_case
+  readability-identifier-naming.ClassCase: CamelCase
+  readability-identifier-naming.StructCase: CamelCase
+  readability-identifier-naming.UnionCase: CamelCase
+  readability-identifier-naming.EnumCase: CamelCase
+  readability-identifier-naming.TypeAliasCase: CamelCase
+  readability-identifier-naming.TypedefCase: CamelCase
+  readability-identifier-naming.TemplateParameterCase: CamelCase
+  readability-identifier-naming.FunctionCase: camelBack
+  readability-identifier-naming.MethodCase: camelBack
+  readability-identifier-naming.VariableCase: lower_case
+  readability-identifier-naming.ParameterCase: lower_case
+  readability-identifier-naming.PublicMemberCase: lower_case
+  readability-identifier-naming.PrivateMemberCase: lower_case
+  readability-identifier-naming.PrivateMemberSuffix: _
+  readability-identifier-naming.ProtectedMemberCase: lower_case
+  readability-identifier-naming.ProtectedMemberSuffix: _
+  readability-identifier-naming.ConstexprVariableCase: CamelCase
+  readability-identifier-naming.ConstexprVariablePrefix: k
+  readability-identifier-naming.EnumConstantCase: CamelCase
+  readability-identifier-naming.EnumConstantPrefix: k
+  readability-identifier-naming.MacroDefinitionCase: UPPER_CASE
+  readability-identifier-naming.MacroDefinitionPrefix: DREAMOR_
+  # Names the standard library looks up (iterator and range protocols, std:: specializations),
+  # and type traits in the standard / Abseil style: is_*, always_false, ::type, ::value-like
+  # members (deducible, known, ...), and head / tail / indices of type lists.
+  readability-identifier-naming.TypeAliasIgnoredRegexp: "^(type|value_type|iterator|const_iterator|iterator_concept|iterator_category|difference_type|reference|pointer|head|tail|indices)$"
+  readability-identifier-naming.ClassIgnoredRegexp: "^iterator$"
+  readability-identifier-naming.StructIgnoredRegexp: "^is_[a-z_]+$"
+  readability-identifier-naming.ConstexprVariableIgnoredRegexp: "^(always_false|enable_borrowed_range|deducible|known|invocable|all_named|all_present|mask|is_[a-z_]+|no_[a-z_]+)$"

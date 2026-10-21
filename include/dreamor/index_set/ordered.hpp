@@ -172,7 +172,7 @@ class Ordered {
   }
   // prev({t}) and the like: braces are not an element.
   template <typename Unused = void>
-  std::optional<std::size_t> ord(internal::BracedKey /*key*/) const {
+  [[nodiscard]] std::optional<std::size_t> ord(internal::BracedKey /*key*/) const {
     static_assert(internal::always_false<Unused>, DREAMOR_INTERNAL_NO_BRACES_MESSAGE);
     std::terminate();
   }
@@ -197,17 +197,17 @@ class Ordered {
     std::terminate();
   }
   template <typename Unused = void>
-  bool isFirst(internal::BracedKey /*key*/) const {
+  [[nodiscard]] bool isFirst(internal::BracedKey /*key*/) const {
     static_assert(internal::always_false<Unused>, DREAMOR_INTERNAL_NO_BRACES_MESSAGE);
     std::terminate();
   }
   template <typename Unused = void>
-  bool isLast(internal::BracedKey /*key*/) const {
+  [[nodiscard]] bool isLast(internal::BracedKey /*key*/) const {
     static_assert(internal::always_false<Unused>, DREAMOR_INTERNAL_NO_BRACES_MESSAGE);
     std::terminate();
   }
   template <typename Unused = void>
-  bool contains(internal::BracedKey /*key*/) const {
+  [[nodiscard]] bool contains(internal::BracedKey /*key*/) const {
     static_assert(internal::always_false<Unused>, DREAMOR_INTERNAL_NO_BRACES_MESSAGE);
     std::terminate();
   }

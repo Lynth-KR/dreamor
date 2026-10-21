@@ -18,20 +18,22 @@
 using ICol = dreamor::Col<std::size_t, "i">;
 using JCol = dreamor::Col<std::size_t, "j">;
 
-int main() {
+int main() try {
   IloEnv env;
   try {
-    const std::vector<std::size_t> I{1, 2, 3, 4}, J{10, 20, 30};
+    const std::vector<std::size_t> I{1, 2, 3, 4};
+    const std::vector<std::size_t> J{10, 20, 30};
     const auto IJ =
         dreamor::makeSet<ICol, JCol>(I, J).where([](ICol i, JCol j) { return (i.get() + j.get()) % 3 != 0; }).collect();
     const auto II = dreamor::makeSet<ICol>(I).collect();
 
     const dreamor::concert::VarTable<ICol, JCol> x{env, IJ, 0, 1, ILOBOOL, "x"};
-    const dreamor::concert::VarTable<ICol> slack{env, II, 0, [](ICol i) { return double(i.get()); }, ILOFLOAT, "s"};
+    const dreamor::concert::VarTable<ICol> slack{
+        env, II, 0, [](ICol i) { return static_cast<double>(i.get()); }, ILOFLOAT, "s"};
     const dreamor::concert::VarTable<ICol, JCol> sc{dreamor::concert::semiContinuous, env, IJ, 2, 5, ILOFLOAT, "sc"};
     DREAMOR_CHECK(exactlyEqual(slack(ICol{3}).getUB(), 3));
 
-    IloModel model(env);
+    const IloModel model(env);
     const auto xv  = [&x](ICol i, JCol j) { return x(i, j); };
     const auto byI = IJ.groupBy<ICol>();
     for (const auto& [i, rows] : byI) model.add(dreamor::concert::sumOf(env, rows, xv).build() <= 1);
@@ -41,7 +43,7 @@ int main() {
     for (const auto& [row, v] : slack) model.add(v >= 0.5 * dreamor::concert::sumOf(env, byI.slice(row), xv).build());
 
     IloExpr obj = dreamor::concert::sumOf(env, IJ, [&x](ICol i, JCol j) {
-                    return double((i.get() * 7 + j.get()) % 11) * x(i, j);
+                    return static_cast<double>(((i.get() * 7) + j.get()) % 11) * x(i, j);
                   }).build();
     obj += dreamor::concert::sumOf(env, II, [&slack](ICol i) { return -1.0 * slack(i); }).build();
     obj += dreamor::concert::sumOf(env, IJ, [&sc](ICol i, JCol j) { return 0.01 * sc(i, j); }).build();
@@ -79,4 +81,6 @@ int main() {
   }
   env.end();
   return report("cplex");
+} catch (...) {
+  return ::uncaught();
 }

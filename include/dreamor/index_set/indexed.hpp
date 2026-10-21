@@ -75,7 +75,7 @@ template <typename Tup>
 class IndexSet : public std::ranges::view_base {
  public:
   using value_type     = Tup;
-  using const_iterator = typename std::vector<Tup>::const_iterator;
+  using const_iterator = std::vector<Tup>::const_iterator;
   using iterator       = const_iterator;
 
   // Empty. Lets a model declare its sets as members and assign them once they are built.
@@ -100,15 +100,15 @@ class IndexSet : public std::ranges::view_base {
   // Not [[nodiscard]]: both `const auto S = ....assertUnique();` and a bare
   // `S.assertUnique<MachineCol, ItemCol>();` check are intended uses.
   template <typename... Columns>
-  IndexSet assertUnique() const;
+  IndexSet assertUnique() const;  // NOLINT(modernize-use-nodiscard): see above
 
  private:
   friend struct internal::SetAccess;
   explicit IndexSet(std::shared_ptr<const std::vector<Tup>> rows) : rows_{std::move(rows)} {}
 
   [[nodiscard]] static const std::shared_ptr<const std::vector<Tup>>& empty() {
-    static const auto kEmpty = std::make_shared<const std::vector<Tup>>();
-    return kEmpty;
+    static const auto empty_rows = std::make_shared<const std::vector<Tup>>();
+    return empty_rows;
   }
 
   std::shared_ptr<const std::vector<Tup>> rows_;

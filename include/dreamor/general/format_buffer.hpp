@@ -11,7 +11,7 @@
 // Inherit privately:
 //
 //     class FooFooFoo : private dreamor::FormatBuffer<256, dreamor::OnFormatOverflow::kLogAndClear> {
-//       void f() { ... Format("x_length_{}", eqid) ... }
+//       void f() { ... format("x_length_{}", eqid) ... }
 //     };
 #pragma once
 
@@ -32,13 +32,13 @@ namespace dreamor::general {
 
 enum class OnFormatOverflow : std::uint8_t {
   kThrow,        // Throw std::runtime_error. Do NOT use from a noexcept caller.
-  kLogAndClear,  // Log the error and return an empty string. Format() is noexcept.
+  kLogAndClear,  // Log the error and return an empty string. format() is noexcept.
 };
 
 // Fixed-size scratch buffer for building short names (CPLEX variable / constraint names).
 //
 // IMPORTANT: the returned pointer aliases the internal buffer and is only valid until
-// the next Format() call on the SAME object. Consume it immediately; never store it.
+// the next format() call on the SAME object. Consume it immediately; never store it.
 template <std::size_t N, OnFormatOverflow Policy = OnFormatOverflow::kThrow>
 class FormatBuffer {
   static_assert(N >= 2, "Buffer must hold at least one character plus a null terminator.");
@@ -55,16 +55,16 @@ class FormatBuffer {
   FormatBuffer& operator=(FormatBuffer&&) noexcept = default;
 
   template <typename... Args>
-  [[nodiscard]] const char* Format(const std::format_string<Args...> fmt,
+  [[nodiscard]] const char* format(const std::format_string<Args...> fmt,
                                    Args&&... args) noexcept(Policy == OnFormatOverflow::kLogAndClear) {
     auto result = std::format_to_n(buffer_.data(), kMaxLength, fmt, std::forward<Args>(args)...);
     *result.out = '\0';  // Null-terminate the string
     if (static_cast<std::size_t>(result.size) >= kMaxLength) {
       if constexpr (Policy == OnFormatOverflow::kThrow) {
-        throw std::runtime_error("Formatting error or buffer overflow in Format().");
+        throw std::runtime_error("Formatting error or buffer overflow in format().");
       } else {
         buffer_[0] = '\0';  // Ensure it's null-terminated
-        DREAMOR_LOG_WARNING("Formatting error or buffer overflow in Format().");
+        DREAMOR_LOG_WARNING("Formatting error or buffer overflow in format().");
       }
     }
     return buffer_.data();

@@ -1,0 +1,2 @@
+# Not checked: ported from OR-Tools and left as ported, like the formatting (see .clang-format here).
+Checks: "-*"

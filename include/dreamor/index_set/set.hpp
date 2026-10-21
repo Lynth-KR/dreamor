@@ -3,6 +3,7 @@
 // The index set builder: makeSet(...).where(...).collect().
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -176,18 +177,10 @@ class Set {
   static_assert(internal::dependentSourcesNamed<RangeTuple, ElemTuple>(),
                 "A dependent column takes the columns themselves: `[](MachineCol m)`, not "
                 "`[](const Machine* m)`, and only columns this set has.");
-  static_assert(
-      [] {
-        for (const std::size_t source : kVisitOrder) {
-          if (source >= kSourceCount) {
-            return false;
-          }
-        }
-        return true;
-      }(),
-      "No order of the sources satisfies their dependencies: two dependent columns need "
-      "each other. A dependent column can only read columns that some other source "
-      "produces on its own.");
+  static_assert(std::ranges::all_of(kVisitOrder, [](std::size_t source) { return source < kSourceCount; }),
+                "No order of the sources satisfies their dependencies: two dependent columns need "
+                "each other. A dependent column can only read columns that some other source "
+                "produces on its own.");
 
   // Walks the sources in visit order, binding one column at a time. BoundCols names the
   // element-tuple column of each bound value, in the order they were bound.
@@ -201,7 +194,7 @@ class Set {
       constexpr std::size_t kCol           = kColumnStart[kSource];
       using Source                         = std::tuple_element_t<kSource, RangeTuple>;
       constexpr internal::SourceKind kKind = internal::sourceKindOf<Source>();
-      auto& source                         = std::get<kSource>(ranges_);
+      const auto& source                   = std::get<kSource>(ranges_);
 
       if constexpr (kKind == internal::SourceKind::kSpread) {
         for (const auto& tuple : source) {
@@ -220,13 +213,12 @@ class Set {
                                std::tie(bound...),
                                typename internal::RemapToBound<typename Placement::indices, BoundCols>::type{});
           } else {
-            return (source);
+            return source;
           }
         }();
-        using Next = typename internal::AppendColumn<BoundCols, kCol>::type;
+        using Next = internal::AppendColumn<BoundCols, kCol>::type;
         for (auto&& element : range) {
-          const std::tuple_element_t<kCol, ElemTuple> value =
-              internal::toColumn<std::tuple_element_t<kCol, ElemTuple>>(element);
+          const auto value = internal::toColumn<std::tuple_element_t<kCol, ElemTuple>>(element);
           if (!passes<kCol, Next>(bound..., value)) {
             continue;  // Prunes every deeper loop for this partial tuple.
           }
@@ -243,7 +235,7 @@ class Set {
     if constexpr (I == std::tuple_size_v<Tup>) {
       generate<Step + 1, BoundCols>(out, bound...);
     } else {
-      using Next        = typename internal::AppendColumn<BoundCols, Col + I>::type;
+      using Next        = internal::AppendColumn<BoundCols, Col + I>::type;
       const auto& value = std::get<I>(tuple);
       if (!passes<Col + I, Next>(bound..., value)) {
         return;
@@ -289,7 +281,7 @@ template <typename... Columns, typename... Sources>
                 "A dependent column cannot be a bare function name or a std::function: either is an "
                 "indirect call per binding. Pass a lambda or a function object.");
   using ElemTuple =
-      typename internal::BuildElem<std::tuple<>, std::tuple<Columns...>, std::remove_reference_t<Sources>...>::type;
+      internal::BuildElem<std::tuple<>, std::tuple<Columns...>, std::remove_reference_t<Sources>...>::type;
   static_assert((internal::is_column<Columns> && ...),
                 "Every column needs a name: makeSet<MachineCol, ItemCol>(machines, items), not "
                 "makeSet<const Machine*, const Item*>(...). Declare each one once with "
@@ -316,7 +308,7 @@ template <typename Builder>
   return builder;
 }
 template <typename Builder, typename Pred, typename... Preds>
-[[nodiscard]] auto applyWhere(Builder builder, Pred pred, Preds... preds) {
+[[nodiscard]] auto applyWhere(const Builder& builder, Pred pred, Preds... preds) {
   return applyWhere(builder.where(std::move(pred)), std::move(preds)...);
 }
 }  // namespace internal

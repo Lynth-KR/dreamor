@@ -14,6 +14,8 @@
 #include "dreamor/concert.hpp"
 #include "dreamor/index_set.hpp"
 #include "float_compare.hpp"
+namespace {
+
 struct Item {
   std::string name;
   double time, hold;
@@ -30,35 +32,48 @@ inline const std::string& keyName(const Item* i) {
 inline const std::string& keyName(const Machine* m) {
   return m->name;
 }
+}  // namespace
+
 using MachineCol = dreamor::Col<const Machine*, "machine">;
 using ItemCol    = dreamor::Col<const Item*, "item">;
 using PeriodCol  = dreamor::Col<std::size_t, "period">;
 
 // README Rules, 9
+namespace {
+
 struct MyFilter {
   template <typename... Args>
-  bool operator()(const Args&...) const {
+  bool operator()(const Args&... /*args*/) const {
     return true;
   }
 };
+}  // namespace
+
 template <>
 struct dreamor::PredicateColumns<MyFilter> {
   using type = std::tuple<MachineCol, PeriodCol>;
 };
 
+namespace {
+
 struct FakeCplex {  // stand-in for solution(): every variable "solves" to its upper bound, capped
   IloEnv env;
-  IloEnv getEnv() const { return env; }
-  void getValues(IloNumArray out, const IloNumVarArray vars) const {
+  [[nodiscard]] IloEnv getEnv() const { return env; }
+  static void getValues(IloNumArray out, const IloNumVarArray vars) {
     for (IloInt i = 0; i < vars.getSize(); ++i) out.add(std::min(vars[i].getUB(), 7.0));
   }
 };
 
-int main() {
-  IloEnv env;
-  IloModel model(env);
-  Item i0{"I0", 1.0, 0.5, {10, 0, 20}}, i1{"I1", 2.0, 1.0, {0, 15, 5}}, i2{"I2", 1.5, 0.7, {5, 5, 5}};
-  Machine m0{"M0", 60, 30, {&i0, &i1}}, m1{"M1", 40, 20, {&i1}};
+}  // namespace
+
+int main() try {
+  const IloEnv env;
+  const IloModel model(env);
+  const Item i0{"I0", 1.0, 0.5, {10, 0, 20}};
+  const Item i1{"I1", 2.0, 1.0, {0, 15, 5}};
+  const Item i2{"I2", 1.5, 0.7, {5, 5, 5}};
+  const Machine m0{"M0", 60, 30, {&i0, &i1}};
+  const Machine m1{"M1", 40, 20, {&i1}};
   const std::vector<const Item*> items{&i0, &i1, &i2};
   const std::vector<const Machine*> machines{&m0, &m1};
   const std::vector<std::size_t> periods{0, 1, 2};
@@ -133,7 +148,7 @@ int main() {
   std::vector<std::unique_ptr<Machine>> machineOwners;
   machineOwners.push_back(std::make_unique<Machine>(m1));
   DREAMOR_CHECK(std::get<MachineCol>(*dreamor::makeSet<MachineCol>(machineObjects).collect().begin()).get() ==
-                &machineObjects[0]);
+                machineObjects.data());
   DREAMOR_CHECK(std::get<MachineCol>(*dreamor::makeSet<MachineCol>(machineOwners).collect().begin()).get() ==
                 machineOwners[0].get());
   const auto is_open = [](ItemCol i, PeriodCol t) { return i->demand[t.get()] > 0; };
@@ -165,22 +180,22 @@ int main() {
   DREAMOR_CHECK(producingRows.size() == 2 && producedByItemPeriod.slice(ItemCol{&i2}, PeriodCol{0}).empty());
   DREAMOR_CHECK(producedByItemPeriod.contains(ItemCol{&i0}, PeriodCol{0}) &&
                 producedByItemPeriod.sliceSize(ItemCol{&i1}, PeriodCol{0}) == 2);
-  DREAMOR_CHECK(producedByItemPeriod.regrouped().size() == sPRODUCE.size() && producedByItemPeriod.at(0).size() >= 1 &&
+  DREAMOR_CHECK(producedByItemPeriod.regrouped().size() == sPRODUCE.size() && !producedByItemPeriod.at(0).empty() &&
                 !producedByItemPeriod.empty());
 
   // --- VarTable: tightening bounds later, semi-continuous
   const auto in_maintenance = [](MachineCol m, PeriodCol t) { return m->name == "M0" && t.get() == 2; };
   for (const auto& row : vYield.keys().where(in_maintenance)) vYield(row).setUB(0);
   DREAMOR_CHECK(exactlyEqual(vYield(MachineCol{&m0}, ItemCol{&i0}, PeriodCol{2}).getUB(), 0));
-  const auto sBATCH = sPRODUCE;
+  const auto& sBATCH = sPRODUCE;
   const dreamor::concert::VarTable<MachineCol, ItemCol, PeriodCol> vBatch{
       dreamor::concert::semiContinuous, env, sBATCH, 5, 20, ILOFLOAT, "Batch"};
   DREAMOR_CHECK(vBatch(MachineCol{&m0}, ItemCol{&i0}, PeriodCol{0}).getImpl()->semicont);
 
   // --- Sums and constraints
-  const auto setup_cost = [&](MachineCol m, ItemCol i, PeriodCol t) { return m->setup * vSetup(m, i, t); };
-  const double B        = 100;
-  IloRange setupBudget  = (dreamor::concert::sumOf(env, sPRODUCE, setup_cost).build() <= B);
+  const auto setup_cost      = [&](MachineCol m, ItemCol i, PeriodCol t) { return m->setup * vSetup(m, i, t); };
+  const double B             = 100;
+  const IloRange setupBudget = (dreamor::concert::sumOf(env, sPRODUCE, setup_cost).build() <= B);
   setupBudget.setName("SetupBudget");
   model.add(setupBudget);
 
@@ -197,4 +212,6 @@ int main() {
   std::unordered_map<MachineCol, std::size_t> perMachine{{MachineCol{&m0}, 1}};
   DREAMOR_CHECK(perMachine.at(MachineCol{&m0}) == 1 && MachineCol{} == MachineCol{nullptr});
   return ::report("readme");
+} catch (...) {
+  return ::uncaught();
 }

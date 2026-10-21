@@ -16,8 +16,9 @@ using JCol = dreamor::Col<std::size_t, "j">;
 template <typename S>
 constexpr bool canPushBack = requires(S& s) { s.push_back(std::declval<typename S::value_type>()); };
 
-int main() {
-  const std::vector<std::size_t> I{3, 1, 2, 4}, J{10, 20, 30};
+int main() try {
+  const std::vector<std::size_t> I{3, 1, 2, 4};
+  const std::vector<std::size_t> J{10, 20, 30};
   const auto IJ   = dreamor::makeSet<ICol, JCol>(I, J).collect();
   const auto II   = dreamor::makeSet<ICol>(I).collect();
   const auto even = [](ICol i) { return i.get() % 2 == 0; };
@@ -27,7 +28,7 @@ int main() {
   static_assert(!canPushBack<dreamor::SetOf<ICol>>);
   static_assert(std::ranges::random_access_range<dreamor::SetOf<ICol, JCol>> &&
                 std::ranges::sized_range<dreamor::SetOf<ICol>>);
-  const auto copy = IJ;
+  const auto copy = IJ;  // NOLINT(performance-unnecessary-copy-initialization): the copy is what is checked
   DREAMOR_CHECK(copy.begin() == IJ.begin() && IJ.size() == 12);
 
   // where: AND of predicates, source untouched, order preserved
@@ -72,7 +73,8 @@ int main() {
 
   // groups destructure flat - key columns, then rows - and a temporary Grouped can be walked
   static_assert(std::tuple_size_v<std::ranges::range_value_t<decltype(byI)>> == 2);
-  std::size_t pairs = 0, groups = 0;
+  std::size_t pairs  = 0;
+  std::size_t groups = 0;
   for (const auto& [i, j, rows] : IJ.groupBy<ICol, JCol>()) {
     DREAMOR_CHECK(rows.size() == 1 && std::get<ICol>(rows.front()) == i && std::get<JCol>(rows.front()) == j);
     ++pairs;
@@ -111,4 +113,6 @@ int main() {
   const auto IJK = dreamor::makeSet<>(IJ).collect();
   DREAMOR_CHECK(std::ranges::equal(IJK, IJ));
   return report("index_set");
+} catch (...) {
+  return ::uncaught();
 }

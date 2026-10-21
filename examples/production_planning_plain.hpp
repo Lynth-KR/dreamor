@@ -37,9 +37,9 @@ struct PlainModel {
             IloNumVar(env, 0, IloInfinity, ILOFLOAT, std::format("Stock_{}_{}", item->name, period).c_str());
   }
 
-  void build(IloEnv env, IloModel model, const Instance& in) {
+  void build(IloEnv env, const IloModel& model, const Instance& in) {
     for (const auto& item : in.items)
-      for (std::size_t period : in.periods) {
+      for (std::size_t const period : in.periods) {
         IloExpr totalInFlow(env);
         for (const auto& machine : in.machines)
           for (const Item* routedItem : machine->items)
@@ -50,7 +50,7 @@ struct PlainModel {
       }
     for (const auto& machine : in.machines) {
       if (machine->items.empty()) continue;
-      for (std::size_t period : in.periods) {
+      for (std::size_t const period : in.periods) {
         IloExpr totalLoad(env);
         for (const Item* item : machine->items) totalLoad += item->time * yieldVars[{machine.get(), item, period}];
         model.add(totalLoad <= machine->capacity);

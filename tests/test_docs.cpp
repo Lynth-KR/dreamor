@@ -13,13 +13,15 @@
 using namespace dreamor;
 using namespace dreamor::concert;
 
+namespace {
+
 struct Node {
   std::uint32_t id;
 };
 struct Item {
   std::string name;
   std::uint32_t due;
-  std::uint32_t dueDate() const { return due; }
+  [[nodiscard]] std::uint32_t dueDate() const { return due; }
 };
 struct Machine {
   std::string name;
@@ -28,44 +30,44 @@ struct Machine {
 struct Order {
   std::string name;
   double qty;
-  double quantity() const { return qty; }
+  [[nodiscard]] double quantity() const { return qty; }
 };
 inline std::uint32_t keyName(const Node* n) {
   return n->id;
 }
-inline const std::string& keyName(const Item* i) {
-  return i->name;
-}
-inline const std::string& keyName(const Machine* m) {
-  return m->name;
-}
 inline const std::string& keyName(const Order* o) {
   return o->name;
 }
+}  // namespace
+
 using FromCol    = Col<const Node*, "from">;
 using ToCol      = Col<const Node*, "to">;
 using MachineCol = Col<const Machine*, "machine">;
 using ItemCol    = Col<const Item*, "item">;
 using OrderCol   = Col<const Order*, "order">;
 
+namespace {
+
 struct FakeCplex {
   IloEnv env;
-  IloEnv getEnv() const { return env; }
-  void getValues(IloNumArray out, const IloNumVarArray vars) const {
+  [[nodiscard]] IloEnv getEnv() const { return env; }
+  static void getValues(IloNumArray out, const IloNumVarArray vars) {
     for (IloInt i = 0; i < vars.getSize(); ++i) out.add(vars[i].getUB());
   }
 };
 
-int main() {
-  IloEnv env;
+}  // namespace
+
+int main() try {
+  const IloEnv env;
   std::vector<Node> nodeData{{1}, {2}, {3}};
-  std::vector<const Node*> Nodes{&nodeData[0], &nodeData[1], &nodeData[2]};
+  std::vector<const Node*> Nodes{nodeData.data(), &nodeData[1], &nodeData[2]};
   std::vector<Item> itemData{{"I1", 50}, {"I2", 150}};
-  std::vector<const Item*> items{&itemData[0], &itemData[1]};
+  std::vector<const Item*> items{itemData.data(), &itemData[1]};
   std::vector<Machine> machineData{{"M1", items}, {"M2", {items[0]}}};
-  std::vector<const Machine*> machines{&machineData[0], &machineData[1]};
+  std::vector<const Machine*> machines{machineData.data(), &machineData[1]};
   std::vector<Order> orderData{{"O1", 5}};
-  std::vector<const Order*> orders{&orderData[0]};
+  std::vector<const Order*> orders{orderData.data()};
   const auto items_of   = [](MachineCol m) { return m->items; };
   const auto fits       = [](MachineCol, ItemCol) { return true; };
   const auto order_fits = [](ItemCol, OrderCol) { return true; };
@@ -92,7 +94,7 @@ int main() {
   const auto sARCS = makeSet<FromCol, ToCol>(Nodes, Nodes).where(reachable).collect();
   const VarTable<FromCol, ToCol> vUse{env, sARCS, 0, 1, ILOBOOL, "Use"};
   const VarTable<FromCol, ToCol> vFlow{
-      env, sARCS, 0, [](FromCol i, ToCol j) { return double(i->id + j->id); }, ILOFLOAT, "Flow"};
+      env, sARCS, 0, [](FromCol i, ToCol j) { return static_cast<double>(i->id + j->id); }, ILOFLOAT, "Flow"};
   const VarTable<OrderCol> vQty{env, makeSet<OrderCol>(orders).collect(), 0, [](OrderCol o) { return o->quantity(); }};
   DREAMOR_CHECK(vUse.size() == 6 && std::string{vUse(FromCol{Nodes[0]}, ToCol{Nodes[1]}).getName()} == "Use_1_2");
   DREAMOR_CHECK(exactlyEqual(vQty(OrderCol{orders[0]}).getUB(), 5));
@@ -106,4 +108,6 @@ int main() {
   const auto use_of = [&vUse](FromCol i, ToCol j) { return vUse(i, j); };
   for (const auto& [node, arcs] : outArcs) DREAMOR_CHECK(sumOf(env, arcs, use_of).build().expr_->terms.size() == 2);
   return report("docs");
+} catch (...) {
+  return ::uncaught();
 }

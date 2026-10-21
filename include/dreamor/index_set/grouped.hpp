@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <exception>
 #include <iterator>
+#include <limits>
 #include <ranges>
 #include <stdexcept>
 #include <tuple>
@@ -204,7 +205,7 @@ class Grouped {
   // [offsets_[g], offsets_[g + 1]) of rows_.
   explicit Grouped(const IndexSet<Tup>& set) : set_{set} {
     const auto& rows = internal::SetAccess::rows(set_);
-    if (rows.size() >= 0xffffffffU) {
+    if (rows.size() >= std::numeric_limits<std::uint32_t>::max()) {
       throw std::length_error("groupBy: more than 2^32 - 2 rows.");
     }
     std::vector<std::uint32_t> group_of(rows.size());
@@ -318,12 +319,12 @@ class Grouped {
     std::terminate();
   }
   template <typename Unused = void>
-  bool contains(internal::BracedKey /*key*/) const {
+  [[nodiscard]] bool contains(internal::BracedKey /*key*/) const {
     static_assert(internal::always_false<Unused>, DREAMOR_INTERNAL_NO_BRACES_MESSAGE);
     std::terminate();
   }
   template <typename Unused = void>
-  std::size_t sliceSize(internal::BracedKey /*key*/) const {
+  [[nodiscard]] std::size_t sliceSize(internal::BracedKey /*key*/) const {
     static_assert(internal::always_false<Unused>, DREAMOR_INTERNAL_NO_BRACES_MESSAGE);
     std::terminate();
   }
@@ -353,7 +354,10 @@ class Grouped {
   // Unchecked: the group index provably comes from index_ or from walking keys_.
   [[nodiscard]] RowSlice<Tup> sliceOf(std::size_t group) const {
     return RowSlice<Tup>{
-        internal::SetAccess::rows(set_).data(), rows_.data() + offsets_[group], offsets_[group + 1] - offsets_[group]};
+        internal::SetAccess::rows(set_).data(),
+        rows_.data() + offsets_[group],
+        offsets_[group + 1] - offsets_[group],
+    };
   }
 
   IndexSet<Tup> set_;                // Shared with the caller's set: no row is copied.
