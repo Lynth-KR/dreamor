@@ -645,6 +645,19 @@ CI(GitHub Actions)는 stub과 MathOpt를 GCC 13과 Clang 18 양쪽으로 돌리�
 CMake 패키지를 설치해 `find_package`로 가져다 쓰는 것까지 확인합니다(`tests/cmake_consumer`,
 `tests/cmake_consumer_mathopt`). CPLEX는 CI에 없으므로 `--cplex`는 로컬에서 돌립니다.
 
+**열이 많은 집합의 컴파일 비용.** N열 집합을 만들고, 거르고, 묶고, `VarTable`을 올리고, 합을 내는 TU 하나를
+컴파일한 결과입니다(`-std=c++20 -O2 -c`, CPU 시간과 최대 메모리. AMD Ryzen 7 5700X, WSL2 Ubuntu 24.04, 2026-10-21).
+`tests/test_arity.cpp`가 테스트를 돌릴 때마다 63열과 64열을 컴파일하므로 비용이 폭발하면 거기서 드러납니다.
+`python3 tools/measure_compile_cost.py [compiler ...]`로 이 표를 다시 잴 수 있습니다.
+
+| 열 수 | g++ 13.3 | clang++ 18.1 | clang++ 23.1 |
+|---|---|---|---|
+| 4 | 2.8 s, 289 MB | 2.6 s, 208 MB | 2.7 s, 230 MB |
+| 16 | 3.2 s, 327 MB | 3.1 s, 234 MB | 3.1 s, 253 MB |
+| 32 | 3.8 s, 356 MB | 4.1 s, 282 MB | 4.0 s, 300 MB |
+| 63 | 5.9 s, 469 MB | 8.4 s, 442 MB | 7.4 s, 454 MB |
+| 64 | 5.8 s, 475 MB | 7.7 s, 449 MB | 7.3 s, 461 MB |
+
 OR-Tools는 설치할 필요 없이 릴리스의 C++ 사전 빌드본을 아무 데나 풀고 그 폴더를 가리키면 됩니다(CMake 불필요).
 
 ```bash

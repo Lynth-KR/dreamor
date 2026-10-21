@@ -197,6 +197,7 @@ Several documents are mirrored by code, so they change together:
 | A usage example in a header comment | `tests/test_docs.cpp`, which compiles those examples |
 | The public API, its defaults, or a runtime exception | `README.md`, `README.ko.md`, `skills/dreamor/SKILL.md`, `skills/dreamor/references/api.md` |
 | A compile-time message | its `// expect:` line and `skills/dreamor/references/diagnostics.md` |
+| What generating a set costs to compile (`set.hpp`, `plan.hpp`) | the compile-cost table in both READMEs: `python3 tools/measure_compile_cost.py` |
 | The version | `project(... VERSION ...)` in `CMakeLists.txt` (packages use `SameMinorVersion` compatibility), the `find_package(dreamor 0.1 ...)` lines in the READMEs, and the skill's title |
 
 `compile_commands.json` (from `python3 tools/gen_compile_commands.py`) is machine-specific; do not commit it.

@@ -671,6 +671,19 @@ with both compilers), the stub mode again at `-O3 -DNDEBUG`, under AddressSaniti
 and with GCC 16 and Clang 23, and goes as far as installing the CMake package and consuming it via `find_package`
 (`tests/cmake_consumer`, `tests/cmake_consumer_mathopt`). CPLEX is not on CI, so run `--cplex` locally.
 
+**Compile cost of wide sets.** One translation unit that builds a set of N columns, filters it, groups it, puts a
+`VarTable` on it and sums over it (`-std=c++20 -O2 -c`, CPU time and peak memory; AMD Ryzen 7 5700X, WSL2 Ubuntu
+24.04, 2026-10-21). `tests/test_arity.cpp` runs 63 and 64 columns on every test run, so a blow-up would show there;
+`python3 tools/measure_compile_cost.py [compiler ...]` re-measures the table.
+
+| Columns | g++ 13.3 | clang++ 18.1 | clang++ 23.1 |
+|---|---|---|---|
+| 4 | 2.8 s, 289 MB | 2.6 s, 208 MB | 2.7 s, 230 MB |
+| 16 | 3.2 s, 327 MB | 3.1 s, 234 MB | 3.1 s, 253 MB |
+| 32 | 3.8 s, 356 MB | 4.1 s, 282 MB | 4.0 s, 300 MB |
+| 63 | 5.9 s, 469 MB | 8.4 s, 442 MB | 7.4 s, 454 MB |
+| 64 | 5.8 s, 475 MB | 7.7 s, 449 MB | 7.3 s, 461 MB |
+
 OR-Tools needs no installation: unpack the release's C++ prebuilt anywhere and point to that folder (no CMake needed).
 
 ```bash
