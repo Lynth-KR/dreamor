@@ -71,6 +71,7 @@ dreamor](examples/mathopt_samples/README.md), each next to the original.
 - [Tests and development environment](#tests-and-development-environment)
 - [Benchmark](#benchmark)
 - [AI coding agents](#ai-coding-agents)
+- [Acknowledgments](#acknowledgments)
 - [License](#license)
 
 ---
@@ -730,6 +731,11 @@ project's `.claude/skills/dreamor/` or `~/.claude/skills/dreamor/`; other agents
 **Agents working on this repository** read `AGENTS.md` at the root: how to test, the design rules, how to add a
 diagnostic, and which documents change together. `CLAUDE.md` imports it with a single `@AGENTS.md` line so that
 Claude Code reads the same file.
+
+## Acknowledgments
+
+Thanks to Claude, by Anthropic, for extensive help in building dreamor - implementation, tests, and tooling. The
+design and the decisions behind it are the author's.
 
 ## License
 
