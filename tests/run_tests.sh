@@ -21,7 +21,8 @@
 # CXX overrides the compiler (default g++, C++20). OPT overrides the optimization flags
 # (default -O1 -g; CI also runs -O3 -DNDEBUG). SAN=1 adds AddressSanitizer and
 # UndefinedBehaviorSanitizer, in stub mode only: the OR-Tools and CPLEX libraries are not
-# instrumented.
+# instrumented. JOBS sets how many compiles run at once (default: every core); the tests then
+# run and report one at a time, in a fixed order.
 set -u
 cd "$(dirname "$0")"
 CXX=${CXX:-g++}
@@ -50,6 +51,7 @@ STRICT="-Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-s
         -Wcast-align -Wnon-virtual-dtor -Werror"
 case "$CXX" in *clang*) STRICT="$STRICT -Wmissing-prototypes" ;; esac  # C only in GCC
 LENIENT="-Wall -Wextra"
+JOBS=${JOBS:-$(nproc 2>/dev/null || echo 4)}
 
 if [ "$MODE" = stub ]; then
   FLAGS="$COMMON -Istub"
@@ -78,10 +80,41 @@ else
   echo "CPLEX Studio: $STUDIO"
 fi
 
+CF=compile_fail
+[ "$MODE" = mathopt ] && CF=mathopt/compile_fail
+
+# Every compile first, JOBS at a time: one job is KIND NAME SOURCE, and it leaves its
+# diagnostics in $BUILD/<log>.log and its exit status in $BUILD/<log>.rc, so the results can
+# be read back below in a fixed order whatever order the jobs finished in.
+compile_job='
+  kind=$1 name=$2 src=$3
+  case $kind in
+    build)  log=$name;        set -- $FLAGS $STRICT "$src" -o "$BUILD/$name" $LIBS ;;
+    syntax) log=syntax_$name; set -- $FLAGS $STRICT -fsyntax-only "$src" ;;
+    sample) log=$name;        set -- $FLAGS $LENIENT "$src" -o "$BUILD/$name" $LIBS ;;
+    cf)     log=cf_$name;     set -- $FLAGS $LENIENT -I$CF -x c++ -fsyntax-only "$src" ;;
+  esac
+  $CXX "$@" 2> "$BUILD/$log.log"
+  echo $? > "$BUILD/$log.rc"'
+export CXX FLAGS STRICT LENIENT LIBS BUILD CF
+rm -f "$BUILD"/*.rc
+{
+  for t in $TESTS; do echo "build $(basename "${t%.cpp}") $t"; done
+  if [ "$MODE" = stub ]; then
+    for t in cplex/*.cpp ../examples/production_planning.cpp; do echo "syntax $(basename "${t%.cpp}") $t"; done
+  fi
+  if [ "$MODE" = mathopt ]; then
+    for t in ../examples/mathopt_samples/*.cc; do echo "sample $(basename "${t%.cc}") $t"; done
+  fi
+  echo "cf control $CF/control.cc"
+  for t in $CF/*.cpp; do echo "cf $(basename "${t%.cpp}") $t"; done
+} | xargs -P "$JOBS" -L 1 sh -c "$compile_job" sh
+compiled() { [ "$(cat "$BUILD/$1.rc" 2> /dev/null)" = 0 ]; }
+
 status=0
 for t in $TESTS; do
   name=$(basename "${t%.cpp}")
-  if ! $CXX $FLAGS $STRICT "$t" -o "$BUILD/$name" $LIBS 2> "$BUILD/$name.log"; then
+  if ! compiled "$name"; then
     echo "$name: BUILD FAILED (see tests/$BUILD/$name.log)"; status=1; continue
   fi
   if [ "$name" = production_planning ] || [ "$name" = production_planning_mathopt ]; then
@@ -96,7 +129,7 @@ if [ "$MODE" = stub ]; then
   echo "mathopt/*.cpp: skipped (needs OR-Tools: ./run_tests.sh --mathopt DIR)"
   for t in cplex/*.cpp ../examples/production_planning.cpp; do
     name=$(basename "${t%.cpp}")
-    if $CXX $FLAGS $STRICT -fsyntax-only "$t" 2> "$BUILD/syntax_$name.log"; then
+    if compiled "syntax_$name"; then
       echo "$name: syntax ok (runs only with --cplex)"
     else
       echo "$name: SYNTAX FAILED (see tests/$BUILD/syntax_$name.log)"; status=1
@@ -111,7 +144,7 @@ if [ "$MODE" = mathopt ]; then
     name=$(basename "${t%.cc}")
     args=""
     [ "$name" = time_indexed_scheduling ] && args="--use_test_data"
-    if ! $CXX $FLAGS $LENIENT "$t" -o "$BUILD/$name" $LIBS 2> "$BUILD/$name.log"; then
+    if ! compiled "$name"; then
       echo "$name: BUILD FAILED (see tests/$BUILD/$name.log)"; status=1; continue
     fi
     if NO_COLOR=1 "$BUILD/$name" $args > "$BUILD/$name.out" 2>&1; then
@@ -124,9 +157,7 @@ fi
 
 # Code that must not compile: compile_fail/ against Concert (stub or real), mathopt/compile_fail/
 # against OR-Tools.
-CF=compile_fail
-[ "$MODE" = mathopt ] && CF=mathopt/compile_fail
-if ! $CXX $FLAGS $LENIENT -I$CF -x c++ -fsyntax-only $CF/control.cc 2> "$BUILD/cf_control.log"; then
+if ! compiled cf_control; then
   echo "$CF/control.cc: FAILED to compile - the cases below would be meaningless (see tests/$BUILD/cf_control.log)"
   status=1
 fi
@@ -136,7 +167,7 @@ fi
 for t in $CF/*.cpp; do
   name=$(basename "${t%.cpp}")
   expect=$(sed -n 's|^// expect: ||p' "$t" | head -n 1)
-  if $CXX $FLAGS $LENIENT -I$CF -fsyntax-only "$t" 2> "$BUILD/cf_$name.log"; then
+  if compiled "cf_$name"; then
     echo "$CF/$name: COMPILED but must not"; status=1
   elif [ -n "$expect" ] && ! awk '/error:/ { n++ } n == 1' "$BUILD/cf_$name.log" | grep -qF -- "$expect"; then
     echo "$CF/$name: rejected, but the first error does not say \"$expect\" (see tests/$BUILD/cf_$name.log)"; status=1

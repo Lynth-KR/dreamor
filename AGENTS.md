@@ -34,6 +34,7 @@ tests/run_tests.sh --mathopt [DIR]   # OR-Tools C++ prebuilt ($ORTOOLS_DIR, defa
 CXX=clang++-18 tests/run_tests.sh    # compiler choice; default g++
 OPT="-O3 -DNDEBUG" tests/run_tests.sh # optimization; default -O1 -g
 SAN=1 tests/run_tests.sh             # AddressSanitizer + UndefinedBehaviorSanitizer (stub mode only)
+JOBS=4 tests/run_tests.sh            # parallel compiles; default every core (tests still report in order)
 tools/format.sh                      # clang-format (C++) and ruff (Python) in place; --check changes nothing
 ```
 
