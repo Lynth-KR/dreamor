@@ -10,7 +10,7 @@
 # Also usable without installing: add_subdirectory(dreamor) or FetchContent.
 # The tests do not go through CMake; see tests/run_tests.sh.
 cmake_minimum_required(VERSION 3.20)
-project(dreamor VERSION 0.1.0 LANGUAGES CXX)
+project(dreamor VERSION 0.1.1 LANGUAGES CXX)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
