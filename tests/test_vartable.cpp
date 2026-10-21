@@ -3,6 +3,7 @@
 // lookup, iteration in set order, solution().
 #include <cstddef>
 #include <cstring>
+#include <format>
 #include <ranges>
 #include <stdexcept>
 #include <string>
@@ -15,6 +16,24 @@
 #include "float_compare.hpp"
 using ICol = dreamor::Col<std::size_t, "i">;
 using JCol = dreamor::Col<std::size_t, "j">;
+
+// An entity whose name token's formatter throws: the variable name stops after the separator,
+// with a warning, instead of the throw ending the noexcept naming in std::terminate.
+namespace throwing {
+struct Token {};
+struct Thing {};
+inline Token keyName(const Thing* /*thing*/) {
+  return {};
+}
+}  // namespace throwing
+template <>
+struct std::formatter<throwing::Token> {
+  constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin(); }
+  auto format(const throwing::Token& /*token*/, std::format_context& ctx) const -> decltype(ctx.out()) {
+    throw std::runtime_error("this token cannot be formatted");
+  }
+};
+using ThingCol = dreamor::Col<const throwing::Thing*, "thing">;
 
 // Stands in for IloCplex: getEnv() and getValues(IloNumArray, IloNumVarArray).
 struct FakeAlgorithm {
@@ -105,5 +124,11 @@ int main() {
   const auto before = moved(ICol{1}, JCol{10}).getImpl();
   const dreamor::concert::VarTable<ICol, JCol> moved2{std::move(moved)};
   DREAMOR_CHECK(moved2(ICol{1}, JCol{10}).getImpl() == before);
+
+  // a name token whose formatter throws: the name stops after the separator (and a warning)
+  const std::vector<throwing::Thing> things(1);
+  const auto sTHINGS = dreamor::makeSet<ThingCol>(things).collect();
+  const dreamor::concert::VarTable<ThingCol> t{env, sTHINGS, 0, 1, ILOFLOAT, "t"};
+  DREAMOR_CHECK(std::string{t(ThingCol{things.data()}).getName()} == "t_");
   return report("vartable");
 }

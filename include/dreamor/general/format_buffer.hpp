@@ -92,9 +92,11 @@ class NameBuilder {
     if (!enabled_) {
       return;
     }
-    auto result  = std::format_to_n(buffer_.data(), kMaxLength, "{}", root);
-    *result.out  = '\0';
-    root_length_ = clamp(static_cast<std::size_t>(result.size));
+    // A plain copy: formatting a C string would add nothing but a way to throw.
+    const std::string_view text{root};
+    const std::size_t copied = text.copy(buffer_.data(), kMaxLength);
+    buffer_[copied]          = '\0';
+    root_length_             = clamp(text.size());
   }
 
   [[nodiscard]] bool enabled() const noexcept { return enabled_; }
@@ -146,9 +148,21 @@ class NameBuilder {
       *ptr = '\0';
       return clamp(static_cast<std::size_t>(ptr - buffer_.data()));
     } else {
-      auto result = std::format_to_n(out, static_cast<std::ptrdiff_t>(kMaxLength - length), "{}", token);
-      *result.out = '\0';
-      return clamp(length + static_cast<std::size_t>(result.size));
+      // A user's std::formatter (a keyName() result) may throw. Under kLogAndClear this is
+      // noexcept, so the throw ends here - the name stops after the separator, as above.
+      try {
+        const auto result = std::format_to_n(out, static_cast<std::ptrdiff_t>(kMaxLength - length), "{}", token);
+        *result.out       = '\0';
+        return clamp(length + static_cast<std::size_t>(result.size));
+      } catch (...) {
+        if constexpr (Policy == OnFormatOverflow::kThrow) {
+          throw;
+        } else {
+          DREAMOR_LOG_WARNING("A name token's formatter threw in NameBuilder::append(); name was truncated.");
+          *out = '\0';
+          return length;
+        }
+      }
     }
   }
 

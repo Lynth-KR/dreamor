@@ -143,7 +143,7 @@ inline void log(Level level,
   };
   // Single spot the DREAMOR_LOGGER_ENABLE_TIMESTAMP switch touches; avoids
   // repeating the same #if in the normal path and both catch blocks below.
-  const auto writeTimestamp = [&]() noexcept {
+  const auto writeTimestamp = [&]() {
 #if DREAMOR_LOGGER_ENABLE_TIMESTAMP
     advance(std::format_to_n(out, cap, "{}[+{:.3f}ms]{} ", dim, elapsed_ms, reset));
 #endif
@@ -157,28 +157,38 @@ inline void log(Level level,
     advance(std::format_to_n(out, cap, "{}[{}]{} ", level_color, kLevelTag[idx], reset));
     advance(std::format_to_n(out, cap, fmt, std::forward<Args>(args)...));
   } catch (const std::exception& e) {
-    reset_buf();
-    writeTimestamp();
-    advance(std::format_to_n(out,
-                             cap,
-                             "{}[{}:{}]{} [{}] <log formatting threw: {}>",
-                             dim,
-                             file,
-                             loc.line(),
-                             reset,
-                             kLevelTag[idx],
-                             e.what()));
+    // The fallback line formats only standard types, but nothing here may escape: if even it
+    // throws, the line is just the newline.
+    try {
+      reset_buf();
+      writeTimestamp();
+      advance(std::format_to_n(out,
+                               cap,
+                               "{}[{}:{}]{} [{}] <log formatting threw: {}>",
+                               dim,
+                               file,
+                               loc.line(),
+                               reset,
+                               kLevelTag[idx],
+                               e.what()));
+    } catch (...) {
+      reset_buf();
+    }
   } catch (...) {
-    reset_buf();
-    writeTimestamp();
-    advance(std::format_to_n(out,
-                             cap,
-                             "{}[{}:{}]{} [{}] <log formatting threw a non-std::exception>",
-                             dim,
-                             file,
-                             loc.line(),
-                             reset,
-                             kLevelTag[idx]));
+    try {
+      reset_buf();
+      writeTimestamp();
+      advance(std::format_to_n(out,
+                               cap,
+                               "{}[{}:{}]{} [{}] <log formatting threw a non-std::exception>",
+                               dim,
+                               file,
+                               loc.line(),
+                               reset,
+                               kLevelTag[idx]));
+    } catch (...) {
+      reset_buf();
+    }
   }
   // If truncated, splice a marker into the tail of what we already wrote
   // rather than appending after it - appending isn't possible since cap is
