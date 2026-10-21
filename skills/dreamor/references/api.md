@@ -40,6 +40,7 @@ dreamor::makeSet<Cols...>(sources...)   // one source per column; a set source c
 | Existing set | `makeSet<PeriodCol>(sROUTES, periods)` | Fills that set's columns at once |
 
 Row order is generation order; which column varies fastest is unspecified. Use `orderBy` when order matters.
+A set has at most 64 columns, spread sources included; 65 stops at compile time.
 
 ## IndexSet
 

@@ -282,6 +282,10 @@ template <typename... Columns, typename... Sources>
                 "indirect call per binding. Pass a lambda or a function object.");
   using ElemTuple =
       internal::BuildElem<std::tuple<>, std::tuple<Columns...>, std::remove_reference_t<Sources>...>::type;
+  static_assert(std::tuple_size_v<ElemTuple> <= internal::kMaxColumns,
+                "Congratulations on a set of more than 64 dimensions - dreamor stops at 64, and even 16 is a lot: "
+                "split it into sets that share key columns, or put a hand on your heart and ask whether the model "
+                "needs them all.");
   static_assert((internal::is_column<Columns> && ...),
                 "Every column needs a name: makeSet<MachineCol, ItemCol>(machines, items), not "
                 "makeSet<const Machine*, const Item*>(...). Declare each one once with "

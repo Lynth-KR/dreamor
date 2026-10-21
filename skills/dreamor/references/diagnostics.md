@@ -31,6 +31,7 @@ left column. Each message is pinned by a `// expect:` line in `tests/compile_fai
 | `Bind the set to a variable first` | `sumOf<Col>(env, std::vector<int>{...}, term)` | Store the container in a named variable | `sumof_container_is_temporary` |
 | `More column types than columns to name` | `makeSet<A, B>(oneSource)` | One source per column (a set source covers all its columns) | `makeset_missing_source` |
 | `Every column needs a name` | `makeSet<int>(...)` | `dreamor::Col<int, "name">` | `makeset_needs_column_types` |
+| `dreamor stops at 64` | A set of more than 64 columns, built at once or by spreading a set into a wider one | Split it into sets that share key columns | `makeset_too_many_columns`, `makeset_too_many_columns_spread` |
 
 Also rejected, with no pinned message:
 - copying a `VarTable`, default-constructing one, or calling `VarTable::add`;

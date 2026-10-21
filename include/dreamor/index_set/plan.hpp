@@ -7,6 +7,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <tuple>
 #include <utility>
 
@@ -14,6 +15,10 @@
 #include "dreamor/index_set/element.hpp"
 
 namespace dreamor::internal {
+
+// A set's columns are bits of one std::uint64_t throughout planning, so a set has at most 64.
+inline constexpr std::size_t kMaxColumns = 64;
+static_assert(kMaxColumns <= std::numeric_limits<std::uint64_t>::digits);
 
 // --- Bound columns --------------------------------------------------------------------
 // Generation binds columns in visit order, which need not be element-tuple order, so the

@@ -295,6 +295,8 @@ Each column of `makeSet<A, B, C>` corresponds to one source. There are three kin
 - **AMPL correspondence**
   - `{m in MACHINES, i in ITEMS[m]}` → `makeSet<MachineCol, ItemCol>(machines, items_of).collect()`
   - `{(m,i) in ROUTES, t in PERIODS: open[i,t]}` → `makeSet<PeriodCol>(sROUTES, periods).where(is_open).collect()`
+- **A set has at most 64 columns**, the columns of a set source included: while the visit order is planned, a
+  set's columns are bits of one 64-bit mask. A 65th stops at compile time on dreamor's own message.
 - **A predicate takes only the columns it reads.** `[](ItemCol i, PeriodCol t)` is evaluated as soon as i and t are
   fixed, and if it fails, the whole loop below is skipped. Parameter order and `.where()` order are free.
 - A dependent source must return a **range of pointers to entities** (`std::vector<const Item*>`, a span, a view),

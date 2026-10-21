@@ -288,6 +288,8 @@ const auto sNAME = dreamor::makeSet<열...>(소스...).where(술어).where(술�
 - **AMPL 대응**
   - `{m in MACHINES, i in ITEMS[m]}` → `makeSet<MachineCol, ItemCol>(machines, items_of).collect()`
   - `{(m,i) in ROUTES, t in PERIODS: open[i,t]}` → `makeSet<PeriodCol>(sROUTES, periods).where(is_open).collect()`
+- **집합의 열은 최대 64개입니다.** 집합 source가 채우는 열도 포함입니다. 방문 순서를 계획하는 동안 집합의 열이
+  64비트 마스크 하나의 비트이기 때문입니다. 65번째 열은 dreamor 메시지와 함께 컴파일 시점에 막힙니다.
 - **술어는 자기가 읽는 열만 받습니다.** `[](ItemCol i, PeriodCol t)`는 i와 t가 정해지는 즉시 평가되고,
   탈락하면 그 아래 루프 전체를 건너뜁니다. 파라미터 순서와 `.where()` 순서는 자유입니다.
 - 종속 소스는 엔티티가 아니라 **엔티티의 포인터 범위**(`std::vector<const Item*>`, span, view)를 돌려줘야 합니다.
