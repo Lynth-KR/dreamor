@@ -52,14 +52,24 @@ tools/format.sh                      # clang-format (C++) and ruff (Python) in p
   warning must not become a compile_fail case's first error. Tests compare doubles with `exactlyEqual` /
   `isExactlyZero` from `tests/float_compare.hpp`, never with `==`.
 - **CI** (`.github/workflows/ci.yml`) runs the stub job on GCC 13 and Clang 18 at `-O1 -g` and `-O3 -DNDEBUG`,
-  a sanitize job (`SAN=1`, GCC), the MathOpt job on both compilers, a package job that installs the CMake package
-  and builds `tests/cmake_consumer` (and `tests/cmake_consumer_mathopt` in the MathOpt job) through
-  `find_package(dreamor)`, and a format job (`tools/format.sh --check`).
+  a sanitize job (`SAN=1`, GCC), gcc-latest and clang-latest (stub mode on the newest releases), the MathOpt job
+  on both compilers, a package job that installs the CMake package and builds `tests/cmake_consumer` (and
+  `tests/cmake_consumer_mathopt` in the MathOpt job) through `find_package(dreamor)`, and a format job
+  (`tools/format.sh --check`).
+- **Compiler support** is a range tested at both ends, nothing in between: the floor is GCC 13 / Clang 18 (raising
+  it is a decision, not a cleanup), the ceiling the newest releases (GCC 16 from the `gcc:16` image, Clang 23 from
+  apt.llvm.org). Bump the ceiling at each major release - GCC every spring, LLVM every March and September - in
+  gcc-latest and clang-latest. A new warning or a changed first error there is what users of that compiler will see:
+  fix it, then bump. Locally: `CXX=clang++-23 tests/run_tests.sh`, and
+  `podman run --rm -v "$PWD":/src -w /src docker.io/library/gcc:16 sh -c 'CXX=g++ tests/run_tests.sh'`.
 - **Formatting** is `.clang-format` (clang-format 23.1.3) and `ruff.toml` (ruff 0.17.1), pinned because output differs
   between versions: `uv tool install clang-format==23.1.3`, `uv tool install ruff==0.17.1`.
   `examples/mathopt_samples/` is left as ported, and README code blocks are formatted by hand. The script also
   adds the SPDX license line where it is missing.
-  CI runs `tools/format.sh --check`.
+  CI runs `tools/format.sh --check`. To bump a formatter, change all of its pins together (`CLANG_FORMAT_VERSION` in
+  `tools/format.sh` and the pipx line in CI; `required-version` in `ruff.toml` and the pipx line), run
+  `tools/format.sh`, commit only the reformatting, and add that commit to `.git-blame-ignore-revs`. Time to bump:
+  when clangd in the editor gets ahead of the pin and format-on-save starts to disagree with CI.
 - **Done means** default mode passes on both compilers, `--mathopt` passes if you touched anything the MathOpt
   backend or the shared machinery uses, and `tools/format.sh --check` passes.
 

@@ -90,9 +90,9 @@ int main() {
   DREAMOR_CHECK(dreamor::makeSet<ICol, JCol>(I, J).where(inEven).collect().size() == 6);
 
   // ordered
-  const auto T = II.ordered();
-  DREAMOR_CHECK(T.prev(ICol{1}) != nullptr && std::get<ICol>(*T.prev(ICol{1})).get() == 3 &&
-                T.next(ICol{4}) == nullptr);
+  const auto T          = II.ordered();
+  const auto* beforeOne = T.prev(ICol{1});
+  DREAMOR_CHECK(beforeOne != nullptr && std::get<ICol>(*beforeOne).get() == 3 && T.next(ICol{4}) == nullptr);
 
   // assertUnique: the set back, or a throw (debug builds)
   DREAMOR_CHECK(IJ.assertUnique().begin() == IJ.begin());

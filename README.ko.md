@@ -620,6 +620,12 @@ MathOpt에는 이 절이 해당하지 않습니다. `math_opt::Model`과 `Linear
 
 테스트는 프레임워크 없이 `tests/run_tests.sh` 하나로 돕니다. 컴파일러는 `CXX`로 고릅니다(기본 `g++`, C++20).
 
+**컴파일러:** GCC 13 이상, Clang 18 이상. CI는 이 범위의 양 끝인 GCC 13과 16, Clang 18과 23만 검증하고 그 사이는
+검증하지 않습니다. MSVC와 Apple Clang은 검증하지 않습니다. 최신 컴파일러를 로컬에서 돌려 보려면 Clang은
+[apt.llvm.org](https://apt.llvm.org/)에서 설치하고(`CXX=clang++-23 tests/run_tests.sh`), GCC는 공식 컨테이너 이미지를
+씁니다(`podman run --rm -v "$PWD":/src -w /src docker.io/library/gcc:16 sh -c 'CXX=g++ tests/run_tests.sh'`,
+`docker`도 같은 인자).
+
 | 명령 | 무엇을 | 필요한 것 |
 |---|---|---|
 | `tests/run_tests.sh` | 집합 계층과 Concert 백엔드 전부(Concert stub 위에서), 컴파일 실패해야 하는 코드가 거부되는지, CPLEX용 코드의 문법 | 없음 |
@@ -633,7 +639,8 @@ MathOpt에는 이 절이 해당하지 않습니다. `math_opt::Model`과 `Linear
 컴파일되는지 확인하는 대조군이며, 이것이 실패하면 나머지 케이스는 의미가 없으므로 실패로 처리합니다.
 
 CI(GitHub Actions)는 stub과 MathOpt를 GCC 13과 Clang 18 양쪽으로 돌리고(두 컴파일러 모두에서 `// expect:` 문구를
-확인), CMake 패키지를 설치해 `find_package`로 가져다 쓰는 것까지 확인합니다(`tests/cmake_consumer`,
+확인), stub을 `-O3 -DNDEBUG`, AddressSanitizer와 UndefinedBehaviorSanitizer, GCC 16과 Clang 23으로 한 번씩 더 돌리고,
+CMake 패키지를 설치해 `find_package`로 가져다 쓰는 것까지 확인합니다(`tests/cmake_consumer`,
 `tests/cmake_consumer_mathopt`). CPLEX는 CI에 없으므로 `--cplex`는 로컬에서 돌립니다.
 
 OR-Tools는 설치할 필요 없이 릴리스의 C++ 사전 빌드본을 아무 데나 풀고 그 폴더를 가리키면 됩니다(CMake 불필요).

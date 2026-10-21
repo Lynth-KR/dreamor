@@ -645,6 +645,12 @@ that points at its model, so use it only while the model is alive.
 The tests run without a framework, through a single `tests/run_tests.sh`. Choose the compiler with `CXX` (default
 `g++`, C++20).
 
+**Compilers:** GCC 13 or later, Clang 18 or later. CI tests both ends of that range - GCC 13 and 16, Clang 18 and 23 -
+and nothing in between; MSVC and Apple Clang are not tested. To try the newest ones locally: Clang from
+[apt.llvm.org](https://apt.llvm.org/) (`CXX=clang++-23 tests/run_tests.sh`), GCC from its official container image
+(`podman run --rm -v "$PWD":/src -w /src docker.io/library/gcc:16 sh -c 'CXX=g++ tests/run_tests.sh'`; `docker` takes
+the same arguments).
+
 | Command | What | Requires |
 |---|---|---|
 | `tests/run_tests.sh` | The whole set layer and Concert backend (on a Concert stub), that code which must not compile is rejected, and the syntax of the CPLEX-only code | Nothing |
@@ -659,7 +665,8 @@ point is that what a user reads before the next error is the intended one-senten
 prelude compiles; if it fails, the other cases would be meaningless, so it counts as a failure.
 
 CI (GitHub Actions) runs the stub and MathOpt modes with both GCC 13 and Clang 18 (checking the `// expect:` text
-with both compilers), and goes as far as installing the CMake package and consuming it via `find_package`
+with both compilers), the stub mode again at `-O3 -DNDEBUG`, under AddressSanitizer and UndefinedBehaviorSanitizer,
+and with GCC 16 and Clang 23, and goes as far as installing the CMake package and consuming it via `find_package`
 (`tests/cmake_consumer`, `tests/cmake_consumer_mathopt`). CPLEX is not on CI, so run `--cplex` locally.
 
 OR-Tools needs no installation: unpack the release's C++ prebuilt anywhere and point to that folder (no CMake needed).

@@ -26,6 +26,24 @@ jobs:
       - uses: actions/checkout@v4
       - run: CXX=g++-13 SAN=1 tests/run_tests.sh
 
+  gcc-latest:
+    # The compiler range: the stub job holds the floor (GCC 13, Clang 18), this job and
+    # clang-latest the newest releases - bumped by hand at each major release (GCC every
+    # spring, LLVM every March and September). The official image: Ubuntu 24.04 has no GCC 16.
+    runs-on: ubuntu-24.04
+    container: gcc:16
+    steps:
+      - uses: actions/checkout@v4
+      - run: CXX=g++ tests/run_tests.sh
+
+  clang-latest:
+    # The newest LLVM release, from apt.llvm.org (see gcc-latest).
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- 23
+      - run: CXX=clang++-23 tests/run_tests.sh
+
   mathopt:
     # The MathOpt backend against the OR-Tools C++ prebuilt, solving with HiGHS: unit tests,
     # the example, the Concert-vs-MathOpt comparison of the example's constraints, and the
