@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """run_doe.py results CSV -> analysis workbook.
 
-  python3 make_report.py results.csv report.xlsx
+  python3 make_report.py results/<run>/result.csv [report.xlsx]
+
+The workbook goes beside the CSV as report.xlsx unless a path is given.
 
 Every summary, effect and extrapolation in the workbook is a formula over the Raw sheet: add
 or fix rows in Raw and it recalculates. Python writes only the design labels and the raw
@@ -137,9 +139,10 @@ def cell_id(levels):
 
 
 def main():
-    if len(sys.argv) != 3:
+    if len(sys.argv) not in (2, 3):
         sys.exit(__doc__)
-    src, out = sys.argv[1], sys.argv[2]
+    src = sys.argv[1]
+    out = sys.argv[2] if len(sys.argv) == 3 else os.path.join(os.path.dirname(src), "report.xlsx")
     with open(src) as f:
         rows = list(csv.DictReader(f))
     meta_path = os.path.splitext(src)[0] + "_meta.json"
@@ -691,6 +694,8 @@ def main():
         "kernel",
         "compiler",
         "python",
+        "commit",
+        "dirty",
         "started",
     ]:
         ws.cell(row=r, column=1, value=k)

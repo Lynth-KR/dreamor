@@ -10,15 +10,22 @@
   4) Every run in a seeded random order, each in a fresh process.
   5) Results are appended to the CSV one line at a time; running again skips finished runs.
 
+Every run goes to its own folder under results/ (ignored by git), named after what it measured:
+the date, the commit - with -dirty-<hash of the diff> for uncommitted changes - and the budget
+(or N, when --N sets it), e.g. results/2026-10-23_6a4c0a5_3.5gb/, beside this script wherever it
+is run from. Running the same thing again that day resumes it; --out picks the CSV path instead.
+The meta file next to the CSV records the commit as well.
+
 Usage:
   ./build.sh
-  python3 run_doe.py --budget-gb 3.5 --reps 3                    # full experiment
-  python3 run_doe.py --budget-gb 0.15 --reps 2 --out sample.csv   # quick trial
-  python3 make_report.py results.csv report.xlsx
+  python3 run_doe.py --budget-gb 3.5 --reps 3        # full experiment
+  python3 run_doe.py --budget-gb 0.15 --reps 2       # quick trial
+  python3 make_report.py results/<run>/result.csv    # writes report.xlsx beside it
 """
 
 import argparse
 import csv
+import hashlib
 import itertools
 import json
 import os
@@ -27,6 +34,9 @@ import random
 import subprocess
 import sys
 import time
+
+# Defaults are relative to this script, not to where it is run from.
+HERE = os.path.dirname(os.path.abspath(__file__))
 
 IMPLS = ["dreamor", "map", "flat"]
 FACTORS = {
@@ -122,6 +132,28 @@ def compiler_version(cxx):
         return "unknown"
 
 
+def code_state():
+    """(commit, dirty, label) of the repository the benchmark builds from, or Nones without git.
+
+    The label names the code exactly: the short commit, plus a hash of the diff when tracked files
+    have uncommitted changes, so two different uncommitted states never share a results folder.
+    """
+    root = os.path.dirname(os.path.abspath(__file__))
+
+    def git(*cmd):
+        return subprocess.run(["git", "-C", root, *cmd], capture_output=True, check=True).stdout
+
+    try:
+        commit = git("rev-parse", "HEAD").decode().strip()
+        diff = git("diff", "HEAD")
+    except (OSError, subprocess.CalledProcessError):
+        return None, None, "nogit"
+    label = commit[:7]
+    if diff:
+        label += "-dirty-" + hashlib.sha1(diff).hexdigest()[:6]
+    return commit, bool(diff), label
+
+
 def run_one(bench, cfg, timeout):
     cmd = [
         bench,
@@ -182,8 +214,8 @@ def calibrate(bench, budget_bytes, timeout, seed, impls):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--bench", default="./bench")
-    ap.add_argument("--out", default="results.csv")
+    ap.add_argument("--bench", default=os.path.join(HERE, "bench"), help="default: the binary beside this script")
+    ap.add_argument("--out", help="CSV path; default results/<date>_<commit>_<budget>gb/result.csv")
     ap.add_argument(
         "--budget-gb",
         type=float,
@@ -204,6 +236,13 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="print the plan only")
     args = ap.parse_args()
 
+    commit, dirty, label = code_state()
+    if not args.out:
+        size = f"N{args.N}" if args.N else f"{args.budget_gb:g}gb"
+        run = f"{time.strftime('%Y-%m-%d')}_{label}_{size}"
+        args.out = os.path.join(HERE, "results", run, "result.csv")
+    print(f"results: {os.path.relpath(args.out)}")
+
     out_dir = os.path.dirname(args.out)
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
@@ -211,8 +250,8 @@ def main():
     impls = [c for c in IMPLS if c in args.impls.split(",")]
     if "dreamor" not in impls or len(impls) < 2:
         sys.exit("--impls needs dreamor and at least one other arm.")
-    if not os.path.exists(args.bench):
-        sys.exit("no bench binary: run ./build.sh first.")
+    if not os.path.isfile(args.bench):
+        sys.exit(f"no bench binary at {args.bench}: run bench/build.sh first.")
     mem = meminfo()
     budget = int(args.budget_gb * 1024**3)
     meta_path = os.path.splitext(args.out)[0] + "_meta.json"
@@ -264,6 +303,8 @@ def main():
         kernel=platform.release(),
         compiler=compiler_version(os.environ.get("CXX", "g++")),
         python=platform.python_version(),
+        commit=commit,
+        dirty=dirty,
         started=time.strftime("%Y-%m-%d %H:%M:%S"),
     )
     with open(meta_path, "w") as f:
@@ -352,7 +393,7 @@ def main():
                 f"{'  ' + err if err else ''}",
                 flush=True,
             )
-    print(f"done: {args.out}   report: python3 make_report.py {args.out} report.xlsx")
+    print(f"done: {args.out}   report: python3 make_report.py {args.out}")
 
 
 if __name__ == "__main__":

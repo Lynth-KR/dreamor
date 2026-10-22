@@ -707,7 +707,7 @@ OR-Tools 경로는 위의 환경 변수로), 저장소의 `.clangd`와 `.vscode/
 
 ```bash
 bench/build.sh
-cd bench && python3 run_doe.py --budget-gb 3.5 --reps 3 && python3 make_report.py results.csv report.xlsx
+cd bench && python3 run_doe.py --budget-gb 3.5 --reps 3   # results/<date>_<commit>_3.5gb/; then make_report.py on its result.csv
 ```
 
 설계, 공정성 조건, 읽는 법은 `bench/README.md`에 있습니다. 시간 측정이라 CI에서는 돌리지 않습니다.

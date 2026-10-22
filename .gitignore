@@ -24,12 +24,13 @@ __pycache__/
 /or-tools_*/
 /or-tools_*.tar.gz
 
-# Benchmarks
+# Benchmarks: every local run goes to bench/results/; bench/reference/ is the one published
 bench/bench
+bench/results/
+bench/reference/*.xlsx
 bench/*.csv
 bench/*_meta.json
 bench/*.xlsx
-bench/example/*.xlsx
 
 # Others
 /tools/make_banner.py

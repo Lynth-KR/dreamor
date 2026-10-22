@@ -735,7 +735,7 @@ full factorial. The results come out as a workbook computed by formulas.
 
 ```bash
 bench/build.sh
-cd bench && python3 run_doe.py --budget-gb 3.5 --reps 3 && python3 make_report.py results.csv report.xlsx
+cd bench && python3 run_doe.py --budget-gb 3.5 --reps 3   # results/<date>_<commit>_3.5gb/; then make_report.py on its result.csv
 ```
 
 Design, fairness conditions and how to read the results are in `bench/README.md`. Timing is not

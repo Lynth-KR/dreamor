@@ -66,17 +66,27 @@ variables in the same groups.
 ## Running
 
 ```sh
-bench/build.sh                                             # needs only a C++20 compiler
+bench/build.sh                                       # needs only a C++20 compiler
 cd bench
-python3 run_doe.py --budget-gb 0.15 --reps 2 --out sample.csv   # quick trial, a few minutes
-python3 run_doe.py --budget-gb 3.5 --reps 3                     # the experiment
-python3 make_report.py results.csv report.xlsx                  # needs: pip install openpyxl
+python3 run_doe.py --budget-gb 0.15 --reps 2         # quick trial, a few minutes
+python3 run_doe.py --budget-gb 3.5 --reps 3          # the experiment
+python3 make_report.py results/<run>/result.csv      # needs: pip install openpyxl
 ```
+
+- **Where results go.** Each run writes to its own folder, `results/<date>_<commit>_<budget>gb/`
+  (`result.csv`, `result_meta.json`, and `report.xlsx` from `make_report.py`). Uncommitted changes
+  add `-dirty-<hash of the diff>` after the commit, so the name says exactly which code ran, and
+  the meta file records the commit too. `results/` is ignored by git: it is a local log, kept or
+  deleted at will. `--out` writes elsewhere.
+- **The published result.** `reference/` holds one run, the one for the current release. Refresh
+  it at a release by copying that release's run folder's `result.csv` and `result_meta.json`
+  there; earlier references stay in git history.
 
 - **Choosing N.** `--budget-gb` is the memory the heaviest arm may use. A pilot run turns it into
   the row count N. Runs refuse to start if the expected peak exceeds 85% of available memory.
-- **Resuming.** An interrupted run resumes when started again: finished runs are skipped, and N
-  is reused from `results_meta.json`.
+- **Resuming.** An interrupted run resumes when started again the same day with the same code and
+  budget (or with the same `--out`): finished runs are skipped, and N is reused from
+  `result_meta.json`.
 - **Planning.** `--dry-run` prints the plan and an upper bound on the time.
   `--impls dreamor,flat` limits the arms.
 - **Recalculation.** Every summary in the workbook is a formula over the Raw sheet, so Excel

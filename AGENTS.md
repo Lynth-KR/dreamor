@@ -132,7 +132,7 @@ Shared logic belongs in `include/dreamor/internal/`.
 
 `bench/` is not part of the test suite or CI. When a change touches what the benchmark exercises
 (`makeSet`, `groupBy`, `VarTable` construction or lookup, `sumOf`), check two things with
-`bench/build.sh` and a quick `python3 run_doe.py --budget-gb 0.15 --reps 2 --out sample.csv`:
+`bench/build.sh` and a quick `python3 run_doe.py --budget-gb 0.15 --reps 2` (it writes to `bench/results/`):
 - it still builds;
 - `groups`, `check_groups`, and `check_traverse` agree across arms for each model.
 
