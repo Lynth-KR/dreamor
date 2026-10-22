@@ -30,6 +30,7 @@
 using ACol = dreamor::Col<std::size_t, "a">;
 using BCol = dreamor::Col<std::size_t, "b">;
 using CCol = dreamor::Col<std::size_t, "c">;
+using DCol = dreamor::Col<std::size_t, "d">;
 using Row  = std::tuple<std::size_t, std::size_t, std::size_t>;
 
 namespace {
@@ -174,6 +175,34 @@ void checkCase(std::mt19937& g, IloEnv env) {
   DREAMOR_CHECK(rowsOf(dreamor::intersect(S, T)) == in_both);
   DREAMOR_CHECK(rowsOf(dreamor::difference(S, T)) == only_s);
   DREAMOR_CHECK(rowsOf(S.distinct()) == firstOccurrences(s));
+
+  // makeSet over S and a set U sharing c: the natural join, repeats on either side carried
+  // through, whichever set comes first and with a predicate across the two.
+  const std::vector<std::size_t> u_cs = randomList(g);
+  const std::vector<std::size_t> u_ds = randomList(g);
+  const Rule cd                       = randomRule(g);
+  const Rule ad                       = randomRule(g);
+  const auto U                        = dreamor::makeSet<CCol, DCol>(u_cs, u_ds)
+                                            .where([&cd](CCol c, DCol dv) { return cd.keeps(c.get(), dv.get()); })
+                                            .collect();
+  const auto keep_ad                  = [&ad](ACol a, DCol dv) { return ad.keeps(a.get(), dv.get()); };
+  using JoinRow                       = std::tuple<std::size_t, std::size_t, std::size_t, std::size_t>;
+  std::vector<JoinRow> join_reference;
+  for (const Row& r : s)
+    for (const auto& u : U)
+      if (std::get<CCol>(u).get() == std::get<2>(r) && ad.keeps(std::get<0>(r), std::get<DCol>(u).get()))
+        join_reference.emplace_back(std::get<0>(r), std::get<1>(r), std::get<2>(r), std::get<DCol>(u).get());
+  const auto joinRows = [](const auto& set) {
+    std::vector<JoinRow> out;
+    for (const auto& row : set)
+      out.emplace_back(
+          std::get<ACol>(row).get(), std::get<BCol>(row).get(), std::get<CCol>(row).get(), std::get<DCol>(row).get());
+    std::ranges::sort(out);
+    return out;
+  };
+  std::ranges::sort(join_reference);
+  DREAMOR_CHECK(joinRows(dreamor::makeSet<>(S, U).where(keep_ad).collect()) == join_reference);
+  DREAMOR_CHECK(joinRows(dreamor::makeSet<>(U, S).where(keep_ad).collect()) == join_reference);
 
   // membership() over every possible row.
   const auto inS = S.membership();

@@ -65,34 +65,50 @@ struct SplitFront<std::tuple<Head, Tail...>> {
   using tail = std::tuple<Tail...>;
 };
 
+// The columns of Row that Joined does not have yet.
+template <typename Joined, typename Row>
+struct NewColumns;
+template <typename Joined, typename... Columns>
+struct NewColumns<Joined, std::tuple<Columns...>> {
+  using type = decltype(std::tuple_cat(
+      std::declval<std::conditional_t<countColumns<Columns, Joined>() == 0, std::tuple<Columns>, std::tuple<>>>()...));
+};
+
 // The element tuple, built by walking the sources in order: a spread source contributes the
-// columns of the set it spreads, every other source consumes one explicit type.
-template <bool IsSpread, typename Acc, typename Cols, typename Source, typename... Rest>
+// columns of the set it spreads, every other source consumes one explicit type. Joined holds
+// the columns spread so far, so a column two spread sources share is one column of the set -
+// the natural join on it, AMPL's {(m,i) in ROUTES, (i,t) in OPEN}. A column named in
+// makeSet<...> is always new, and repeating a spread one is reported as a repeat.
+template <bool IsSpread, typename Acc, typename Joined, typename Cols, typename Source, typename... Rest>
 struct BuildElemStep;
 
-template <typename Acc, typename Cols, typename... Sources>
+template <typename Acc, typename Joined, typename Cols, typename... Sources>
 struct BuildElem;
 
-template <typename Acc, typename Cols>
-struct BuildElem<Acc, Cols> {
+template <typename Acc, typename Joined, typename Cols>
+struct BuildElem<Acc, Joined, Cols> {
   static_assert(std::tuple_size_v<Cols> == 0,
                 "More column types than columns to name. Sources that spread an existing "
                 "set bring their own column types.");
   using type = Acc;
 };
 
-template <typename Acc, typename Cols, typename Source, typename... Rest>
-struct BuildElem<Acc, Cols, Source, Rest...>
-    : BuildElemStep<sourceKindOf<Source>() == SourceKind::kSpread, Acc, Cols, Source, Rest...> {};
+template <typename Acc, typename Joined, typename Cols, typename Source, typename... Rest>
+struct BuildElem<Acc, Joined, Cols, Source, Rest...>
+    : BuildElemStep<sourceKindOf<Source>() == SourceKind::kSpread, Acc, Joined, Cols, Source, Rest...> {};
 
-template <typename Acc, typename Cols, typename Source, typename... Rest>
-struct BuildElemStep<true, Acc, Cols, Source, Rest...>
-    : BuildElem<typename Concat<Acc, std::ranges::range_value_t<Source>>::type, Cols, Rest...> {};
-
-template <typename Acc, typename Cols, typename Source, typename... Rest>
-struct BuildElemStep<false, Acc, Cols, Source, Rest...>
-    : BuildElem<typename Concat<Acc, typename SplitFront<Cols>::head>::type, typename SplitFront<Cols>::tail, Rest...> {
+template <typename Acc, typename Joined, typename Cols, typename Source, typename... Rest>
+struct BuildElemStep<true, Acc, Joined, Cols, Source, Rest...> {
+  using Added = NewColumns<Joined, std::ranges::range_value_t<Source>>::type;
+  using type  = BuildElem<typename Concat<Acc, Added>::type, typename Concat<Joined, Added>::type, Cols, Rest...>::type;
 };
+
+template <typename Acc, typename Joined, typename Cols, typename Source, typename... Rest>
+struct BuildElemStep<false, Acc, Joined, Cols, Source, Rest...>
+    : BuildElem<typename Concat<Acc, typename SplitFront<Cols>::head>::type,
+                Joined,
+                typename SplitFront<Cols>::tail,
+                Rest...> {};
 
 // Ranges as a view over the caller's container, functions by value.
 template <typename Source>

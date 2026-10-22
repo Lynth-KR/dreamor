@@ -97,7 +97,9 @@ Changes must keep these. They are the library's reason to exist, not style prefe
   structure never changes after construction.
 - **No new user-facing concept for performance.** Internal hashing and set sharing are fine; new knobs in the API
   are not.
-- **One way to do one thing.** No second syntax: no pipe operators, no free-function aliases of members.
+- **One way to do one thing.** No second syntax: no pipe operators, no free-function aliases of members. Two
+  combinations of tools reaching the same result is not a second way: never add a rule that forbids a combination
+  because another one gives the same result.
 - **The solver's own API stays the solver's.** Constraints, objectives, solving, duals, bounds after construction,
   and names are not wrapped. Backends take each solver's notation (`IloEnv`/`ILOFLOAT` vs `Model&`/`is_integer`).
 - **Out of scope.** Do not add any of these without the maintainer asking:

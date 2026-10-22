@@ -85,8 +85,11 @@ for (const auto& [machine, period, rows] : producedByMachinePeriod)
   곳은 VarTable 생성자 하나뿐입니다.
 - **직관성을 성능과 바꾸지 않습니다.** 성능 개선은 사용자 API에 개념을 추가하지 않는 범위에서만
   (내부 해시, 집합 공유 등) 합니다.
-- **한 가지 일에는 한 가지 방법.** 같은 일을 하는 두 번째 문법(파이프 연산자, 자유 함수 별칭 등)을
-  두지 않습니다.
+- **한 가지 일에는 한 가지 도구.** 도구마다 맡은 일이 하나이고, 두 도구가 같은 일을 나눠 갖지 않습니다. 같은
+  일을 하는 두 번째 문법(파이프 연산자, 자유 함수 별칭 등)을 두지 않는 것도 그래서입니다. 대신 도구를 조합하는
+  길은 막지 않습니다. 도구들이 서로 직교하면 다른 조합이 같은 결과에 이르는 일은 자연히 생기고, 어느 쪽으로
+  쓰든 맞습니다. `makeSet<>(sORDER_ITEMS, sPROMO)`와 `sORDER_ITEMS.where(sPROMO.membership())`가 같은 행을 내는
+  것이 그런 예입니다.
 
 ## 이름 짓기
 
@@ -284,11 +287,16 @@ const auto sNAME = dreamor::makeSet<열...>(소스...).where(술어).where(술�
 |---|---|---|
 | 컨테이너 | `machines` | 그 열의 값 전부. 원소가 포인터(`std::vector<const Machine*>`), 엔티티 자체(`std::vector<Machine>`), 스마트 포인터(`std::vector<std::unique_ptr<Machine>>`) 어느 쪽이어도 포인터 열이 됩니다 |
 | 종속 소스 | `[](MachineCol m) { return m->items; }` | 앞에서 정해진 열에 따라 달라지는 값들 |
-| 기존 집합 | `makeSet<PeriodCol>(sROUTES, periods)` | 그 집합이 가진 열들을 한꺼번에 채움 |
+| 기존 집합 | `makeSet<PeriodCol>(sROUTES, periods)` | 그 집합이 가진 열들을 한꺼번에 채움. 같은 열을 가진 집합끼리는 그 열로 조인 |
 
 - **AMPL 대응**
   - `{m in MACHINES, i in ITEMS[m]}` → `makeSet<MachineCol, ItemCol>(machines, items_of).collect()`
   - `{(m,i) in ROUTES, t in PERIODS: open[i,t]}` → `makeSet<PeriodCol>(sROUTES, periods).where(is_open).collect()`
+  - `{(m,i) in ROUTES, (i,t) in OPEN}` → `makeSet<>(sROUTES, sOPEN).collect()`
+- **같은 열을 가진 집합 소스끼리는 그 열로 조인합니다**(natural join). 나중에 방문하는 집합은 공유 열로 조회하고
+  훑지 않으므로 곱을 만들지 않습니다. 비용은 두 집합과 결과의 크기만큼입니다. 한 집합의 열이 다른 집합에 전부
+  들어 있으면 그 집합을 거르는 것과 같아서 `sROUTES.where(sOPEN.membership())`과 같은 행이 나옵니다.
+  `makeSet<...>`에 적은 열은 항상 새 열이므로, 집합 소스의 열을 거기 다시 적으면 컴파일 오류입니다.
 - **집합의 열은 최대 64개입니다.** 집합 source가 채우는 열도 포함입니다. 방문 순서를 계획하는 동안 집합의 열이
   64비트 마스크 하나의 비트이기 때문입니다. 65번째 열은 dreamor 메시지와 함께 컴파일 시점에 막힙니다.
 - **술어는 자기가 읽는 열만 받습니다.** `[](ItemCol i, PeriodCol t)`는 i와 t가 정해지는 즉시 평가되고,
@@ -658,17 +666,17 @@ CMake 패키지를 설치해 `find_package`로 가져다 쓰는 것까지 확인
 `tests/cmake_consumer_mathopt`). CPLEX는 CI에 없으므로 `--cplex`는 로컬에서 돌립니다.
 
 **열이 많은 집합의 컴파일 비용.** N열 집합을 만들고, 거르고, 묶고, `VarTable`을 올리고, 합을 내는 TU 하나를
-컴파일한 결과입니다(`-std=c++20 -O2 -c`, CPU 시간과 최대 메모리. AMD Ryzen 7 5700X, WSL2 Ubuntu 24.04, 2026-10-21).
+컴파일한 결과입니다(`-std=c++20 -O2 -c`, CPU 시간과 최대 메모리. AMD Ryzen 7 5700X, WSL2 Ubuntu 24.04, 2026-10-22).
 `tests/test_arity.cpp`가 테스트를 돌릴 때마다 63열과 64열을 컴파일하므로 비용이 폭발하면 거기서 드러납니다.
 `python3 tools/measure_compile_cost.py [compiler ...]`로 이 표를 다시 잴 수 있습니다.
 
 | 열 수 | g++ 13.3 | clang++ 18.1 | clang++ 23.1 |
 |---|---|---|---|
-| 4 | 2.8 s, 289 MB | 2.6 s, 208 MB | 2.7 s, 230 MB |
-| 16 | 3.2 s, 327 MB | 3.1 s, 234 MB | 3.1 s, 253 MB |
-| 32 | 3.8 s, 356 MB | 4.1 s, 282 MB | 4.0 s, 300 MB |
-| 63 | 5.9 s, 469 MB | 8.4 s, 442 MB | 7.4 s, 454 MB |
-| 64 | 5.8 s, 475 MB | 7.7 s, 449 MB | 7.3 s, 461 MB |
+| 4 | 2.8 s, 293 MB | 2.7 s, 211 MB | 2.7 s, 232 MB |
+| 16 | 3.3 s, 327 MB | 3.2 s, 238 MB | 3.2 s, 258 MB |
+| 32 | 3.9 s, 366 MB | 4.2 s, 290 MB | 4.1 s, 310 MB |
+| 63 | 6.0 s, 500 MB | 7.7 s, 457 MB | 7.4 s, 468 MB |
+| 64 | 6.0 s, 506 MB | 7.9 s, 465 MB | 7.6 s, 475 MB |
 
 OR-Tools는 설치할 필요 없이 릴리스의 C++ 사전 빌드본을 아무 데나 풀고 그 폴더를 가리키면 됩니다(CMake 불필요).
 

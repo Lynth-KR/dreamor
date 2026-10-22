@@ -47,6 +47,7 @@ using NodeCol    = Col<const Node*, "node">;
 using MachineCol = Col<const Machine*, "machine">;
 using ItemCol    = Col<const Item*, "item">;
 using OrderCol   = Col<const Order*, "order">;
+using PeriodCol  = Col<std::uint32_t, "period">;
 
 namespace {
 
@@ -81,6 +82,11 @@ int main() try {
   const auto sASSIGN        = makeSet<OrderCol>(sMACHINE_ITEMS, orders).where(order_fits).collect();
   const auto sEARLY         = sASSIGN.where(early);
   DREAMOR_CHECK(sMACHINE_ITEMS.size() == 3 && sASSIGN.size() == 3 && sEARLY.size() == 2);
+  const std::vector<std::uint32_t> periods{0, 1};
+  const auto sOPEN = makeSet<ItemCol, PeriodCol>(items, periods)
+                         .where([](ItemCol i, PeriodCol t) { return i->due > 100 || t.get() == 0; })
+                         .collect();
+  DREAMOR_CHECK(makeSet<>(sASSIGN, sOPEN).collect().size() == 4);
 
   // algebra.hpp
   const auto sUNIQUE = makeSet<MachineCol, ItemCol>(machines, items_of).collect().assertUnique();

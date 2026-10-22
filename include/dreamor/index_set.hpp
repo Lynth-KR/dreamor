@@ -12,6 +12,9 @@
 //     {(m,i) in ASSIGN: early[i]}
 //     sASSIGN.where(early)
 //
+//     {(m,i,o) in ASSIGN, (i,t) in OPEN}
+//     makeSet<>(sASSIGN, sOPEN).collect()
+//
 // Everything is addressed by column name - `using MachineCol = Col<const Machine*, "machine">;` -
 // never by position, and that holds for every callable the DSL takes. A predicate's
 // parameters ARE its columns: `[](ItemCol i, OrderCol o)` reads i and o wherever they sit
@@ -30,8 +33,9 @@
 // uses.
 //
 // The intermediate product is never materialized: a column can be a function of the columns
-// before it, an existing set can fill the columns it already has, and a rejected partial
-// tuple prunes every loop below it. Sources are also visited in whatever order lets the
+// before it, an existing set can fill the columns it already has - two that share a column
+// are joined on it, the second looked up rather than scanned - and a rejected partial tuple
+// prunes every loop below it. Sources are also visited in whatever order lets the
 // predicates prune earliest, which is not always the order they were declared in.
 //
 // The result is an IndexSet in generation order, which the visit order decides - the

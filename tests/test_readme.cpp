@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // The code in README.md, as written there (with a stand-in IloCplex and small data).
 // If README's code changes, change it here too.
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <memory>
@@ -160,6 +161,11 @@ int main() try {
                 machineOwners[0].get());
   const auto is_open = [](ItemCol i, PeriodCol t) { return i->demand[t.get()] > 0; };
   DREAMOR_CHECK(dreamor::makeSet<PeriodCol>(sROUTES, periods).where(is_open).collect().size() == 6);
+  const auto sOPEN = dreamor::makeSet<ItemCol, PeriodCol>(items, periods).where(is_open).collect();
+  DREAMOR_CHECK(dreamor::makeSet<>(sROUTES, sOPEN).collect().size() == 6);
+  const auto sOPEN_ITEMS = sOPEN.select<ItemCol>();
+  DREAMOR_CHECK(
+      std::ranges::equal(dreamor::makeSet<>(sROUTES, sOPEN_ITEMS).collect(), sROUTES.where(sOPEN_ITEMS.membership())));
 
   // --- Deriving sets (orderedPeriods is the one from Quick start)
   const auto is_peak       = [](ItemCol i, PeriodCol t) { return i->demand[t.get()] >= 15; };

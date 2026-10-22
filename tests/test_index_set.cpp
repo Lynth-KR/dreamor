@@ -13,6 +13,8 @@
 #include "dreamor/index_set.hpp"
 using ICol = dreamor::Col<std::size_t, "i">;
 using JCol = dreamor::Col<std::size_t, "j">;
+using KCol = dreamor::Col<std::size_t, "k">;
+using LCol = dreamor::Col<std::size_t, "l">;
 
 template <typename S>
 constexpr bool canPushBack = requires(S& s) { s.push_back(std::declval<typename S::value_type>()); };
@@ -123,6 +125,35 @@ int main() try {
   // a set spread into a new one
   const auto IJK = dreamor::makeSet<>(IJ).collect();
   DREAMOR_CHECK(std::ranges::equal(IJK, IJ));
+
+  // two sets sharing a column: the natural join on it - the rows of the product that agree
+  const std::vector<std::size_t> K{5, 6};
+  const auto JK =
+      dreamor::makeSet<JCol, KCol>(J, K).where([](JCol j, KCol k) { return (j.get() / 10) + k.get() != 8; }).collect();
+  const auto joined = dreamor::makeSet<>(IJ, JK).collect();
+  static_assert(std::is_same_v<std::ranges::range_value_t<decltype(joined)>, std::tuple<ICol, JCol, KCol>>);
+  DREAMOR_CHECK(JK.size() == 4 && joined.size() == 16);
+  DREAMOR_CHECK(std::ranges::is_permutation(joined, dreamor::makeSet<KCol>(IJ, K).where(JK.membership()).collect()));
+  DREAMOR_CHECK(std::ranges::is_permutation(joined, dreamor::makeSet<>(JK, IJ).collect().select<ICol, JCol, KCol>()));
+  DREAMOR_CHECK(dreamor::makeSet<>(IJ, JK).where(even).collect().size() == 8);
+  // a chain of three, each joined on what the one before it bound
+  const std::vector<std::size_t> L{7, 8};
+  const auto KL =
+      dreamor::makeSet<KCol, LCol>(K, L).where([](KCol k, LCol l) { return k.get() + 2 == l.get(); }).collect();
+  const auto chain = dreamor::makeSet<>(IJ, JK, KL).collect();
+  DREAMOR_CHECK(chain.size() == 16 && std::ranges::all_of(chain, [](const auto& row) {
+                  return std::get<KCol>(row).get() + 2 == std::get<LCol>(row).get();
+                }));
+  // a set inside another one's columns filters it, as where(membership()) does
+  const auto II_even = II.where(even);
+  DREAMOR_CHECK(std::ranges::equal(dreamor::makeSet<>(IJ, II_even).collect(), IJ.where(II_even.membership())));
+  DREAMOR_CHECK(std::ranges::is_permutation(dreamor::makeSet<>(II_even, IJ).collect(), IJ.where(even)));
+  // repeats carried through, no match no row
+  const auto JK_twice = dreamor::concat(JK, JK);
+  DREAMOR_CHECK(dreamor::makeSet<>(IJ, JK_twice).collect().size() == 32);
+  const auto IJ_big = IJ.where(big);
+  const auto JK_ten = JK.where([](JCol j) { return j.get() == 10; });
+  DREAMOR_CHECK(dreamor::makeSet<>(IJ_big, JK_ten).collect().size() == 0);
   return report("index_set");
 } catch (...) {
   return ::uncaught();

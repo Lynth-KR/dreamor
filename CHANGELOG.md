@@ -7,6 +7,9 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `makeSet` joins set sources that share a column, as AMPL's `{(m,i) in ROUTES, (i,t) in OPEN}` does:
+  `makeSet<>(sROUTES, sOPEN)`. The set visited second is looked up by the shared columns rather than scanned, so a
+  join costs the two sets plus the result instead of their product.
 - `S.select(expr)`, the general `setof`: each row becomes what `expr` returns, as a set. `expr` takes the columns
   it reads and returns one `Col` or a `std::tuple` of them, so a value moves into another column only where that
   column is written out: `sEDGES.select([](FromCol i, ToCol j) { return std::tuple<FromCol, ToCol>{j, i}; })`.

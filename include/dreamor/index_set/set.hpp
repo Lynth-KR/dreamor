@@ -7,11 +7,14 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <ranges>
 #include <tuple>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
+#include "dreamor/general/tuple_hash.hpp"
 #include "dreamor/index_set/binding.hpp"
 #include "dreamor/index_set/column.hpp"
 #include "dreamor/index_set/element.hpp"
@@ -58,6 +61,7 @@ class Set {
   // Non-const on purpose: views such as filter_view have no const begin(). This is a
   // one-shot factory call, not an observer.
   [[nodiscard]] IndexSet<ElemTuple> collect() {
+    indexJoins(std::make_index_sequence<kSourceCount>{});
     std::vector<ElemTuple> out;
     generate<0, std::index_sequence<>>(out);
     return internal::SetAccess::make(std::move(out));
@@ -96,24 +100,70 @@ class Set {
 
   static constexpr std::size_t kSourceCount = std::tuple_size_v<RangeTuple>;
 
-  // Where each source's columns sit in the element tuple. Declaration order, not visit
-  // order: the result tuple is always the one the caller declared.
-  static constexpr std::array<std::size_t, kSourceCount> kColumnStart = [] {
-    std::array<std::size_t, kSourceCount> starts{};
-    std::size_t next = 0;
-    [&]<std::size_t... Is>(std::index_sequence<Is...>) {
-      ((starts[Is] = next, next += internal::columnCountOf<std::tuple_element_t<Is, RangeTuple>>()), ...);
+  template <std::size_t Source>
+  static constexpr bool kIsSpread =
+      internal::sourceKindOf<std::tuple_element_t<Source, RangeTuple>>() == internal::SourceKind::kSpread;
+
+  // Where a spread source's columns sit in the element tuple, found by type - which also
+  // finds a column it shares with another spread source.
+  template <std::size_t Source>
+  static constexpr auto kSpreadPositions = [] {
+    using SourceRow = std::ranges::range_value_t<std::tuple_element_t<Source, RangeTuple>>;
+    return [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+      return std::array<std::size_t, sizeof...(Is)>{
+          internal::indexOfColumn<std::tuple_element_t<Is, SourceRow>, ElemTuple>()...};
+    }(std::make_index_sequence<std::tuple_size_v<SourceRow>>{});
+  }();
+
+  // The column each other source fills. The element tuple is built in declaration order, so
+  // the k-th of them owns the k-th column that no spread source brings.
+  static constexpr std::array<std::size_t, kSourceCount> kOwnColumn = [] {
+    std::array<bool, kArity + 1> spread{};  // + 1: an absent column resolves to kArity
+    std::array<bool, kSourceCount> is_spread{};
+    [&]<std::size_t... Ss>(std::index_sequence<Ss...>) {
+      (
+          [&] {
+            is_spread[Ss] = kIsSpread<Ss>;
+            if constexpr (kIsSpread<Ss>) {
+              for (const std::size_t at : kSpreadPositions<Ss>) {
+                spread[at] = true;
+              }
+            }
+          }(),
+          ...);
     }(std::make_index_sequence<kSourceCount>{});
-    return starts;
+
+    std::array<std::size_t, kSourceCount> own{};
+    std::size_t next = 0;
+    for (std::size_t source = 0; source < kSourceCount; ++source) {
+      if (is_spread[source]) {
+        continue;
+      }
+      while (next < kArity && spread[next]) {
+        ++next;
+      }
+      own[source] = next++;
+    }
+    return own;
+  }();
+
+  // Where each source's columns sit in the element tuple, in the source's own order.
+  // Declaration order, not visit order: the result tuple is always the one the caller
+  // declared.
+  template <std::size_t Source>
+  static constexpr auto kColumnsOf = [] {
+    if constexpr (kIsSpread<Source>) {
+      return kSpreadPositions<Source>;
+    } else {
+      return std::array<std::size_t, 1>{kOwnColumn[Source]};
+    }
   }();
 
   template <std::size_t Source>
   static constexpr std::uint64_t kProduces = [] {
-    constexpr std::size_t kCount = internal::columnCountOf<std::tuple_element_t<Source, RangeTuple>>();
-
     std::uint64_t mask = 0;
-    for (std::size_t i = 0; i < kCount; ++i) {
-      mask |= std::uint64_t{1} << (kColumnStart[Source] + i);
+    for (const std::size_t at : kColumnsOf<Source>) {
+      mask |= std::uint64_t{1} << at;
     }
     return mask;
   }();
@@ -127,7 +177,7 @@ class Set {
       using Ret = internal::ReturnTypeOf<const Src&, typename internal::ColumnsOfPredicate<Src>::type>;
       if constexpr (Ret::invocable) {
         return internal::dependentRangeYieldsPointers<typename Ret::type,
-                                                      std::tuple_element_t<kColumnStart[Source], ElemTuple>>();
+                                                      std::tuple_element_t<kColumnsOf<Source>[0], ElemTuple>>();
       } else {
         return true;  // Other asserts report a source that is not callable at all.
       }
@@ -182,6 +232,86 @@ class Set {
                 "each other. A dependent column can only read columns that some other source "
                 "produces on its own.");
 
+  // --- Joins --------------------------------------------------------------------------
+  // A spread source visited after some of its columns are bound - by a spread source that
+  // shares them - is joined on those columns: looked up in an index built once per collect()
+  // instead of scanned and compared row by row.
+
+  // The columns already bound when each source is visited.
+  static constexpr std::array<std::uint64_t, kSourceCount> kBoundBefore = [] {
+    const auto produces = []<std::size_t... Ss>(std::index_sequence<Ss...>) {
+      return std::array<std::uint64_t, kSourceCount>{kProduces<Ss>...};
+    }(std::make_index_sequence<kSourceCount>{});
+    std::array<std::uint64_t, kSourceCount> before{};
+    std::uint64_t bound = 0;
+    for (const std::size_t source : kVisitOrder) {
+      if (source >= kSourceCount) {
+        break;  // No order exists; reported above.
+      }
+      before[source] = bound;
+      bound |= produces[source];
+    }
+    return before;
+  }();
+
+  template <std::size_t Source>
+  static constexpr bool kJoins = kIsSpread<Source> && (kProduces<Source> & kBoundBefore[Source]) != 0;
+
+  // The key a joined source is looked up by: its columns bound before it, in its own order.
+  template <std::size_t Source, typename SourceRow, std::size_t... Is>
+  static auto joinKeyOf(std::index_sequence<Is...> /*unused*/) -> decltype(std::tuple_cat(
+      std::declval<std::conditional_t<((kBoundBefore[Source] >> kColumnsOf<Source>[Is]) & 1U) != 0,
+                                      std::tuple<std::tuple_element_t<Is, SourceRow>>,
+                                      std::tuple<>>>()...));
+
+  template <std::size_t Source, bool = kJoins<Source>>
+  struct JoinIndex {
+    using type = std::tuple<>;  // Scanned, not looked up.
+  };
+  template <std::size_t Source>
+  struct JoinIndex<Source, true> {
+    using SourceRow = std::ranges::range_value_t<std::tuple_element_t<Source, RangeTuple>>;
+    using Key       = decltype(joinKeyOf<Source, SourceRow>(std::make_index_sequence<std::tuple_size_v<SourceRow>>{}));
+    using type      = std::unordered_map<Key, std::vector<SourceRow>, ::dreamor::general::TupleHash>;
+  };
+
+  template <typename Seq>
+  struct JoinIndexes;
+  template <std::size_t... Ss>
+  struct JoinIndexes<std::index_sequence<Ss...>> {
+    using type = std::tuple<typename JoinIndex<Ss>::type...>;
+  };
+
+  template <std::size_t... Ss>
+  void indexJoins(std::index_sequence<Ss...> /*unused*/) {
+    (indexJoin<Ss>(), ...);
+  }
+
+  template <std::size_t Source>
+  void indexJoin() {
+    if constexpr (kJoins<Source>) {
+      using Key   = JoinIndex<Source>::Key;
+      auto& index = std::get<Source>(indexes_);
+      index.clear();
+      for (const auto& row : std::get<Source>(ranges_)) {
+        Key key = [&]<typename... Ks>(std::type_identity<std::tuple<Ks...>> /*unused*/) {
+          return Key{std::get<Ks>(row)...};
+        }(std::type_identity<Key>{});
+        index[std::move(key)].push_back(row);
+      }
+    }
+  }
+
+  // The same key, read off the values bound so far.
+  template <typename Key, typename BoundCols, typename... Bound>
+  [[nodiscard]] static Key boundKey(const Bound&... bound) {
+    const auto refs = std::tie(bound...);
+    return [&]<typename... Ks>(std::type_identity<std::tuple<Ks...>> /*unused*/) {
+      return Key{
+          std::get<internal::positionInSequence<internal::indexOfColumn<Ks, ElemTuple>(), BoundCols>()>(refs)...};
+    }(std::type_identity<Key>{});
+  }
+
   // Walks the sources in visit order, binding one column at a time. BoundCols names the
   // element-tuple column of each bound value, in the order they were bound.
   template <std::size_t Step, typename BoundCols, typename... Bound>
@@ -191,16 +321,14 @@ class Set {
       emit<BoundCols>(out, std::tie(bound...), std::make_index_sequence<kArity>{});
     } else {
       constexpr std::size_t kSource        = kVisitOrder[Step];
-      constexpr std::size_t kCol           = kColumnStart[kSource];
       using Source                         = std::tuple_element_t<kSource, RangeTuple>;
       constexpr internal::SourceKind kKind = internal::sourceKindOf<Source>();
-      const auto& source                   = std::get<kSource>(ranges_);
 
       if constexpr (kKind == internal::SourceKind::kSpread) {
-        for (const auto& tuple : source) {
-          spread<Step, kCol, 0, BoundCols>(out, tuple, bound...);
-        }
+        visitSpread<Step, kSource, BoundCols>(out, bound...);
       } else {
+        constexpr std::size_t kCol = kColumnsOf<kSource>[0];
+        const auto& source         = std::get<kSource>(ranges_);
         // `auto&&` keeps a returned-by-value range alive for the loop.
         auto&& range = [&]() -> decltype(auto) {
           if constexpr (kKind == internal::SourceKind::kDependent) {
@@ -228,19 +356,44 @@ class Set {
     }
   }
 
+  // A joined source walks only the rows that match what is bound; any other spread source
+  // walks all of its rows.
+  template <std::size_t Step, std::size_t Source, typename BoundCols, typename... Bound>
+  void visitSpread(std::vector<ElemTuple>& out, const Bound&... bound) {
+    if constexpr (kJoins<Source>) {
+      const auto& index = std::get<Source>(indexes_);
+      const auto match  = index.find(boundKey<typename JoinIndex<Source>::Key, BoundCols>(bound...));
+      if (match == index.end()) {
+        return;
+      }
+      for (const auto& tuple : match->second) {
+        spread<Step, Source, 0, BoundCols>(out, tuple, bound...);
+      }
+    } else {
+      for (const auto& tuple : std::get<Source>(ranges_)) {
+        spread<Step, Source, 0, BoundCols>(out, tuple, bound...);
+      }
+    }
+  }
+
   // Unpacks one tuple of a spread source column by column, so predicates still see every
-  // intermediate partial tuple.
-  template <std::size_t Step, std::size_t Col, std::size_t I, typename BoundCols, typename Tup, typename... Bound>
+  // intermediate partial tuple. A column bound already is one the join index matched.
+  template <std::size_t Step, std::size_t Source, std::size_t I, typename BoundCols, typename Tup, typename... Bound>
   void spread(std::vector<ElemTuple>& out, const Tup& tuple, const Bound&... bound) {
     if constexpr (I == std::tuple_size_v<Tup>) {
       generate<Step + 1, BoundCols>(out, bound...);
     } else {
-      using Next        = internal::AppendColumn<BoundCols, Col + I>::type;
-      const auto& value = std::get<I>(tuple);
-      if (!passes<Col + I, Next>(bound..., value)) {
-        return;
+      constexpr std::size_t kCol = kColumnsOf<Source>[I];
+      if constexpr (((internal::maskOfSequence<BoundCols>() >> kCol) & 1U) != 0) {
+        spread<Step, Source, I + 1, BoundCols>(out, tuple, bound...);
+      } else {
+        using Next        = internal::AppendColumn<BoundCols, kCol>::type;
+        const auto& value = std::get<I>(tuple);
+        if (!passes<kCol, Next>(bound..., value)) {
+          return;
+        }
+        spread<Step, Source, I + 1, Next>(out, tuple, bound..., value);
       }
-      spread<Step, Col, I + 1, Next>(out, tuple, bound..., value);
     }
   }
 
@@ -253,6 +406,7 @@ class Set {
 
   RangeTuple ranges_;
   PredTuple preds_;
+  JoinIndexes<std::make_index_sequence<kSourceCount>>::type indexes_;
 };
 
 // Each argument is a source of columns; each explicit type names one NEW column:
@@ -260,6 +414,10 @@ class Set {
 //     {m in MACHINES, i in ITEMS}          makeSet<MachineCol, ItemCol>(machines, items)
 //     {m in MACHINES, i in ITEMS[m]}       makeSet<MachineCol, ItemCol>(machines, items_of)
 //     {(m,i) in ASSIGN, o in ORDERS}       makeSet<OrderCol>(sASSIGN, orders)
+//     {(m,i) in ROUTES, (i,t) in OPEN}     makeSet<>(sROUTES, sOPEN)
+//
+// Two sets that share a column are joined on it, as in AMPL: the one visited second is
+// looked up by the shared columns rather than scanned.
 //
 // Containers, not lazy views: generation is a nested loop, so every source after the first
 // is visited once per binding and a filtered view would re-run its predicate each time.
@@ -280,8 +438,8 @@ template <typename... Columns, typename... Sources>
                  ...),
                 "A dependent column cannot be a bare function name or a std::function: either is an "
                 "indirect call per binding. Pass a lambda or a function object.");
-  using ElemTuple =
-      internal::BuildElem<std::tuple<>, std::tuple<Columns...>, std::remove_reference_t<Sources>...>::type;
+  using ElemTuple = internal::
+      BuildElem<std::tuple<>, std::tuple<>, std::tuple<Columns...>, std::remove_reference_t<Sources>...>::type;
   static_assert(std::tuple_size_v<ElemTuple> <= internal::kMaxColumns,
                 "Congratulations on a set of more than 64 dimensions - dreamor stops at 64, and even 16 is a lot: "
                 "split it into sets that share key columns, or put a hand on your heart and ask whether the model "
@@ -297,7 +455,8 @@ template <typename... Columns, typename... Sources>
   static_assert(internal::allColumnsDistinct<ElemTuple>(std::make_index_sequence<std::tuple_size_v<ElemTuple>>{}),
                 "The same column type appears twice, so a type no longer identifies one "
                 "column. Give each its own: `using FromCol = Col<const Node*, \"from\">;` "
-                "and `using ToCol = Col<const Node*, \"to\">;`.");
+                "and `using ToCol = Col<const Node*, \"to\">;`. Only two set sources may share "
+                "a column - that joins them on it; a column named in makeSet<...> is always new.");
   static_assert(internal::allColumnNamesDistinct<ElemTuple>(std::make_index_sequence<std::tuple_size_v<ElemTuple>>{}),
                 "Two columns share a name. Names have to be unique even when the value "
                 "types differ, because kName is what identifies a column outside the type "

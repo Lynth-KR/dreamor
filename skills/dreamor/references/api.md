@@ -37,7 +37,7 @@ dreamor::makeSet<Cols...>(sources...)   // one source per column; a set source c
 |---|---|---|
 | Container (lvalue) | `machines` | Every value; elements may be pointers, entities, or smart pointers — all give a pointer column |
 | Dependent source | `[](MachineCol m) { return m->items; }` | Values depending on earlier columns; must return a range of pointers |
-| Existing set | `makeSet<PeriodCol>(sROUTES, periods)` | Fills that set's columns at once |
+| Existing set | `makeSet<PeriodCol>(sROUTES, periods)` | Fills that set's columns at once. Set sources sharing a column are joined on it (`makeSet<>(sROUTES, sOPEN)`): the later one is looked up, not scanned. A column named in `makeSet<...>` is always new |
 
 Row order is generation order; which column varies fastest is unspecified. Use `orderBy` when order matters.
 A set has at most 64 columns, spread sources included; 65 stops at compile time.

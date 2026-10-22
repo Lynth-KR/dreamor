@@ -87,8 +87,11 @@ dreamor](examples/mathopt_samples/README.md), each next to the original.
   constructor is the only place variables are created.
 - **Clarity is not traded for performance.** Performance work is done only where it adds no concept to the user
   API (internal hashing, set sharing, and so on).
-- **One way to do one thing.** There is no second syntax for the same job (pipe operators, free-function aliases,
-  and so on).
+- **One tool for each job.** Each tool has one job, and no two tools share one - which is also why there is no
+  second syntax for the same thing (pipe operators, free-function aliases, and so on). Combining tools is never
+  restricted, though. When tools are orthogonal, different combinations reaching the same result is natural, and
+  either way is right: `makeSet<>(sORDER_ITEMS, sPROMO)` and `sORDER_ITEMS.where(sPROMO.membership())` give the
+  same rows.
 
 ## Naming
 
@@ -291,11 +294,16 @@ Each column of `makeSet<A, B, C>` corresponds to one source. There are three kin
 |---|---|---|
 | Container | `machines` | Every value of that column. The elements may be pointers (`std::vector<const Machine*>`), the entities themselves (`std::vector<Machine>`), or smart pointers (`std::vector<std::unique_ptr<Machine>>`); any of them yields a pointer column |
 | Dependent source | `[](MachineCol m) { return m->items; }` | Values that depend on columns already fixed earlier |
-| Existing set | `makeSet<PeriodCol>(sROUTES, periods)` | Fills all of that set's columns at once |
+| Existing set | `makeSet<PeriodCol>(sROUTES, periods)` | Fills all of that set's columns at once. Two sets that share a column are joined on it |
 
 - **AMPL correspondence**
   - `{m in MACHINES, i in ITEMS[m]}` → `makeSet<MachineCol, ItemCol>(machines, items_of).collect()`
   - `{(m,i) in ROUTES, t in PERIODS: open[i,t]}` → `makeSet<PeriodCol>(sROUTES, periods).where(is_open).collect()`
+  - `{(m,i) in ROUTES, (i,t) in OPEN}` → `makeSet<>(sROUTES, sOPEN).collect()`
+- **Set sources that share a column are joined on it** (a natural join). The one visited second is looked up by the
+  shared columns instead of scanned, so the product is never built: the cost is the two sets plus the result. A set
+  whose columns all lie in another one filters it, with the same rows as `sROUTES.where(sOPEN.membership())`. A
+  column named in `makeSet<...>` is always new; repeating a set source's column there is a compile error.
 - **A set has at most 64 columns**, the columns of a set source included: while the visit order is planned, a
   set's columns are bits of one 64-bit mask. A 65th stops at compile time on dreamor's own message.
 - **A predicate takes only the columns it reads.** `[](ItemCol i, PeriodCol t)` is evaluated as soon as i and t are
@@ -686,16 +694,16 @@ and with GCC 16 and Clang 23, and goes as far as installing the CMake package an
 
 **Compile cost of wide sets.** One translation unit that builds a set of N columns, filters it, groups it, puts a
 `VarTable` on it and sums over it (`-std=c++20 -O2 -c`, CPU time and peak memory; AMD Ryzen 7 5700X, WSL2 Ubuntu
-24.04, 2026-10-21). `tests/test_arity.cpp` runs 63 and 64 columns on every test run, so a blow-up would show there;
+24.04, 2026-10-22). `tests/test_arity.cpp` runs 63 and 64 columns on every test run, so a blow-up would show there;
 `python3 tools/measure_compile_cost.py [compiler ...]` re-measures the table.
 
 | Columns | g++ 13.3 | clang++ 18.1 | clang++ 23.1 |
 |---|---|---|---|
-| 4 | 2.8 s, 289 MB | 2.6 s, 208 MB | 2.7 s, 230 MB |
-| 16 | 3.2 s, 327 MB | 3.1 s, 234 MB | 3.1 s, 253 MB |
-| 32 | 3.8 s, 356 MB | 4.1 s, 282 MB | 4.0 s, 300 MB |
-| 63 | 5.9 s, 469 MB | 8.4 s, 442 MB | 7.4 s, 454 MB |
-| 64 | 5.8 s, 475 MB | 7.7 s, 449 MB | 7.3 s, 461 MB |
+| 4 | 2.8 s, 293 MB | 2.7 s, 211 MB | 2.7 s, 232 MB |
+| 16 | 3.3 s, 327 MB | 3.2 s, 238 MB | 3.2 s, 258 MB |
+| 32 | 3.9 s, 366 MB | 4.2 s, 290 MB | 4.1 s, 310 MB |
+| 63 | 6.0 s, 500 MB | 7.7 s, 457 MB | 7.4 s, 468 MB |
+| 64 | 6.0 s, 506 MB | 7.9 s, 465 MB | 7.6 s, 475 MB |
 
 OR-Tools needs no installation: unpack the release's C++ prebuilt anywhere and point to that folder (no CMake needed).
 
