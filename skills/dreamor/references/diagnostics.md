@@ -16,10 +16,13 @@ left column. Each message is pinned by a `// expect:` line in `tests/compile_fai
 | `Name an element of the ordered set` | `orderedT.prev(1)` | `orderedT.prev(PeriodCol{1})` | `ordered_prev_raw_value` |
 | `Ask membership` | `in_ij(1, 2)` | Pass columns or a row | `membership_raw_values` |
 | `Take the columns themselves` | A callable takes `int` / `const T*` instead of the column type | Make the parameter the column type | `where_takes_columns`, `bound_takes_columns`, `sumof_term_takes_values` |
-| `Cannot read this callable's parameter list` | A generic lambda as a sum term or a bound | Column-typed parameters | `sumof_term_is_generic`, `bound_is_not_generic` |
+| `Cannot read this callable's parameter list` | A generic lambda as a sum term, a bound, or a `select(expr)` | Column-typed parameters | `sumof_term_is_generic`, `bound_is_not_generic`, `select_is_not_generic` |
 | `Cannot read this predicate's parameter list` | A generic lambda as a predicate | Column-typed parameters, or specialize `dreamor::PredicateColumns` | `where_is_not_generic` |
 | `names a column these rows do not have` | A term or bound reads a column absent from the rows | Read only existing columns, or derive a set that has them | `sumof_term_reads_missing_column`, `vartable_bound_reads_missing_column` |
 | `names a column this set does not have` | A `where` predicate reads a column absent from the set | Same | `where_reads_missing_column` |
+| `select(expr) returns the new row's columns` | `expr` returns bare values (`std::tuple{j.get(), i.get()}`), or an empty tuple | Return one `Col` or a `std::tuple` of them: `std::tuple<FromCol, ToCol>{j, i}` | `select_returns_values` |
+| `select(expr) returns the same column twice` | `std::tuple<ICol, ICol>{...}` | Give each column of the new row its own type | `select_returns_column_twice` |
+| `select(expr) returns two columns with the same name` | Two returned columns of different value types share a name | Rename one column type | `select_returns_same_name` |
 | `No column of this set has that name` | `groupBy<KCol>()` / `select<KCol>()` with a foreign column | Use the set's columns | `groupby_missing_column`, `select_missing_column` |
 | `A VarTable is built on a set with exactly its key columns` | The table's keys differ from the set's columns or their order | Match the table to the set, or `select<...>()` to reorder | `vartable_key_order_differs_from_set` |
 | `is not an expression yet` | `sumOf(...)` without `.build()` in a comparison, `+=`, or `-` | Add `.build()` | `sumof_without_build`, `sumof_without_build_plus_assign`, `sumof_without_build_reversed`, `mathopt/sumof_without_build` |

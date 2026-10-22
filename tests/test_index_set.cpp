@@ -6,6 +6,7 @@
 #include <ranges>
 #include <stdexcept>
 #include <tuple>
+#include <type_traits>
 #include <vector>
 
 #include "check.hpp"
@@ -51,6 +52,16 @@ int main() try {
   const auto JI = IJ.select<JCol, ICol>();
   static_assert(std::is_same_v<std::ranges::range_value_t<decltype(JI)>, std::tuple<JCol, ICol>>);
   DREAMOR_CHECK(JI.size() == 12 && std::get<JCol>(*JI.begin()).get() == 10 && std::get<ICol>(*JI.begin()).get() == 3);
+
+  // select(expr): each row as expr makes it, as a set; a value changes column only where the
+  // new column is written out
+  static_assert(!std::is_convertible_v<JCol, ICol>);
+  const auto swapped = IJ.select([](ICol i, JCol j) { return std::tuple<ICol, JCol>{j, i}; });
+  static_assert(std::is_same_v<std::ranges::range_value_t<decltype(swapped)>, std::tuple<ICol, JCol>>);
+  DREAMOR_CHECK(swapped.size() == 12 && std::get<ICol>(*swapped.begin()).get() == 10 &&
+                std::get<JCol>(*swapped.begin()).get() == 3);
+  DREAMOR_CHECK(std::ranges::equal(IJ.select([](JCol j) { return j; }), IJ.select<JCol>()));
+  DREAMOR_CHECK(IJ.select([](ICol i) { return ICol{i.get() % 2}; }).size() == 2);
 
   // groupBy: groups in first-appearance order, rows in set order, random-access slices
   const auto byI = IJ.groupBy<ICol>();

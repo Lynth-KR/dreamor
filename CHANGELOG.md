@@ -3,6 +3,14 @@
 All notable changes to dreamor. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- `S.select(expr)`, the general `setof`: each row becomes what `expr` returns, as a set. `expr` takes the columns
+  it reads and returns one `Col` or a `std::tuple` of them, so a value moves into another column only where that
+  column is written out: `sEDGES.select([](FromCol i, ToCol j) { return std::tuple<FromCol, ToCol>{j, i}; })`.
+
 ## [0.1.1] - 2026-10-22
 
 ### Fixed

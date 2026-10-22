@@ -24,6 +24,8 @@
 #include <vector>
 
 #include "dreamor/general/tuple_hash.hpp"
+#include "dreamor/index_set/binding.hpp"
+#include "dreamor/index_set/call.hpp"
 #include "dreamor/index_set/column.hpp"
 #include "dreamor/index_set/indexed.hpp"
 #include "dreamor/index_set/key_args.hpp"
@@ -89,6 +91,80 @@ IndexSet<std::tuple<Columns...>> IndexSet<Tup>::select() const {
   static_assert(sizeof...(Columns) > 0, "select() needs at least one column.");
   internal::checkColumns<Tup, Columns...>();
   return internal::SetAccess::make(internal::firstOccurrences(internal::pickColumns<Columns...>(*this)));
+}
+
+namespace internal {
+
+// A Col, or a non-empty tuple of Cols.
+template <typename Result>
+[[nodiscard]] consteval bool isSelectedRow() {
+  if constexpr (is_column<Result>) {
+    return true;
+  } else if constexpr (isIndexSetRow<Result>()) {
+    return std::tuple_size_v<Result> > 0;
+  } else {
+    return false;
+  }
+}
+
+// The row select(expr) builds: what expr returns, a lone column standing for a row of one.
+// Probed only once the callable itself is readable, so checkColumnCallable stays the only
+// diagnostic for a callable that is not.
+template <typename Expr,
+          typename Tup,
+          bool = ColumnsOfPredicate<Expr>::known && PlacementOf<Expr, Tup>::all_named &&
+                 PlacementOf<Expr, Tup>::all_present>
+struct SelectedRow {
+  static constexpr bool known  = false;
+  static constexpr bool is_row = true;
+  using type                   = std::tuple<>;
+};
+template <typename Expr, typename Tup>
+struct SelectedRow<Expr, Tup, true> {
+  using Result = std::remove_cvref_t<decltype(callColumnsOf(std::declval<const Expr&>(), std::declval<const Tup&>()))>;
+
+  static constexpr bool known  = true;
+  static constexpr bool is_row = isSelectedRow<Result>();
+  using type                   = std::conditional_t<is_column<Result>, std::tuple<Result>, Result>;
+};
+
+}  // namespace internal
+
+// The general setof: each row becomes what expr returns - AMPL's setof {(i,j) in EDGES} (j,i).
+// expr takes the columns it reads, as a predicate does, and returns the new row's columns:
+//
+//     sEDGES.select([](FromCol i, ToCol j) { return std::tuple<FromCol, ToCol>{j, i}; })   // reversed edges
+//     sNODES.select([](NodeCol n) { return FromCol{n}; })                                  // a row of one
+//
+// A value moves into another column only where that column is written out: ToCol does not
+// convert to FromCol on its own, so two columns over one value type cannot trade places
+// unnoticed. As a set, like select<Cols...>(): first occurrence of each row.
+template <typename Tup>
+template <typename Expr>
+auto IndexSet<Tup>::select(Expr expr) const {
+  internal::checkColumnCallable<Expr, Tup>();
+  using Selected = internal::SelectedRow<Expr, Tup>;
+  using NewRow   = Selected::type;
+  static_assert(Selected::is_row,
+                "select(expr) returns the new row's columns: one Col, or a std::tuple of them - "
+                "`return std::tuple<FromCol, ToCol>{j, i};`. A bare value does not say which column it fills.");
+  static_assert(
+      !Selected::is_row || internal::allColumnsDistinct<NewRow>(std::make_index_sequence<std::tuple_size_v<NewRow>>{}),
+      "select(expr) returns the same column twice. Each column of the new row needs its own type.");
+  static_assert(!Selected::is_row ||
+                    internal::allColumnNamesDistinct<NewRow>(std::make_index_sequence<std::tuple_size_v<NewRow>>{}),
+                "select(expr) returns two columns with the same name. Names have to be unique even when the value "
+                "types differ, because kName is what names a variable in the model.");
+  if constexpr (Selected::known && Selected::is_row) {
+    std::vector<NewRow> out;
+    out.reserve(size());
+    for (const auto& row : *this) {
+      out.emplace_back(internal::callColumnsOf(expr, row));
+    }
+    return internal::SetAccess::make(internal::firstOccurrences(out));
+  } else {
+    return IndexSet<NewRow>{};
+  }
 }
 
 // A ∪ B

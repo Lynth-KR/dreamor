@@ -97,6 +97,7 @@ These are enforced by the compiler or needed for a correct model.
 | `set PRODUCE := {(m,i) in ROUTES, t in PERIODS};` | `const auto sPRODUCE = dreamor::makeSet<PeriodCol>(sROUTES, periods).collect();` |
 | `{...: open[i,t]}` | `.where(is_open)` with `[](ItemCol i, PeriodCol t) { ... }` |
 | `setof {(m,i,t) in S} (m,i)` | `S.select<MachineCol, ItemCol>()` |
+| `setof {(i,j) in EDGES} (j,i)` | `sEDGES.select([](FromCol i, ToCol j) { return std::tuple<FromCol, ToCol>{j, i}; })` |
 | `(m,i) in ROUTES` | `sROUTES.membership()`, called as `in_routes(m, i)` or passed to `where` |
 | `prev(t)`, `next(t, 2)`, `ord(t)` on an ordered set | `const auto orderedPeriods = sPERIODS.ordered();` then `.prev(t)` (row pointer or `nullptr`), `.next(t, 2)`, `.ord(t)` (0-based optional) |
 | `var Yield {PRODUCE} >= 0, <= cap[m]/time[i];` | `const dreamor::concert::VarTable<MachineCol, ItemCol, PeriodCol> vYield{env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};` |

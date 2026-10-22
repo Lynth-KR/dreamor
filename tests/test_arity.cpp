@@ -343,6 +343,7 @@ static void check() {
                     .size() == 2);
   DREAMOR_CHECK(s.where(same).size() == 2);
   DREAMOR_CHECK((s.select<C0, C62>().size() == 4) && (s.select<C1>().size() == 1));
+  DREAMOR_CHECK(s.select([](C0 a, C62 b) { return std::tuple<C0, C62>{b, a}; }).size() == 4);
   const auto byFirst = s.groupBy<C0>();
   DREAMOR_CHECK(byFirst.size() == 2 && byFirst.slice(C0{1}).size() == 2);
   const auto inS = s.membership();
@@ -1010,6 +1011,7 @@ static void check() {
                     .size() == 2);
   DREAMOR_CHECK(s.where(same).size() == 2);
   DREAMOR_CHECK((s.select<C0, C63>().size() == 4) && (s.select<C1>().size() == 1));
+  DREAMOR_CHECK(s.select([](C0 a, C63 b) { return std::tuple<C0, C63>{b, a}; }).size() == 4);
   const auto byFirst = s.groupBy<C0>();
   DREAMOR_CHECK(byFirst.size() == 2 && byFirst.slice(C0{1}).size() == 2);
   const auto inS = s.membership();

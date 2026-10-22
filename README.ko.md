@@ -308,6 +308,7 @@ const auto sNAME = dreamor::makeSet<열...>(소스...).where(술어).where(술�
 |---|---|---|
 | `S.where(p, q)` | 술어를 모두 통과한 행 | `{(m,i) in S: p and q}` |
 | `S.select<A, B>()` | 열 투영(중복 제거). 모든 열을 다른 순서로 고르면 열 순서 바꾸기 | `setof {(m,i,t) in S} (m,i)` |
+| `S.select(expr)` | 행마다 `expr`이 만든 행(중복 제거) | `setof {(i,j) in S} (j,i)` |
 | `S.orderBy(key)` | `key(row)`로 안정 정렬 | |
 | `S.distinct()` | 첫 등장만 남김 | |
 | `S.groupBy<A>()` | 묶기 (다음 절) | 슬라이스 |
@@ -336,6 +337,16 @@ if (const auto* prevPeriod = orderedPeriods.prev(t)) { /* 직전 기간 */ }
 
 `membership()`이 돌려주는 `Membership`은 술어 객체라서 직접 불러도 됩니다. 열을 따로
 (`in_routes(MachineCol{m}, ItemCol{i})`) 넘기거나 행 튜플 하나(`in_routes(row)`)를 넘깁니다.
+
+`select(expr)`는 일반형 `setof`입니다. `expr`은 술어처럼 자기가 읽는 열을 받고, 새 행의 열을 돌려줍니다.
+`Col` 하나 또는 그 `std::tuple`입니다. 값은 그 열을 적은 곳에서만 다른 열로 옮겨 갑니다. `ToCol`은 저절로
+`FromCol`이 되지 않으므로, 값 타입이 같은 두 열이 모르는 새 자리를 바꾸는 일은 없습니다.
+
+```cpp
+// 모든 (i,j)에 대해 (j,i)
+const auto sREVERSED = sEDGES.select([](FromCol i, ToCol j) { return std::tuple<FromCol, ToCol>{j, i}; });
+const auto sTAILS    = sNODES.select([](NodeCol n) { return FromCol{n}; });  // 노드를 호의 출발점으로
+```
 
 `orderBy`의 key는 행 전체를 받으므로 이 라이브러리에서 유일하게 제네릭 람다(`[](const auto& row)`)를
 쓸 수 있는 자리입니다.
@@ -550,7 +561,7 @@ MathOpt에는 이 절이 해당하지 않습니다. `math_opt::Model`과 `Linear
 |---|---|
 | `IndexSet<std::tuple<Cols...>>`, 별칭 `SetOf<Cols...>` | 읽기 전용 집합. 기본 생성(빈 집합), 복사 O(1) |
 | `begin()`, `end()`, `size()` | random access 순회 |
-| `where(p...)`, `orderBy(key)`, `distinct()`, `select<Cols...>()` | 파생 → `IndexSet` |
+| `where(p...)`, `orderBy(key)`, `distinct()`, `select<Cols...>()`, `select(expr)` | 파생 → `IndexSet` |
 | `groupBy<Cols...>()` | → `Grouped` |
 | `membership()` | → `Membership` |
 | `ordered()` | → `Ordered` |

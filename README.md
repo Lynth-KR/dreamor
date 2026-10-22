@@ -316,6 +316,7 @@ O(1) and shares the rows.
 |---|---|---|
 | `S.where(p, q)` | Rows that pass every predicate | `{(m,i) in S: p and q}` |
 | `S.select<A, B>()` | Column projection (duplicates removed). Picking every column in a different order reorders the columns | `setof {(m,i,t) in S} (m,i)` |
+| `S.select(expr)` | Each row as `expr` makes it (duplicates removed) | `setof {(i,j) in S} (j,i)` |
 | `S.orderBy(key)` | Stable sort by `key(row)` | |
 | `S.distinct()` | Keeps first occurrences only | |
 | `S.groupBy<A>()` | Grouping (next section) | slices |
@@ -345,6 +346,17 @@ pointer to the row, or `nullptr` past the boundary or for an element not in the 
 
 The `Membership` returned by `membership()` is a predicate object, so you may also call it directly, passing the
 columns separately (`in_routes(MachineCol{m}, ItemCol{i})`) or a single row tuple (`in_routes(row)`).
+
+`select(expr)` is the general `setof`. `expr` takes the columns it reads, as a predicate does, and returns the new
+row's columns: one `Col`, or a `std::tuple` of them. A value moves into another column only where that column is
+written out. `ToCol` does not turn into `FromCol` on its own, so two columns of the same value type cannot trade
+places unnoticed.
+
+```cpp
+// (j,i) for every (i,j)
+const auto sREVERSED = sEDGES.select([](FromCol i, ToCol j) { return std::tuple<FromCol, ToCol>{j, i}; });
+const auto sTAILS    = sNODES.select([](NodeCol n) { return FromCol{n}; });  // the nodes as arc tails
+```
 
 The key of `orderBy` takes the whole row, so it is the only place in this library where a generic lambda
 (`[](const auto& row)`) is allowed.
@@ -574,7 +586,7 @@ that points at its model, so use it only while the model is alive.
 |---|---|
 | `IndexSet<std::tuple<Cols...>>`, alias `SetOf<Cols...>` | Read-only set. Default construction (empty set), O(1) copy |
 | `begin()`, `end()`, `size()` | Random-access iteration |
-| `where(p...)`, `orderBy(key)`, `distinct()`, `select<Cols...>()` | Derivation → `IndexSet` |
+| `where(p...)`, `orderBy(key)`, `distinct()`, `select<Cols...>()`, `select(expr)` | Derivation → `IndexSet` |
 | `groupBy<Cols...>()` | → `Grouped` |
 | `membership()` | → `Membership` |
 | `ordered()` | → `Ordered` |

@@ -52,6 +52,7 @@ random-access, default-constructible (empty), O(1) copy sharing rows.
 | `begin()`, `end()`, `size()` | iteration | |
 | `where(p...)` | `IndexSet` of rows passing all predicates | `{(m,i) in S: p and q}` |
 | `select<Cols...>()` | `IndexSet`, projection, duplicates removed; all columns in another order = reorder | `setof {...} (m,i)` |
+| `select(expr)` | `IndexSet` of what `expr` returns per row (one `Col` or a `std::tuple` of them), duplicates removed. `expr` takes the columns it reads; a value changes column only where the new column is written: `std::tuple<FromCol, ToCol>{j, i}` | `setof {(i,j) in S} (j,i)` |
 | `orderBy(key)` | `IndexSet`, stable sort by `key(row)`; the only place a generic lambda is allowed | |
 | `distinct()` | `IndexSet`, first occurrences | |
 | `groupBy<Cols...>()` | `Grouped` | slices |

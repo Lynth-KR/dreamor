@@ -56,6 +56,8 @@ def arity_block(n: int) -> str:
         "  DREAMOR_CHECK(s.where(same).size() == 2);",
         # select() keeps distinct rows: the two {0, 1} columns give four, a single-valued one gives one.
         f"  DREAMOR_CHECK((s.select<C0, C{n - 1}>().size() == 4) && (s.select<C1>().size() == 1));",
+        # select(expr) trading the first and the last column's values.
+        f"  DREAMOR_CHECK(s.select([](C0 a, C{n - 1} b) {{ return std::tuple<C0, C{n - 1}>{{b, a}}; }}).size() == 4);",
         # groupBy() / slice() on the first column.
         "  const auto byFirst = s.groupBy<C0>();",
         "  DREAMOR_CHECK(byFirst.size() == 2 && byFirst.slice(C0{1}).size() == 2);",

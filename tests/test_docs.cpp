@@ -3,6 +3,7 @@
 // changes, change it here too.
 #include <cstdint>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include "check.hpp"
@@ -42,6 +43,7 @@ inline const std::string& keyName(const Order* o) {
 
 using FromCol    = Col<const Node*, "from">;
 using ToCol      = Col<const Node*, "to">;
+using NodeCol    = Col<const Node*, "node">;
 using MachineCol = Col<const Machine*, "machine">;
 using ItemCol    = Col<const Item*, "item">;
 using OrderCol   = Col<const Order*, "order">;
@@ -89,6 +91,13 @@ int main() try {
   const auto sITEMS   = makeSet<ItemCol>(items).collect();
   const auto sBY_NAME = sITEMS.orderBy([](const auto& row) { return std::get<ItemCol>(row)->name; });
   DREAMOR_CHECK(std::get<ItemCol>(*sBY_NAME.begin())->name == "I1");
+  const auto sEDGES =
+      makeSet<FromCol, ToCol>(Nodes, Nodes).where([](FromCol i, ToCol j) { return i->id < j->id; }).collect();
+  const auto sREVERSED = sEDGES.select([](FromCol i, ToCol j) { return std::tuple<FromCol, ToCol>{j, i}; });
+  const auto sNODES    = makeSet<NodeCol>(Nodes).collect();
+  const auto sFROM     = sNODES.select([](NodeCol n) { return FromCol{n}; });
+  DREAMOR_CHECK(sREVERSED.size() == 3 && std::get<FromCol>(*sREVERSED.begin())->id == 2 &&
+                unite(sEDGES, sREVERSED).size() == 6 && sFROM.size() == 3);
 
   // concert.hpp (VarTable)
   const auto sARCS = makeSet<FromCol, ToCol>(Nodes, Nodes).where(reachable).collect();

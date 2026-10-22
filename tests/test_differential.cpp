@@ -152,6 +152,15 @@ void checkCase(std::mt19937& g, IloEnv env) {
     selected.emplace_back(std::get<ACol>(row).get(), std::get<CCol>(row).get());
   DREAMOR_CHECK(selected == firstOccurrences(ac));
 
+  // select(expr): each row as the expression makes it - here a and c trading columns.
+  std::vector<std::pair<std::size_t, std::size_t>> ca;
+  ca.reserve(ac.size());
+  for (const auto& [a, c] : ac) ca.emplace_back(c, a);
+  std::vector<std::pair<std::size_t, std::size_t>> traded;
+  for (const auto& row : S.select([](ACol a, CCol c) { return std::tuple<ACol, CCol>{c, a}; }))
+    traded.emplace_back(std::get<ACol>(row).get(), std::get<CCol>(row).get());
+  DREAMOR_CHECK(traded == firstOccurrences(ca));
+
   // The algebra, in order.
   std::vector<Row> both = s;
   both.insert(both.end(), t.begin(), t.end());

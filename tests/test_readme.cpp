@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <vector>
 
@@ -32,11 +33,17 @@ inline const std::string& keyName(const Item* i) {
 inline const std::string& keyName(const Machine* m) {
   return m->name;
 }
+struct Node {
+  std::size_t id;
+};
 }  // namespace
 
 using MachineCol = dreamor::Col<const Machine*, "machine">;
 using ItemCol    = dreamor::Col<const Item*, "item">;
 using PeriodCol  = dreamor::Col<std::size_t, "period">;
+using NodeCol    = dreamor::Col<const Node*, "node">;
+using FromCol    = dreamor::Col<const Node*, "from">;
+using ToCol      = dreamor::Col<const Node*, "to">;
 
 // README Rules, 9
 namespace {
@@ -170,6 +177,18 @@ int main() try {
                   wrapped != nullptr && std::get<PeriodCol>(*wrapped).get() == 0);
     DREAMOR_CHECK(orderedPeriods.ord(PeriodCol{2}) == 2 && orderedPeriods.next(PeriodCol{0}, 2) != nullptr &&
                   orderedPeriods.next(PeriodCol{0}, 3) == nullptr && orderedPeriods.members().size() == 3);
+  }
+  {  // select(expr), over a graph of its own
+    const std::vector<Node> nodes{{0}, {1}, {2}};
+    const auto sNODES = dreamor::makeSet<NodeCol>(nodes).collect();
+    const auto sEDGES = dreamor::makeSet<FromCol, ToCol>(nodes, nodes)
+                            .where([](FromCol i, ToCol j) { return i->id + 1 == j->id; })
+                            .collect();
+    // (j,i) for every (i,j)
+    const auto sREVERSED = sEDGES.select([](FromCol i, ToCol j) { return std::tuple<FromCol, ToCol>{j, i}; });
+    const auto sTAILS    = sNODES.select([](NodeCol n) { return FromCol{n}; });  // the nodes as arc tails
+    DREAMOR_CHECK(sREVERSED.size() == 2 && std::get<FromCol>(*sREVERSED.begin())->id == 1 &&
+                  std::get<ToCol>(*sREVERSED.begin())->id == 0 && sTAILS.size() == 3);
   }
 
   // --- Grouping

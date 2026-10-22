@@ -16,6 +16,7 @@
 //     S.orderBy(key)             stable reorder by key
 //     S.distinct()               first occurrence of each row
 //     S.select<MachineCol, ...>()   projection (or column reorder), as a set
+//     S.select(expr)             each row as expr makes it, as a set   setof {(i,j) in S} (j,i)
 //     S.groupBy<OrderCol>()       Grouped: walk groups, slice by key
 //     S.membership()             O(1) membership predicate over S's columns
 //     S.ordered()                ord / next / prev
@@ -93,6 +94,8 @@ class IndexSet : public std::ranges::view_base {
   [[nodiscard]] IndexSet distinct() const;
   template <typename... Columns>
   [[nodiscard]] IndexSet<std::tuple<Columns...>> select() const;
+  template <typename Expr>
+  [[nodiscard]] auto select(Expr expr) const;
   template <typename... Columns>
   [[nodiscard]] Grouped<Tup, Columns...> groupBy() const;
   [[nodiscard]] Membership<Tup> membership() const;
