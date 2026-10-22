@@ -208,16 +208,22 @@ class Grouped {
       throw std::length_error("groupBy: more than 2^32 - 2 rows.");
     }
     std::vector<std::uint32_t> group_of(rows.size());
+    std::size_t previous = kNoGroup;  // The previous row's group.
     for (std::size_t i = 0; i < rows.size(); ++i) {
-      const Key key     = keyOf(rows[i]);
-      std::size_t group = index_.insert(key, keys_.size(), keysAt());
-      if (group == kNoGroup) {
-        group = keys_.size();
-        keys_.push_back(key);
-        offsets_.push_back(0);  // Holds this group's COUNT until the prefix sum below.
+      const Key key = keyOf(rows[i]);
+      // A set comes in runs of one key whenever the key's columns were bound outermost when it
+      // was generated - grouping by a leading column, typically - so the previous row's group
+      // is tried before the hash.
+      if (previous == kNoGroup || !(keys_[previous] == key)) {
+        previous = index_.insert(key, keys_.size(), keysAt());
+        if (previous == kNoGroup) {
+          previous = keys_.size();
+          keys_.push_back(key);
+          offsets_.push_back(0);  // Holds this group's COUNT until the prefix sum below.
+        }
       }
-      group_of[i] = static_cast<std::uint32_t>(group);
-      ++offsets_[group];
+      group_of[i] = static_cast<std::uint32_t>(previous);
+      ++offsets_[previous];
     }
     offsets_.push_back(0);  // Sentinel: offsets_ ends up size K + 1.
 

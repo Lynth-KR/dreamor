@@ -32,6 +32,9 @@ and versions follow [Semantic Versioning](https://semver.org/).
   without hashing it, for every table built on that row's set. The sum publishes its current row per thread while
   the term runs; a table uses it only when the row is its own and holds exactly the columns asked for, and hashes
   otherwise, so the result never depends on it. Elsewhere a lookup by columns hashes as before.
+- `groupBy` tries the previous row's group before hashing the key, so grouping by the columns a set was generated
+  with outermost - its leading column, typically - hashes once per group instead of once per row: about twice as
+  fast. Grouping by other columns costs one comparison more per row.
 
 ## [0.1.1] - 2026-10-22
 
