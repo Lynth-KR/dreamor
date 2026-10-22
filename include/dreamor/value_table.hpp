@@ -53,7 +53,7 @@ class ValueTable {
   template <typename... Args>
   [[nodiscard]] double operator()(const Args&... key) const {
     if constexpr (internal::checkTableKey<Key, Args...>()) {
-      const std::size_t at = index_->find(internal::keyOf<Key>(key...), rows());
+      const std::size_t at = index_->find(rows(), key...);
       if (at == internal::RowIndex<Key>::kNotFound) {
         throw std::out_of_range("ValueTable: this tuple is not in the table's set.");
       }
@@ -65,7 +65,7 @@ class ValueTable {
   template <typename... Args>
   [[nodiscard]] bool contains(const Args&... key) const {
     if constexpr (internal::checkTableKey<Key, Args...>()) {
-      return index_->find(internal::keyOf<Key>(key...), rows()) != internal::RowIndex<Key>::kNotFound;
+      return index_->find(rows(), key...) != internal::RowIndex<Key>::kNotFound;
     } else {
       return false;
     }

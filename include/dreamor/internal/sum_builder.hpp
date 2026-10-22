@@ -55,9 +55,11 @@ template <typename Term>
 
 }  // namespace dreamor::internal
 
-// A held reference names the same columns as what it refers to.
+// A held reference names the same columns as what it refers to, and takes what it takes.
 template <typename T>
 struct dreamor::PredicateColumns<dreamor::internal::TermRef<T>> : dreamor::PredicateColumns<T> {};
+template <typename T>
+struct dreamor::internal::TakesWholeRow<dreamor::internal::TermRef<T>> : dreamor::internal::TakesWholeRow<T> {};
 
 namespace dreamor::internal {
 

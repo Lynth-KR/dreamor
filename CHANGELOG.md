@@ -21,6 +21,10 @@ and versions follow [Semantic Versioning](https://semver.org/).
   numbers into rows the set already holds, instead of a node per key holding a copy of it. A `membership()` shares
   its set rather than copying the rows. These operations now stop at 2^32 - 2 rows with `std::length_error`, as
   `VarTable` and `groupBy` did.
+- A `VarTable` or `ValueTable` given one row of the set it was built on - walking that set or one of its groups,
+  and `sumOf(env, rows, vYield)` with the table as its term - finds it by the row's address instead of hashing it.
+  Group sums with the table as the term are several times faster. A lookup by columns, `vYield(m, i, t)`, still
+  hashes: it builds a new key, which cannot be one of the set's rows.
 
 ## [0.1.1] - 2026-10-22
 

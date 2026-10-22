@@ -176,3 +176,6 @@ template <typename... Keys>
 struct dreamor::PredicateColumns<dreamor::mathopt::VarTable<Keys...>> {
   using type = std::tuple<Keys...>;
 };
+// Given a row of its own set, a table finds the variable by the row's address.
+template <typename... Keys>
+struct dreamor::internal::TakesWholeRow<dreamor::mathopt::VarTable<Keys...>> : std::true_type {};

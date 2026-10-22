@@ -7,6 +7,7 @@
 #include <ranges>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <type_traits>
 #include <vector>
 
@@ -82,6 +83,24 @@ int main() try {
   }
   DREAMOR_CHECK(n == 6);
 
+  // a row of the table's own set - walked directly or through a group - is found by its
+  // address; an equal row anywhere else, by hashing; both give the same variable
+  const auto& firstRow                = *IJ.begin();
+  const std::tuple<ICol, JCol> copied = firstRow;
+  const auto sameValues               = IJ.where([](ICol /*i*/) { return true; });
+  DREAMOR_CHECK(x(firstRow).getImpl() == x(copied).getImpl() &&
+                x(copied).getImpl() == x(*sameValues.begin()).getImpl());
+  const auto byI     = IJ.groupBy<ICol>();
+  bool groupsAgree   = true;
+  std::size_t inRows = 0;
+  for (const auto& [i, rows] : byI) {
+    for (const auto& row : rows) {
+      groupsAgree = groupsAgree && x(row).getImpl() == x(i, std::get<JCol>(row)).getImpl() && x.contains(row);
+      ++inRows;
+    }
+  }
+  DREAMOR_CHECK(groupsAgree && inRows == 6);
+
   // callable bounds: one column, two columns
   const dreamor::concert::VarTable<ICol, JCol> y{env,
                                                  IJ,
@@ -123,6 +142,8 @@ int main() try {
     ++m;
   }
   DREAMOR_CHECK(m == 6);
+  const auto& lastRow = *(IJ.begin() + 5);
+  DREAMOR_CHECK(exactlyEqual(v(lastRow), v(std::get<ICol>(lastRow), std::get<JCol>(lastRow))) && v.contains(lastRow));
 
   // empty set: nothing to read, no solver call needed
   const auto none = IJ.where([](ICol i) { return i.get() > 100; });

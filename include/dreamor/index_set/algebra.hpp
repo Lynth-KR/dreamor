@@ -293,7 +293,7 @@ Membership<Tup> IndexSet<Tup>::membership() const {
 // Returns the same set, so it drops into a declaration.
 template <typename Tup>
 template <typename... Columns>
-IndexSet<Tup> IndexSet<Tup>::assertUnique() const {  // NOLINT(modernize-scard): see the declaration
+IndexSet<Tup> IndexSet<Tup>::assertUnique() const {  // NOLINT(modernize-use-nodiscard): see the declaration
 #ifndef NDEBUG
   const auto& rows = internal::SetAccess::rows(*this);
   if constexpr (sizeof...(Columns) > 0) {

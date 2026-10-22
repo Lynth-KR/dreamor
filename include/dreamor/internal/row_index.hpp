@@ -14,14 +14,17 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <iterator>
 #include <limits>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "dreamor/general/flat_index.hpp"
+#include "dreamor/index_set/key_args.hpp"
 
 namespace dreamor::internal {
 
@@ -48,11 +51,33 @@ class RowIndex {
     }
   }
 
-  [[nodiscard]] std::size_t find(const Key& key, const std::vector<Key>& rows) const {
-    return index_.find(key, rowsAt(rows));
+  // A key as a caller writes it - its columns, or one row - to its position. Which path
+  // applies is known at compile time: columns make a new tuple, which cannot be one of rows,
+  // so they go straight to the hash; only a row handed in by reference may be.
+  template <typename... Args>
+  [[nodiscard]] std::size_t find(const std::vector<Key>& rows, const Args&... key) const {
+    if constexpr (isExactRow<Key, Args...>()) {
+      return findRow(rows, key...);
+    } else {
+      return index_.find(Key{key...}, rowsAt(rows));
+    }
   }
 
  private:
+  // A row of the set the table was built on - reached by walking that set or one of its
+  // groups - is found by its address, without hashing; any other row is hashed. Where a
+  // reference came from is only known at run time, hence the check. std::less orders
+  // pointers into different arrays too.
+  [[nodiscard]] std::size_t findRow(const std::vector<Key>& rows, const Key& row) const {
+    const Key* const first = rows.data();
+    const Key* const at    = std::addressof(row);
+    const std::less<const Key*> before;
+    if (!before(at, first) && before(at, first + rows.size())) {
+      return static_cast<std::size_t>(at - first);
+    }
+    return index_.find(row, rowsAt(rows));
+  }
+
   [[nodiscard]] static auto rowsAt(const std::vector<Key>& rows) {
     return [&rows](std::size_t row) -> const Key& { return rows[row]; };
   }

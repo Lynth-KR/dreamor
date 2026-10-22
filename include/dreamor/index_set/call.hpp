@@ -39,11 +39,20 @@ struct CallColumnsOf<std::tuple<Cols...>> {
   }
 };
 
+// A callable that takes a whole row as well as its columns, and is faster given the row: a
+// variable table finds a row of its own set by the row's address. The backends specialize
+// it; anything else is called with its columns, as it declared them.
+template <typename Callable>
+struct TakesWholeRow : std::false_type {};
+
 // Guarded on the row, so a range that is not an index set produces the one diagnostic
 // its caller (sumOf, VarTable) already reports instead of one per call site.
 template <typename Callable, typename Row>
 [[nodiscard]] decltype(auto) callColumnsOf(const Callable& callable, const Row& row) {
-  if constexpr (isIndexSetRow<std::remove_cvref_t<Row>>()) {
+  if constexpr (TakesWholeRow<Callable>::value &&
+                std::is_same_v<typename ColumnsOfPredicate<Callable>::type, std::remove_cvref_t<Row>>) {
+    return callable(row);
+  } else if constexpr (isIndexSetRow<std::remove_cvref_t<Row>>()) {
     return CallColumnsOf<typename ColumnsOfPredicate<Callable>::type>::call(callable, row);
   } else {
     return false;  // Unreachable: the caller has already failed to compile.

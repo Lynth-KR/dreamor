@@ -104,7 +104,7 @@ class VarTableCore {
   template <typename... Args>
   [[nodiscard]] bool contains(const Args&... key) const {
     if constexpr (checkTableKey<Key, Args...>()) {
-      return find(keyOf<Key>(key...)) != RowIndex<Key>::kNotFound;
+      return index_->find(rows(), key...) != RowIndex<Key>::kNotFound;
     } else {
       return false;
     }
@@ -134,15 +134,12 @@ class VarTableCore {
   VarTableCore& operator=(VarTableCore&&) noexcept = default;
   ~VarTableCore() noexcept = default;  // Solver objects follow their own owner; nothing is ended here.
 
-  // Row of the key, or RowIndex<Key>::kNotFound.
-  [[nodiscard]] std::size_t find(const Key& key) const { return index_->find(key, rows()); }
-
   // The row of a key from an operator() call, or throws std::out_of_range - the rule of
   // every backend: a row outside the set is a modeling error, and a null handle or a 0 would
   // only surface later. Callers check the arguments with checkTableKey first.
   template <typename... Args>
   [[nodiscard]] std::size_t rowOf(const Args&... key) const {
-    const std::size_t at = find(keyOf<Key>(key...));
+    const std::size_t at = index_->find(rows(), key...);
     if (at == RowIndex<Key>::kNotFound) {
       throw std::out_of_range("VarTable: this tuple is not in the table's set.");
     }
