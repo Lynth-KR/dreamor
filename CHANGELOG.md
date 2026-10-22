@@ -16,6 +16,8 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- `100 * vYield` (or `vYield * 100`) stops at compile time on one sentence pointing at
+  `100 * sumOf(env, rows, vYield).build()`, instead of the compiler's list of every `operator*` in scope.
 - A callable that takes the same column twice - `[](FromCol a, FromCol b)` as a predicate, a term, a bound, a
   `select(expr)` or a dependent source - stops at compile time with one sentence. It used to compile and hand both
   parameters one value, which is never what such a parameter list means. `VarTable<ICol, ICol>` now says so

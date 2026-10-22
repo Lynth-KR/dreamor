@@ -130,6 +130,30 @@ class VarTableCore {
   VarTableCore(const VarTableCore&)            = delete;
   VarTableCore& operator=(const VarTableCore&) = delete;
 
+  // 100 * vYield - what a user reaches for to scale a sum - stops on the fix rather than on a
+  // list of every operator* in scope. Hidden friends, so they are candidates only when a table
+  // is an operand - taken as the backend's own type, since it inherits this privately; the
+  // return type is deduced so that the body, the static_assert, is instantiated as soon as
+  // one is chosen.
+  template <typename Scale, typename Table>
+    requires std::is_base_of_v<VarTableCore, Table>  // A backend's table; the base is not accessible
+  friend auto operator*(const Scale& /*scale*/, const Table& /*table*/) {
+    static_assert(
+        always_false<Scale>,
+        "Scale the sum, not the table: 100 * sumOf(env, rows, vYield).build() (sumOf(rows, vYield) on MathOpt), or "
+        "multiply inside a term. A VarTable is a family of variables, not an expression.");
+    return false;
+  }
+  template <typename Table, typename Scale>
+    requires(std::is_base_of_v<VarTableCore, Table> && !std::is_base_of_v<VarTableCore, Scale>)
+  friend auto operator*(const Table& /*table*/, const Scale& /*scale*/) {
+    static_assert(
+        always_false<Scale>,
+        "Scale the sum, not the table: 100 * sumOf(env, rows, vYield).build() (sumOf(rows, vYield) on MathOpt), or "
+        "multiply inside a term. A VarTable is a family of variables, not an expression.");
+    return false;
+  }
+
  protected:
   explicit VarTableCore(const IndexSet<Key>& keys)
       : keys_{keys}, index_{std::make_shared<const RowIndex<Key>>(rows())} {}
