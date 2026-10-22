@@ -18,6 +18,7 @@
 #include <concepts>
 #include <cstddef>
 #include <functional>
+#include <memory>
 #include <ranges>
 #include <tuple>
 #include <type_traits>
@@ -28,6 +29,7 @@
 #include "dreamor/index_set/column.hpp"
 #include "dreamor/index_set/element.hpp"
 #include "dreamor/index_set/key_args.hpp"
+#include "dreamor/internal/row_index.hpp"
 
 namespace dreamor::internal {
 
@@ -281,7 +283,7 @@ class UnbuiltSum {
         if (!keeps(row)) {
           continue;
         }
-        total += callColumnsOf(term_, row);
+        total += termOf(row);
       }
       return total;
     } else {
@@ -290,6 +292,18 @@ class UnbuiltSum {
   }
 
  private:
+  // The term on one row. A term that takes the row whole - a table - already knows it; any
+  // other gets the row published while it runs, for the tables it looks up by columns.
+  template <typename R>
+  [[nodiscard]] decltype(auto) termOf(const R& row) const {
+    if constexpr (TakesWholeRow<Term>::value) {
+      return callColumnsOf(term_, row);
+    } else {
+      const CurrentRowScope scope{std::addressof(row)};
+      return callColumnsOf(term_, row);
+    }
+  }
+
   // Every where() predicate, ANDed.
   template <typename R>
   [[nodiscard]] bool keeps(const R& row) const {
@@ -308,7 +322,7 @@ class UnbuiltSum {
       if (std::ranges::none_of(hits, std::identity{})) {
         continue;
       }
-      const auto term_value = callColumnsOf(term_, row);
+      const auto term_value = termOf(row);
       ((hits[Is] ? static_cast<void>(totals[Is] += term_value) : static_cast<void>(0)), ...);
     }
     return totals;

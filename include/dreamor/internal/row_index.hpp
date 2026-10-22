@@ -28,6 +28,33 @@
 
 namespace dreamor::internal {
 
+// The row sumOf is evaluating its term on, while it does: a hint for a lookup by columns
+// inside the term - cost(m, i, t) * vYield(m, i, t) - which gets copies of the row's columns
+// and so has lost the row itself. Only ever a hint: a table uses it when the row is one of
+// its own and holds exactly the columns asked for, and hashes otherwise, so a stale or
+// foreign row costs a comparison, never a wrong answer. Per thread, so tables built on
+// several threads do not see each other's rows.
+[[nodiscard]] inline const void*& currentRow() noexcept {
+  static constinit thread_local const void* row = nullptr;
+  return row;
+}
+
+// Publishes a row for the scope of one term call, and puts back whatever was there - a term
+// may run a sumOf of its own.
+class CurrentRowScope {
+ public:
+  explicit CurrentRowScope(const void* row) noexcept : saved_{currentRow()} { currentRow() = row; }
+  ~CurrentRowScope() { currentRow() = saved_; }
+
+  CurrentRowScope(const CurrentRowScope&)            = delete;
+  CurrentRowScope& operator=(const CurrentRowScope&) = delete;
+  CurrentRowScope(CurrentRowScope&&)                 = delete;
+  CurrentRowScope& operator=(CurrentRowScope&&)      = delete;
+
+ private:
+  const void* saved_;
+};
+
 // From a set's row to its position: a FlatIndex over the set's rows, which the set keeps -
 // the index holds 4 bytes a slot and no copy of a key.
 template <typename Key>
@@ -51,31 +78,44 @@ class RowIndex {
     }
   }
 
-  // A key as a caller writes it - its columns, or one row - to its position. Which path
-  // applies is known at compile time: columns make a new tuple, which cannot be one of rows,
-  // so they go straight to the hash; only a row handed in by reference may be.
+  // A key as a caller writes it - its columns, or one row - to its position, without
+  // hashing where the row is known to be one of rows:
+  //   - one row handed in by reference: it may be a row of the set the table was built on,
+  //     reached by walking that set or one of its groups. Only its address tells.
+  //   - columns: they are copies, so the row they came from is the one sumOf published, if
+  //     any - see currentRow().
+  // Which of the two applies is known at compile time.
   template <typename... Args>
   [[nodiscard]] std::size_t find(const std::vector<Key>& rows, const Args&... key) const {
     if constexpr (isExactRow<Key, Args...>()) {
-      return findRow(rows, key...);
+      const std::size_t at = positionOf(rows, std::addressof(key...));
+      return at != kNotFound ? at : index_.find(key..., rowsAt(rows));
     } else {
+      const std::size_t at = positionOf(rows, currentRow());
+      if (at != kNotFound && holds(rows[at], key...)) {
+        return at;
+      }
       return index_.find(Key{key...}, rowsAt(rows));
     }
   }
 
  private:
-  // A row of the set the table was built on - reached by walking that set or one of its
-  // groups - is found by its address, without hashing; any other row is hashed. Where a
-  // reference came from is only known at run time, hence the check. std::less orders
-  // pointers into different arrays too.
-  [[nodiscard]] std::size_t findRow(const std::vector<Key>& rows, const Key& row) const {
+  // The position of a row by its address, or kNotFound when it is not one of rows.
+  // std::less<> orders pointers into different arrays too; inside the range, the pointer is
+  // one of rows' elements.
+  [[nodiscard]] static std::size_t positionOf(const std::vector<Key>& rows, const void* row) {
     const Key* const first = rows.data();
-    const Key* const at    = std::addressof(row);
-    const std::less<const Key*> before;
-    if (!before(at, first) && before(at, first + rows.size())) {
-      return static_cast<std::size_t>(at - first);
+    const std::less<> before;
+    if (row == nullptr || before(row, first) || !before(row, first + rows.size())) {
+      return kNotFound;
     }
-    return index_.find(row, rowsAt(rows));
+    return static_cast<std::size_t>(static_cast<const Key*>(row) - first);
+  }
+
+  // The row's columns are exactly the ones asked for.
+  template <typename... Columns>
+  [[nodiscard]] static bool holds(const Key& row, const Columns&... key) {
+    return ((std::get<Columns>(row) == key) && ...);
   }
 
   [[nodiscard]] static auto rowsAt(const std::vector<Key>& rows) {

@@ -23,8 +23,11 @@ and versions follow [Semantic Versioning](https://semver.org/).
   `VarTable` and `groupBy` did.
 - A `VarTable` or `ValueTable` given one row of the set it was built on - walking that set or one of its groups,
   and `sumOf(env, rows, vYield)` with the table as its term - finds it by the row's address instead of hashing it.
-  Group sums with the table as the term are several times faster. A lookup by columns, `vYield(m, i, t)`, still
-  hashes: it builds a new key, which cannot be one of the set's rows.
+  Group sums with the table as the term are several times faster.
+- Inside a `sumOf` term, a lookup by columns - `cost(m, i, t) * vYield(m, i, t)` - finds the row the sum is on
+  without hashing it, for every table built on that row's set. The sum publishes its current row per thread while
+  the term runs; a table uses it only when the row is its own and holds exactly the columns asked for, and hashes
+  otherwise, so the result never depends on it. Elsewhere a lookup by columns hashes as before.
 
 ## [0.1.1] - 2026-10-22
 

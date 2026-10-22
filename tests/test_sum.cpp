@@ -14,6 +14,13 @@ static std::size_t terms(const IloExpr& e) {
   return e.expr_->terms.size();
 }
 
+static std::vector<const IloNumVarI*> varsOf(const IloExpr& e) {
+  std::vector<const IloNumVarI*> out;
+  out.reserve(e.expr_->terms.size());
+  for (const auto& [v, c] : e.expr_->terms) out.push_back(v);
+  return out;
+}
+
 int main() try {
   const IloEnv env;
   const std::vector<std::size_t> I{1, 2, 3};
@@ -51,6 +58,26 @@ int main() try {
   using KCol     = dreamor::Col<std::size_t, "k">;
   const auto IKJ = dreamor::makeSet<ICol, KCol, JCol>(I, I, J).collect();  // more columns than the table's keys
   DREAMOR_CHECK(terms(dreamor::concert::sumOf(env, IKJ, x).build()) == 18);
+
+  // A lookup by columns inside a term reaches the row sumOf is on without hashing it. That is
+  // only a hint: the same variables come back whatever the term looks up and wherever the
+  // rows come from, and the hint is gone once the sum is built.
+  const auto direct = varsOf(dreamor::concert::sumOf(env, IJ, x).build());
+  DREAMOR_CHECK(varsOf(dreamor::concert::sumOf(env, IJ, var).build()) == direct);
+  DREAMOR_CHECK(varsOf(dreamor::concert::sumOf(env, IJ, weighted).build()) == direct);
+  const auto sameValues = IJ.where([](ICol /*i*/) { return true; });
+  DREAMOR_CHECK(varsOf(dreamor::concert::sumOf(env, sameValues, var).build()) == direct);
+  const auto other = [&x](ICol i, JCol j) { return x(i, JCol{j.get() == 10 ? 20U : 10U}); };
+  std::vector<const IloNumVarI*> swapped;
+  swapped.reserve(IJ.size());
+  for (const auto& [i, j] : IJ) swapped.push_back(x(i, JCol{j.get() == 10 ? 20U : 10U}).getImpl());
+  DREAMOR_CHECK(varsOf(dreamor::concert::sumOf(env, IJ, other).build()) == swapped);
+  const auto nested = [&](ICol i, JCol j) {
+    DREAMOR_CHECK(terms(dreamor::concert::sumOf(env, byJ.slice(JCol{20}), var).build()) == 3);
+    return x(i, j);
+  };
+  DREAMOR_CHECK(varsOf(dreamor::concert::sumOf(env, IJ, nested).build()) == direct);
+  DREAMOR_CHECK(dreamor::internal::currentRow() == nullptr);
   return report("sum");
 } catch (...) {
   return ::uncaught();
