@@ -8,11 +8,10 @@
 #include <exception>
 #include <optional>  // IWYU pragma: keep // For std::optional in ord()
 #include <tuple>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
-#include "dreamor/general/tuple_hash.hpp"
+#include "dreamor/general/flat_index.hpp"
 #include "dreamor/index_set/algebra.hpp"
 #include "dreamor/index_set/indexed.hpp"
 #include "dreamor/index_set/key_args.hpp"
@@ -35,11 +34,10 @@ class Ordered {
   // Deduplicated: an ordered SET has one position per element. Otherwise ord() would report
   // the first occurrence for every duplicate, so next() on a later copy would return the
   // successor of the earlier one and silently wire a constraint to the wrong element.
-  explicit Ordered(const IndexSet<Tup>& set) : members_{set.distinct()} {
+  explicit Ordered(const IndexSet<Tup>& set) : members_{set.distinct()}, positions_{members_.size()} {
     const auto& rows = internal::SetAccess::rows(members_);
-    positions_.reserve(rows.size());
     for (std::size_t index = 0; index < rows.size(); ++index) {
-      positions_.emplace(rows[index], index);
+      static_cast<void>(positions_.insert(rows[index], index, rowsAt()));
     }
   }
 
@@ -50,7 +48,7 @@ class Ordered {
   // from members_, so `S.ordered().prev(t)` would point into a vector that is already gone.
   [[nodiscard]] const IndexSet<Tup>& members() const& noexcept { return members_; }
   template <typename Unused = void>
-  const IndexSet<Tup>& members() const&& {
+  [[nodiscard]] const IndexSet<Tup>& members() const&& {
     static_assert(
         internal::always_false<Unused>,
         "Name the Ordered first - const auto orderedPeriods = sPERIODS.ordered(); - its lookups hand out pointers into it, which would dangle once a temporary is gone.");
@@ -59,7 +57,7 @@ class Ordered {
 
   [[nodiscard]] const Tup& at(std::size_t position) const& { return rows().at(position); }
   template <typename Unused = void>
-  const Tup& at(std::size_t /*position*/) const&& {
+  [[nodiscard]] const Tup& at(std::size_t /*position*/) const&& {
     static_assert(
         internal::always_false<Unused>,
         "Name the Ordered first - const auto orderedPeriods = sPERIODS.ordered(); - its lookups hand out pointers into it, which would dangle once a temporary is gone.");
@@ -68,7 +66,7 @@ class Ordered {
 
   [[nodiscard]] const Tup& first() const& { return rows().front(); }
   template <typename Unused = void>
-  const Tup& first() const&& {
+  [[nodiscard]] const Tup& first() const&& {
     static_assert(
         internal::always_false<Unused>,
         "Name the Ordered first - const auto orderedPeriods = sPERIODS.ordered(); - its lookups hand out pointers into it, which would dangle once a temporary is gone.");
@@ -77,7 +75,7 @@ class Ordered {
 
   [[nodiscard]] const Tup& last() const& { return rows().back(); }
   template <typename Unused = void>
-  const Tup& last() const&& {
+  [[nodiscard]] const Tup& last() const&& {
     static_assert(
         internal::always_false<Unused>,
         "Name the Ordered first - const auto orderedPeriods = sPERIODS.ordered(); - its lookups hand out pointers into it, which would dangle once a temporary is gone.");
@@ -165,7 +163,7 @@ class Ordered {
   template <typename... Args>
   [[nodiscard]] bool contains(const Args&... element) const {
     if constexpr (internal::checkOrderedKey<Tup, Args...>()) {
-      return positions_.contains(internal::keyOf<Tup>(element...));
+      return positions_.find(internal::keyOf<Tup>(element...), rowsAt()) != kNotMember;
     } else {
       return false;
     }
@@ -177,22 +175,22 @@ class Ordered {
     std::terminate();
   }
   template <typename Unused = void>
-  const Tup* next(internal::BracedKey /*key*/, std::ptrdiff_t /*steps*/ = 1) const {
+  [[nodiscard]] const Tup* next(internal::BracedKey /*key*/, std::ptrdiff_t /*steps*/ = 1) const {
     static_assert(internal::always_false<Unused>, DREAMOR_INTERNAL_NO_BRACES_MESSAGE);
     std::terminate();
   }
   template <typename Unused = void>
-  const Tup* prev(internal::BracedKey /*key*/, std::ptrdiff_t /*steps*/ = 1) const {
+  [[nodiscard]] const Tup* prev(internal::BracedKey /*key*/, std::ptrdiff_t /*steps*/ = 1) const {
     static_assert(internal::always_false<Unused>, DREAMOR_INTERNAL_NO_BRACES_MESSAGE);
     std::terminate();
   }
   template <typename Unused = void>
-  const Tup* nextCyclic(internal::BracedKey /*key*/, std::ptrdiff_t /*steps*/ = 1) const {
+  [[nodiscard]] const Tup* nextCyclic(internal::BracedKey /*key*/, std::ptrdiff_t /*steps*/ = 1) const {
     static_assert(internal::always_false<Unused>, DREAMOR_INTERNAL_NO_BRACES_MESSAGE);
     std::terminate();
   }
   template <typename Unused = void>
-  const Tup* prevCyclic(internal::BracedKey /*key*/, std::ptrdiff_t /*steps*/ = 1) const {
+  [[nodiscard]] const Tup* prevCyclic(internal::BracedKey /*key*/, std::ptrdiff_t /*steps*/ = 1) const {
     static_assert(internal::always_false<Unused>, DREAMOR_INTERNAL_NO_BRACES_MESSAGE);
     std::terminate();
   }
@@ -213,9 +211,15 @@ class Ordered {
   }
 
  private:
+  static constexpr std::size_t kNotMember = ::dreamor::general::FlatIndex<Tup>::kNotFound;
+
+  [[nodiscard]] auto rowsAt() const {
+    return [this](std::size_t position) -> const Tup& { return rows()[position]; };
+  }
+
   [[nodiscard]] std::optional<std::size_t> ordOf(const Tup& element) const {
-    const auto it = positions_.find(element);
-    return (it == positions_.end()) ? std::nullopt : std::optional{it->second};
+    const std::size_t position = positions_.find(element, rowsAt());
+    return (position == kNotMember) ? std::nullopt : std::optional{position};
   }
 
   // The element `steps` away from `element`, wrapping when Cyclic; nullptr for a non-member,
@@ -255,7 +259,7 @@ class Ordered {
   [[nodiscard]] const std::vector<Tup>& rows() const noexcept { return internal::SetAccess::rows(members_); }
 
   IndexSet<Tup> members_;
-  std::unordered_map<Tup, std::size_t, ::dreamor::general::TupleHash> positions_;
+  ::dreamor::general::FlatIndex<Tup> positions_;  // Element -> position, over members_' rows.
 };
 
 template <typename Tup>

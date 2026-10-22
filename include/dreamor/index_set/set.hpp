@@ -5,23 +5,33 @@
 
 #include <algorithm>
 #include <array>
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <ranges>
 #include <tuple>
 #include <type_traits>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
-#include "dreamor/general/tuple_hash.hpp"
 #include "dreamor/index_set/binding.hpp"
 #include "dreamor/index_set/column.hpp"
 #include "dreamor/index_set/element.hpp"
+#include "dreamor/index_set/grouped.hpp"
 #include "dreamor/index_set/indexed.hpp"
 #include "dreamor/index_set/plan.hpp"
 
 namespace dreamor {
+
+namespace internal {
+template <typename Row, typename Key>
+struct GroupedOn;
+template <typename Row, typename... Columns>
+struct GroupedOn<Row, std::tuple<Columns...>> {
+  using type = Grouped<Row, Columns...>;
+};
+}  // namespace internal
 
 // Lazy builder. Nothing is generated until collect().
 template <typename ElemTuple, typename RangeTuple, typename PredTuple>
@@ -264,6 +274,7 @@ class Set {
                                       std::tuple<std::tuple_element_t<Is, SourceRow>>,
                                       std::tuple<>>>()...));
 
+  // A joined source grouped by its key: groupBy's CSR rows and flat index are the join index.
   template <std::size_t Source, bool = kJoins<Source>>
   struct JoinIndex {
     using type = std::tuple<>;  // Scanned, not looked up.
@@ -272,7 +283,7 @@ class Set {
   struct JoinIndex<Source, true> {
     using SourceRow = std::ranges::range_value_t<std::tuple_element_t<Source, RangeTuple>>;
     using Key       = decltype(joinKeyOf<Source, SourceRow>(std::make_index_sequence<std::tuple_size_v<SourceRow>>{}));
-    using type      = std::unordered_map<Key, std::vector<SourceRow>, ::dreamor::general::TupleHash>;
+    using type      = std::optional<typename internal::GroupedOn<SourceRow, Key>::type>;
   };
 
   template <typename Seq>
@@ -290,14 +301,16 @@ class Set {
   template <std::size_t Source>
   void indexJoin() {
     if constexpr (kJoins<Source>) {
-      using Key   = JoinIndex<Source>::Key;
-      auto& index = std::get<Source>(indexes_);
-      index.clear();
-      for (const auto& row : std::get<Source>(ranges_)) {
-        Key key = [&]<typename... Ks>(std::type_identity<std::tuple<Ks...>> /*unused*/) {
-          return Key{std::get<Ks>(row)...};
-        }(std::type_identity<Key>{});
-        index[std::move(key)].push_back(row);
+      using SourceRow    = JoinIndex<Source>::SourceRow;
+      const auto& source = std::get<Source>(ranges_);
+      if constexpr (std::same_as<std::remove_cvref_t<decltype(source)>, IndexSet<SourceRow>>) {
+        std::get<Source>(indexes_).emplace(source);  // Shares the set's rows.
+      } else {
+        std::vector<SourceRow> rows;
+        for (const auto& row : source) {
+          rows.push_back(row);
+        }
+        std::get<Source>(indexes_).emplace(internal::SetAccess::make(std::move(rows)));
       }
     }
   }
@@ -361,13 +374,10 @@ class Set {
   template <std::size_t Step, std::size_t Source, typename BoundCols, typename... Bound>
   void visitSpread(std::vector<ElemTuple>& out, const Bound&... bound) {
     if constexpr (kJoins<Source>) {
-      const auto& index = std::get<Source>(indexes_);
-      const auto match  = index.find(boundKey<typename JoinIndex<Source>::Key, BoundCols>(bound...));
-      if (match == index.end()) {
-        return;
-      }
-      for (const auto& tuple : match->second) {
-        spread<Step, Source, 0, BoundCols>(out, tuple, bound...);
+      if (const auto& grouped = std::get<Source>(indexes_)) {  // Built by collect() before generate().
+        for (const auto& tuple : grouped->slice(boundKey<typename JoinIndex<Source>::Key, BoundCols>(bound...))) {
+          spread<Step, Source, 0, BoundCols>(out, tuple, bound...);
+        }
       }
     } else {
       for (const auto& tuple : std::get<Source>(ranges_)) {

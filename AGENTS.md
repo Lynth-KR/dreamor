@@ -16,7 +16,7 @@ Version 0.1.0, Apache 2.0.
 | `include/dreamor/concert.hpp` | Concert backend |
 | `include/dreamor/mathopt.hpp` | MathOpt backend |
 | `include/dreamor/internal/` | Shared backend machinery (`var_table_core.hpp`, `row_index.hpp`, `sum_builder.hpp`) |
-| `include/dreamor/general/`, `include/dreamor/logger/` | Utilities (`tuple_hash.hpp`, `format_buffer.hpp`, `third_party_headers.hpp`, `logger_light.hpp`) |
+| `include/dreamor/general/`, `include/dreamor/logger/` | Utilities (`tuple_hash.hpp`, `flat_index.hpp`, `format_buffer.hpp`, `third_party_headers.hpp`, `logger_light.hpp`) |
 | `examples/` | Lot-sizing example: `production_planning_sets.hpp` (solver-free), `production_planning.hpp` (Concert), `production_planning_mathopt.hpp` (MathOpt), `production_planning_plain.hpp` (without dreamor, for comparison). `mathopt_samples/`: three OR-Tools MathOpt samples ported to dreamor, with a walkthrough of each port (keep Google's license header and the modification notice on these files) |
 | `tests/` | Framework-free tests, `tests/run_tests.sh`, Concert stub (`tests/stub/`), compile-fail cases |
 | `bench/` | Container benchmark without a solver: dreamor vs hand-written `std::map` vs hand-optimized arrays, as a 2^4 factorial (`bench/README.md`). Own lean Concert stub in `bench/stub/`. Not run in CI |

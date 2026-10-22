@@ -52,7 +52,7 @@ Also rejected, with no pinned message:
 | `std::out_of_range` | `VarTable` or `ValueTable` lookup of a row not in the set (all backends); `Grouped::at`/`keyAt` past the end |
 | `std::invalid_argument` | `VarTable` constructor on a set with a repeated row |
 | `std::logic_error` | `dreamor::mathopt::VarTable::solution` with no primal feasible solution; `assertUnique` failure (debug builds only) |
-| `std::length_error` | more than 2^32 − 2 rows in a `VarTable` or a `groupBy` |
+| `std::length_error` | more than 2^32 − 2 rows in a `VarTable`, a `groupBy`, or anything else that hashes rows (`distinct`, `select`, `unite`, `intersect`, `difference`, `membership`, `ordered`, a join in `makeSet`) |
 
 Absences that do not throw:
 - `Grouped::slice` of a missing key returns an empty `RowSlice`, whose sum is 0.

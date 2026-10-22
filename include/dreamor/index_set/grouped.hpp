@@ -14,11 +14,10 @@
 #include <stdexcept>
 #include <tuple>
 #include <type_traits>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
-#include "dreamor/general/tuple_hash.hpp"
+#include "dreamor/general/flat_index.hpp"
 #include "dreamor/index_set/column.hpp"
 #include "dreamor/index_set/indexed.hpp"
 #include "dreamor/index_set/key_args.hpp"
@@ -210,15 +209,15 @@ class Grouped {
     }
     std::vector<std::uint32_t> group_of(rows.size());
     for (std::size_t i = 0; i < rows.size(); ++i) {
-      const Key key = keyOf(rows[i]);
-
-      const auto [it, inserted] = index_.try_emplace(key, keys_.size());
-      if (inserted) {
+      const Key key     = keyOf(rows[i]);
+      std::size_t group = index_.insert(key, keys_.size(), keysAt());
+      if (group == kNoGroup) {
+        group = keys_.size();
         keys_.push_back(key);
         offsets_.push_back(0);  // Holds this group's COUNT until the prefix sum below.
       }
-      group_of[i] = static_cast<std::uint32_t>(it->second);
-      ++offsets_[it->second];
+      group_of[i] = static_cast<std::uint32_t>(group);
+      ++offsets_[group];
     }
     offsets_.push_back(0);  // Sentinel: offsets_ ends up size K + 1.
 
@@ -253,7 +252,7 @@ class Grouped {
   // sentence: the object has to be named first, `const auto byMachine = S.groupBy<MachineCol>();`.
   [[nodiscard]] const Key& keyAt(std::size_t group) const& { return keys_.at(group); }
   template <typename Unused = void>
-  const Key& keyAt(std::size_t /*group*/) const&& {
+  [[nodiscard]] const Key& keyAt(std::size_t /*group*/) const&& {
     static_assert(
         internal::always_false<Unused>,
         "Name the Grouped first - const auto byMachine = S.groupBy<MachineCol>(); - slice(), at() and keyAt() hand out views into it, which would dangle once a temporary is gone. Walking it needs no name: for (... : S.groupBy<MachineCol>()) is fine.");
@@ -269,7 +268,7 @@ class Grouped {
     return sliceOf(group);
   }
   template <typename Unused = void>
-  RowSlice<Tup> at(std::size_t /*group*/) const&& {
+  [[nodiscard]] RowSlice<Tup> at(std::size_t /*group*/) const&& {
     static_assert(
         internal::always_false<Unused>,
         "Name the Grouped first - const auto byMachine = S.groupBy<MachineCol>(); - slice(), at() and keyAt() hand out views into it, which would dangle once a temporary is gone. Walking it needs no name: for (... : S.groupBy<MachineCol>()) is fine.");
@@ -282,8 +281,8 @@ class Grouped {
   template <typename... Args>
   [[nodiscard]] RowSlice<Tup> slice(const Args&... key) const& {
     if constexpr (internal::checkGroupKey<Key, Args...>()) {
-      const auto it = index_.find(internal::keyOf<Key>(key...));
-      return (it == index_.end()) ? RowSlice<Tup>{} : sliceOf(it->second);
+      const std::size_t group = index_.find(internal::keyOf<Key>(key...), keysAt());
+      return (group == kNoGroup) ? RowSlice<Tup>{} : sliceOf(group);
     } else {
       return RowSlice<Tup>{};
     }
@@ -298,7 +297,7 @@ class Grouped {
   template <typename... Args>
   [[nodiscard]] bool contains(const Args&... key) const {
     if constexpr (internal::checkGroupKey<Key, Args...>()) {
-      return index_.contains(internal::keyOf<Key>(key...));
+      return index_.find(internal::keyOf<Key>(key...), keysAt()) != kNoGroup;
     } else {
       return false;
     }
@@ -306,15 +305,15 @@ class Grouped {
   template <typename... Args>
   [[nodiscard]] std::size_t sliceSize(const Args&... key) const {
     if constexpr (internal::checkGroupKey<Key, Args...>()) {
-      const auto it = index_.find(internal::keyOf<Key>(key...));
-      return (it == index_.end()) ? 0 : offsets_[it->second + 1] - offsets_[it->second];
+      const std::size_t group = index_.find(internal::keyOf<Key>(key...), keysAt());
+      return (group == kNoGroup) ? 0 : offsets_[group + 1] - offsets_[group];
     } else {
       return 0;
     }
   }
   // slice({i, t}) and the like: braces are not a key.
   template <typename Unused = void>
-  RowSlice<Tup> slice(internal::BracedKey /*key*/) const {
+  [[nodiscard]] RowSlice<Tup> slice(internal::BracedKey /*key*/) const {
     static_assert(internal::always_false<Unused>, DREAMOR_INTERNAL_NO_BRACES_MESSAGE);
     std::terminate();
   }
@@ -334,8 +333,8 @@ class Grouped {
   // binds the range expression to a name first.
   [[nodiscard]] GroupIterator begin() const& noexcept { return {this, 0}; }
   [[nodiscard]] GroupIterator end() const& noexcept { return {this, keys_.size()}; }
-  GroupIterator begin() const&& = delete;
-  GroupIterator end() const&&   = delete;
+  [[nodiscard]] GroupIterator begin() const&& = delete;
+  [[nodiscard]] GroupIterator end() const&&   = delete;
 
   // The set with its groups made contiguous, as a set of its own.
   [[nodiscard]] IndexSet<Tup> regrouped() const {
@@ -349,7 +348,14 @@ class Grouped {
   }
 
  private:
+  static constexpr std::size_t kNoGroup = ::dreamor::general::FlatIndex<Key>::kNotFound;
+
   [[nodiscard]] static Key keyOf(const Tup& tuple) { return Key{std::get<Columns>(tuple)...}; }
+
+  // The index's entries are group numbers; their keys live in keys_.
+  [[nodiscard]] auto keysAt() const {
+    return [this](std::size_t group) -> const Key& { return keys_[group]; };
+  }
 
   // Unchecked: the group index provably comes from index_ or from walking keys_.
   [[nodiscard]] RowSlice<Tup> sliceOf(std::size_t group) const {
@@ -363,8 +369,8 @@ class Grouped {
   IndexSet<Tup> set_;                // Shared with the caller's set: no row is copied.
   std::vector<std::uint32_t> rows_;  // Row numbers of set_, group by group.
   std::vector<Key> keys_;
-  std::vector<std::size_t> offsets_;  // Size K + 1; CSR row pointers into rows_.
-  std::unordered_map<Key, std::size_t, ::dreamor::general::TupleHash> index_;
+  std::vector<std::size_t> offsets_;          // Size K + 1; CSR row pointers into rows_.
+  ::dreamor::general::FlatIndex<Key> index_;  // Key -> group number, over keys_.
 };
 
 // S.groupBy<ItemCol>() groups by the item column; S.groupBy<MachineCol, OrderCol>() by two.

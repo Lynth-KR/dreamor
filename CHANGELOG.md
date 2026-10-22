@@ -14,6 +14,14 @@ and versions follow [Semantic Versioning](https://semver.org/).
   it reads and returns one `Col` or a `std::tuple` of them, so a value moves into another column only where that
   column is written out: `sEDGES.select([](FromCol i, ToCol j) { return std::tuple<FromCol, ToCol>{j, i}; })`.
 
+### Changed
+
+- Every hash table in the set layer - `distinct`, `select`, `unite`, `intersect`, `difference`, `membership`,
+  `ordered`, `groupBy` and `assertUnique` - is now the flat index `VarTable` already used: 4-byte slots of row
+  numbers into rows the set already holds, instead of a node per key holding a copy of it. A `membership()` shares
+  its set rather than copying the rows. These operations now stop at 2^32 - 2 rows with `std::length_error`, as
+  `VarTable` and `groupBy` did.
+
 ## [0.1.1] - 2026-10-22
 
 ### Fixed

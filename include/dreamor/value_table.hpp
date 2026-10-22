@@ -33,7 +33,7 @@ namespace internal {
 struct ValueTableAccess {
   template <typename... Keys>
   [[nodiscard]] static ValueTable<Keys...> make(IndexSet<std::tuple<Keys...>> keys,
-                                                std::shared_ptr<const FlatIndex<std::tuple<Keys...>>> index,
+                                                std::shared_ptr<const RowIndex<std::tuple<Keys...>>> index,
                                                 std::vector<double> values) {
     return ValueTable<Keys...>{std::move(keys), std::move(index), std::move(values)};
   }
@@ -54,7 +54,7 @@ class ValueTable {
   [[nodiscard]] double operator()(const Args&... key) const {
     if constexpr (internal::checkTableKey<Key, Args...>()) {
       const std::size_t at = index_->find(internal::keyOf<Key>(key...), rows());
-      if (at == internal::FlatIndex<Key>::kNotFound) {
+      if (at == internal::RowIndex<Key>::kNotFound) {
         throw std::out_of_range("ValueTable: this tuple is not in the table's set.");
       }
       return values_[at];
@@ -65,7 +65,7 @@ class ValueTable {
   template <typename... Args>
   [[nodiscard]] bool contains(const Args&... key) const {
     if constexpr (internal::checkTableKey<Key, Args...>()) {
-      return index_->find(internal::keyOf<Key>(key...), rows()) != internal::FlatIndex<Key>::kNotFound;
+      return index_->find(internal::keyOf<Key>(key...), rows()) != internal::RowIndex<Key>::kNotFound;
     } else {
       return false;
     }
@@ -81,13 +81,13 @@ class ValueTable {
 
  private:
   friend struct internal::ValueTableAccess;
-  ValueTable(IndexSet<Key> keys, std::shared_ptr<const internal::FlatIndex<Key>> index, std::vector<double> values)
+  ValueTable(IndexSet<Key> keys, std::shared_ptr<const internal::RowIndex<Key>> index, std::vector<double> values)
       : keys_{std::move(keys)}, index_{std::move(index)}, values_{std::move(values)} {}
 
   [[nodiscard]] const std::vector<Key>& rows() const noexcept { return internal::SetAccess::rows(keys_); }
 
   IndexSet<Key> keys_;
-  std::shared_ptr<const internal::FlatIndex<Key>> index_;
+  std::shared_ptr<const internal::RowIndex<Key>> index_;
   std::vector<double> values_;
 };
 

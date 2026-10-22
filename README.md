@@ -699,11 +699,11 @@ and with GCC 16 and Clang 23, and goes as far as installing the CMake package an
 
 | Columns | g++ 13.3 | clang++ 18.1 | clang++ 23.1 |
 |---|---|---|---|
-| 4 | 2.8 s, 293 MB | 2.7 s, 211 MB | 2.7 s, 232 MB |
-| 16 | 3.3 s, 327 MB | 3.2 s, 238 MB | 3.2 s, 258 MB |
-| 32 | 3.9 s, 366 MB | 4.2 s, 290 MB | 4.1 s, 310 MB |
-| 63 | 6.0 s, 500 MB | 7.7 s, 457 MB | 7.4 s, 468 MB |
-| 64 | 6.0 s, 506 MB | 7.9 s, 465 MB | 7.6 s, 475 MB |
+| 4 | 2.7 s, 285 MB | 2.7 s, 206 MB | 2.8 s, 229 MB |
+| 16 | 3.2 s, 327 MB | 3.3 s, 233 MB | 3.2 s, 254 MB |
+| 32 | 3.8 s, 363 MB | 4.4 s, 284 MB | 4.3 s, 306 MB |
+| 63 | 6.0 s, 494 MB | 8.0 s, 451 MB | 7.7 s, 462 MB |
+| 64 | 6.1 s, 500 MB | 8.2 s, 459 MB | 7.8 s, 470 MB |
 
 OR-Tools needs no installation: unpack the release's C++ prebuilt anywhere and point to that folder (no CMake needed).
 

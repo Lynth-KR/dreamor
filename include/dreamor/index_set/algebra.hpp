@@ -18,12 +18,10 @@
 #include <string>
 #include <tuple>
 #include <type_traits>
-#include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
-#include "dreamor/general/tuple_hash.hpp"
+#include "dreamor/general/flat_index.hpp"
 #include "dreamor/index_set/binding.hpp"
 #include "dreamor/index_set/call.hpp"
 #include "dreamor/index_set/column.hpp"
@@ -57,20 +55,46 @@ template <typename... Columns, typename Tup>
 }  // namespace internal
 
 namespace internal {
+
+template <typename Tup>
+using TupleIndex = ::dreamor::general::FlatIndex<Tup>;
+
+// The key_at of a FlatIndex whose entries are positions in rows.
+template <typename Tup>
+[[nodiscard]] auto rowsAt(const std::vector<Tup>& rows) {
+  return [&rows](std::size_t row) -> const Tup& { return rows[row]; };
+}
+
+// Every row by position; a repeat keeps its first one.
+template <typename Tup>
+[[nodiscard]] TupleIndex<Tup> indexRows(const std::vector<Tup>& rows) {
+  TupleIndex<Tup> index{rows.size()};
+  for (std::size_t row = 0; row < rows.size(); ++row) {
+    static_cast<void>(index.insert(rows[row], row, rowsAt(rows)));
+  }
+  return index;
+}
+
+// Appends tuple unless out has it already; seen indexes out.
+template <typename Tup>
+void appendNew(std::vector<Tup>& out, TupleIndex<Tup>& seen, const Tup& tuple) {
+  if (seen.insert(tuple, out.size(), rowsAt(out)) == TupleIndex<Tup>::kNotFound) {
+    out.push_back(tuple);
+  }
+}
+
 // First occurrence of each tuple, front to back.
 template <typename Tup>
 [[nodiscard]] std::vector<Tup> firstOccurrences(const std::vector<Tup>& rows) {
-  std::unordered_set<Tup, ::dreamor::general::TupleHash> seen;
-  seen.reserve(rows.size());
   std::vector<Tup> out;
   out.reserve(rows.size());
+  TupleIndex<Tup> seen{rows.size()};
   for (const auto& tuple : rows) {
-    if (seen.insert(tuple).second) {
-      out.push_back(tuple);
-    }
+    appendNew(out, seen, tuple);
   }
   return out;
 }
+
 }  // namespace internal
 
 // Keeps the first occurrence of each row. A set with no repeats comes back as itself.
@@ -170,15 +194,12 @@ auto IndexSet<Tup>::select(Expr expr) const {
 // A ∪ B
 template <typename Tup>
 [[nodiscard]] IndexSet<Tup> unite(const IndexSet<Tup>& left, const IndexSet<Tup>& right) {
-  std::unordered_set<Tup, ::dreamor::general::TupleHash> seen;
-  seen.reserve(left.size() + right.size());
   std::vector<Tup> out;
   out.reserve(left.size() + right.size());
+  internal::TupleIndex<Tup> seen{left.size() + right.size()};
   for (const auto* side : {&left, &right}) {
     for (const auto& tuple : *side) {
-      if (seen.insert(tuple).second) {
-        out.push_back(tuple);
-      }
+      internal::appendNew(out, seen, tuple);
     }
   }
   return internal::SetAccess::make(std::move(out));
@@ -188,12 +209,13 @@ template <typename Tup>
 template <typename Tup>
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): two sets of one type is what intersecting means
 [[nodiscard]] IndexSet<Tup> intersect(const IndexSet<Tup>& left, const IndexSet<Tup>& right) {
-  const std::unordered_set<Tup, ::dreamor::general::TupleHash> rhs{right.begin(), right.end()};
-  std::unordered_set<Tup, ::dreamor::general::TupleHash> emitted;
+  const auto& right_rows = internal::SetAccess::rows(right);
+  const auto rhs         = internal::indexRows(right_rows);
   std::vector<Tup> out;
+  internal::TupleIndex<Tup> emitted{left.size()};
   for (const auto& tuple : left) {
-    if (rhs.contains(tuple) && emitted.insert(tuple).second) {
-      out.push_back(tuple);
+    if (rhs.find(tuple, internal::rowsAt(right_rows)) != internal::TupleIndex<Tup>::kNotFound) {
+      internal::appendNew(out, emitted, tuple);
     }
   }
   return internal::SetAccess::make(std::move(out));
@@ -203,12 +225,13 @@ template <typename Tup>
 template <typename Tup>
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): two sets of one type is what A \ B means
 [[nodiscard]] IndexSet<Tup> difference(const IndexSet<Tup>& left, const IndexSet<Tup>& right) {
-  const std::unordered_set<Tup, ::dreamor::general::TupleHash> rhs{right.begin(), right.end()};
-  std::unordered_set<Tup, ::dreamor::general::TupleHash> emitted;
+  const auto& right_rows = internal::SetAccess::rows(right);
+  const auto rhs         = internal::indexRows(right_rows);
   std::vector<Tup> out;
+  internal::TupleIndex<Tup> emitted{left.size()};
   for (const auto& tuple : left) {
-    if (!rhs.contains(tuple) && emitted.insert(tuple).second) {
-      out.push_back(tuple);
+    if (rhs.find(tuple, internal::rowsAt(right_rows)) == internal::TupleIndex<Tup>::kNotFound) {
+      internal::appendNew(out, emitted, tuple);
     }
   }
   return internal::SetAccess::make(std::move(out));
@@ -225,7 +248,9 @@ template <typename Tup>
 template <typename Tup>
 class Membership {
  public:
-  explicit Membership(const IndexSet<Tup>& set) : members_{set.begin(), set.end()} {}
+  // Shares the set's rows and indexes them in place: 4 bytes a slot, no copy of a row.
+  explicit Membership(const IndexSet<Tup>& set)
+      : set_{set}, index_{internal::indexRows(internal::SetAccess::rows(set))} {}
 
   // The set's columns, in order - where() calls pred(a, b), and so can you: in_routes(m, i) -
   // or a whole row (see key_args.hpp). The parameter list cannot say which columns these are
@@ -233,14 +258,16 @@ class Membership {
   template <typename... Args>
   [[nodiscard]] bool operator()(const Args&... key) const {
     if constexpr (internal::checkMembershipKey<Tup, Args...>()) {
-      return members_.contains(internal::keyOf<Tup>(key...));
+      return index_.find(internal::keyOf<Tup>(key...), internal::rowsAt(internal::SetAccess::rows(set_))) !=
+             internal::TupleIndex<Tup>::kNotFound;
     } else {
       return false;
     }
   }
 
  private:
-  std::unordered_set<Tup, ::dreamor::general::TupleHash> members_;
+  IndexSet<Tup> set_;
+  internal::TupleIndex<Tup> index_;
 };
 
 // Declares this membership's columns, so where() places it by them rather than by probing
@@ -266,26 +293,25 @@ Membership<Tup> IndexSet<Tup>::membership() const {
 // Returns the same set, so it drops into a declaration.
 template <typename Tup>
 template <typename... Columns>
-IndexSet<Tup> IndexSet<Tup>::assertUnique() const {  // NOLINT(modernize-use-nodiscard): see the declaration
+IndexSet<Tup> IndexSet<Tup>::assertUnique() const {  // NOLINT(modernize-scard): see the declaration
 #ifndef NDEBUG
   const auto& rows = internal::SetAccess::rows(*this);
   if constexpr (sizeof...(Columns) > 0) {
     internal::checkColumns<Tup, Columns...>();
   }
-  using Key = std::conditional_t<sizeof...(Columns) == 0, Tup, std::tuple<Columns...>>;
-  std::unordered_map<Key, std::size_t, ::dreamor::general::TupleHash> first;
-  first.reserve(rows.size());
+  using Key         = std::conditional_t<sizeof...(Columns) == 0, Tup, std::tuple<Columns...>>;
+  const auto key_at = [&rows](std::size_t row) -> Key {
+    if constexpr (sizeof...(Columns) == 0) {
+      return rows[row];
+    } else {
+      return Key{std::get<Columns>(rows[row])...};
+    }
+  };
+  ::dreamor::general::FlatIndex<Key> first{rows.size()};
   for (std::size_t i = 0; i < rows.size(); ++i) {
-    Key key = [&] {
-      if constexpr (sizeof...(Columns) == 0) {
-        return rows[i];
-      } else {
-        return Key{std::get<Columns>(rows[i])...};
-      }
-    }();
-    const auto [it, inserted] = first.try_emplace(std::move(key), i);
-    if (!inserted) {
-      throw std::logic_error("assertUnique: row " + std::to_string(i) + " repeats row " + std::to_string(it->second) +
+    const std::size_t earlier = first.insert(key_at(i), i, key_at);
+    if (earlier != ::dreamor::general::FlatIndex<Key>::kNotFound) {
+      throw std::logic_error("assertUnique: row " + std::to_string(i) + " repeats row " + std::to_string(earlier) +
                              (sizeof...(Columns) == 0 ? "." : " on the named columns, so they are not a key."));
     }
   }

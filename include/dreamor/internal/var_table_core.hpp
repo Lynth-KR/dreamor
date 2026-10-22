@@ -104,7 +104,7 @@ class VarTableCore {
   template <typename... Args>
   [[nodiscard]] bool contains(const Args&... key) const {
     if constexpr (checkTableKey<Key, Args...>()) {
-      return find(keyOf<Key>(key...)) != FlatIndex<Key>::kNotFound;
+      return find(keyOf<Key>(key...)) != RowIndex<Key>::kNotFound;
     } else {
       return false;
     }
@@ -128,13 +128,13 @@ class VarTableCore {
 
  protected:
   explicit VarTableCore(const IndexSet<Key>& keys)
-      : keys_{keys}, index_{std::make_shared<const FlatIndex<Key>>(rows())} {}
+      : keys_{keys}, index_{std::make_shared<const RowIndex<Key>>(rows())} {}
 
   VarTableCore(VarTableCore&&) noexcept            = default;
   VarTableCore& operator=(VarTableCore&&) noexcept = default;
   ~VarTableCore() noexcept = default;  // Solver objects follow their own owner; nothing is ended here.
 
-  // Row of the key, or FlatIndex<Key>::kNotFound.
+  // Row of the key, or RowIndex<Key>::kNotFound.
   [[nodiscard]] std::size_t find(const Key& key) const { return index_->find(key, rows()); }
 
   // The row of a key from an operator() call, or throws std::out_of_range - the rule of
@@ -143,7 +143,7 @@ class VarTableCore {
   template <typename... Args>
   [[nodiscard]] std::size_t rowOf(const Args&... key) const {
     const std::size_t at = find(keyOf<Key>(key...));
-    if (at == FlatIndex<Key>::kNotFound) {
+    if (at == RowIndex<Key>::kNotFound) {
       throw std::out_of_range("VarTable: this tuple is not in the table's set.");
     }
     return at;
@@ -175,8 +175,8 @@ class VarTableCore {
   std::vector<Var> vars_;  // vars_[i] is the variable of row i.
 
  private:
-  IndexSet<Key> keys_;                           // Shared; the only copy of the keys.
-  std::shared_ptr<const FlatIndex<Key>> index_;  // Shared with ValueTables.
+  IndexSet<Key> keys_;                          // Shared; the only copy of the keys.
+  std::shared_ptr<const RowIndex<Key>> index_;  // Shared with ValueTables.
 };
 
 }  // namespace internal
