@@ -87,6 +87,21 @@ template <typename RangeTuple, typename ElemTuple, std::size_t I = 0>
   }
 }
 
+template <typename RangeTuple, typename ElemTuple, std::size_t I = 0>
+[[nodiscard]] consteval bool dependentSourcesDistinct() {
+  if constexpr (I >= std::tuple_size_v<RangeTuple>) {
+    return true;
+  } else {
+    using Source = std::tuple_element_t<I, RangeTuple>;
+    if constexpr (sourceKindOf<Source>() == SourceKind::kDependent && ColumnsOfPredicate<Source>::known) {
+      return SourcePlacement<Source, ElemTuple>::no_repeated_column &&
+             dependentSourcesDistinct<RangeTuple, ElemTuple, I + 1>();
+    } else {
+      return dependentSourcesDistinct<RangeTuple, ElemTuple, I + 1>();
+    }
+  }
+}
+
 // --- Join order -------------------------------------------------------------------------
 // Sources are visited so that predicates run as early as possible. Greedy, over column
 // names only - no cardinality:

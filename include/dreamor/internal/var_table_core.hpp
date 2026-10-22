@@ -94,6 +94,10 @@ template <typename Bound, typename Row>
 template <typename Var, typename... Keys>
   requires(sizeof...(Keys) > 0 && (is_nameable<Keys> && ...))
 class VarTableCore {
+  static_assert(allColumnsDistinct<std::tuple<Keys...>>(std::index_sequence_for<Keys...>{}),
+                "VarTable<ICol, ICol> names one key column twice, and no set has the same column twice: give each "
+                "key its own column type.");
+
  public:
   // The index tuple. Identical to the element type of the set the table is built on, so a
   // row from that set, a subset of it or one of its groups goes straight into operator().

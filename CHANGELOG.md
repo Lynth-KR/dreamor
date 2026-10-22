@@ -16,6 +16,10 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- A callable that takes the same column twice - `[](FromCol a, FromCol b)` as a predicate, a term, a bound, a
+  `select(expr)` or a dependent source - stops at compile time with one sentence. It used to compile and hand both
+  parameters one value, which is never what such a parameter list means. `VarTable<ICol, ICol>` now says so
+  directly instead of reporting a mismatched set.
 - Every hash table in the set layer - `distinct`, `select`, `unite`, `intersect`, `difference`, `membership`,
   `ordered`, `groupBy` and `assertUnique` - is now the flat index `VarTable` already used: 4-byte slots of row
   numbers into rows the set already holds, instead of a node per key holding a copy of it. A `membership()` shares

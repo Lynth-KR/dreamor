@@ -92,6 +92,11 @@ struct PredicatePlacement<std::tuple<Columns...>, ElemTuple> {
   // Vacuously true when the columns are not named, so all_named is the only diagnostic.
   static constexpr bool all_present =
       !all_named || ((indexOfColumn<Columns, ElemTuple>() < std::tuple_size_v<ElemTuple>) && ...);
+  // A column taken twice hands both parameters one value - a slip for another column, since
+  // a callable that wants a column needs it once. Vacuously true when the columns are not
+  // named, for the same reason as all_present.
+  static constexpr bool no_repeated_column =
+      !all_named || allColumnsDistinct<std::tuple<Columns...>>(std::index_sequence_for<Columns...>{});
   // The columns it reads, as a bitmask over the element tuple. Zero unless every column
   // resolved, so a malformed signature cannot look like a dependency on a column that does
   // not exist.

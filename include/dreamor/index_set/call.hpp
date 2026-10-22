@@ -79,6 +79,10 @@ consteval void checkColumnCallable() {
                   "implicitly, so only the parameter list changes.");
     static_assert(PlacementOf<Callable, Row>::all_present, "This callable names a column these rows do not have.");
     static_assert(
+        PlacementOf<Callable, Row>::no_repeated_column,
+        "This callable takes the same column twice, so both parameters would get one value: give each its own "
+        "column - `[](FromCol a, ToCol b)` - or take the column once.");
+    static_assert(
         !ColumnsOfPredicate<Callable>::known || std::tuple_size_v<typename ColumnsOfPredicate<Callable>::type> != 0,
         "This callable reads no columns, so it would be the same for every row.");
   }

@@ -60,6 +60,10 @@ class Set {
                   "implicitly, so only the parameter list changes.");
     static_assert(internal::PlacementOf<Pred, ElemTuple>::all_present,
                   "The predicate names a column this set does not have.");
+    static_assert(
+        internal::PlacementOf<Pred, ElemTuple>::no_repeated_column,
+        "This callable takes the same column twice, so both parameters would get one value: give each its own "
+        "column - `[](FromCol a, ToCol b)` - or take the column once.");
     static_assert(!internal::ColumnsOfPredicate<Pred>::known ||
                       std::tuple_size_v<typename internal::ColumnsOfPredicate<Pred>::type> != 0,
                   "The predicate reads no columns, so it would be a constant. Take the "
@@ -237,6 +241,9 @@ class Set {
   static_assert(internal::dependentSourcesNamed<RangeTuple, ElemTuple>(),
                 "A dependent column takes the columns themselves: `[](MachineCol m)`, not "
                 "`[](const Machine* m)`, and only columns this set has.");
+  static_assert(internal::dependentSourcesDistinct<RangeTuple, ElemTuple>(),
+                "A dependent column takes the same column twice, so both parameters would get one value: give each "
+                "its own column, or take the column once.");
   static_assert(std::ranges::all_of(kVisitOrder, [](std::size_t source) { return source < kSourceCount; }),
                 "No order of the sources satisfies their dependencies: two dependent columns need "
                 "each other. A dependent column can only read columns that some other source "

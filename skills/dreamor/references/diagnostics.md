@@ -24,6 +24,9 @@ left column. Each message is pinned by a `// expect:` line in `tests/compile_fai
 | `select(expr) returns the same column twice` | `std::tuple<ICol, ICol>{...}` | Give each column of the new row its own type | `select_returns_column_twice` |
 | `select(expr) returns two columns with the same name` | Two returned columns of different value types share a name | Rename one column type | `select_returns_same_name` |
 | `The same column type appears twice` | Two columns of one type: a column named in `makeSet<...>` that a set source also has, or a `Col` type declared twice | Give each column its own type; to join two sets on a column, pass both as set sources | `makeset_column_named_twice` |
+| `This callable takes the same column twice` | A predicate, term, bound or `select(expr)` names one column in two parameters (`[](FromCol a, FromCol b)`) | Give each parameter its own column, or take the column once | `where_takes_column_twice`, `sumof_term_takes_column_twice` |
+| `A dependent column takes the same column twice` | `makeSet` dependent source with a repeated column parameter | Same | `makeset_dependent_takes_column_twice` |
+| `names one key column twice` | `VarTable<ICol, ICol>` | Give each key its own column type | `vartable_key_twice` |
 | `No column of this set has that name` | `groupBy<KCol>()` / `select<KCol>()` with a foreign column | Use the set's columns | `groupby_missing_column`, `select_missing_column` |
 | `A VarTable is built on a set with exactly its key columns` | The table's keys differ from the set's columns or their order | Match the table to the set, or `select<...>()` to reorder | `vartable_key_order_differs_from_set` |
 | `is not an expression yet` | `sumOf(...)` without `.build()` in a comparison, `+=`, or `-` | Add `.build()` | `sumof_without_build`, `sumof_without_build_plus_assign`, `sumof_without_build_reversed`, `mathopt/sumof_without_build` |
