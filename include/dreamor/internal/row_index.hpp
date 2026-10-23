@@ -20,7 +20,6 @@
 #include <limits>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <stdexcept>
 #include <utility>
 #include <vector>
@@ -175,16 +174,16 @@ class RowIndex {
               repeat);
         }
 #endif
-        index_.emplace(std::move(index));
+        index_ = std::move(index);
         ready_.store(true, std::memory_order_release);
       });
     }
-    return *index_;
+    return index_;
   }
 
   mutable std::once_flag once_;
   mutable std::atomic<bool> ready_{false};
-  mutable std::optional<::dreamor::general::FlatIndex<Key>> index_;
+  mutable ::dreamor::general::FlatIndex<Key> index_;
 };
 
 // Iterates (row, X) pairs: a set's rows beside a vector of X in the same order.
