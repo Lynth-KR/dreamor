@@ -701,13 +701,24 @@ OR-Tools 경로는 위의 환경 변수로), 저장소의 `.clangd`와 `.vscode/
 - `map`: `examples/production_planning_plain.hpp`처럼 `std::map`과 루프로 짠 코드
 - `flat`: 병렬 벡터, CSR, 압축 키 해시로 손 최적화한 코드
 
-변수와 식은 세 구현이 똑같이 만들어서 솔버 몫은 비교에서 상쇄되고, 집합 구성, 변수 생성, 묶기, 묶음 합, 조회,
-메모리만 남습니다. 요인은 묶는 키, K2 소유, 밀도, 팬아웃 분포의 2^4 완전요인이고, 결과는 수식으로 계산되는
-엑셀 보고서로 나옵니다.
+변수와 식은 세 구현이 똑같이 만들어서 솔버 몫은 비교에서 상쇄됩니다. 남는 것은 생산계획 예제의 모델 생성 작업입니다.
+집합 구성, 변수 생성, 세 가지 모양의 묶기, 계수가 있거나 없는 묶음 합, 다른 집합을 따라가는 slice, 조회, 메모리가
+여기에 해당합니다. dreamor와 `flat`은 일곱 요인의 분해능 V 반쪽 설계로 비교합니다.
+- 행 수(1e5~1e7)
+- K2 소유
+- 밀도
+- 팬아웃 분포
+- id가 행이 나오는 순서와 맞는지
+- 묶음 크기
+- 한 집합 위의 변수 묶음 수
+
+`map`은 예제와 같은 모양의 셀에서만 돌립니다. 실제 솔버는 넣지 않습니다. 솔버의 비용은 컨테이너가 아니라 솔버 내부와
+머신에 따라 움직이기 때문입니다. 실제 백엔드는 실험이 끝난 뒤 `bench/solver/`로 따로 봅니다. 결과는 수식으로
+계산되는 엑셀 보고서로 나옵니다.
 
 ```bash
 bench/build.sh
-cd bench && python3 run_doe.py --budget-gb 3.5 --reps 3   # results/<date>_<commit>_3.5gb/; then make_report.py on its result.csv
+cd bench && python3 run_doe.py --reps 2 --map   # results/<date>_<commit>_N1e5-1e6-1e7_half/; then make_report.py on its result.csv
 ```
 
 설계, 공정성 조건, 읽는 법은 `bench/README.md`에 있습니다. 시간 측정이라 CI에서는 돌리지 않습니다.

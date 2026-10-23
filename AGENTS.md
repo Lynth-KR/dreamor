@@ -19,7 +19,7 @@ Version 0.1.0, Apache 2.0.
 | `include/dreamor/general/`, `include/dreamor/logger/` | Utilities (`tuple_hash.hpp`, `flat_index.hpp`, `format_buffer.hpp`, `third_party_headers.hpp`, `logger_light.hpp`) |
 | `examples/` | Lot-sizing example: `production_planning_sets.hpp` (solver-free), `production_planning.hpp` (Concert), `production_planning_mathopt.hpp` (MathOpt), `production_planning_plain.hpp` (without dreamor, for comparison). `mathopt_samples/`: three OR-Tools MathOpt samples ported to dreamor, with a walkthrough of each port (keep Google's license header and the modification notice on these files) |
 | `tests/` | Framework-free tests, `tests/run_tests.sh`, Concert stub (`tests/stub/`), compile-fail cases |
-| `bench/` | Container benchmark without a solver: dreamor vs hand-written `std::map` vs hand-optimized arrays, as a 2^4 factorial (`bench/README.md`). Own lean Concert stub in `bench/stub/`. Not run in CI |
+| `bench/` | Container benchmark without a solver: dreamor vs hand-optimized arrays as a 144-cell resolution V fraction over the lot-sizing example's operations, hand-written `std::map` in a reference cell (`bench/README.md`). Own lean Concert stub in `bench/stub/`. `bench/solver/`: a probe of real backends, run after the experiment and not part of it. Not run in CI |
 | `skills/dreamor/` | Agent Skill for users writing dreamor code |
 | `cmake/`, `CMakeLists.txt` | `dreamor::dreamor` INTERFACE target and install/package config |
 
@@ -133,9 +133,14 @@ Shared logic belongs in `include/dreamor/internal/`.
 
 `bench/` is not part of the test suite or CI. When a change touches what the benchmark exercises
 (`makeSet`, `groupBy`, `VarTable` construction or lookup, `sumOf`), check two things with
-`bench/build.sh` and a quick `python3 run_doe.py --budget-gb 0.15 --reps 2` (it writes to `bench/results/`):
+`bench/build.sh` and a quick `python3 run_doe.py --reps 2 --n-levels 100000` (it writes to `bench/results/`):
 - it still builds;
-- `groups`, `check_groups`, and `check_traverse` agree across arms for each model.
+- `groups` and every `chk_<phase>` column agree across arms for each model, and flat's `chk_set_*_merge`
+  with `chk_set_*` (`make_report.py`'s Check sheet reports no mismatch).
+
+If the change touches how variables are created, `bench/solver/build.sh` and `python3 run.py` there show it under the
+real backends that are installed - as a check, not a timing result (`bench/solver/README.md`).
+`python3 -m unittest test_run_doe` (in `bench/`) tests the runner's CPU choice and design.
 
 Timing conclusions need the full run (`bench/README.md`). An agent's sandbox is not a benchmark
 machine.

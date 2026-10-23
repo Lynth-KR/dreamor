@@ -6,7 +6,8 @@
 // on the solver side here.
 //
 // Only what dreamor/concert.hpp and bench.cpp use. A variable is a 16-byte heap object
-// behind a handle, as in Concert. An expression records its variables, and end() frees it.
+// behind a handle, as in Concert. An expression records its variables and their
+// coefficients, and end() frees it.
 #pragma once
 #include <cstddef>
 #include <vector>
@@ -72,14 +73,36 @@ class IloNumArray {
   std::vector<IloNum>* v_;
 };
 
+// coef * var, as Concert's IloNumExprArg holds it.
+class IloNumExprArg {
+ public:
+  IloNumExprArg(IloNum coef, const IloNumVar& var) : coef_(coef), var_(var.getImpl()) {}
+  IloNum coef() const { return coef_; }
+  IloNumVarI* var() const { return var_; }
+
+ private:
+  IloNum coef_;
+  IloNumVarI* var_;
+};
+inline IloNumExprArg operator*(IloNum coef, const IloNumVar& var) {
+  return {coef, var};
+}
+
 struct IloExprI {
   std::vector<IloNumVarI*> vars;
+  std::vector<IloNum> coefs;  // coefs[i] multiplies vars[i]
 };
 class IloExpr {
  public:
   explicit IloExpr(IloEnv) : impl_(new IloExprI) {}
   IloExpr& operator+=(const IloNumVar& v) {
     impl_->vars.push_back(v.getImpl());
+    impl_->coefs.push_back(1);
+    return *this;
+  }
+  IloExpr& operator+=(const IloNumExprArg& term) {
+    impl_->vars.push_back(term.var());
+    impl_->coefs.push_back(term.coef());
     return *this;
   }
   IloExprI* getImpl() const { return impl_; }

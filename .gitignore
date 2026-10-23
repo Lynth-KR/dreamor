@@ -26,6 +26,7 @@ __pycache__/
 
 # Benchmarks: every local run goes to bench/results/; bench/reference/ is the one published
 bench/bench
+bench/solver/probe_*
 bench/results/
 bench/reference/*.xlsx
 bench/*.csv

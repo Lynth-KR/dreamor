@@ -67,6 +67,14 @@ and versions follow [Semantic Versioning](https://semver.org/).
   reference, and inside a sum.
 - `SAN=thread tests/run_tests.sh` runs the tests under ThreadSanitizer, and CI runs it beside `SAN=1`, which now
   turns LeakSanitizer on explicitly.
+- The container benchmark (`bench/`) is a designed experiment over the lot-sizing example's model build: 7 factors
+  (row count 1e5 to 1e7, ownership, density, fan-out, id order, group size, families per set) in a resolution V half
+  fraction of 144 cells (`--full`: 288), dreamor against hand-optimized arrays. Every phase records system time and
+  page faults. The runner pins one CPU of the fastest core class unless the machine is virtualized, and records the
+  machine with the results. No real solver takes part: `bench/solver/` probes CPLEX Concert and MathOpt after the
+  experiment, for the containers' share of a real build and whether a gap there is theirs. Set operations - a
+  projection, union, intersection, difference and a membership filter - are measured beside the model build, with
+  flat writing each two ways: a `std::unordered_set`, and sorted keys merged with `<algorithm>`.
 
 ## [0.1.1] - 2026-10-22
 

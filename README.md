@@ -729,13 +729,25 @@ Three implementations build the same rows, the same variables and the same expre
 - `flat`: hand-optimized parallel vectors, CSR and a packed-key hash
 
 The variables and expressions are made identically in all three, so the solver's share cancels
-out. What remains is set construction, variable creation, grouping, group sums, lookups and
-memory. The factors are grouping key, K2 ownership, density and fan-out distribution in a 2^4
-full factorial. The results come out as a workbook computed by formulas.
+out. What remains is the work of the lot-sizing example's model build: set construction,
+variable creation, groupings of three shapes, group sums with and without coefficients, slices
+driven by another set, lookups and memory. dreamor and `flat` are compared over seven factors, in a resolution V
+half fraction:
+- row count (1e5 to 1e7);
+- K2 ownership;
+- density;
+- fan-out distribution;
+- how ids line up with the order rows come in;
+- group size;
+- families per set.
+
+`map` runs in the example's own cell. No real solver takes part: its cost moves with its insides and the machine,
+not with the containers. `bench/solver/` looks at real backends afterwards. The results come out as a workbook
+computed by formulas.
 
 ```bash
 bench/build.sh
-cd bench && python3 run_doe.py --budget-gb 3.5 --reps 3   # results/<date>_<commit>_3.5gb/; then make_report.py on its result.csv
+cd bench && python3 run_doe.py --reps 2 --map   # results/<date>_<commit>_N1e5-1e6-1e7_half/; then make_report.py on its result.csv
 ```
 
 Design, fairness conditions and how to read the results are in `bench/README.md`. Timing is not
