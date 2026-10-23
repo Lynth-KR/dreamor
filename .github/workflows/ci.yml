@@ -1,11 +1,27 @@
 name: tests
-on: [push, pull_request]
+# CI is for what is published: pushes to main and pull requests, or a run started by hand
+# (workflow_dispatch) for a work branch. A change of Markdown alone builds nothing: README code
+# blocks are compiled by tests/test_readme.cpp, which a change to them touches too.
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["**/*.md"]
+  pull_request:
+    paths-ignore: ["**/*.md"]
+  workflow_dispatch:
+# A newer push to the same ref makes the run still going on the older one moot.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   stub:
+    # The builds wait for format and tidy, the cheap checks that fail most: a run that fails
+    # there costs those two jobs, not the whole matrix.
     # No CPLEX on CI: tests run against the Concert stub in tests/stub, with GCC and Clang -
     # the compile_fail cases check that both print our message first.
     # Real CPLEX: tests/run_tests.sh --cplex [CPLEX_Studio dir], locally.
     # -O3 -DNDEBUG is CMake's Release: GCC finds more with inlining, and asserts compile away.
+    needs: [format, tidy]
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -23,6 +39,7 @@ jobs:
     # The stub-mode tests under sanitizers, two builds: Address + UndefinedBehavior + Leak, and
     # Thread on its own (it cannot share a build with ASan) - tables on one set share its row
     # index across threads, behind a lock.
+    needs: [format, tidy]
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -36,6 +53,7 @@ jobs:
     # The compiler range: the stub job holds the floor (GCC 13, Clang 18), this job and
     # clang-latest the newest releases - bumped by hand at each major release (GCC every
     # spring, LLVM every March and September). The official image: Ubuntu 24.04 has no GCC 16.
+    needs: [format, tidy]
     runs-on: ubuntu-24.04
     container: gcc:16
     steps:
@@ -44,6 +62,7 @@ jobs:
 
   clang-latest:
     # The newest LLVM release, from apt.llvm.org (see gcc-latest).
+    needs: [format, tidy]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -54,6 +73,7 @@ jobs:
     # The MathOpt backend against the OR-Tools C++ prebuilt, solving with HiGHS: unit tests,
     # the example, the Concert-vs-MathOpt comparison of the example's constraints, and the
     # MathOpt compile_fail cases.
+    needs: [format, tidy]
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -107,6 +127,7 @@ jobs:
   package:
     # The installed CMake package, taken the way a user would: find_package(dreamor), link
     # dreamor::dreamor, build, run - with both compilers.
+    needs: [format, tidy]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4

@@ -64,7 +64,9 @@ tools/tidy.sh                        # clang-tidy; needs compile_commands.json (
   a sanitize job (`SAN=1` and `SAN=thread`, GCC), gcc-latest and clang-latest (stub mode on the newest releases),
   the MathOpt job on both compilers, a package job that installs the CMake package and builds
   `tests/cmake_consumer` (and `tests/cmake_consumer_mathopt` in the MathOpt job) through `find_package(dreamor)`,
-  a tidy job (`tools/tidy.sh`), and a format job (`tools/format.sh --check`).
+  a tidy job (`tools/tidy.sh`), and a format job (`tools/format.sh --check`). The builds start only once format and
+  tidy pass. It runs on pushes to main and on pull requests, not on a change of Markdown alone; a work branch runs it
+  by hand (`gh workflow run tests --ref <branch>`).
 - **Compiler support** is a range tested at both ends, nothing in between: the floor is GCC 13 / Clang 18 (raising
   it is a decision, not a cleanup), the ceiling the newest releases (GCC 16 from the `gcc:16` image, Clang 23 from
   apt.llvm.org). Bump the ceiling at each major release - GCC every spring, LLVM every March and September - in

@@ -101,6 +101,8 @@ and versions follow [Semantic Versioning](https://semver.org/).
   reference, and inside a sum.
 - `SAN=thread tests/run_tests.sh` runs the tests under ThreadSanitizer, and CI runs it beside `SAN=1`, which now
   turns LeakSanitizer on explicitly.
+- CI runs on pushes to main and on pull requests, or by hand for a work branch, and not on a change of Markdown alone;
+  the builds wait for format and tidy, and a newer push cancels the run still going on the same ref.
 - The container benchmark (`bench/`) is a designed experiment over the lot-sizing example's model build: 7 factors
   (row count 1e5 to 1e7, ownership, density, fan-out, id order, group size, families per set) in a resolution V half
   fraction of 144 cells (`--full`: 288), dreamor against hand-optimized arrays. Every phase records system time and
