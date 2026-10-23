@@ -8,14 +8,12 @@
 //
 // Every operation returns a new IndexSet and leaves its operands as they were. Binary
 // operations are free functions (their operands are symmetric); unary ones are members of
-// IndexSet, defined here: orderBy, distinct, select, membership, assertUnique.
+// IndexSet, defined here: orderBy, select, membership.
 #pragma once
 
 #include <algorithm>  // IWYU pragma: keep // For std::ranges::stable_sort
 #include <concepts>
 #include <cstddef>
-#include <stdexcept>
-#include <string>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -29,16 +27,6 @@
 #include "dreamor/index_set/key_args.hpp"
 
 namespace dreamor {
-
-// Appends without deduplicating; see unite() for A ∪ B.
-template <typename Tup>
-[[nodiscard]] IndexSet<Tup> concat(const IndexSet<Tup>& first, const IndexSet<Tup>& second) {
-  std::vector<Tup> out;
-  out.reserve(first.size() + second.size());
-  out.insert(out.end(), first.begin(), first.end());
-  out.insert(out.end(), second.begin(), second.end());
-  return internal::SetAccess::make(std::move(out));
-}
 
 namespace internal {
 
@@ -140,16 +128,6 @@ template <typename Tup>
 }
 
 }  // namespace internal
-
-// Keeps the first occurrence of each row. A set with no repeats comes back as itself.
-template <typename Tup>
-IndexSet<Tup> IndexSet<Tup>::distinct() const {
-  auto rows = internal::firstOccurrences(internal::SetAccess::rows(*this));
-  if (rows.size() == size()) {
-    return *this;
-  }
-  return internal::SetAccess::make(std::move(rows));
-}
 
 // Projection onto some columns, as a true set: S.select<MachineCol, ItemCol>(). Naming every
 // column in another order reorders the columns: S.select<OrderCol, MachineCol, ItemCol>().
@@ -303,43 +281,6 @@ struct PredicateColumns<Membership<Tup>> {
 template <typename Tup>
 Membership<Tup> IndexSet<Tup>::membership() const {
   return Membership<Tup>{*this};
-}
-
-// Debug-only key check, compiled out under NDEBUG. This library keeps duplicates unless
-// asked, so nothing stops a set from holding the same tuple twice - and a duplicate is
-// silent: it just counts twice in every sum and shows up twice in every group.
-//
-//     const auto sASSIGN = makeSet<MachineCol, ItemCol>(machines, items_of).collect().assertUnique();
-//     sASSIGN.assertUnique<MachineCol, ItemCol>();   // these columns are a key
-//
-// With no column types the whole tuple must be unique; with some, that projection must be.
-// Returns the same set, so it drops into a declaration.
-template <typename Tup>
-template <typename... Columns>
-IndexSet<Tup> IndexSet<Tup>::assertUnique() const {  // NOLINT(modernize-use-nodiscard): see the declaration
-#ifndef NDEBUG
-  const auto& rows = internal::SetAccess::rows(*this);
-  if constexpr (sizeof...(Columns) > 0) {
-    internal::checkColumns<Tup, Columns...>();
-  }
-  using Key         = std::conditional_t<sizeof...(Columns) == 0, Tup, std::tuple<Columns...>>;
-  const auto key_at = [&rows](std::size_t row) -> Key {
-    if constexpr (sizeof...(Columns) == 0) {
-      return rows[row];
-    } else {
-      return Key{std::get<Columns>(rows[row])...};
-    }
-  };
-  ::dreamor::general::FlatIndex<Key> first{rows.size()};
-  for (std::size_t i = 0; i < rows.size(); ++i) {
-    const std::size_t earlier = first.insert(key_at(i), i, key_at);
-    if (earlier != ::dreamor::general::FlatIndex<Key>::kNotFound) {
-      throw std::logic_error("assertUnique: row " + std::to_string(i) + " repeats row " + std::to_string(earlier) +
-                             (sizeof...(Columns) == 0 ? "." : " on the named columns, so they are not a key."));
-    }
-  }
-#endif
-  return *this;
 }
 
 // Stable reordering into "<key>-major" traversal order. Pass an explicit key (an id, a

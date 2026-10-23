@@ -40,6 +40,9 @@ dreamor::makeSet<Cols...>(sources...)   // one source per column; a set source c
 | Existing set | `makeSet<PeriodCol>(sROUTES, periods)` | Fills that set's columns at once. Set sources sharing a column are joined on it (`makeSet<>(sROUTES, sOPEN)`): the later one is looked up, not scanned. A column named in `makeSet<...>` is always new |
 
 Row order is generation order; which column varies fastest is unspecified. Use `orderBy` when order matters.
+Precondition: no source holds an element twice (a container, a dependent source's range, a set), and an entity is
+one object in one container; breaking it is undefined behavior, and a debug build aborts on it with a message
+(`makeSet: source N holds one element twice ...`). A set therefore never holds a row twice.
 A set has at most 64 columns, spread sources included; 65 stops at compile time.
 
 ## IndexSet
@@ -54,14 +57,11 @@ random-access, default-constructible (empty), O(1) copy sharing rows.
 | `select<Cols...>()` | `IndexSet`, projection, duplicates removed; all columns in another order = reorder | `setof {...} (m,i)` |
 | `select(expr)` | `IndexSet` of what `expr` returns per row (one `Col` or a `std::tuple` of them), duplicates removed. `expr` takes the columns it reads; a value changes column only where the new column is written: `std::tuple<FromCol, ToCol>{j, i}` | `setof {(i,j) in S} (j,i)` |
 | `orderBy(key)` | `IndexSet`, stable sort by `key(row)`; the only place a generic lambda is allowed | |
-| `distinct()` | `IndexSet`, first occurrences | |
 | `groupBy<Cols...>()` | `Grouped` | slices |
 | `membership()` | `Membership` | `(m,i) in S` |
 | `ordered()` | `Ordered` | ordered set |
-| `assertUnique<Cols...>()` | same set; debug builds throw `std::logic_error` if Cols are not a key | |
 
-Free functions: `dreamor::unite(A, B)` (∪), `intersect(A, B)` (∩), `difference(A, B)` (\), `concat(A, B)` (keeps
-duplicates).
+Free functions: `dreamor::unite(A, B)` (∪), `intersect(A, B)` (∩), `difference(A, B)` (\).
 
 In generic code where the set type is a template parameter: `sANY.template select<A>()`.
 
@@ -165,7 +165,7 @@ sumOf<Col>(container, term)
 - `contains(keys...)`, `contains(row)`, `size()`, `keys()` (the table's set), `Key` (= `std::tuple<Keys...>`).
 - Range-for yields `[row, var]` in set order, which is also the column order handed to the model.
 - Built once from the set. There is no `add`/`create` and no default constructor; tables are move-only.
-- A set with a repeated row makes the constructor throw `std::invalid_argument` (use `distinct()`).
+- One variable per row: a set holds no row twice (see Building sets).
 - The table's key columns must equal the set's columns in the same order.
 
 ## ValueTable

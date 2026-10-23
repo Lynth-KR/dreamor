@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-// IndexSet and its derivations: where, orderBy, distinct, select, groupBy, membership,
-// ordered, assertUnique, and the binary operations.
+// IndexSet and its derivations: where, orderBy, select, groupBy, membership, ordered, and the
+// binary operations.
 #include <algorithm>
 #include <cstddef>
 #include <ranges>
@@ -44,10 +44,6 @@ int main() try {
   // orderBy: stable, key over the whole row
   const auto sorted = II.orderBy([](const auto& t) { return std::get<ICol>(t).get(); });
   DREAMOR_CHECK(std::get<ICol>(*sorted.begin()).get() == 1 && std::get<ICol>(*II.begin()).get() == 3);
-
-  // distinct: the same set back when nothing repeats
-  DREAMOR_CHECK(II.distinct().begin() == II.begin());
-  DREAMOR_CHECK(dreamor::concat(II, II).distinct().size() == 4);
 
   // select: projection as a set, and column reorder
   DREAMOR_CHECK(IJ.select<JCol>().size() == 3);
@@ -109,18 +105,10 @@ int main() try {
   const auto* beforeOne = T.prev(ICol{1});
   DREAMOR_CHECK(beforeOne != nullptr && std::get<ICol>(*beforeOne).get() == 3 && T.next(ICol{4}) == nullptr);
 
-  // assertUnique: the set back, or a throw (debug builds)
-  DREAMOR_CHECK(IJ.assertUnique().begin() == IJ.begin());
-#ifndef NDEBUG
-  DREAMOR_CHECK_THROWS(std::logic_error, dreamor::concat(II, II).assertUnique());
-  DREAMOR_CHECK_THROWS(std::logic_error, IJ.assertUnique<ICol>());
-#endif
-
   // binary operations
   DREAMOR_CHECK(dreamor::unite(II, II).size() == 4);
   DREAMOR_CHECK(dreamor::intersect(IJ, IJ.where(even)).size() == 6);
   DREAMOR_CHECK(dreamor::difference(IJ, IJ.where(even)).size() == 6);
-  DREAMOR_CHECK(dreamor::concat(II, II).size() == 8);
 
   // a set spread into a new one
   const auto IJK = dreamor::makeSet<>(IJ).collect();
@@ -148,9 +136,7 @@ int main() try {
   const auto II_even = II.where(even);
   DREAMOR_CHECK(std::ranges::equal(dreamor::makeSet<>(IJ, II_even).collect(), IJ.where(II_even.membership())));
   DREAMOR_CHECK(std::ranges::is_permutation(dreamor::makeSet<>(II_even, IJ).collect(), IJ.where(even)));
-  // repeats carried through, no match no row
-  const auto JK_twice = dreamor::concat(JK, JK);
-  DREAMOR_CHECK(dreamor::makeSet<>(IJ, JK_twice).collect().size() == 32);
+  // no match, no row
   const auto IJ_big = IJ.where(big);
   const auto JK_ten = JK.where([](JCol j) { return j.get() == 10; });
   DREAMOR_CHECK(dreamor::makeSet<>(IJ_big, JK_ten).collect().size() == 0);

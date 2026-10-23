@@ -74,8 +74,8 @@ These are enforced by the compiler or needed for a correct model.
    new, unrelated variables. Reach subsets and groups through the one table: `vYield(row)`. Two tables over one set
    are fine when they are different families (`vYield` and `vSetup` over `sPRODUCE`).
 6. **A table's key columns equal its set's columns, in order.** Reorder a set with `select<...>()` if needed.
-7. **Sets are read-only.** To get a different set, derive one with `where`, `select`, `orderBy`, `distinct`,
-   `unite`, `intersect`, `difference`, or `concat`.
+7. **Sets are read-only.** To get a different set, derive one with `where`, `select`, `orderBy`, `unite`,
+   `intersect`, or `difference`.
 8. **Name the object before borrowing from it.** Call `Grouped::slice/at/keyAt` and every `Ordered` lookup on a
    named variable. Plain iteration of a temporary is fine: `for (const auto& [c, rows] : S.groupBy<C>())`.
 9. **Grouped iteration binds key columns, then rows:** `for (const auto& [machine, period, rows] : grouped)`.
@@ -83,7 +83,8 @@ These are enforced by the compiler or needed for a correct model.
     constraint (including keys with no rows), iterate the driver set and call `slice()`. A missing key gives an
     empty slice, whose sum is 0.
 11. **Sources.** A dependent source returns a range of *pointers* (`std::vector<const Item*>`, a span, a view). A
-    container source must be an lvalue.
+    container source must be an lvalue. No source holds an element twice, and an entity is one object in one
+    container: a precondition (undefined behavior if broken) that keeps every set free of repeated rows.
 12. **Concert lifetime.** Call `env.end()` exactly once, last. Never `end()` a VarTable's variables or
     `endElements()` an array holding them. `end()` temporary `IloExpr`s after adding the constraint. None of this
     applies to MathOpt.

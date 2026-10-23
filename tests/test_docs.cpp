@@ -89,8 +89,7 @@ int main() try {
   DREAMOR_CHECK(makeSet<>(sASSIGN, sOPEN).collect().size() == 4);
 
   // algebra.hpp
-  const auto sUNIQUE = makeSet<MachineCol, ItemCol>(machines, items_of).collect().assertUnique();
-  sUNIQUE.assertUnique<MachineCol, ItemCol>();
+  const auto sUNIQUE   = makeSet<MachineCol, ItemCol>(machines, items_of).collect();
   const auto in_supply = sMACHINE_ITEMS.membership();
   DREAMOR_CHECK(sUNIQUE.size() == 3 && in_supply(MachineCol{machines[1]}, ItemCol{items[0]}) &&
                 !in_supply(MachineCol{machines[1]}, ItemCol{items[1]}));

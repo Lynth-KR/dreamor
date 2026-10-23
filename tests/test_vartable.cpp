@@ -152,11 +152,6 @@ int main() try {
   for (const auto& row : x.keys().where(atTwo)) x(row).setUB(0);
   DREAMOR_CHECK(exactlyEqual(x(ICol{2}, JCol{10}).getUB(), 0) && exactlyEqual(x(ICol{3}, JCol{10}).getUB(), 1));
 
-  // a set that repeats a row is refused - by every table on it, not only the first
-  const auto twice = dreamor::concat(IJ, IJ);
-  DREAMOR_CHECK_THROWS(std::invalid_argument, dreamor::concert::VarTable<ICol, JCol>{env, twice, 0, 1});
-  DREAMOR_CHECK_THROWS(std::invalid_argument, dreamor::concert::VarTable<ICol, JCol>{env, twice, 0, 1});
-
   // tables on one set share its row index, built by the first: one built after every other
   // table on the set is gone, a value table that outlives its table, and tables built on several
   // threads at once - one env each, as Concert requires - all find every row

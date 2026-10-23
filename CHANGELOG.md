@@ -7,6 +7,10 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- A debug build (no `NDEBUG`) checks the set contract at `makeSet`: a container or a spread range repeating an
+  element, or a dependent source returning one twice, stops the program on one line naming the source. A
+  dependent source's range is checked each time it is returned, or once if it is borrowed and contiguous - a span
+  or a reference into the model - since the same address and size is then the same range.
 - `makeSet` joins set sources that share a column, as AMPL's `{(m,i) in ROUTES, (i,t) in OPEN}` does:
   `makeSet<>(sROUTES, sOPEN)`. The set visited second is looked up by the shared columns rather than scanned, so a
   join costs the two sets plus the result instead of their product.
@@ -16,14 +20,19 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- A set holds no row twice, by contract: no source handed to `makeSet` - a container, the range a dependent source
+  returns, a set - holds an element twice, and an entity is one object in one container. Breaking it is undefined
+  behavior, as with the standard library's preconditions. Every operation keeps a set free of repeats on its own,
+  so a `VarTable` is one variable per key by construction: its constructor no longer throws
+  `std::invalid_argument` on a repeated row, and a debug build stops on one instead.
 - `100 * vYield` (or `vYield * 100`) stops at compile time on one sentence pointing at
   `100 * sumOf(env, rows, vYield).build()`, instead of the compiler's list of every `operator*` in scope.
 - A callable that takes the same column twice - `[](FromCol a, FromCol b)` as a predicate, a term, a bound, a
   `select(expr)` or a dependent source - stops at compile time with one sentence. It used to compile and hand both
   parameters one value, which is never what such a parameter list means. `VarTable<ICol, ICol>` now says so
   directly instead of reporting a mismatched set.
-- Every hash table in the set layer - `distinct`, `select`, `unite`, `intersect`, `difference`, `membership`,
-  `ordered`, `groupBy` and `assertUnique` - is now the flat index `VarTable` already used: 4-byte slots of row
+- Every hash table in the set layer - `select`, `unite`, `intersect`, `difference`, `membership`, `ordered` and
+  `groupBy` - is now the flat index `VarTable` already used: 4-byte slots of row
   numbers into rows the set already holds, instead of a node per key holding a copy of it. A `membership()` shares
   its set rather than copying the rows. These operations now stop at 2^32 - 2 rows with `std::length_error`, as
   `VarTable` and `groupBy` did.
@@ -36,13 +45,15 @@ and versions follow [Semantic Versioning](https://semver.org/).
   otherwise, so the result never depends on it.
 - Variable and value tables built on one set share its row index: the first builds it, the others reuse it, and it is
   freed with the last of them. Three families on one 1e7-row set build about 40% faster, and hold one index
-  instead of three.
+  instead of three. The index hashes the rows on the first lookup that needs it, not when the table is built: a
+  table reached only by row - walking its set or a group, or as a sum's term - never pays for it, which is about
+  a third of building the first table on a set (stub solver, 1e6 - 1e7 rows).
 - The tuple hash every index shares folds each column in with one folded multiply - the 128-bit product of the
   state and an odd constant, its halves xored, as Abseil's hash and foldhash do - instead of a round of splitmix64
   per column. On 1e7 rows, lookups by columns are 10-20% faster and groupings by columns that are not runs 6-17%;
   a new test checks that integer grids, aligned values, entity pointers and strings spread like a random hash.
-- Set operations that hash a whole set - `distinct`, `select`, `unite`, `intersect`, `difference`, `membership` and
-  `ordered` - hash a block of rows ahead and prefetch their slots too. On 1e7 rows, `unite` takes about 30% less
+- Set operations that hash a whole set - `select`, `unite`, `intersect`, `difference`, `membership` and `ordered` -
+  hash a block of rows ahead and prefetch their slots too. On 1e7 rows, `unite` takes about 30% less
   time, `intersect` and `difference` about 20%, `select` about 15%.
 - A `VarTable` built without a name no longer reads each row's key columns for a name it then drops: the
   variables are created with nothing but their bounds in between.
@@ -60,8 +71,15 @@ and versions follow [Semantic Versioning](https://semver.org/).
   the groups are the set's own runs and nothing is sorted: on 1e7 rows such a grouping takes about a third less
   time and half the page faults.
 
+### Removed
+
+- `concat`, `S.distinct()` and `S.assertUnique()`. A set never holds a row twice, so there is no repeat for them to
+  keep, drop or report.
+
 ### Development
 
+- `tests/contract_fail/`: programs that break a contract on purpose. `tests/run_tests.sh` runs each in a debug build
+  and requires it to stop with the message its `// expect:` line names.
 - The differential test also checks lookups by columns against each row's position, for two tables sharing a set's
   index and a third on another set: each key twice, each row's successor and predecessor, every possible key, by
   reference, and inside a sum.

@@ -80,10 +80,6 @@ static void varTable() {
   DREAMOR_CHECK(exactlyEqual(x(ICol{2}, JCol{10}).upper_bound(), 0) &&
                 exactlyEqual(x(ICol{3}, JCol{10}).upper_bound(), 1));
 
-  // a set that repeats a row is refused
-  DREAMOR_CHECK_THROWS(std::invalid_argument,
-                       dreamor::mathopt::VarTable<ICol, JCol>{model, dreamor::concat(IJ, IJ), 0, 1});
-
   // empty set
   const auto none = IJ.where([](ICol i) { return i.get() > 100; });
   const dreamor::mathopt::VarTable<ICol, JCol> e{model, none, 0, 1};

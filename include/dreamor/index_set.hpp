@@ -44,14 +44,18 @@
 //
 // An IndexSet is read-only: begin(), end(), size() for range-for and any read-only
 // algorithm, and no way to edit it. A different set is derived instead -
-// S.where(p), S.orderBy(key), S.distinct(), unite(A, B), ... each returns a new
+// S.where(p), S.orderBy(key), unite(A, B), ... each returns a new
 // set and leaves S as it was. Copies are O(1) and share the rows. Declare sets with
 // SetOf<MachineCol, ItemCol>.
 //
-// It is a SET only as far as its sources are. makeSet never creates a duplicate row, but it
-// carries one through from a container that repeats an entity or a dependent source that
-// hands back the same pointer twice, and a duplicate row counts twice in every sum over it.
-// S.assertUnique() checks that in a debug build; S.distinct() and S.select<...>() collapse it.
+// A set holds no row twice. That rests on a contract with the caller: every range handed to
+// makeSet - a container, what a dependent source returns - holds no element twice, and an
+// entity is one object, held by one container. Given that, every operation here keeps it:
+// generation, where, orderBy and joins cannot repeat a row, and select, unite and the rest
+// drop the repeats they would make. A range that breaks the contract is undefined behavior,
+// as with the standard library's preconditions; a debug build (no NDEBUG) checks every source
+// and stops on a repeat with a message. It is also what makes a VarTable's key to variable a
+// one-to-one map.
 //
 // Naming predicates is a convention, not a rule: `.where(fits)` keeps the model's own
 // vocabulary in the code, but a condition used once reads better inline.

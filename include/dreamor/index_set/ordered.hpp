@@ -27,15 +27,13 @@ namespace dreamor {
 //       }
 //     }
 //
-// Positions are 0-based. Holds the set deduplicated - the same set when it had no repeats.
+// Positions are 0-based. Holds the set itself, sharing its rows.
 template <typename Tup>
 class Ordered {
  public:
-  // Deduplicated: an ordered SET has one position per element. Otherwise ord() would report
-  // the first occurrence for every duplicate, so next() on a later copy would return the
-  // successor of the earlier one and silently wire a constraint to the wrong element.
-  explicit Ordered(const IndexSet<Tup>& set) : members_{set.distinct()}, positions_{members_.size()} {
-    // Distinct rows, so nothing is held twice and insertAll goes through.
+  // One position per element: a set holds no row twice (index_set.hpp), so insertAll goes
+  // through.
+  explicit Ordered(const IndexSet<Tup>& set) : members_{set}, positions_{members_.size()} {
     static_cast<void>(positions_.insertAll(0, internal::SetAccess::rows(members_).size(), rowsAt()));
   }
 

@@ -311,6 +311,11 @@ Each column of `makeSet<A, B, C>` corresponds to one source. There are three kin
 - A dependent source must return a **range of pointers to entities** (`std::vector<const Item*>`, a span, a view),
   not the entities themselves.
 - A container source must be an lvalue (no temporary vectors).
+- **No source holds an element twice**: a container, the range a dependent source returns, a set. An entity is one
+  object, held by one container, so two objects for one machine are a repeat too. This is a precondition, as in the
+  standard library: breaking it is undefined behavior, and a debug build (no `NDEBUG`) stops on it with a message
+  naming the source. In return, a set never holds a row twice - no operation below makes a repeat - and each key of
+  a VarTable has exactly one variable.
 - Rows come out in generation order, and which column varies fastest is not fixed. If order matters, sort with
   `orderBy`.
 - To spell out a set's type, use `dreamor::SetOf<MachineCol, ItemCol>`.
@@ -326,18 +331,15 @@ O(1) and shares the rows.
 | `S.select<A, B>()` | Column projection (duplicates removed). Picking every column in a different order reorders the columns | `setof {(m,i,t) in S} (m,i)` |
 | `S.select(expr)` | Each row as `expr` makes it (duplicates removed) | `setof {(i,j) in S} (j,i)` |
 | `S.orderBy(key)` | Stable sort by `key(row)` | |
-| `S.distinct()` | Keeps first occurrences only | |
 | `S.groupBy<A>()` | Grouping (next section) | slices |
 | `S.membership()` | O(1) membership predicate, to put in another set's `where` | `(m,i) in S` |
 | `S.ordered()` | ord / next / prev / nextCyclic / prevCyclic | ordered set |
-| `S.assertUnique<A, B>()` | (Debug builds) checks that A,B form a key, throws otherwise. Returns the same set | |
 
 | Free function | |
 |---|---|
 | `dreamor::unite(A, B)` | A ∪ B |
 | `dreamor::intersect(A, B)` | A ∩ B |
 | `dreamor::difference(A, B)` | A \ B |
-| `dreamor::concat(A, B)` | Concatenation (duplicates kept) |
 
 ```cpp
 const auto sPEAK_PRODUCE  = sPRODUCE.where(is_peak);                  // production rows in peak-demand periods
@@ -411,8 +413,6 @@ const dreamor::concert::VarTable<KeyCols...> vName{env, set, lb, ub, type, "Name
 - Semi-continuous variables: `dreamor::concert::VarTable<...> vBatch{dreamor::concert::semiContinuous, env, sBATCH, sclb, ub, ILOFLOAT, "Batch"};`
 - Names are `name_key0_key1...` (`Yield_M0_I3_2`). Key tokens come from the `keyName()` hook. `nullptr` means no
   name.
-- If the set contains the same row twice, the constructor throws `std::invalid_argument` (build it with
-  `S.distinct()`).
 - A VarTable takes its set in its constructor, so when you bundle a model into a struct, put the sets in a base class
   and the VarTables as members of a derived class (the base class is constructed first). The example's `Sets` /
   `Model` has that shape.
@@ -543,7 +543,7 @@ that points at its model, so use it only while the model is alive.
 4. One VarTable per variable family, over the family's **whole set**. Reach parts with `vYield(row)`.
 5. If every key of the driver set needs a constraint, do not iterate the `Grouped`; iterate the driver and call
    `slice()`.
-6. A set with the same row twice counts it twice in a sum. If in doubt, `assertUnique()`.
+6. No source holds an element twice, and an entity is one object in one container. Sets then hold no row twice.
 7. Do not `end()` variables. `env.end()` once, at the end.
 8. Use `Grouped`'s `slice()`/`at()`/`keyAt()` and `Ordered`'s lookups on named objects. A group is valid only while
    that object is alive. If you only iterate, a temporary works too, as in `for (... : S.groupBy<C>())`.
@@ -594,12 +594,11 @@ that points at its model, so use it only while the model is alive.
 |---|---|
 | `IndexSet<std::tuple<Cols...>>`, alias `SetOf<Cols...>` | Read-only set. Default construction (empty set), O(1) copy |
 | `begin()`, `end()`, `size()` | Random-access iteration |
-| `where(p...)`, `orderBy(key)`, `distinct()`, `select<Cols...>()`, `select(expr)` | Derivation → `IndexSet` |
+| `where(p...)`, `orderBy(key)`, `select<Cols...>()`, `select(expr)` | Derivation → `IndexSet` |
 | `groupBy<Cols...>()` | → `Grouped` |
 | `membership()` | → `Membership` |
 | `ordered()` | → `Ordered` |
-| `assertUnique<Cols...>()` | Debug check, returns the same set |
-| `unite(A, B)`, `intersect(A, B)`, `difference(A, B)`, `concat(A, B)` | Binary operations → `IndexSet` |
+| `unite(A, B)`, `intersect(A, B)`, `difference(A, B)` | Binary operations → `IndexSet` |
 
 **Membership** (`algebra.hpp`)
 | | |
@@ -693,17 +692,17 @@ and with GCC 16 and Clang 23, and goes as far as installing the CMake package an
 (`tests/cmake_consumer`, `tests/cmake_consumer_mathopt`). CPLEX is not on CI, so run `--cplex` locally.
 
 **Compile cost of wide sets.** One translation unit that builds a set of N columns, filters it, groups it, puts a
-`VarTable` on it and sums over it (`-std=c++20 -O2 -c`, CPU time and peak memory; AMD Ryzen 7 5700X, WSL2 Ubuntu
-24.04, 2026-10-22). `tests/test_arity.cpp` runs 63 and 64 columns on every test run, so a blow-up would show there;
+`VarTable` on it and sums over it (`-std=c++20 -O2 -c` without `NDEBUG`, so with the debug build's contract checks,
+which `-DNDEBUG` compiles out; CPU time and peak memory; AMD Ryzen 7 5700X, WSL2 Ubuntu 24.04, 2026-10-24). `tests/test_arity.cpp` runs 63 and 64 columns on every test run, so a blow-up would show there;
 `python3 tools/measure_compile_cost.py [compiler ...]` re-measures the table.
 
 | Columns | g++ 13.3 | clang++ 18.1 | clang++ 23.1 |
 |---|---|---|---|
-| 4 | 2.7 s, 285 MB | 2.7 s, 206 MB | 2.8 s, 229 MB |
-| 16 | 3.2 s, 327 MB | 3.3 s, 233 MB | 3.2 s, 254 MB |
-| 32 | 3.8 s, 363 MB | 4.4 s, 284 MB | 4.3 s, 306 MB |
-| 63 | 6.0 s, 494 MB | 8.0 s, 451 MB | 7.7 s, 462 MB |
-| 64 | 6.1 s, 500 MB | 8.2 s, 459 MB | 7.8 s, 470 MB |
+| 4 | 3.1 s, 309 MB | 3.0 s, 216 MB | 3.0 s, 230 MB |
+| 16 | 3.7 s, 331 MB | 3.7 s, 244 MB | 4.1 s, 257 MB |
+| 32 | 4.6 s, 384 MB | 5.1 s, 297 MB | 4.9 s, 310 MB |
+| 63 | 6.7 s, 533 MB | 8.9 s, 466 MB | 8.6 s, 472 MB |
+| 64 | 6.9 s, 540 MB | 8.9 s, 474 MB | 8.4 s, 479 MB |
 
 OR-Tools needs no installation: unpack the release's C++ prebuilt anywhere and point to that folder (no CMake needed).
 

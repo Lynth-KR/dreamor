@@ -11,8 +11,9 @@
 #                                  examples/production_planning_mathopt.cpp, and the
 #                                  OR-Tools samples ported in examples/mathopt_samples/.
 #
-# Stub mode runs every test_*.cpp, checks that every compile_fail/*.cpp is rejected, and
-# syntax-checks cplex/*.cpp against a stand-in IloCplex. CPLEX mode runs the tests that use
+# Stub mode runs every test_*.cpp, checks that every compile_fail/*.cpp is rejected and that
+# every contract_fail/*.cpp stops on its broken contract (not under -DNDEBUG, which compiles the
+# checks out), and syntax-checks cplex/*.cpp against a stand-in IloCplex. CPLEX mode runs the tests that use
 # only public Concert API (test_index_set and cplex/*.cpp, which solve), builds and runs
 # examples/production_planning.cpp, and checks the compile_fail cases against the real headers.
 # MathOpt mode builds and runs only the MathOpt tests and example; test_cross_backend there
@@ -69,6 +70,11 @@ STRICT="-Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-s
 case "$CXX" in *clang*) STRICT="$STRICT -Wmissing-prototypes" ;; esac  # C only in GCC
 LENIENT="-Wall -Wextra"
 JOBS=${JOBS:-$(nproc 2>/dev/null || echo 4)}
+# The cases that break a contract on purpose, for a debug build to stop on: stub mode only.
+CONTRACT=""
+if [ "$MODE" = stub ]; then
+  case " $OPT " in *" -DNDEBUG "*) ;; *) CONTRACT=$(ls contract_fail/*.cpp) ;; esac
+fi
 
 if [ "$MODE" = stub ]; then
   FLAGS="$COMMON -Istub"
@@ -117,6 +123,7 @@ export CXX FLAGS STRICT LENIENT LIBS BUILD CF
 rm -f "$BUILD"/*.rc
 {
   for t in $TESTS; do echo "build $(basename "${t%.cpp}") $t"; done
+  for t in $CONTRACT; do echo "build contract_$(basename "${t%.cpp}") $t"; done
   if [ "$MODE" = stub ]; then
     for t in cplex/*.cpp ../examples/production_planning.cpp; do echo "syntax $(basename "${t%.cpp}") $t"; done
   fi
@@ -171,6 +178,23 @@ if [ "$MODE" = mathopt ]; then
     fi
   done
 fi
+
+# Code that breaks a contract: a debug build must stop it - a non-zero exit, as abort() gives -
+# with the case's `// expect: <text>` in what it prints.
+[ "$MODE" = stub ] && [ -z "$CONTRACT" ] && echo "contract_fail/*.cpp: skipped (-DNDEBUG compiles the checks out)"
+for t in $CONTRACT; do
+  name=$(basename "${t%.cpp}")
+  expect=$(sed -n 's|^// expect: ||p' "$t" | head -n 1)
+  if ! compiled "contract_$name"; then
+    echo "contract_fail/$name: BUILD FAILED (see tests/$BUILD/contract_$name.log)"; status=1
+  elif $RUN "$BUILD/contract_$name" > "$BUILD/contract_$name.out" 2>&1; then
+    echo "contract_fail/$name: RAN TO THE END but must stop (see tests/$BUILD/contract_$name.out)"; status=1
+  elif ! grep -qF -- "$expect" "$BUILD/contract_$name.out"; then
+    echo "contract_fail/$name: stopped, but without \"$expect\" (see tests/$BUILD/contract_$name.out)"; status=1
+  else
+    echo "contract_fail/$name: stopped with its message (ok)"
+  fi
+done
 
 # Code that must not compile: compile_fail/ against Concert (stub or real), mathopt/compile_fail/
 # against OR-Tools.

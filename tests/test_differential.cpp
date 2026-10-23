@@ -1,19 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 // Differential test: the set layer and sumOf against a reference written with nothing but the
 // standard library - nested loops, std::set, std::map - over a few hundred small random cases
-// from a fixed seed. The cases lean on the edges: empty sources, one element, many repeats,
-// predicates that keep everything or nothing.
+// from a fixed seed. The cases lean on the edges: empty sources, one element, every value,
+// predicates that keep everything or nothing. Sources hold no value twice, as the contract asks
+// (dreamor/index_set.hpp), and every set built from them must hold no row twice.
 //
 // makeSet leaves unspecified which column varies fastest, so its rows are compared as a
 // multiset. Everything downstream is specified to the row (select / unite / intersect /
-// difference keep first occurrences, concat keeps all, groups come in first-appearance order,
-// ordered() is the deduplicated set order), so the reference runs on the rows dreamor actually
-// produced and the results are compared in order.
+// difference keep first occurrences, groups come in first-appearance order, ordered() is the
+// set order), so the reference runs on the rows dreamor actually produced and the results are
+// compared in order.
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <map>
+#include <numeric>
 #include <optional>
 #include <random>
 #include <set>
@@ -36,10 +38,9 @@ using Row  = std::tuple<std::size_t, std::size_t, std::size_t>;
 
 namespace {
 
-constexpr std::uint32_t kSeed      = 20261021;
-constexpr std::size_t kCases       = 400;
-constexpr std::size_t kValues      = 5;  // every column takes values 0..kValues-1
-constexpr std::size_t kMaxListSize = 6;
+constexpr std::uint32_t kSeed = 20261021;
+constexpr std::size_t kCases  = 400;
+constexpr std::size_t kValues = 5;  // every column takes values 0..kValues-1
 
 template <typename Tup>
 Row plain(const Tup& row) {
@@ -67,17 +68,18 @@ std::vector<Row> sorted(std::vector<Row> rows) {
   return rows;
 }
 
-// A list of values, sized to hit the edges often: empty and single lists, then longer ones
-// whose small value range makes repeats likely.
+// A list of distinct values in a random order, sized to hit the edges often: empty and single
+// lists, then longer ones up to every value.
 std::vector<std::size_t> randomList(std::mt19937& g) {
   std::uniform_int_distribution<std::size_t> shape(0, 9);
-  std::uniform_int_distribution<std::size_t> longer(2, kMaxListSize);
-  std::uniform_int_distribution<std::size_t> value(0, kValues - 1);
+  std::uniform_int_distribution<std::size_t> longer(2, kValues);
   const std::size_t pick = shape(g);
   std::size_t size       = pick;  // 0 and 1 as they come
   if (pick >= 2) size = longer(g);
-  std::vector<std::size_t> out(size);
-  for (auto& v : out) v = value(g);
+  std::vector<std::size_t> out(kValues);
+  std::iota(out.begin(), out.end(), std::size_t{0});
+  std::shuffle(out.begin(), out.end(), g);
+  out.resize(size);
   return out;
 }
 
@@ -137,6 +139,7 @@ void checkCase(std::mt19937& g, IloEnv env) {
   // makeSet with a fixed, a fixed and a dependent source, filtered while it generates.
   DREAMOR_CHECK(sorted(s) == sorted(referenceRows(d)));
   DREAMOR_CHECK(sorted(t) == sorted(referenceRows(e)));
+  DREAMOR_CHECK(firstOccurrences(s) == s && firstOccurrences(t) == t);
 
   // where() on a finished set keeps the order.
   const Rule rule = randomRule(g);
@@ -170,15 +173,13 @@ void checkCase(std::mt19937& g, IloEnv env) {
   const std::set<Row> t_set(t.begin(), t.end());
   std::vector<Row> in_both;
   std::vector<Row> only_s;
-  for (const Row& r : firstOccurrences(s)) (t_set.contains(r) ? in_both : only_s).push_back(r);
-  DREAMOR_CHECK(rowsOf(dreamor::concat(S, T)) == both);
+  for (const Row& r : s) (t_set.contains(r) ? in_both : only_s).push_back(r);
   DREAMOR_CHECK(rowsOf(dreamor::unite(S, T)) == firstOccurrences(both));
   DREAMOR_CHECK(rowsOf(dreamor::intersect(S, T)) == in_both);
   DREAMOR_CHECK(rowsOf(dreamor::difference(S, T)) == only_s);
-  DREAMOR_CHECK(rowsOf(S.distinct()) == firstOccurrences(s));
 
-  // makeSet over S and a set U sharing c: the natural join, repeats on either side carried
-  // through, whichever set comes first and with a predicate across the two.
+  // makeSet over S and a set U sharing c: the natural join, whichever set comes first and with
+  // a predicate across the two.
   const std::vector<std::size_t> u_cs = randomList(g);
   const std::vector<std::size_t> u_ds = randomList(g);
   const Rule cd                       = randomRule(g);
@@ -236,10 +237,10 @@ void checkCase(std::mt19937& g, IloEnv env) {
   DREAMOR_CHECK(byBC.size() == by_bc.size());
   for (const auto& [bc, rows] : by_bc) DREAMOR_CHECK(rowsOf(byBC.slice(BCol{bc.first}, CCol{bc.second})) == rows);
 
-  // ordered(): the deduplicated set order; next / prev / cyclic with steps, nullptr off the
-  // ends and for a non-member.
-  const std::vector<Row> members = firstOccurrences(s);
-  const auto O                   = S.ordered();
+  // ordered(): the set order; next / prev / cyclic with steps, nullptr off the ends and for a
+  // non-member.
+  const std::vector<Row>& members = s;
+  const auto O                    = S.ordered();
   DREAMOR_CHECK(rowsOf(O.members()) == members);
   const auto count    = static_cast<std::ptrdiff_t>(members.size());
   const auto expected = [&](const Row& r, std::ptrdiff_t steps, bool cyclic) -> std::optional<Row> {
@@ -267,10 +268,9 @@ void checkCase(std::mt19937& g, IloEnv env) {
     }
   }
 
-  // sumOf: one term per row (repeats included), narrowed by where(), one sum per split()
-  // predicate - a row may land in both.
-  const auto D = S.distinct();
-  const dreamor::concert::VarTable<ACol, BCol, CCol> x{env, D, 0, 1, ILOFLOAT, "x"};
+  // sumOf: one term per row, narrowed by where(), one sum per split() predicate - a row may land
+  // in both.
+  const dreamor::concert::VarTable<ACol, BCol, CCol> x{env, S, 0, 1, ILOFLOAT, "x"};
   const Rule keep       = randomRule(g);
   const Rule first      = randomRule(g);
   const Rule second     = randomRule(g);
@@ -294,18 +294,16 @@ void checkCase(std::mt19937& g, IloEnv env) {
   DREAMOR_CHECK(terms(split[0]) == in_first && terms(split[1]) == in_second && in_first <= kept);
   for (auto& sum : split) sum.end();
 
-  // Lookups against each row's position in D, for x and a second table y on D - the two share
-  // D's row index - with a table z on another set's rows in between, leaving its own rows as the
+  // Lookups against each row's position in S, for x and a second table y on S - the two share
+  // S's row index - with a table z on another set's rows in between, leaving its own rows as the
   // last found. Asked in a fixed order, so no draw shifts the cases after this one: each row of
-  // D twice (contains, then the variable), its successor and its predecessor; every possible key,
+  // S twice (contains, then the variable), its successor and its predecessor; every possible key,
   // absent ones included; each row by reference; and by columns inside a sum, where the sum's
   // row answers.
-  const dreamor::concert::VarTable<ACol, BCol, CCol> y{env, D, 0, 1, ILOFLOAT, "y"};
-  const auto TD = T.distinct();
-  const dreamor::concert::VarTable<ACol, BCol, CCol> z{env, TD, 0, 1, ILOFLOAT, "z"};
-  const std::vector<Row> d_rows = rowsOf(D);
+  const dreamor::concert::VarTable<ACol, BCol, CCol> y{env, S, 0, 1, ILOFLOAT, "y"};
+  const dreamor::concert::VarTable<ACol, BCol, CCol> z{env, T, 0, 1, ILOFLOAT, "z"};
   std::map<Row, std::size_t> position;
-  for (std::size_t i = 0; i < d_rows.size(); ++i) position.emplace(d_rows[i], i);
+  for (std::size_t i = 0; i < s.size(); ++i) position.emplace(s[i], i);
   std::vector<const IloNumVarI*> x_vars;
   std::vector<const IloNumVarI*> y_vars;
   for (const auto& [row, var] : x) x_vars.push_back(var.getImpl());
@@ -320,21 +318,21 @@ void checkCase(std::mt19937& g, IloEnv env) {
     if (in) ok = ok && x(a, b, c).getImpl() == x_vars[at->second] && y(a, b, c).getImpl() == y_vars[at->second];
     return ok && z.contains(a, b, c) == t_set.contains(r);
   };
-  bool lookups = x_vars.size() == d_rows.size() && y_vars.size() == d_rows.size();
-  for (std::size_t i = 0; i < d_rows.size(); ++i) {
-    lookups = lookups && finds(d_rows[i]);
-    if (i + 1 < d_rows.size()) lookups = lookups && finds(d_rows[i + 1]);
-    if (i > 0) lookups = lookups && finds(d_rows[i - 1]);
+  bool lookups = x_vars.size() == s.size() && y_vars.size() == s.size();
+  for (std::size_t i = 0; i < s.size(); ++i) {
+    lookups = lookups && finds(s[i]);
+    if (i + 1 < s.size()) lookups = lookups && finds(s[i + 1]);
+    if (i > 0) lookups = lookups && finds(s[i - 1]);
   }
   for (std::size_t a = 0; a <= kValues; ++a)  // a == kValues: never in a set
     for (std::size_t b = 0; b < kValues; ++b)
       for (std::size_t c = 0; c < kValues; ++c) lookups = lookups && finds(Row{a, b, c});
-  for (std::size_t i = 0; i < d_rows.size(); ++i) {
-    const auto& row = *(D.begin() + static_cast<std::ptrdiff_t>(i));
+  for (std::size_t i = 0; i < s.size(); ++i) {
+    const auto& row = *(S.begin() + static_cast<std::ptrdiff_t>(i));
     lookups         = lookups && x(row).getImpl() == x_vars[i] && y(row).getImpl() == y_vars[i];
   }
   DREAMOR_CHECK(lookups);
-  IloExpr twice = dreamor::concert::sumOf(env, D, [&y](ACol a, BCol b, CCol c) { return 2 * y(a, b, c); }).build();
+  IloExpr twice = dreamor::concert::sumOf(env, S, [&y](ACol a, BCol b, CCol c) { return 2 * y(a, b, c); }).build();
   bool in_order = terms(twice) == y_vars.size();
   for (std::size_t k = 0; in_order && k < y_vars.size(); ++k) {
     in_order = twice.expr_->terms[k].first == y_vars[k] && exactlyEqual(twice.expr_->terms[k].second, 2);

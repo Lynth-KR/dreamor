@@ -203,7 +203,8 @@ class VarTableCore {
 
  private:
   // The set's row index: every table on the set - vYield and vSetup on sPRODUCE - and every
-  // value table from them share one, built by the first.
+  // value table from them share one, made by the first. Its hash waits for the first lookup that
+  // needs one (row_index.hpp).
   [[nodiscard]] static std::shared_ptr<const RowIndex<Key>> sharedIndex(const IndexSet<Key>& keys) {
     return SetAccess::indexSlot(keys).template get<RowIndex<Key>>(
         [&keys] { return std::make_shared<const RowIndex<Key>>(SetAccess::rows(keys)); });

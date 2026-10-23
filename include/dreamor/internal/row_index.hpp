@@ -12,19 +12,22 @@
 // variable table and value table shares, whatever the backend.
 #pragma once
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <iterator>
 #include <limits>
 #include <memory>
+#include <mutex>
+#include <optional>
 #include <stdexcept>
-#include <string>
 #include <utility>
 #include <vector>
 
 #include "dreamor/general/flat_index.hpp"
 #include "dreamor/index_set/key_args.hpp"
+#include "dreamor/logger/logger_light.hpp"
 
 namespace dreamor::internal {
 
@@ -69,22 +72,17 @@ struct LastRow {
 }
 
 // From a set's row to its position: a FlatIndex over the set's rows, which the set keeps -
-// the index holds 4 bytes a slot and no copy of a key.
+// the index holds 4 bytes a slot and no copy of a key. The hash is built by the first lookup
+// that needs it, not with the table: a table reached only by row - walking its set or a group,
+// or as a sum's term - never pays for it.
 template <typename Key>
 class RowIndex {
  public:
   static constexpr std::size_t kNotFound = ::dreamor::general::FlatIndex<Key>::kNotFound;
 
-  // Throws on a repeated row: one key with two variables is a modeling error, and which of
-  // them a lookup would return is arbitrary.
-  explicit RowIndex(const std::vector<Key>& rows) : index_{rows.size()} {
+  explicit RowIndex(const std::vector<Key>& rows) {
     if (rows.size() >= std::numeric_limits<std::uint32_t>::max()) {
       throw std::length_error("VarTable: more than 2^32 - 2 index tuples.");
-    }
-    const auto [first, repeat] = index_.insertAll(0, rows.size(), rowsAt(rows));
-    if (first != kNotFound) {
-      throw std::invalid_argument("VarTable: the set repeats row " + std::to_string(first) + " at row " +
-                                  std::to_string(repeat) + "; build it from S.distinct().");
     }
   }
 
@@ -100,7 +98,7 @@ class RowIndex {
   [[nodiscard]] std::size_t find(const std::vector<Key>& rows, const Args&... key) const {
     if constexpr (isExactRow<Key, Args...>()) {
       const std::size_t at = positionOf(rows, std::addressof(key...));
-      return at != kNotFound ? at : index_.find(key..., rowsAt(rows));
+      return at != kNotFound ? at : built(rows).find(key..., rowsAt(rows));
     } else {
       const std::size_t at = positionOf(rows, currentRow());
       if (at != kNotFound && holds(rows[at], key...)) {
@@ -148,7 +146,7 @@ class RowIndex {
         return last + 1;
       }
     }
-    const std::size_t found = index_.find(Key{key...}, rowsAt(rows));
+    const std::size_t found = built(rows).find(Key{key...}, rowsAt(rows));
     if (found != kNotFound) {
       hint.walking = last != kNotFound && found == last + 1;
       hint.row     = rows.data() + found;
@@ -160,7 +158,33 @@ class RowIndex {
     return [&rows](std::size_t row) -> const Key& { return rows[row]; };
   }
 
-  ::dreamor::general::FlatIndex<Key> index_;
+  // The hash, built once, by whichever lookup needs it first; the others wait for it. A set holds
+  // no row twice (index_set.hpp), so each key has one variable. A debug build stops on a repeat
+  // all the same: indexing finds it for nothing.
+  [[nodiscard]] const ::dreamor::general::FlatIndex<Key>& built(const std::vector<Key>& rows) const {
+    if (!ready_.load(std::memory_order_acquire)) {
+      std::call_once(once_, [&] {
+        ::dreamor::general::FlatIndex<Key> index{rows.size()};
+        [[maybe_unused]] const auto [first, repeat] = index.insertAll(0, rows.size(), rowsAt(rows));
+#ifndef NDEBUG
+        if (first != kNotFound) {
+          DREAMOR_DEBUG_FATAL(
+              "VarTable: the set repeats row {} at row {}, so a range handed to makeSet holds an "
+              "element twice - a broken contract (dreamor/index_set.hpp).",
+              first,
+              repeat);
+        }
+#endif
+        index_.emplace(std::move(index));
+        ready_.store(true, std::memory_order_release);
+      });
+    }
+    return *index_;
+  }
+
+  mutable std::once_flag once_;
+  mutable std::atomic<bool> ready_{false};
+  mutable std::optional<::dreamor::general::FlatIndex<Key>> index_;
 };
 
 // Iterates (row, X) pairs: a set's rows beside a vector of X in the same order.

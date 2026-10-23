@@ -54,9 +54,18 @@ Also rejected, with no pinned message:
 | Exception | When |
 |---|---|
 | `std::out_of_range` | `VarTable` or `ValueTable` lookup of a row not in the set (all backends); `Grouped::at`/`keyAt` past the end |
-| `std::invalid_argument` | `VarTable` constructor on a set with a repeated row |
-| `std::logic_error` | `dreamor::mathopt::VarTable::solution` with no primal feasible solution; `assertUnique` failure (debug builds only) |
-| `std::length_error` | more than 2^32 − 2 rows in a `VarTable`, a `groupBy`, or anything else that hashes rows (`distinct`, `select`, `unite`, `intersect`, `difference`, `membership`, `ordered`, a join in `makeSet`) |
+| `std::logic_error` | `dreamor::mathopt::VarTable::solution` with no primal feasible solution |
+| `std::length_error` | more than 2^32 − 2 rows in a `VarTable`, a `groupBy`, or anything else that hashes rows (`select`, `unite`, `intersect`, `difference`, `membership`, `ordered`, a join in `makeSet`) |
+
+## Broken contracts (debug builds)
+
+A broken precondition is undefined behavior. A debug build (no `NDEBUG`) checks these and aborts after one line:
+
+| Message starts with | What broke | Fix |
+|---|---|---|
+| `makeSet: source N holds one element twice` | a container source repeats a value or an entity | drop the repeat where the data is read; an entity is one object in one container |
+| `makeSet: source N holds one row twice` | a range of tuples spread into `makeSet` repeats a row | the same, for that range |
+| `makeSet: dependent source N returned one element twice` | a dependent source's range repeats an element for some binding | the same, for that list (e.g. a machine's items) |
 
 Absences that do not throw:
 - `Grouped::slice` of a missing key returns an empty `RowSlice`, whose sum is 0.

@@ -8,19 +8,24 @@
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <optional>
 #include <ranges>
 #include <tuple>
 #include <type_traits>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
+#include "dreamor/general/flat_index.hpp"
+#include "dreamor/general/tuple_hash.hpp"
 #include "dreamor/index_set/binding.hpp"
 #include "dreamor/index_set/column.hpp"
 #include "dreamor/index_set/element.hpp"
 #include "dreamor/index_set/grouped.hpp"
 #include "dreamor/index_set/indexed.hpp"
 #include "dreamor/index_set/plan.hpp"
+#include "dreamor/logger/logger_light.hpp"
 
 namespace dreamor {
 
@@ -31,6 +36,108 @@ template <typename Row, typename... Columns>
 struct GroupedOn<Row, std::tuple<Columns...>> {
   using type = Grouped<Row, Columns...>;
 };
+
+class SourceChecks;
+
+#ifndef NDEBUG
+// The first repeat among keys: {the key held first, the one repeating it}. One instance per key
+// type, not per column: keys are what a column holds, its pointer as const void*.
+template <typename Key>
+[[nodiscard]] std::optional<std::pair<std::size_t, std::size_t>> firstRepeat(const std::vector<Key>& keys) {
+  ::dreamor::general::FlatIndex<Key> index{keys.size()};
+  const auto repeat = index.insertAll(0, keys.size(), [&keys](std::size_t at) -> const Key& { return keys[at]; });
+  if (repeat.first == ::dreamor::general::FlatIndex<Key>::kNotFound) {
+    return std::nullopt;
+  }
+  return repeat;
+}
+
+// One message for every broken source, out of line and not a template: a build formats it once
+// rather than once per column.
+enum class RepeatIn : std::uint8_t { kContainer, kSpread, kDependent };
+[[noreturn]] inline void reportRepeat(RepeatIn where, std::size_t source, std::pair<std::size_t, std::size_t> at) {
+  switch (where) {
+    case RepeatIn::kContainer:
+      DREAMOR_LOG_FATAL(
+          "makeSet: source {} holds one element twice, at {} and {} - a broken contract: no source "
+          "holds an element twice (dreamor/index_set.hpp).",
+          source,
+          at.first,
+          at.second);
+    case RepeatIn::kSpread:
+      DREAMOR_LOG_FATAL(
+          "makeSet: source {} holds one row twice, at {} and {} - a broken contract: no source holds "
+          "an element twice (dreamor/index_set.hpp).",
+          source,
+          at.first,
+          at.second);
+    case RepeatIn::kDependent:
+      DREAMOR_LOG_FATAL(
+          "makeSet: dependent source {} returned one element twice, at {} and {} - a broken contract: "
+          "no source holds an element twice (dreamor/index_set.hpp).",
+          source,
+          at.first,
+          at.second);
+  }
+  std::abort();
+}
+
+// What a debug build checks of the contract every set rests on (index_set.hpp): no source
+// holds an element twice. A container or a spread range is checked once per collect(), a set
+// not at all - it holds no row twice already. A dependent source's range is checked each time
+// it is returned, unless it is borrowed (std::ranges::borrowed_range) and contiguous: its
+// elements then outlive the call, so the same address and size is the same range, checked once.
+class SourceChecks {
+ public:
+  template <typename Column, typename Range>
+  void container(std::size_t source, Range& range) {
+    if (const auto repeat = firstRepeat(keysOf<Column>(range))) {
+      reportRepeat(RepeatIn::kContainer, source + 1, *repeat);
+    }
+  }
+
+  template <typename Range>
+  void spread(std::size_t source, Range& range) {
+    using Row = std::ranges::range_value_t<Range>;
+    if (const auto repeat = firstRepeat(std::vector<Row>(std::ranges::begin(range), std::ranges::end(range)))) {
+      reportRepeat(RepeatIn::kSpread, source + 1, *repeat);
+    }
+  }
+
+  // Range is the type the source returned: an lvalue reference, or the value itself.
+  template <typename Column, typename Range>
+  void dependent(std::size_t source, std::remove_reference_t<Range>& range) {
+    if constexpr (std::ranges::borrowed_range<Range> && std::ranges::contiguous_range<Range> &&
+                  std::ranges::sized_range<Range>) {
+      if (!checked_.emplace(static_cast<const void*>(std::ranges::data(range)), std::ranges::size(range)).second) {
+        return;
+      }
+    }
+    if (const auto repeat = firstRepeat(keysOf<Column>(range))) {
+      reportRepeat(RepeatIn::kDependent, source + 1, *repeat);
+    }
+  }
+
+ private:
+  // What the column holds, as the key the repeat check compares.
+  template <typename Column>
+  using KeyOf = std::conditional_t<std::is_pointer_v<typename Column::Value>, const void*, typename Column::Value>;
+
+  template <typename Column, typename Range>
+  [[nodiscard]] static std::vector<std::tuple<KeyOf<Column>>> keysOf(Range& range) {
+    std::vector<std::tuple<KeyOf<Column>>> keys;
+    if constexpr (std::ranges::sized_range<Range>) {
+      keys.reserve(std::ranges::size(range));
+    }
+    for (auto&& element : range) {
+      keys.emplace_back(toColumn<Column>(element).get());
+    }
+    return keys;
+  }
+
+  std::unordered_set<std::tuple<const void*, std::size_t>, ::dreamor::general::TupleHash> checked_;
+};
+#endif  // NDEBUG
 }  // namespace internal
 
 // Lazy builder. Nothing is generated until collect().
@@ -75,9 +182,15 @@ class Set {
   // Non-const on purpose: views such as filter_view have no const begin(). This is a
   // one-shot factory call, not an observer.
   [[nodiscard]] IndexSet<ElemTuple> collect() {
+#ifndef NDEBUG
+    internal::SourceChecks checks;
+    checks_ = &checks;
+    checkSources(std::make_index_sequence<kSourceCount>{});
+#endif
     indexJoins(std::make_index_sequence<kSourceCount>{});
     std::vector<ElemTuple> out;
     generate<0, std::index_sequence<>>(out);
+    checks_ = nullptr;
     return internal::SetAccess::make(std::move(out));
   }
 
@@ -300,6 +413,28 @@ class Set {
     using type = std::tuple<typename JoinIndex<Ss>::type...>;
   };
 
+#ifndef NDEBUG
+  // The containers and spread ranges, once: a debug build's check of the contract.
+  template <std::size_t... Ss>
+  void checkSources(std::index_sequence<Ss...> /*unused*/) {
+    (checkSource<Ss>(), ...);
+  }
+
+  template <std::size_t Source>
+  void checkSource() {
+    using Src = std::tuple_element_t<Source, RangeTuple>;
+    if constexpr (internal::sourceKindOf<Src>() == internal::SourceKind::kContainer) {
+      checks_->template container<std::tuple_element_t<kColumnsOf<Source>[0], ElemTuple>>(Source,
+                                                                                          std::get<Source>(ranges_));
+    } else if constexpr (internal::sourceKindOf<Src>() == internal::SourceKind::kSpread) {
+      if constexpr (!std::same_as<Src, IndexSet<std::ranges::range_value_t<Src>>>) {
+        checks_->spread(Source, std::get<Source>(ranges_));
+      }
+    }
+  }
+
+#endif
+
   template <std::size_t... Ss>
   void indexJoins(std::index_sequence<Ss...> /*unused*/) {
     (indexJoin<Ss>(), ...);
@@ -364,6 +499,11 @@ class Set {
             return source;
           }
         }();
+#ifndef NDEBUG
+        if constexpr (kKind == internal::SourceKind::kDependent) {
+          checks_->template dependent<std::tuple_element_t<kCol, ElemTuple>, decltype(range)>(kSource, range);
+        }
+#endif
         using Next = internal::AppendColumn<BoundCols, kCol>::type;
         for (auto&& element : range) {
           const auto value = internal::toColumn<std::tuple_element_t<kCol, ElemTuple>>(element);
@@ -424,6 +564,7 @@ class Set {
   RangeTuple ranges_;
   PredTuple preds_;
   JoinIndexes<std::make_index_sequence<kSourceCount>>::type indexes_;
+  internal::SourceChecks* checks_ = nullptr;  // a debug build's, while collect() runs
 };
 
 // Each argument is a source of columns; each explicit type names one NEW column:

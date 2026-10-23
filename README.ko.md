@@ -303,6 +303,10 @@ const auto sNAME = dreamor::makeSet<열...>(소스...).where(술어).where(술�
   탈락하면 그 아래 루프 전체를 건너뜁니다. 파라미터 순서와 `.where()` 순서는 자유입니다.
 - 종속 소스는 엔티티가 아니라 **엔티티의 포인터 범위**(`std::vector<const Item*>`, span, view)를 돌려줘야 합니다.
 - 컨테이너 소스는 lvalue여야 합니다(임시 vector 금지).
+- **어떤 소스도 같은 원소를 두 번 담지 않습니다**: 컨테이너, 의존 소스가 돌려주는 범위, 집합 모두. 엔티티는 객체
+  하나이고 컨테이너 하나가 담으므로, 머신 하나에 객체가 둘이면 그것도 반복입니다. 표준 라이브러리처럼 이것은
+  전제조건이고, 어기면 미정의 동작입니다. 디버그 빌드(`NDEBUG` 없음)는 어긴 소스를 메시지로 알리고 멈춥니다. 그 대가로 집합은 같은 행을 두 번 담지 않고(아래 어떤 연산도 반복을
+  만들지 않습니다), VarTable의 키 하나에는 변수가 정확히 하나입니다.
 - 결과 행 순서는 생성 순서이며, 어떤 열이 가장 빨리 변하는지는 고정이 아닙니다. 순서가 의미를 가지면
   `orderBy`로 정렬하세요.
 - 집합 타입을 적을 때는 `dreamor::SetOf<MachineCol, ItemCol>`을 씁니다.
@@ -318,18 +322,15 @@ const auto sNAME = dreamor::makeSet<열...>(소스...).where(술어).where(술�
 | `S.select<A, B>()` | 열 투영(중복 제거). 모든 열을 다른 순서로 고르면 열 순서 바꾸기 | `setof {(m,i,t) in S} (m,i)` |
 | `S.select(expr)` | 행마다 `expr`이 만든 행(중복 제거) | `setof {(i,j) in S} (j,i)` |
 | `S.orderBy(key)` | `key(row)`로 안정 정렬 | |
-| `S.distinct()` | 첫 등장만 남김 | |
 | `S.groupBy<A>()` | 묶기 (다음 절) | 슬라이스 |
 | `S.membership()` | O(1) 소속 판정 술어. 다른 집합의 `where`에 넣음 | `(m,i) in S` |
 | `S.ordered()` | ord / next / prev / nextCyclic / prevCyclic | ordered set |
-| `S.assertUnique<A, B>()` | (디버그 빌드) A,B가 키인지 확인, 아니면 예외. 같은 집합을 돌려줌 | |
 
 | 자유 함수 | |
 |---|---|
 | `dreamor::unite(A, B)` | A ∪ B |
 | `dreamor::intersect(A, B)` | A ∩ B |
 | `dreamor::difference(A, B)` | A \ B |
-| `dreamor::concat(A, B)` | 이어 붙이기(중복 유지) |
 
 ```cpp
 const auto sPEAK_PRODUCE  = sPRODUCE.where(is_peak);                  // 수요가 몰리는 기간의 생산 행
@@ -398,7 +399,6 @@ const dreamor::concert::VarTable<키 열...> vName{env, 집합, lb, ub, type, "N
 - 생략하면 `lb = 0`, `ub = IloInfinity`, `ILOFLOAT`, 이름 없음.
 - 반연속 변수: `dreamor::concert::VarTable<...> vBatch{dreamor::concert::semiContinuous, env, sBATCH, sclb, ub, ILOFLOAT, "Batch"};`
 - 이름은 `이름_키0_키1...` (`Yield_M0_I3_2`). 키 토큰은 `keyName()` 훅에서 옵니다. `nullptr`이면 이름 없음.
-- 집합에 같은 행이 두 번 있으면 생성자가 `std::invalid_argument`를 던집니다(`S.distinct()`로 만드세요).
 - VarTable은 생성자에서 집합을 받으므로, 모델을 구조체로 묶을 때는 집합을 기반 클래스에 두고 VarTable을
   파생 클래스의 멤버로 둡니다(기반 클래스가 먼저 만들어집니다). 예제의 `Sets` / `Model`이 그 모양입니다.
 
@@ -519,7 +519,7 @@ MathOpt에는 이 절이 해당하지 않습니다. `math_opt::Model`과 `Linear
 3. 집합은 읽기 전용입니다. 바꾸지 말고 파생하세요.
 4. 변수족 하나당 VarTable 하나, 그 족의 **전체 집합** 위에. 부분은 `vYield(row)`.
 5. 드라이버 집합의 모든 키에 제약이 필요하면 `Grouped`를 돌지 말고 드라이버를 돌며 `slice()`.
-6. 같은 행이 두 번 있는 집합은 합에서 두 번 셉니다. 의심되면 `assertUnique()`.
+6. 어떤 소스도 같은 원소를 두 번 담지 않고, 엔티티는 컨테이너 하나에 객체 하나입니다. 그러면 집합도 같은 행을 두 번 담지 않습니다.
 7. 변수를 `end()`하지 않습니다. `env.end()`는 마지막에 한 번.
 8. `Grouped`의 `slice()`/`at()`/`keyAt()`, `Ordered`의 조회는 이름을 붙인 객체에서 씁니다. 묶음은 그 객체가 살아 있는 동안만
    유효합니다. 돌기만 할 때는 `for (... : S.groupBy<C>())`처럼 임시 객체도 됩니다.
@@ -569,12 +569,11 @@ MathOpt에는 이 절이 해당하지 않습니다. `math_opt::Model`과 `Linear
 |---|---|
 | `IndexSet<std::tuple<Cols...>>`, 별칭 `SetOf<Cols...>` | 읽기 전용 집합. 기본 생성(빈 집합), 복사 O(1) |
 | `begin()`, `end()`, `size()` | random access 순회 |
-| `where(p...)`, `orderBy(key)`, `distinct()`, `select<Cols...>()`, `select(expr)` | 파생 → `IndexSet` |
+| `where(p...)`, `orderBy(key)`, `select<Cols...>()`, `select(expr)` | 파생 → `IndexSet` |
 | `groupBy<Cols...>()` | → `Grouped` |
 | `membership()` | → `Membership` |
 | `ordered()` | → `Ordered` |
-| `assertUnique<Cols...>()` | 디버그 검사, 같은 집합 반환 |
-| `unite(A, B)`, `intersect(A, B)`, `difference(A, B)`, `concat(A, B)` | 이항 연산 → `IndexSet` |
+| `unite(A, B)`, `intersect(A, B)`, `difference(A, B)` | 이항 연산 → `IndexSet` |
 
 **Membership** (`algebra.hpp`)
 | | |
@@ -666,17 +665,18 @@ CMake 패키지를 설치해 `find_package`로 가져다 쓰는 것까지 확인
 `tests/cmake_consumer_mathopt`). CPLEX는 CI에 없으므로 `--cplex`는 로컬에서 돌립니다.
 
 **열이 많은 집합의 컴파일 비용.** N열 집합을 만들고, 거르고, 묶고, `VarTable`을 올리고, 합을 내는 TU 하나를
-컴파일한 결과입니다(`-std=c++20 -O2 -c`, CPU 시간과 최대 메모리. AMD Ryzen 7 5700X, WSL2 Ubuntu 24.04, 2026-10-22).
+컴파일한 결과입니다(`-std=c++20 -O2 -c`, `NDEBUG` 없이, 즉 `-DNDEBUG`이면 빠지는 디버그 빌드의 계약 확인을 포함해서. CPU
+시간과 최대 메모리. AMD Ryzen 7 5700X, WSL2 Ubuntu 24.04, 2026-10-24).
 `tests/test_arity.cpp`가 테스트를 돌릴 때마다 63열과 64열을 컴파일하므로 비용이 폭발하면 거기서 드러납니다.
 `python3 tools/measure_compile_cost.py [compiler ...]`로 이 표를 다시 잴 수 있습니다.
 
 | 열 수 | g++ 13.3 | clang++ 18.1 | clang++ 23.1 |
 |---|---|---|---|
-| 4 | 2.7 s, 285 MB | 2.7 s, 206 MB | 2.8 s, 229 MB |
-| 16 | 3.2 s, 327 MB | 3.3 s, 233 MB | 3.2 s, 254 MB |
-| 32 | 3.8 s, 363 MB | 4.4 s, 284 MB | 4.3 s, 306 MB |
-| 63 | 6.0 s, 494 MB | 8.0 s, 451 MB | 7.7 s, 462 MB |
-| 64 | 6.1 s, 500 MB | 8.2 s, 459 MB | 7.8 s, 470 MB |
+| 4 | 3.1 s, 309 MB | 3.0 s, 216 MB | 3.0 s, 230 MB |
+| 16 | 3.7 s, 331 MB | 3.7 s, 244 MB | 4.1 s, 257 MB |
+| 32 | 4.6 s, 384 MB | 5.1 s, 297 MB | 4.9 s, 310 MB |
+| 63 | 6.7 s, 533 MB | 8.9 s, 466 MB | 8.6 s, 472 MB |
+| 64 | 6.9 s, 540 MB | 8.9 s, 474 MB | 8.4 s, 479 MB |
 
 OR-Tools는 설치할 필요 없이 릴리스의 C++ 사전 빌드본을 아무 데나 풀고 그 폴더를 가리키면 됩니다(CMake 불필요).
 
