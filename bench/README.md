@@ -237,4 +237,13 @@ python3 -m unittest test_run_doe                       # the CPU choice (fake /s
 - **Check.** The Check sheet must report no mismatches; if it does, the arms did not do the same
   work.
 
+## Beside the experiment
+
+Two smaller studies live next to it, each with its own build, runner and README, and neither feeds
+the report:
+
+- [solver/](solver/README.md): real backends behind the same build - the containers' share of it,
+  and whether a gap there is theirs.
+- [plan/](plan/README.md): `makeSet`'s visit order against every other order of the same sources.
+
 The benchmark is not part of CI: shared runners are too noisy for timing.

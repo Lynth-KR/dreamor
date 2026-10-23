@@ -4,7 +4,9 @@
 // in that order rather than the declared one.
 #pragma once
 
+#include <algorithm>
 #include <array>
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -109,22 +111,22 @@ template <typename RangeTuple, typename ElemTuple, std::size_t I = 0>
 //   1. A source is eligible once every column it depends on is bound.
 //   2. Prefer the source that lets the most predicates run immediately.
 //   3. Then the smallest gap - fewest columns still missing for some predicate.
-//   4. Then declaration order.
+//   4. Then a dependent source over a container: the list it hands back per binding - a
+//      machine's items - is usually far shorter than a whole container, as a one-to-many join
+//      is preferred to a many-to-many one when there are no statistics.
+//   5. Then declaration order.
+//
+// Rules 2 and 3 are the "most constrained first" order of subgraph matchers such as RI; 4 is
+// what statistics-free join ordering such as Simpli-Squared does with key/foreign-key joins.
+// bench/plan/README.md measures the result against every other order.
 //
 // This changes which column varies fastest, so it changes the row order of the result.
-// Set::kVisitOrder holds the plan that ran.
-
-[[nodiscard]] consteval std::size_t popcountOf(std::uint64_t mask) {
-  std::size_t n = 0;
-  for (; mask != 0; mask &= mask - 1) {
-    ++n;
-  }
-  return n;
-}
+// Set::kVisitOrder holds the plan that ran. constexpr rather than consteval so that
+// bench/plan/ can run the same plan on masks it makes up at run time.
 
 template <std::size_t SourceCount, std::size_t PredCount>
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): one fixpoint loop; split, it no longer reads as one
-[[nodiscard]] consteval std::array<std::size_t, SourceCount> planVisitOrder(
+[[nodiscard]] constexpr std::array<std::size_t, SourceCount> planVisitOrder(
     // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): produces and depends are both column masks per source
     std::array<std::uint64_t, SourceCount> produces,
     std::array<std::uint64_t, SourceCount> depends,
@@ -154,15 +156,17 @@ template <std::size_t SourceCount, std::size_t PredCount>
             ++activated;
           }
         } else {
-          gap = (popcountOf(missing_now) < gap) ? popcountOf(missing_now) : gap;
+          gap = std::min(gap, static_cast<std::size_t>(std::popcount(missing_now)));
         }
       }
       if (gap == ~std::size_t{0}) {
         gap = 0;  // Nothing left to wait for.
       }
 
-      const bool better =
-          (best == SourceCount) || (activated > best_activated) || (activated == best_activated && gap < best_gap);
+      // best is checked first: until a source is picked it is SourceCount, past depends' end.
+      const bool better = (best == SourceCount) || (activated > best_activated) ||
+                          (activated == best_activated &&
+                           (gap < best_gap || (gap == best_gap && depends[source] != 0 && depends[best] == 0)));
       if (better) {
         best           = source;
         best_activated = activated;

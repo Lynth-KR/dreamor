@@ -29,6 +29,13 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- `makeSet`'s planner breaks a tie between a dependent source and a container in favour of the dependent source,
+  before falling back on declaration order: the list a dependent source hands back per binding - a machine's
+  items - is usually far shorter than a whole container, as statistics-free join ordering puts one-to-many joins
+  before many-to-many ones. Across made-up sets of 3 to 16 sources with dependent lists shorter than containers,
+  the median order now costs 3.05 times the best instead of 3.61 (p90 149 instead of 216); with lists as long as
+  containers it is unchanged within noise. Sets where it applies come out in another row order, which was never
+  fixed. The planner (`planVisitOrder`) is `constexpr` rather than `consteval`, so that the benchmark can call it.
 - A set holds no row twice, by contract: no source handed to `makeSet` - a container, the range a dependent source
   returns, a set - holds an element twice, and an entity is one object in one container. Breaking it is undefined
   behavior, as with the standard library's preconditions. Every operation keeps a set free of repeats on its own,
@@ -102,6 +109,13 @@ and versions follow [Semantic Versioning](https://semver.org/).
   experiment, for the containers' share of a real build and whether a gap there is theirs. Set operations - a
   projection, union, intersection, difference and a membership filter - are measured beside the model build, with
   flat writing each two ways: a `std::unordered_set`, and sorted keys merged with `<algorithm>`.
+- `bench/plan/model.cpp` calls the planner on thousands of made-up sets of 3 to 16 sources - six predicate shapes,
+  with and without dependent sources, sizes and selectivities spread over two orders of magnitude - and sets its
+  order against the best, the worst and declaration order by the work the loops do, with the best and worst exact
+  from a dynamic program over subsets. It runs in a minute, and checks its cost model against real loops.
+- `bench/plan/` times `makeSet` in every order its sources can be visited in, forced through dependent sources,
+  against the order `plan.hpp` picks: four predicate shapes and a join, sizes and selectivities varied, with
+  predicates a branch predictor can or cannot learn.
 
 ## [0.1.1] - 2026-10-22
 

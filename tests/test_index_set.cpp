@@ -2,6 +2,7 @@
 // IndexSet and its derivations: where, orderBy, select, groupBy, membership, ordered, and the
 // binary operations.
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <ranges>
 #include <stdexcept>
@@ -109,6 +110,18 @@ int main() try {
   DREAMOR_CHECK(dreamor::unite(II, II).size() == 4);
   DREAMOR_CHECK(dreamor::intersect(IJ, IJ.where(even)).size() == 6);
   DREAMOR_CHECK(dreamor::difference(IJ, IJ.where(even)).size() == 6);
+
+  // the visit order: with no predicate to tell them apart, a dependent source goes before a
+  // container - its list per binding is usually the shorter - and containers keep declaration order
+  {
+    const std::vector<std::size_t> As{1, 2};
+    const std::vector<std::size_t> Bs{3, 4};
+    const std::vector<std::size_t> Cs{5, 6};
+    const auto c_of = [&Cs](ICol) -> const std::vector<std::size_t>& { return Cs; };
+    using Planned   = decltype(dreamor::makeSet<ICol, JCol, KCol>(As, Bs, c_of));
+    static_assert(Planned::kVisitOrder == std::array<std::size_t, 3>{0, 2, 1});
+    DREAMOR_CHECK(dreamor::makeSet<ICol, JCol, KCol>(As, Bs, c_of).collect().size() == 8);
+  }
 
   // a set spread into a new one
   const auto IJK = dreamor::makeSet<>(IJ).collect();
