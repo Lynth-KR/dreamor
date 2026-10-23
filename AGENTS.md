@@ -33,7 +33,8 @@ tests/run_tests.sh --cplex [DIR]     # real CPLEX Studio ($CPLEX_STUDIO_DIR, def
 tests/run_tests.sh --mathopt [DIR]   # OR-Tools C++ prebuilt ($ORTOOLS_DIR, default /opt/ortools), solves with HiGHS
 CXX=clang++-18 tests/run_tests.sh    # compiler choice; default g++
 OPT="-O3 -DNDEBUG" tests/run_tests.sh # optimization; default -O1 -g
-SAN=1 tests/run_tests.sh             # AddressSanitizer + UndefinedBehaviorSanitizer (stub mode only)
+SAN=1 tests/run_tests.sh             # Address + UndefinedBehavior + Leak sanitizers (stub mode only)
+SAN=thread tests/run_tests.sh        # ThreadSanitizer, a build of its own (stub mode only)
 JOBS=4 tests/run_tests.sh            # parallel compiles; default every core (tests still report in order)
 tools/format.sh                      # clang-format (C++) and ruff (Python) in place; --check changes nothing
 tools/tidy.sh                        # clang-tidy; needs compile_commands.json (tools/gen_compile_commands.py)
@@ -59,10 +60,10 @@ tools/tidy.sh                        # clang-tidy; needs compile_commands.json (
   warning must not become a compile_fail case's first error. Tests compare doubles with `exactlyEqual` /
   `isExactlyZero` from `tests/float_compare.hpp`, never with `==`.
 - **CI** (`.github/workflows/ci.yml`) runs the stub job on GCC 13 and Clang 18 at `-O1 -g` and `-O3 -DNDEBUG`,
-  a sanitize job (`SAN=1`, GCC), gcc-latest and clang-latest (stub mode on the newest releases), the MathOpt job
-  on both compilers, a package job that installs the CMake package and builds `tests/cmake_consumer` (and
-  `tests/cmake_consumer_mathopt` in the MathOpt job) through `find_package(dreamor)`, a tidy job (`tools/tidy.sh`),
-  and a format job (`tools/format.sh --check`).
+  a sanitize job (`SAN=1` and `SAN=thread`, GCC), gcc-latest and clang-latest (stub mode on the newest releases),
+  the MathOpt job on both compilers, a package job that installs the CMake package and builds
+  `tests/cmake_consumer` (and `tests/cmake_consumer_mathopt` in the MathOpt job) through `find_package(dreamor)`,
+  a tidy job (`tools/tidy.sh`), and a format job (`tools/format.sh --check`).
 - **Compiler support** is a range tested at both ends, nothing in between: the floor is GCC 13 / Clang 18 (raising
   it is a decision, not a cleanup), the ceiling the newest releases (GCC 16 from the `gcc:16` image, Clang 23 from
   apt.llvm.org). Bump the ceiling at each major release - GCC every spring, LLVM every March and September - in

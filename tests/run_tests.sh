@@ -19,10 +19,15 @@
 # also builds the Concert model (on the stub) and compares the two models' constraints.
 #
 # CXX overrides the compiler (default g++, C++20). OPT overrides the optimization flags
-# (default -O1 -g; CI also runs -O3 -DNDEBUG). SAN=1 adds AddressSanitizer and
-# UndefinedBehaviorSanitizer, in stub mode only: the OR-Tools and CPLEX libraries are not
-# instrumented. JOBS sets how many compiles run at once (default: every core); the tests then
-# run and report one at a time, in a fixed order.
+# (default -O1 -g; CI also runs -O3 -DNDEBUG). Sanitizers, in stub mode only - the OR-Tools and
+# CPLEX libraries are not instrumented:
+#   SAN=1       AddressSanitizer, UndefinedBehaviorSanitizer and LeakSanitizer (ASan's, turned
+#               on explicitly here rather than left to the platform default)
+#   SAN=thread  ThreadSanitizer - a build of its own, as it cannot run beside ASan. The tests run
+#               with address randomization off (setarch -R): with the entropy recent kernels use,
+#               TSan cannot place its shadow memory and stops before main.
+# JOBS sets how many compiles run at once (default: every core); the tests then run and report
+# one at a time, in a fixed order.
 set -u
 cd "$(dirname "$0")"
 CXX=${CXX:-g++}
@@ -38,10 +43,22 @@ fi
 mkdir -p "$BUILD"
 OPT=${OPT:--O1 -g}
 COMMON="-std=c++20 $OPT -I../include -I../examples -I."
-if [ "${SAN:-}" = 1 ]; then
-  [ "$MODE" = stub ] || { echo "SAN=1 runs in stub mode only"; exit 2; }
-  COMMON="$COMMON -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer"
-fi
+RUN=  # what each test binary runs under
+case "${SAN:-}" in
+  "") ;;
+  1)
+    [ "$MODE" = stub ] || { echo "SAN runs in stub mode only"; exit 2; }
+    COMMON="$COMMON -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer"
+    export ASAN_OPTIONS="detect_leaks=1${ASAN_OPTIONS:+:$ASAN_OPTIONS}"
+    ;;
+  thread)
+    [ "$MODE" = stub ] || { echo "SAN runs in stub mode only"; exit 2; }
+    COMMON="$COMMON -fsanitize=thread -fno-omit-frame-pointer"
+    export TSAN_OPTIONS="halt_on_error=1${TSAN_OPTIONS:+:$TSAN_OPTIONS}"
+    RUN="setarch $(uname -m) -R"
+    ;;
+  *) echo "SAN=1 (address, undefined, leak) or SAN=thread"; exit 2 ;;
+esac
 # dreamor's own code - the library, the tests, the examples - is held to STRICT: a header
 # that warns here would warn in a user's strict build. The CMake target adds no warning flags.
 # LENIENT is for code that only uses dreamor (the ported OR-Tools samples) and for the
@@ -119,9 +136,9 @@ for t in $TESTS; do
   fi
   if [ "$name" = production_planning ] || [ "$name" = production_planning_mathopt ]; then
     label=example; [ "$name" = production_planning_mathopt ] && label=example_mathopt
-    "$BUILD/$name" > "$BUILD/$name.out" && printf '%-16s ok  (solved; plan in tests/%s/%s.out)\n' "$label" "$BUILD" "$name" || status=1
+    $RUN "$BUILD/$name" > "$BUILD/$name.out" && printf '%-16s ok  (solved; plan in tests/%s/%s.out)\n' "$label" "$BUILD" "$name" || status=1
   else
-    "$BUILD/$name" || status=1
+    $RUN "$BUILD/$name" || status=1
   fi
 done
 

@@ -65,6 +65,8 @@ and versions follow [Semantic Versioning](https://semver.org/).
 - The differential test also checks lookups by columns against each row's position, for two tables sharing a set's
   index and a third on another set: each key twice, each row's successor and predecessor, every possible key, by
   reference, and inside a sum.
+- `SAN=thread tests/run_tests.sh` runs the tests under ThreadSanitizer, and CI runs it beside `SAN=1`, which now
+  turns LeakSanitizer on explicitly.
 
 ## [0.1.1] - 2026-10-22
 

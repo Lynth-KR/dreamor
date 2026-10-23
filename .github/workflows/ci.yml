@@ -20,11 +20,17 @@ jobs:
       - run: CXX=${{ matrix.cxx }} OPT="${{ matrix.opt }}" tests/run_tests.sh
 
   sanitize:
-    # AddressSanitizer and UndefinedBehaviorSanitizer over the stub-mode tests.
+    # The stub-mode tests under sanitizers, two builds: Address + UndefinedBehavior + Leak, and
+    # Thread on its own (it cannot share a build with ASan) - tables on one set share its row
+    # index across threads, behind a lock.
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        san: ["1", thread]
     steps:
       - uses: actions/checkout@v4
-      - run: CXX=g++-13 SAN=1 tests/run_tests.sh
+      - run: CXX=g++-13 SAN=${{ matrix.san }} tests/run_tests.sh
 
   gcc-latest:
     # The compiler range: the stub job holds the floor (GCC 13, Clang 18), this job and
