@@ -33,10 +33,38 @@ and versions follow [Semantic Versioning](https://semver.org/).
 - Inside a `sumOf` term, a lookup by columns - `cost(m, i, t) * vYield(m, i, t)` - finds the row the sum is on
   without hashing it, for every table built on that row's set. The sum publishes its current row per thread while
   the term runs; a table uses it only when the row is its own and holds exactly the columns asked for, and hashes
-  otherwise, so the result never depends on it. Elsewhere a lookup by columns hashes as before.
+  otherwise, so the result never depends on it.
+- Variable and value tables built on one set share its row index: the first builds it, the others reuse it, and it is
+  freed with the last of them. Three families on one 1e7-row set build about 40% faster, and hold one index
+  instead of three.
+- The tuple hash every index shares folds each column in with one folded multiply - the 128-bit product of the
+  state and an odd constant, its halves xored, as Abseil's hash and foldhash do - instead of a round of splitmix64
+  per column. On 1e7 rows, lookups by columns are 10-20% faster and groupings by columns that are not runs 6-17%;
+  a new test checks that integer grids, aligned values, entity pointers and strings spread like a random hash.
+- Set operations that hash a whole set - `distinct`, `select`, `unite`, `intersect`, `difference`, `membership` and
+  `ordered` - hash a block of rows ahead and prefetch their slots too. On 1e7 rows, `unite` takes about 30% less
+  time, `intersect` and `difference` about 20%, `select` about 15%.
+- A `VarTable` built without a name no longer reads each row's key columns for a name it then drops: the
+  variables are created with nothing but their bounds in between.
+- A set's row index is built a block of rows at a time: their keys hashed and their slots prefetched first, so the
+  cache misses overlap. A table on 1e7 rows builds about a quarter faster (793 ms to 582 ms for one family), and
+  smaller ones gain 7-13%.
+- Outside a sum, a lookup by columns tries the row the last lookup on that thread found before hashing - and, once
+  lookups step from one row to the next, the row after it. `vStock.contains(i, t)` followed by `vStock(i, t)`, and a
+  walk over a set looking up each row's neighbour - `vStock(i, t - 1)` - skip the hash: about seven times faster
+  on a 1e7-row table. Like the sum's row, it is a hint checked against the key. A lookup in no order pays a
+  comparison more: about 15 ns on a 1e7-row table, a few ns on smaller ones.
 - `groupBy` tries the previous row's group before hashing the key, so grouping by the columns a set was generated
   with outermost - its leading column, typically - hashes once per group instead of once per row: about twice as
-  fast. Grouping by other columns costs one comparison more per row.
+  fast. Grouping by other columns costs one comparison more per row. When every change of key opens a new group,
+  the groups are the set's own runs and nothing is sorted: on 1e7 rows such a grouping takes about a third less
+  time and half the page faults.
+
+### Development
+
+- The differential test also checks lookups by columns against each row's position, for two tables sharing a set's
+  index and a third on another set: each key twice, each row's successor and predecessor, every possible key, by
+  reference, and inside a sum.
 
 ## [0.1.1] - 2026-10-22
 

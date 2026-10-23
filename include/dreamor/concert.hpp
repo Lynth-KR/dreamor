@@ -56,7 +56,8 @@
 // and vFlow(row) turns any of those rows into its variable.
 //
 // Storage: the set is shared, not copied, so keys are stored once. Beside it sit the
-// variables in the set's order and a hash index from key to row (internal/row_index.hpp). Column
+// variables in the set's order and a hash index from key to row (internal/row_index.hpp),
+// which every table on the same set shares - vUse and vFlow over sARCS build it once. Column
 // order handed to the model therefore follows the set, reproducibly - pointer keys
 // included.
 //

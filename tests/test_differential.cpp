@@ -26,6 +26,7 @@
 #include "check.hpp"
 #include "dreamor/concert.hpp"
 #include "dreamor/index_set.hpp"
+#include "float_compare.hpp"
 
 using ACol = dreamor::Col<std::size_t, "a">;
 using BCol = dreamor::Col<std::size_t, "b">;
@@ -292,6 +293,54 @@ void checkCase(std::mt19937& g, IloEnv env) {
                    .build();
   DREAMOR_CHECK(terms(split[0]) == in_first && terms(split[1]) == in_second && in_first <= kept);
   for (auto& sum : split) sum.end();
+
+  // Lookups against each row's position in D, for x and a second table y on D - the two share
+  // D's row index - with a table z on another set's rows in between, leaving its own rows as the
+  // last found. Asked in a fixed order, so no draw shifts the cases after this one: each row of
+  // D twice (contains, then the variable), its successor and its predecessor; every possible key,
+  // absent ones included; each row by reference; and by columns inside a sum, where the sum's
+  // row answers.
+  const dreamor::concert::VarTable<ACol, BCol, CCol> y{env, D, 0, 1, ILOFLOAT, "y"};
+  const auto TD = T.distinct();
+  const dreamor::concert::VarTable<ACol, BCol, CCol> z{env, TD, 0, 1, ILOFLOAT, "z"};
+  const std::vector<Row> d_rows = rowsOf(D);
+  std::map<Row, std::size_t> position;
+  for (std::size_t i = 0; i < d_rows.size(); ++i) position.emplace(d_rows[i], i);
+  std::vector<const IloNumVarI*> x_vars;
+  std::vector<const IloNumVarI*> y_vars;
+  for (const auto& [row, var] : x) x_vars.push_back(var.getImpl());
+  for (const auto& [row, var] : y) y_vars.push_back(var.getImpl());
+  const auto finds = [&](const Row& r) {
+    const ACol a{std::get<0>(r)};
+    const BCol b{std::get<1>(r)};
+    const CCol c{std::get<2>(r)};
+    const auto at = position.find(r);
+    const bool in = at != position.end();
+    bool ok       = x.contains(a, b, c) == in && y.contains(a, b, c) == in;
+    if (in) ok = ok && x(a, b, c).getImpl() == x_vars[at->second] && y(a, b, c).getImpl() == y_vars[at->second];
+    return ok && z.contains(a, b, c) == t_set.contains(r);
+  };
+  bool lookups = x_vars.size() == d_rows.size() && y_vars.size() == d_rows.size();
+  for (std::size_t i = 0; i < d_rows.size(); ++i) {
+    lookups = lookups && finds(d_rows[i]);
+    if (i + 1 < d_rows.size()) lookups = lookups && finds(d_rows[i + 1]);
+    if (i > 0) lookups = lookups && finds(d_rows[i - 1]);
+  }
+  for (std::size_t a = 0; a <= kValues; ++a)  // a == kValues: never in a set
+    for (std::size_t b = 0; b < kValues; ++b)
+      for (std::size_t c = 0; c < kValues; ++c) lookups = lookups && finds(Row{a, b, c});
+  for (std::size_t i = 0; i < d_rows.size(); ++i) {
+    const auto& row = *(D.begin() + static_cast<std::ptrdiff_t>(i));
+    lookups         = lookups && x(row).getImpl() == x_vars[i] && y(row).getImpl() == y_vars[i];
+  }
+  DREAMOR_CHECK(lookups);
+  IloExpr twice = dreamor::concert::sumOf(env, D, [&y](ACol a, BCol b, CCol c) { return 2 * y(a, b, c); }).build();
+  bool in_order = terms(twice) == y_vars.size();
+  for (std::size_t k = 0; in_order && k < y_vars.size(); ++k) {
+    in_order = twice.expr_->terms[k].first == y_vars[k] && exactlyEqual(twice.expr_->terms[k].second, 2);
+  }
+  DREAMOR_CHECK(in_order);
+  twice.end();
 }
 
 }  // namespace

@@ -55,6 +55,19 @@ class CurrentRowScope {
   const void* saved_;
 };
 
+// The row the last lookup by columns found, on this thread: a hint for the next one. Model code
+// asks for a key twice - contains(i, t), then vStock(i, t) - and walks a set asking for each
+// row's neighbour - vStock(i, t - 1) beside (i, t) - so the next answer is often the same row or,
+// on a walk, the one after it. A hint like currentRow(): checked against the key, never trusted.
+struct LastRow {
+  const void* row = nullptr;
+  bool walking    = false;  // the last answer was the row before it or the one after that
+};
+[[nodiscard]] inline LastRow& lastRow() noexcept {
+  static constinit thread_local LastRow last{};
+  return last;
+}
+
 // From a set's row to its position: a FlatIndex over the set's rows, which the set keeps -
 // the index holds 4 bytes a slot and no copy of a key.
 template <typename Key>
@@ -68,13 +81,10 @@ class RowIndex {
     if (rows.size() >= std::numeric_limits<std::uint32_t>::max()) {
       throw std::length_error("VarTable: more than 2^32 - 2 index tuples.");
     }
-    const auto at = rowsAt(rows);
-    for (std::size_t row = 0; row < rows.size(); ++row) {
-      const std::size_t first = index_.insert(rows[row], row, at);
-      if (first != kNotFound) {
-        throw std::invalid_argument("VarTable: the set repeats row " + std::to_string(first) + " at row " +
-                                    std::to_string(row) + "; build it from S.distinct().");
-      }
+    const auto [first, repeat] = index_.insertAll(0, rows.size(), rowsAt(rows));
+    if (first != kNotFound) {
+      throw std::invalid_argument("VarTable: the set repeats row " + std::to_string(first) + " at row " +
+                                  std::to_string(repeat) + "; build it from S.distinct().");
     }
   }
 
@@ -83,7 +93,8 @@ class RowIndex {
   //   - one row handed in by reference: it may be a row of the set the table was built on,
   //     reached by walking that set or one of its groups. Only its address tells.
   //   - columns: they are copies, so the row they came from is the one sumOf published, if
-  //     any - see currentRow().
+  //     any - see currentRow() - or else the row the last lookup found, or the one either side
+  //     of it - see lastRow().
   // Which of the two applies is known at compile time.
   template <typename... Args>
   [[nodiscard]] std::size_t find(const std::vector<Key>& rows, const Args&... key) const {
@@ -95,7 +106,7 @@ class RowIndex {
       if (at != kNotFound && holds(rows[at], key...)) {
         return at;
       }
-      return index_.find(Key{key...}, rowsAt(rows));
+      return findByColumns(rows, key...);
     }
   }
 
@@ -116,6 +127,33 @@ class RowIndex {
   template <typename... Columns>
   [[nodiscard]] static bool holds(const Key& row, const Columns&... key) {
     return ((std::get<Columns>(row) == key) && ...);
+  }
+
+  // Columns without the published row: the last row found; on a walk, the one after it; else
+  // the hash. The row after is read only on a walk: on scattered lookups it is a cache miss
+  // that seldom pays. Rows are distinct, so a row that holds the key is the key's row.
+  // Out of line, so that find() - the published-row check and a call - stays small enough to
+  // inline into a sumOf term, where the published row answers nearly every lookup.
+  template <typename... Columns>
+  [[nodiscard, gnu::noinline]] std::size_t findByColumns(const std::vector<Key>& rows, const Columns&... key) const {
+    LastRow& hint          = lastRow();
+    const std::size_t last = positionOf(rows, hint.row);
+    if (last != kNotFound) {
+      if (holds(rows[last], key...)) {
+        hint.walking = true;
+        return last;
+      }
+      if (hint.walking && last + 1 < rows.size() && holds(rows[last + 1], key...)) {
+        hint.row = rows.data() + last + 1;
+        return last + 1;
+      }
+    }
+    const std::size_t found = index_.find(Key{key...}, rowsAt(rows));
+    if (found != kNotFound) {
+      hint.walking = last != kNotFound && found == last + 1;
+      hint.row     = rows.data() + found;
+    }
+    return found;
   }
 
   [[nodiscard]] static auto rowsAt(const std::vector<Key>& rows) {

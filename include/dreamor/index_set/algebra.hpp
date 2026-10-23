@@ -65,22 +65,44 @@ template <typename Tup>
   return [&rows](std::size_t row) -> const Tup& { return rows[row]; };
 }
 
-// Every row by position; a repeat keeps its first one.
+// Every row by position; a repeat keeps its first one. Rows are hashed a block ahead
+// (general::hashedBlocks), as everywhere below that walks a whole set.
 template <typename Tup>
 [[nodiscard]] TupleIndex<Tup> indexRows(const std::vector<Tup>& rows) {
   TupleIndex<Tup> index{rows.size()};
-  for (std::size_t row = 0; row < rows.size(); ++row) {
-    static_cast<void>(index.insert(rows[row], row, rowsAt(rows)));
-  }
+  const auto at = rowsAt(rows);
+  ::dreamor::general::hashedBlocks(
+      0,
+      rows.size(),
+      at,
+      [&](std::size_t row, std::size_t hash) {
+        static_cast<void>(index.insert(rows[row], hash, row, at));
+        return true;
+      },
+      index);
   return index;
 }
 
-// Appends tuple unless out has it already; seen indexes out.
+// Appends tuple, whose hash this is, unless out has it already; seen indexes out.
 template <typename Tup>
-void appendNew(std::vector<Tup>& out, TupleIndex<Tup>& seen, const Tup& tuple) {
-  if (seen.insert(tuple, out.size(), rowsAt(out)) == TupleIndex<Tup>::kNotFound) {
+void appendNew(std::vector<Tup>& out, TupleIndex<Tup>& seen, const Tup& tuple, std::size_t hash) {
+  if (seen.insert(tuple, hash, out.size(), rowsAt(out)) == TupleIndex<Tup>::kNotFound) {
     out.push_back(tuple);
   }
+}
+
+// Appends the first occurrence of each of rows that out does not have yet, front to back.
+template <typename Tup>
+void appendFirstOccurrences(std::vector<Tup>& out, TupleIndex<Tup>& seen, const std::vector<Tup>& rows) {
+  ::dreamor::general::hashedBlocks(
+      0,
+      rows.size(),
+      rowsAt(rows),
+      [&](std::size_t row, std::size_t hash) {
+        appendNew(out, seen, rows[row], hash);
+        return true;
+      },
+      seen);
 }
 
 // First occurrence of each tuple, front to back.
@@ -89,9 +111,31 @@ template <typename Tup>
   std::vector<Tup> out;
   out.reserve(rows.size());
   TupleIndex<Tup> seen{rows.size()};
-  for (const auto& tuple : rows) {
-    appendNew(out, seen, tuple);
-  }
+  appendFirstOccurrences(out, seen, rows);
+  return out;
+}
+
+// The first occurrence of each row of left that is in right (keep) or is not (!keep).
+template <typename Tup>
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): two sets of one type is what filtering one by the other means
+[[nodiscard]] std::vector<Tup> filterAgainst(const IndexSet<Tup>& left, const IndexSet<Tup>& right, bool keep) {
+  const auto& left_rows  = SetAccess::rows(left);
+  const auto& right_rows = SetAccess::rows(right);
+  const auto rhs         = indexRows(right_rows);
+  std::vector<Tup> out;
+  TupleIndex<Tup> emitted{left_rows.size()};
+  ::dreamor::general::hashedBlocks(
+      0,
+      left_rows.size(),
+      rowsAt(left_rows),
+      [&](std::size_t row, std::size_t hash) {
+        if ((rhs.find(left_rows[row], hash, rowsAt(right_rows)) != TupleIndex<Tup>::kNotFound) == keep) {
+          appendNew(out, emitted, left_rows[row], hash);
+        }
+        return true;
+      },
+      rhs,
+      emitted);
   return out;
 }
 
@@ -197,11 +241,8 @@ template <typename Tup>
   std::vector<Tup> out;
   out.reserve(left.size() + right.size());
   internal::TupleIndex<Tup> seen{left.size() + right.size()};
-  for (const auto* side : {&left, &right}) {
-    for (const auto& tuple : *side) {
-      internal::appendNew(out, seen, tuple);
-    }
-  }
+  internal::appendFirstOccurrences(out, seen, internal::SetAccess::rows(left));
+  internal::appendFirstOccurrences(out, seen, internal::SetAccess::rows(right));
   return internal::SetAccess::make(std::move(out));
 }
 
@@ -209,32 +250,14 @@ template <typename Tup>
 template <typename Tup>
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): two sets of one type is what intersecting means
 [[nodiscard]] IndexSet<Tup> intersect(const IndexSet<Tup>& left, const IndexSet<Tup>& right) {
-  const auto& right_rows = internal::SetAccess::rows(right);
-  const auto rhs         = internal::indexRows(right_rows);
-  std::vector<Tup> out;
-  internal::TupleIndex<Tup> emitted{left.size()};
-  for (const auto& tuple : left) {
-    if (rhs.find(tuple, internal::rowsAt(right_rows)) != internal::TupleIndex<Tup>::kNotFound) {
-      internal::appendNew(out, emitted, tuple);
-    }
-  }
-  return internal::SetAccess::make(std::move(out));
+  return internal::SetAccess::make(internal::filterAgainst(left, right, true));
 }
 
 // A \ B
 template <typename Tup>
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): two sets of one type is what A \ B means
 [[nodiscard]] IndexSet<Tup> difference(const IndexSet<Tup>& left, const IndexSet<Tup>& right) {
-  const auto& right_rows = internal::SetAccess::rows(right);
-  const auto rhs         = internal::indexRows(right_rows);
-  std::vector<Tup> out;
-  internal::TupleIndex<Tup> emitted{left.size()};
-  for (const auto& tuple : left) {
-    if (rhs.find(tuple, internal::rowsAt(right_rows)) == internal::TupleIndex<Tup>::kNotFound) {
-      internal::appendNew(out, emitted, tuple);
-    }
-  }
-  return internal::SetAccess::make(std::move(out));
+  return internal::SetAccess::make(internal::filterAgainst(left, right, false));
 }
 
 // O(1) membership test, so one set can filter another during generation instead of

@@ -155,8 +155,7 @@ class VarTableCore {
   }
 
  protected:
-  explicit VarTableCore(const IndexSet<Key>& keys)
-      : keys_{keys}, index_{std::make_shared<const RowIndex<Key>>(rows())} {}
+  explicit VarTableCore(const IndexSet<Key>& keys) : keys_{keys}, index_{sharedIndex(keys_)} {}
 
   VarTableCore(VarTableCore&&) noexcept            = default;
   VarTableCore& operator=(VarTableCore&&) noexcept = default;
@@ -191,6 +190,9 @@ class VarTableCore {
       ::dreamor::general::NameBuilder<kNameBufferSize, ::dreamor::general::OnFormatOverflow::kLogAndClear>;
 
   [[nodiscard]] static const char* nameOf(NameBuilder& names, const Key& key) {
+    if (!names.enabled()) {
+      return nullptr;  // Unnamed: no key to read or format per variable.
+    }
     std::size_t length = names.rootLength();
     std::apply([&](const auto&... columns) { ((length = names.append(length, toNameToken(columns))), ...); }, key);
     return names.name();
@@ -200,6 +202,13 @@ class VarTableCore {
   std::vector<Var> vars_;  // vars_[i] is the variable of row i.
 
  private:
+  // The set's row index: every table on the set - vYield and vSetup on sPRODUCE - and every
+  // value table from them share one, built by the first.
+  [[nodiscard]] static std::shared_ptr<const RowIndex<Key>> sharedIndex(const IndexSet<Key>& keys) {
+    return SetAccess::indexSlot(keys).template get<RowIndex<Key>>(
+        [&keys] { return std::make_shared<const RowIndex<Key>>(SetAccess::rows(keys)); });
+  }
+
   IndexSet<Key> keys_;                          // Shared; the only copy of the keys.
   std::shared_ptr<const RowIndex<Key>> index_;  // Shared with ValueTables.
 };

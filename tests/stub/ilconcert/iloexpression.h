@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -20,20 +21,29 @@ inline constexpr IloNum IloInfinity = 1e20;
 
 // The objects behind the handles. Real Concert frees them all at env.end(); the stub keeps them
 // in one arena that env.end() empties, and that frees what is left at exit - the operators
-// below make their results with IloEnv{}, and most tests never end their env.
+// below make their results with IloEnv{}, and most tests never end their env. Locked: real
+// envs are independent, so models built on several threads, one env each, must work here too.
 class IloStubArena {
  public:
   template <typename T>
   static T* own(T* object) {
+    const std::scoped_lock lock{mutex()};
     objects().emplace_back(object);  // a shared_ptr<void> keeps T's deleter
     return object;
   }
-  static void clear() { objects().clear(); }
+  static void clear() {
+    const std::scoped_lock lock{mutex()};
+    objects().clear();
+  }
 
  private:
   static std::vector<std::shared_ptr<void>>& objects() {
     static std::vector<std::shared_ptr<void>> owned;
     return owned;
+  }
+  static std::mutex& mutex() {
+    static std::mutex m;
+    return m;
   }
 };
 

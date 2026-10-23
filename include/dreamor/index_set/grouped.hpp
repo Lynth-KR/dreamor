@@ -10,6 +10,7 @@
 #include <exception>
 #include <iterator>
 #include <limits>
+#include <numeric>
 #include <ranges>
 #include <stdexcept>
 #include <tuple>
@@ -202,27 +203,36 @@ class Grouped {
 
   // Counting sort on the group index: O(n), stable, CSR-shaped - group g spans
   // [offsets_[g], offsets_[g + 1]) of rows_.
+  //
+  // A set comes in runs of one key whenever the key's columns were bound outermost when it was
+  // generated - grouping by a leading column, typically. So the previous row's group is tried
+  // before the hash, and while every change of key opens a new group, the groups ARE the runs:
+  // rows_ is the set's own order and nothing is sorted. The row-to-group array the sort needs
+  // is made only when a key comes back.
   explicit Grouped(const IndexSet<Tup>& set) : set_{set} {
     const auto& rows = internal::SetAccess::rows(set_);
     if (rows.size() >= std::numeric_limits<std::uint32_t>::max()) {
       throw std::length_error("groupBy: more than 2^32 - 2 rows.");
     }
-    std::vector<std::uint32_t> group_of(rows.size());
+    std::vector<std::uint32_t> group_of;  // Empty while the groups are runs.
+    bool runs            = true;
     std::size_t previous = kNoGroup;  // The previous row's group.
     for (std::size_t i = 0; i < rows.size(); ++i) {
       const Key key = keyOf(rows[i]);
-      // A set comes in runs of one key whenever the key's columns were bound outermost when it
-      // was generated - grouping by a leading column, typically - so the previous row's group
-      // is tried before the hash.
       if (previous == kNoGroup || !(keys_[previous] == key)) {
         previous = index_.insert(key, keys_.size(), keysAt());
         if (previous == kNoGroup) {
           previous = keys_.size();
           keys_.push_back(key);
           offsets_.push_back(0);  // Holds this group's COUNT until the prefix sum below.
+        } else if (runs) {
+          runs     = false;
+          group_of = groupsOfRuns(rows.size());  // The rows so far, group by group.
         }
       }
-      group_of[i] = static_cast<std::uint32_t>(previous);
+      if (!runs) {
+        group_of[i] = static_cast<std::uint32_t>(previous);
+      }
       ++offsets_[previous];
     }
     offsets_.push_back(0);  // Sentinel: offsets_ ends up size K + 1.
@@ -236,8 +246,12 @@ class Grouped {
     }
     offsets_[keys_.size()] = running;
 
-    // offsets_ doubles as the moving cursor, so no second array is needed.
     rows_.resize(rows.size());
+    if (runs) {
+      std::iota(rows_.begin(), rows_.end(), std::uint32_t{0});
+      return;
+    }
+    // offsets_ doubles as the moving cursor, so no second array is needed.
     for (std::size_t i = 0; i < rows.size(); ++i) {
       rows_[offsets_[group_of[i]]++] = static_cast<std::uint32_t>(i);
     }
@@ -357,6 +371,19 @@ class Grouped {
   static constexpr std::size_t kNoGroup = ::dreamor::general::FlatIndex<Key>::kNotFound;
 
   [[nodiscard]] static Key keyOf(const Tup& tuple) { return Key{std::get<Columns>(tuple)...}; }
+
+  // The row-to-group array of rows that came in runs, one group after another: the first
+  // offsets_[0] rows are group 0, and so on - offsets_ still holds the counts.
+  [[nodiscard]] std::vector<std::uint32_t> groupsOfRuns(std::size_t size) const {
+    std::vector<std::uint32_t> group_of(size);
+    std::size_t row = 0;
+    for (std::size_t group = 0; group < keys_.size(); ++group) {
+      for (std::size_t n = 0; n < offsets_[group]; ++n) {
+        group_of[row++] = static_cast<std::uint32_t>(group);
+      }
+    }
+    return group_of;
+  }
 
   // The index's entries are group numbers; their keys live in keys_.
   [[nodiscard]] auto keysAt() const {

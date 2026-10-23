@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // VarTable: built once from a set, bounds as numbers or column callables, names from keys,
 // lookup, iteration in set order, solution().
+#include <algorithm>
 #include <cstddef>
 #include <cstring>
 #include <format>
+#include <optional>
 #include <ranges>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <tuple>
 #include <type_traits>
 #include <vector>
@@ -101,6 +104,30 @@ int main() try {
   }
   DREAMOR_CHECK(groupsAgree && inRows == 6);
 
+  // outside a sum, a lookup by columns tries the last row found - and, after a step to the next
+  // row, the row after it - before hashing; a hint, never trusted: any three lookups in a row, in
+  // this table, in a table on another set or of an absent key, give what the row's address gives
+  const std::vector<std::size_t> I2{2, 1};
+  const auto IJ2 = dreamor::makeSet<ICol, JCol>(I2, J).collect();
+  const dreamor::concert::VarTable<ICol, JCol> x2{env, IJ2, 0, 1};
+  std::vector<std::tuple<ICol, JCol>> keys(IJ.begin(), IJ.end());
+  keys.emplace_back(ICol{9}, JCol{9});
+  bool hintsAgree = true;
+  for (const auto& p : keys) {
+    for (const auto& q : keys) {
+      for (const auto& r : keys) {
+        for (const auto& key : {p, q, r}) {
+          const auto [i, j] = key;
+          const auto at     = std::ranges::find(IJ, key);
+          hintsAgree        = hintsAgree && x.contains(i, j) == (at != IJ.end());
+          if (at != IJ.end()) hintsAgree = hintsAgree && x(i, j).getImpl() == x(*at).getImpl();
+          if (x2.contains(i, j)) hintsAgree = hintsAgree && x2(i, j).getImpl() == x2(key).getImpl();
+        }
+      }
+    }
+  }
+  DREAMOR_CHECK(hintsAgree);
+
   // callable bounds: one column, two columns
   const dreamor::concert::VarTable<ICol, JCol> y{env,
                                                  IJ,
@@ -125,9 +152,41 @@ int main() try {
   for (const auto& row : x.keys().where(atTwo)) x(row).setUB(0);
   DREAMOR_CHECK(exactlyEqual(x(ICol{2}, JCol{10}).getUB(), 0) && exactlyEqual(x(ICol{3}, JCol{10}).getUB(), 1));
 
-  // a set that repeats a row is refused
-  DREAMOR_CHECK_THROWS(std::invalid_argument,
-                       dreamor::concert::VarTable<ICol, JCol>{env, dreamor::concat(IJ, IJ), 0, 1});
+  // a set that repeats a row is refused - by every table on it, not only the first
+  const auto twice = dreamor::concat(IJ, IJ);
+  DREAMOR_CHECK_THROWS(std::invalid_argument, dreamor::concert::VarTable<ICol, JCol>{env, twice, 0, 1});
+  DREAMOR_CHECK_THROWS(std::invalid_argument, dreamor::concert::VarTable<ICol, JCol>{env, twice, 0, 1});
+
+  // tables on one set share its row index, built by the first: one built after every other
+  // table on the set is gone, a value table that outlives its table, and tables built on several
+  // threads at once - one env each, as Concert requires - all find every row
+  const std::vector<std::size_t> I3{7, 8, 9};
+  const auto IJ3           = dreamor::makeSet<ICol, JCol>(I3, J).collect();
+  const auto findsEveryRow = [&IJ3](const dreamor::concert::VarTable<ICol, JCol>& t) {
+    bool all = t.size() == IJ3.size();
+    for (const auto& [row, var] : t)
+      all = all && t(std::get<ICol>(row), std::get<JCol>(row)).getImpl() == var.getImpl();
+    return all && !t.contains(ICol{1}, JCol{10});
+  };
+  {
+    const dreamor::concert::VarTable<ICol, JCol> first{env, IJ3, 0, 1};
+    DREAMOR_CHECK(findsEveryRow(first));
+  }
+  const auto values = [&] {
+    const dreamor::concert::VarTable<ICol, JCol> again{env, IJ3, 0, 1};
+    DREAMOR_CHECK(findsEveryRow(again));
+    return again.solution(FakeAlgorithm{env});
+  }();
+  DREAMOR_CHECK(exactlyEqual(values(ICol{8}, JCol{20}), 1) && !values.contains(ICol{1}, JCol{10}));
+  std::vector<std::optional<dreamor::concert::VarTable<ICol, JCol>>> onThreads(8);
+  {
+    std::vector<std::jthread> threads;
+    threads.reserve(onThreads.size());
+    for (auto& slot : onThreads) threads.emplace_back([&slot, &IJ3] { slot.emplace(IloEnv{}, IJ3, 0, 1); });
+  }
+  bool threadsAgree = true;
+  for (const auto& t : onThreads) threadsAgree = threadsAgree && t.has_value() && findsEveryRow(*t);
+  DREAMOR_CHECK(threadsAgree);
 
   // solution: one call, values keyed like the table, temporaries ended
   const std::size_t arraysBefore = IloNumVarArray::ended;

@@ -35,10 +35,8 @@ class Ordered {
   // the first occurrence for every duplicate, so next() on a later copy would return the
   // successor of the earlier one and silently wire a constraint to the wrong element.
   explicit Ordered(const IndexSet<Tup>& set) : members_{set.distinct()}, positions_{members_.size()} {
-    const auto& rows = internal::SetAccess::rows(members_);
-    for (std::size_t index = 0; index < rows.size(); ++index) {
-      static_cast<void>(positions_.insert(rows[index], index, rowsAt()));
-    }
+    // Distinct rows, so nothing is held twice and insertAll goes through.
+    static_cast<void>(positions_.insertAll(0, internal::SetAccess::rows(members_).size(), rowsAt()));
   }
 
   [[nodiscard]] std::size_t size() const noexcept { return members_.size(); }

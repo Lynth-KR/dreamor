@@ -24,7 +24,7 @@ namespace dreamor::general {
 struct TupleHash {
   template <typename... Ts>
   [[nodiscard]] std::size_t operator()(const std::tuple<Ts...>& tuple) const noexcept {
-    std::size_t seed = kFnv1aOffsetBasis;
+    std::size_t seed = kSeed;
     std::apply(
         [&seed](const auto&... elements) {
           ((seed = mix(seed, std::hash<std::remove_cvref_t<decltype(elements)>>{}(elements))), ...);
@@ -34,31 +34,37 @@ struct TupleHash {
   }
 
  private:
-  static constexpr std::uint64_t kFnv1aOffsetBasis = 0xcbf29ce484222325ULL;  // FNV-1a 64-bit basis
-  static constexpr std::uint64_t kGoldenRatio64    = 0x9e3779b97f4a7c15ULL;  // 2^64 / phi
-  static constexpr std::uint64_t kMixMult1         = 0xbf58476d1ce4e5b9ULL;  // splitmix64 round 1
-  static constexpr std::uint64_t kMixMult2         = 0x94d049bb133111ebULL;  // splitmix64 round 2
+  static constexpr std::uint64_t kSeed       = 0xcbf29ce484222325ULL;  // FNV-1a's 64-bit offset basis
+  static constexpr std::uint64_t kMultiplier = 0x9e3779b97f4a7c15ULL;  // 2^64 / phi, odd
+  static constexpr unsigned kWordBits        = 64U;
 
-  // splitmix64's shift distances, tuned together with the multipliers above - don't
-  // change one without the other, the sequence is what gives full avalanche.
-  static constexpr std::uint32_t kMixShift1 = 30U;
-  static constexpr std::uint32_t kMixShift2 = 27U;
-  static constexpr std::uint32_t kMixShift3 = 31U;
+  // splitmix64's finalizer, where there are no 128-bit integers: its multipliers and shifts
+  // were tuned together, so one does not change without the others.
+  static constexpr std::uint64_t kSplitMult1 = 0xbf58476d1ce4e5b9ULL;
+  static constexpr std::uint64_t kSplitMult2 = 0x94d049bb133111ebULL;
+  static constexpr unsigned kSplitShift1     = 30U;
+  static constexpr unsigned kSplitShift2     = 27U;
+  static constexpr unsigned kSplitShift3     = 31U;
 
-  // splitmix64's finalizer. Needed because libstdc++'s std::hash is the identity for
-  // integers and near-identity for pointers, so the mixer does all the avalanche work.
-  //
-  // NOT Boost's classic `seed ^ (v + 0x9e3779b9 + (seed<<6) + (seed>>2))` - that's a
-  // 32-bit recipe, and its 6/2 shifts leave the high half of a 64-bit word unmixed. On a
-  // 1000x1000 grid of integer tuples that collapsed 1e6 keys onto ~68k distinct hashes.
+  // Folds one element into the state: the 128-bit product of (state + value) and an odd
+  // constant, its two halves xored - the folded multiply Abseil's hash and foldhash mix with.
+  // The high half carries every input bit into the low bits a table indexes by, which is all
+  // the mixing there is to do: libstdc++'s std::hash is the identity for integers and close
+  // to it for pointers. One multiply per element, so a 3-column key hashes in about two
+  // thirds of the time splitmix64 per element took. Without 128-bit integers, splitmix64 below.
   [[nodiscard]] static std::size_t mix(std::size_t seed, std::size_t value) noexcept {
-    auto state = static_cast<std::uint64_t>(seed) + kGoldenRatio64 + static_cast<std::uint64_t>(value);
-    state ^= state >> kMixShift1;
-    state *= kMixMult1;
-    state ^= state >> kMixShift2;
-    state *= kMixMult2;
-    state ^= state >> kMixShift3;
-    return static_cast<std::size_t>(state);
+    const auto state = static_cast<std::uint64_t>(seed) + static_cast<std::uint64_t>(value);
+#ifdef __SIZEOF_INT128__
+    __extension__ using Wide = unsigned __int128;  // __extension__: not ISO C++, so not a -Wpedantic warning
+    const Wide product       = static_cast<Wide>(state) * kMultiplier;
+    return static_cast<std::size_t>(static_cast<std::uint64_t>(product) ^
+                                    static_cast<std::uint64_t>(product >> kWordBits));
+#else
+    std::uint64_t z = state + kMultiplier;
+    z               = (z ^ (z >> kSplitShift1)) * kSplitMult1;
+    z               = (z ^ (z >> kSplitShift2)) * kSplitMult2;
+    return static_cast<std::size_t>(z ^ (z >> kSplitShift3));
+#endif
   }
 };
 
