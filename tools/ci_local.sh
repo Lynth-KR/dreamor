@@ -30,7 +30,9 @@ pinned() {  # pinned TOOL VERSION
 pinned clang-format "$(sed -n 's/^CLANG_FORMAT_VERSION=//p' tools/format.sh)"
 pinned clang-tidy "$(sed -n 's/^CLANG_TIDY_VERSION=//p' tools/tidy.sh)"
 pinned ruff "$(sed -n 's/^required-version = "==\(.*\)"/\1/p' ruff.toml)"
-command -v podman > /dev/null 2>&1 && ! podman image exists "$GCC_IMAGE" && lack "the $GCC_IMAGE image: podman pull $GCC_IMAGE"
+if command -v podman > /dev/null 2>&1 && ! podman image exists "$GCC_IMAGE"; then
+  lack "the $GCC_IMAGE image: podman pull $GCC_IMAGE"
+fi
 [ -f "$ORTOOLS_DIR/include/ortools/math_opt/cpp/math_opt.h" ] || lack "OR-Tools at ORTOOLS_DIR ($ORTOOLS_DIR)"
 if [ -n "$missing" ]; then
   printf 'ci_local: this machine lacks what CI has:\n%b' "$missing" >&2
@@ -71,18 +73,17 @@ job format 'tools/format.sh --check'
 job tidy 'python3 tools/gen_compile_commands.py && tools/tidy.sh'
 [ -z "$failed" ] || exit 1
 
-for cxx in g++-13 clang++-18; do
-  for opt in "-O1 -g" "-O3 -DNDEBUG"; do
-    job "stub ($cxx, $opt)" "CXX=$cxx OPT='$opt' tests/run_tests.sh"
-  done
-done
+# GCC 13 at -O1 -g is sanitize (1); the compile-time checks run once per compiler. As on CI.
+job "stub (g++-13, -O3 -DNDEBUG)" "CXX=g++-13 OPT='-O3 -DNDEBUG' tests/run_tests.sh"
+job "stub (clang++-18, -O1 -g)" "CXX=clang++-18 OPT='-O1 -g' tests/run_tests.sh"
+job "stub (clang++-18, -O3 -DNDEBUG)" "CXX=clang++-18 OPT='-O3 -DNDEBUG' COMPILE_CHECKS=0 tests/run_tests.sh"
 for san in 1 thread; do
-  job "sanitize ($san)" "CXX=g++-13 SAN=$san tests/run_tests.sh"
+  job "sanitize ($san)" "CXX=g++-13 SAN=$san COMPILE_CHECKS=0 tests/run_tests.sh"
 done
 job gcc-latest "podman run --rm -v \"\$PWD\":/src -w /src $GCC_IMAGE sh -c 'CXX=g++ tests/run_tests.sh'"
 job clang-latest 'CXX=clang++-23 tests/run_tests.sh'
 
-# The installed package, for the package and mathopt jobs.
+# The installed package, for the package and mathopt jobs (CI's package is a step of stub, g++-13).
 job install "cmake -S . -B '$work/build' -DCMAKE_INSTALL_PREFIX='$work/prefix' && cmake --install '$work/build'"
 for cxx in g++-13 clang++-18; do
   job "mathopt ($cxx)" "CXX=$cxx tests/run_tests.sh --mathopt \"\$ORTOOLS_DIR\" &&

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+#pragma once
 #include <cstddef>
 #include <vector>
 #include "dreamor/index_set.hpp"

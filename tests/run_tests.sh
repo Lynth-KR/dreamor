@@ -29,6 +29,9 @@
 #               TSan cannot place its shadow memory and stops before main.
 # JOBS sets how many compiles run at once (default: every core); the tests then run and report
 # one at a time, in a fixed order.
+# COMPILE_CHECKS=0 skips what only the compiler decides - the compile_fail cases and the syntax
+# checks - for a run that repeats them on a compiler already checked: neither OPT nor SAN changes
+# their result.
 set -u
 cd "$(dirname "$0")"
 CXX=${CXX:-g++}
@@ -54,6 +57,7 @@ case "${SAN:-}" in
     ;;
   thread)
     [ "$MODE" = stub ] || { echo "SAN runs in stub mode only"; exit 2; }
+    SKIP_CONTRACT="ThreadSanitizer has nothing to find in a program that stops on purpose"
     COMMON="$COMMON -fsanitize=thread -fno-omit-frame-pointer"
     export TSAN_OPTIONS="halt_on_error=1${TSAN_OPTIONS:+:$TSAN_OPTIONS}"
     RUN="setarch $(uname -m) -R"
@@ -71,10 +75,10 @@ case "$CXX" in *clang*) STRICT="$STRICT -Wmissing-prototypes" ;; esac  # C only 
 LENIENT="-Wall -Wextra"
 JOBS=${JOBS:-$(nproc 2>/dev/null || echo 4)}
 # The cases that break a contract on purpose, for a debug build to stop on: stub mode only.
+case " $OPT " in *" -DNDEBUG "*) SKIP_CONTRACT="-DNDEBUG compiles the checks out" ;; esac
 CONTRACT=""
-if [ "$MODE" = stub ]; then
-  case " $OPT " in *" -DNDEBUG "*) ;; *) CONTRACT=$(ls contract_fail/*.cpp) ;; esac
-fi
+[ "$MODE" = stub ] && [ -z "${SKIP_CONTRACT:-}" ] && CONTRACT=$(ls contract_fail/*.cpp)
+COMPILE_CHECKS=${COMPILE_CHECKS:-1}
 
 if [ "$MODE" = stub ]; then
   FLAGS="$COMMON -Istub"
@@ -106,6 +110,21 @@ fi
 CF=compile_fail
 [ "$MODE" = mathopt ] && CF=mathopt/compile_fail
 
+# Every compile_fail case starts with its folder's prelude.hpp - the library and the backend's
+# headers - and parsing that is most of a case's time. So it is parsed once, into a precompiled
+# header built with the cases' own flags, and put first in every case (the case's own include
+# of it is then skipped: #pragma once). Only where a header comes from changes, in the "In file
+# included from" lines; the errors and notes stay the same. If it cannot be built, the cases
+# parse the prelude themselves.
+PCH=""
+if [ "$COMPILE_CHECKS" != 0 ]; then
+  case "$CXX" in
+    *clang*) pch=$BUILD/cf_prelude.pch; use="-include-pch $pch" ;;
+    *) mkdir -p "$BUILD/cf_pch"; pch=$BUILD/cf_pch/prelude.hpp.gch; use="-include $BUILD/cf_pch/prelude.hpp" ;;
+  esac
+  $CXX $FLAGS $LENIENT -I$CF -x c++-header "$CF/prelude.hpp" -o "$pch" 2> "$BUILD/cf_pch.log" && PCH=$use
+fi
+
 # Every compile first, JOBS at a time: one job is KIND NAME SOURCE, and it leaves its
 # diagnostics in $BUILD/<log>.log and its exit status in $BUILD/<log>.rc, so the results can
 # be read back below in a fixed order whatever order the jobs finished in.
@@ -115,23 +134,25 @@ compile_job='
     build)  log=$name;        set -- $FLAGS $STRICT "$src" -o "$BUILD/$name" $LIBS ;;
     syntax) log=syntax_$name; set -- $FLAGS $STRICT -fsyntax-only "$src" ;;
     sample) log=$name;        set -- $FLAGS $LENIENT "$src" -o "$BUILD/$name" $LIBS ;;
-    cf)     log=cf_$name;     set -- $FLAGS $LENIENT -I$CF -x c++ -fsyntax-only "$src" ;;
+    cf)     log=cf_$name;     set -- $FLAGS $LENIENT -I$CF $PCH -x c++ -fsyntax-only "$src" ;;
   esac
   $CXX "$@" 2> "$BUILD/$log.log"
   echo $? > "$BUILD/$log.rc"'
-export CXX FLAGS STRICT LENIENT LIBS BUILD CF
+export CXX FLAGS STRICT LENIENT LIBS BUILD CF PCH
 rm -f "$BUILD"/*.rc
 {
   for t in $TESTS; do echo "build $(basename "${t%.cpp}") $t"; done
   for t in $CONTRACT; do echo "build contract_$(basename "${t%.cpp}") $t"; done
-  if [ "$MODE" = stub ]; then
+  if [ "$MODE" = stub ] && [ "$COMPILE_CHECKS" != 0 ]; then
     for t in cplex/*.cpp ../examples/production_planning.cpp; do echo "syntax $(basename "${t%.cpp}") $t"; done
   fi
   if [ "$MODE" = mathopt ]; then
     for t in ../examples/mathopt_samples/*.cc; do echo "sample $(basename "${t%.cc}") $t"; done
   fi
-  echo "cf control $CF/control.cc"
-  for t in $CF/*.cpp; do echo "cf $(basename "${t%.cpp}") $t"; done
+  if [ "$COMPILE_CHECKS" != 0 ]; then
+    echo "cf control $CF/control.cc"
+    for t in $CF/*.cpp; do echo "cf $(basename "${t%.cpp}") $t"; done
+  fi
 } | xargs -P "$JOBS" -L 1 sh -c "$compile_job" sh
 compiled() { [ "$(cat "$BUILD/$1.rc" 2> /dev/null)" = 0 ]; }
 
@@ -151,6 +172,10 @@ done
 
 if [ "$MODE" = stub ]; then
   echo "mathopt/*.cpp: skipped (needs OR-Tools: ./run_tests.sh --mathopt DIR)"
+fi
+if [ "$MODE" = stub ] && [ "$COMPILE_CHECKS" = 0 ]; then
+  echo "cplex/*.cpp, examples/production_planning.cpp: syntax checks skipped (COMPILE_CHECKS=0)"
+elif [ "$MODE" = stub ]; then
   for t in cplex/*.cpp ../examples/production_planning.cpp; do
     name=$(basename "${t%.cpp}")
     if compiled "syntax_$name"; then
@@ -181,7 +206,7 @@ fi
 
 # Code that breaks a contract: a debug build must stop it - a non-zero exit, as abort() gives -
 # with the case's `// expect: <text>` in what it prints.
-[ "$MODE" = stub ] && [ -z "$CONTRACT" ] && echo "contract_fail/*.cpp: skipped (-DNDEBUG compiles the checks out)"
+[ "$MODE" = stub ] && [ -n "${SKIP_CONTRACT:-}" ] && echo "contract_fail/*.cpp: skipped ($SKIP_CONTRACT)"
 for t in $CONTRACT; do
   name=$(basename "${t%.cpp}")
   expect=$(sed -n 's|^// expect: ||p' "$t" | head -n 1)
@@ -198,14 +223,16 @@ done
 
 # Code that must not compile: compile_fail/ against Concert (stub or real), mathopt/compile_fail/
 # against OR-Tools.
-if ! compiled cf_control; then
+if [ "$COMPILE_CHECKS" = 0 ]; then
+  echo "$CF/*.cpp: skipped (COMPILE_CHECKS=0)"
+elif ! compiled cf_control; then
   echo "$CF/control.cc: FAILED to compile - the cases below would be meaningless (see tests/$BUILD/cf_control.log)"
   status=1
 fi
 # A case may say how it must be rejected: a `// expect: <text>` line, matched against the
 # compiler's first error and its notes - what a user reads before the next error. Cases
 # without one only have to be rejected.
-for t in $CF/*.cpp; do
+[ "$COMPILE_CHECKS" = 0 ] || for t in $CF/*.cpp; do
   name=$(basename "${t%.cpp}")
   expect=$(sed -n 's|^// expect: ||p' "$t" | head -n 1)
   if compiled "cf_$name"; then

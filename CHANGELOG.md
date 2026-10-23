@@ -102,7 +102,13 @@ and versions follow [Semantic Versioning](https://semver.org/).
 - `SAN=thread tests/run_tests.sh` runs the tests under ThreadSanitizer, and CI runs it beside `SAN=1`, which now
   turns LeakSanitizer on explicitly.
 - CI runs on pushes to main and on pull requests, or by hand for a work branch, and not on a change of Markdown alone;
-  the builds wait for format and tidy, and a newer push cancels the run still going on the same ref.
+  the builds wait for lint (format, then tidy), and a newer push cancels the run still going on the same ref. Format
+  runs inside the lint job and the package check inside the GCC 13 stub job, and GCC 13's plain `-O1 -g` build is
+  left to `SAN=1`, which is that build instrumented: ten jobs instead of thirteen.
+- `tests/run_tests.sh` parses each compile_fail folder's prelude once, into a precompiled header, which cuts the cases'
+  time by about 2.5x with the same errors and notes; `COMPILE_CHECKS=0` skips the compile_fail cases and the syntax
+  checks, which neither OPT nor SAN changes, and CI runs them once per compiler. `SAN=thread` skips the contract_fail
+  cases.
 - `tools/ci_local.sh` runs CI's jobs locally on a commit checked out apart, once every tool CI has is present, and
   `tools/hooks/pre-push` runs it on what is pushed to main (`git config core.hooksPath tools/hooks`).
 - The container benchmark (`bench/`) is a designed experiment over the lot-sizing example's model build: 7 factors
