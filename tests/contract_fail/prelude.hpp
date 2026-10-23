@@ -13,6 +13,9 @@ struct Entity {
 inline std::size_t keyName(const Entity* e) {
   return e->id;
 }
+inline std::size_t primaryKey(const Entity& e) {
+  return e.id;
+}
 
 using ICol = dreamor::Col<std::size_t, "i">;
 using JCol = dreamor::Col<std::size_t, "j">;

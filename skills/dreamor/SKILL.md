@@ -85,6 +85,9 @@ These are enforced by the compiler or needed for a correct model.
 11. **Sources.** A dependent source returns a range of *pointers* (`std::vector<const Item*>`, a span, a view). A
     container source must be an lvalue. No source holds an element twice, and an entity is one object in one
     container: a precondition (undefined behavior if broken) that keeps every set free of repeated rows.
+    `dreamor::EntityVector<T>` keeps it for entities: define `primaryKey(const T&)` next to `T`, then
+    `insert`/`emplace` return `{element, inserted}` as `std::set` does, and `modify(entity, fn)` is the only way to
+    change one.
 12. **Concert lifetime.** Call `env.end()` exactly once, last. Never `end()` a VarTable's variables or
     `endElements()` an array holding them. `end()` temporary `IloExpr`s after adding the constraint. None of this
     applies to MathOpt.

@@ -17,11 +17,28 @@ The headers in `include/dreamor/` are authoritative; the usage examples in their
 | `Col<T, "name">` | Column type. Implicit `Col(T)`, `operator T()`, `get()`, `->` and `*` for pointer `T`, `==`, default construction |
 | `Col<...>::kName` | The name, `std::string_view` |
 | `ColumnName` | Type of the name template argument (a string literal) |
-| `keyName(Col)` | Name token: the value's `keyName` if one is found (same namespace as the entity), else the value itself (must be `std::format`-able) |
+| `keyName(Col)` | Name token: the value's `keyName` if one is found (same namespace as the entity), else the entity's `primaryKey`, else the value itself (must be `std::format`-able) |
 | `std::hash<Col<...>>` | Columns can key `std::unordered_map` |
 | `PredicateColumns<F>` | Specialization point: `template <> struct dreamor::PredicateColumns<F> { using type = std::tuple<Cols...>; };` for a function object with a template `operator()` |
 
 Two columns over the same `T` with different names are different types (`FromCol`, `ToCol` over `const Node*`).
+
+## EntityVector
+
+`index_set/entity_vector.hpp`. A container that holds each entity once by its primary key, declared by ADL next to
+the type: `inline const std::string& primaryKey(const Machine& m) { return m.name; }` (a composite key returns a
+`std::tuple`). `dreamor::Entity<T>` is that requirement.
+
+| Member | Result |
+|---|---|
+| `insert(entity)`, `emplace(args...)` | `std::pair<const_iterator, bool>`: the element with that key, whether it went in (as `std::set`) |
+| `find(key)`, `contains(key)` | by primary key; `find` gives `end()` when absent |
+| `operator[]`, `at`, `front`, `back`, `begin`, `end`, `size`, `empty` | const access, insertion order |
+| `modify(entity, fn)` | `fn(T&)` on one element in place; the key must not change (debug builds check) |
+
+Elements never move (`std::deque`), nothing is erased, copying is deleted, moving keeps elements in place. A
+container source in `makeSet` like any other. Without `keyName`, an entity column's variables are named by
+`primaryKey` (debug builds log it once per column). Sets are snapshots: `modify` after building does not change them.
 
 ## Building sets
 

@@ -57,6 +57,7 @@ dreamor](examples/mathopt_samples/README.md), each next to the original.
 - [Install — CMake](#install--cmake)
 - [Quick start](#quick-start)
 - [Columns](#columns)
+- [Entities — EntityVector](#entities--entityvector)
 - [Building sets — makeSet](#building-sets--makeset)
 - [Deriving sets from sets](#deriving-sets-from-sets)
 - [Grouping — groupBy](#grouping--groupby)
@@ -275,12 +276,38 @@ using PeriodCol  = dreamor::Col<std::size_t, "period">;       // the value may b
 - One entity type may have more than one column. Different names make different columns (`FromCol` and `ToCol`,
   both `const Node*`).
 - **Tokens for variable names**: for an entity-pointer column, a `keyName(const T*)` function placed in the **same
-  namespace** as the entity is used. Values printable with `std::format` (integers, strings) need no hook.
+  namespace** as the entity is used, or else the entity's `primaryKey()` (next section; a debug build says so once
+  per column). Values printable with `std::format` (integers, strings) need no hook.
 - **Lookups by key take column values only.** `vYield(m, i, t)`, `yieldPlan(m, i, t)`, `slice(i, t)`, `prev(t)`, and
   `in_routes(m, i)` take the key's columns in declaration order, or one row of the set. Even though `Col` converts
   implicitly from its value, bare values (`x(2, 1)`, a bare pointer) and braces (`slice({i, t})`) are not accepted;
   compilation stops with one sentence telling you what to change. This keeps two int-valued columns from silently
   passing in swapped positions. If you start from a value, wrap it: `PeriodCol{2}`.
+
+## Entities — EntityVector
+
+A set keyed by entity pointers counts on each entity being one object: two objects for one machine are two machines
+to every set built on them. `dreamor::EntityVector<T>` holds each entity once, by the primary key the entity
+declares next to its type, as it does `keyName`:
+
+```cpp
+inline const std::string& primaryKey(const Machine& m) { return m.name; }     // found by ADL
+
+dreamor::EntityVector<Machine> plant;
+const auto [first, inserted] = plant.emplace(Machine{"M1", 40.0, 5.0, {}});   // inserted == false: M1 was there
+const auto sRUN = dreamor::makeSet<MachineCol, PeriodCol>(plant, periods).collect();
+plant.modify(&*first, [](Machine& m) { m.setup = 4.0; });                     // the one way to change one
+```
+
+- It reads like `std::vector` - indexing, iteration in insertion order, `size()` - and inserts like `std::set`:
+  `insert` and `emplace` return `{the element with that key, whether it went in}`; `find(key)`, `contains(key)`.
+- Elements never move (a `std::deque` underneath) and nothing is erased, so pointers into the model stay the
+  entity's. Copying is deleted - a copy would be a second object for every entity; moving keeps each in place.
+- Access is const. `modify(entity, fn)` changes one in place, and its primary key must come out the same (a debug
+  build checks). Sets are snapshots: a set or a model already built is not recomputed, so `modify` is for writing
+  results back afterwards - which usually belong in a `ValueTable`.
+- A composite key is a `std::tuple`: `return std::tuple{r.plant, r.code};`.
+- It is a choice, not a requirement: any container that keeps the contract below is a source.
 
 ## Building sets — makeSet
 
@@ -312,10 +339,10 @@ Each column of `makeSet<A, B, C>` corresponds to one source. There are three kin
   not the entities themselves.
 - A container source must be an lvalue (no temporary vectors).
 - **No source holds an element twice**: a container, the range a dependent source returns, a set. An entity is one
-  object, held by one container, so two objects for one machine are a repeat too. This is a precondition, as in the
-  standard library: breaking it is undefined behavior, and a debug build (no `NDEBUG`) stops on it with a message
-  naming the source. In return, a set never holds a row twice - no operation below makes a repeat - and each key of
-  a VarTable has exactly one variable.
+  object, held by one container, so two objects for one machine are a repeat too (`EntityVector` keeps that for
+  entities). This is a precondition, as in the standard library: breaking it is undefined behavior, and a debug build
+  (no `NDEBUG`) stops on it with a message naming the source. In return, a set never holds a row twice - no
+  operation below makes a repeat - and each key of a VarTable has exactly one variable.
 - Rows come out in generation order, and which column varies fastest is not fixed. If order matters, sort with
   `orderBy`.
 - To spell out a set's type, use `dreamor::SetOf<MachineCol, ItemCol>`.
@@ -411,8 +438,8 @@ const dreamor::concert::VarTable<KeyCols...> vName{env, set, lb, ub, type, "Name
   ```
 - Defaults when omitted: `lb = 0`, `ub = IloInfinity`, `ILOFLOAT`, no name.
 - Semi-continuous variables: `dreamor::concert::VarTable<...> vBatch{dreamor::concert::semiContinuous, env, sBATCH, sclb, ub, ILOFLOAT, "Batch"};`
-- Names are `name_key0_key1...` (`Yield_M0_I3_2`). Key tokens come from the `keyName()` hook. `nullptr` means no
-  name.
+- Names are `name_key0_key1...` (`Yield_M0_I3_2`). Key tokens come from the `keyName()` hook (or `primaryKey()`).
+  `nullptr` means no name.
 - A VarTable takes its set in its constructor, so when you bundle a model into a struct, put the sets in a base class
   and the VarTables as members of a derived class (the base class is constructed first). The example's `Sets` /
   `Model` has that shape.
@@ -578,7 +605,7 @@ that points at its model, so use it only while the model is alive.
 | `Col<T, "name">` | Column type. `Col(T)` (implicit), `operator T()`, `get()`, `->` and `*` for pointers, `==`, default construction |
 | `Col<...>::kName` | Column name (`std::string_view`) |
 | `ColumnName` | Type of `Col`'s name template argument (a string literal) |
-| `keyName(Col)` | The column's name token. The value's `keyName` if it has one, otherwise the value itself |
+| `keyName(Col)` | The column's name token. The value's `keyName` if it has one, else an entity's `primaryKey()`, otherwise the value itself |
 | `std::hash<Col<...>>` | Lets a column be a key of `std::unordered_map` and the like |
 | `PredicateColumns<F>` | Specialization point declaring the columns read by a function object with a template `operator()` |
 
@@ -599,6 +626,15 @@ that points at its model, so use it only while the model is alive.
 | `membership()` | → `Membership` |
 | `ordered()` | → `Ordered` |
 | `unite(A, B)`, `intersect(A, B)`, `difference(A, B)` | Binary operations → `IndexSet` |
+
+**EntityVector** (`entity_vector.hpp`)
+| | |
+|---|---|
+| `primaryKey(const T&)` | ADL hook next to `T`: what identifies it (a value or a `std::tuple`). `dreamor::Entity<T>` checks for it |
+| `insert(entity)`, `emplace(args...)` | `{iterator to the element with that key, whether it went in}` |
+| `find(key)`, `contains(key)` | By primary key |
+| `operator[]`, `at`, `front`, `back`, `begin`, `end`, `size`, `empty` | Const access, insertion order |
+| `modify(entity, fn)` | `fn(T&)` on one element; its key must not change |
 
 **Membership** (`algebra.hpp`)
 | | |

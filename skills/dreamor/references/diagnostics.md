@@ -15,6 +15,7 @@ left column. Each message is pinned by a `// expect:` line in `tests/compile_fai
 | `Name the Ordered first` | `S.ordered().prev(t)` | `const auto orderedT = S.ordered();` then `orderedT.prev(t)` | `ordered_needs_a_name` |
 | `Name an element of the ordered set` | `orderedT.prev(1)` | `orderedT.prev(PeriodCol{1})` | `ordered_prev_raw_value` |
 | `Ask membership` | `in_ij(1, 2)` | Pass columns or a row | `membership_raw_values` |
+| `EntityVector<T> holds each entity once by its primary key` | `EntityVector<T>` for a `T` with no `primaryKey(const T&)` | Define `primaryKey(const T&)` next to `T`, returning its id, code, or a `std::tuple` of them | `entity_vector_needs_primary_key` |
 | `Take the columns themselves` | A callable takes `int` / `const T*` instead of the column type | Make the parameter the column type | `where_takes_columns`, `bound_takes_columns`, `sumof_term_takes_values` |
 | `Cannot read this callable's parameter list` | A generic lambda as a sum term, a bound, or a `select(expr)` | Column-typed parameters | `sumof_term_is_generic`, `bound_is_not_generic`, `select_is_not_generic` |
 | `Cannot read this predicate's parameter list` | A generic lambda as a predicate | Column-typed parameters, or specialize `dreamor::PredicateColumns` | `where_is_not_generic` |
@@ -66,6 +67,8 @@ A broken precondition is undefined behavior. A debug build (no `NDEBUG`) checks 
 | `makeSet: source N holds one element twice` | a container source repeats a value or an entity | drop the repeat where the data is read; an entity is one object in one container |
 | `makeSet: source N holds one row twice` | a range of tuples spread into `makeSet` repeats a row | the same, for that range |
 | `makeSet: dependent source N returned one element twice` | a dependent source's range repeats an element for some binding | the same, for that list (e.g. a machine's items) |
+| `EntityVector::modify: the entity is not one of this container's` | `modify` given a pointer to an object the container does not hold | pass a pointer from this `EntityVector` |
+| `EntityVector::modify: fn changed the entity's primary key` | `fn` changed what `primaryKey` reads | change the fields around the key only; a new key is a new entity |
 
 Absences that do not throw:
 - `Grouped::slice` of a missing key returns an empty `RowSlice`, whose sum is 0.

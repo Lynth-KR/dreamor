@@ -65,6 +65,7 @@
 
 #include "dreamor/index_set/algebra.hpp"
 #include "dreamor/index_set/column.hpp"
+#include "dreamor/index_set/entity_vector.hpp"
 #include "dreamor/index_set/grouped.hpp"
 #include "dreamor/index_set/indexed.hpp"
 #include "dreamor/index_set/ordered.hpp"

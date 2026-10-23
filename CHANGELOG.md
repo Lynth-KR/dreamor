@@ -7,6 +7,15 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `dreamor::EntityVector<T>`: a container that holds each entity once, by the primary key the entity declares
+  with `primaryKey(const T&)` next to its type (found by ADL, as `keyName` is; a composite key is a `std::tuple`). It
+  reads like `std::vector` and inserts like `std::set`: `insert` and `emplace` return `{the element with that key,
+  whether it went in}`. Elements never move (a `std::deque` underneath) and none is erased, so pointers into the
+  model stay the entity's; access is const, and `modify(entity, fn)` is the one way to change an element, its key
+  unchanged. A debug build checks both of `modify`'s preconditions. As a set source it is any container; a debug
+  build skips checking it for repeats.
+- A pointer column whose entity has no `keyName()` but a `primaryKey()` names its variables by that key; a debug
+  build says so once per column.
 - A debug build (no `NDEBUG`) checks the set contract at `makeSet`: a container or a spread range repeating an
   element, or a dependent source returning one twice, stops the program on one line naming the source. A
   dependent source's range is checked each time it is returned, or once if it is borrowed and contiguous - a span

@@ -11,7 +11,7 @@ Version 0.1.0, Apache 2.0.
 
 | Path | What |
 |---|---|
-| `include/dreamor/index_set.hpp`, `include/dreamor/index_set/` | Set layer: `Col`, `makeSet`, `IndexSet`, `Grouped`, `Ordered`, set algebra. Must not include any solver header |
+| `include/dreamor/index_set.hpp`, `include/dreamor/index_set/` | Set layer: `Col`, `EntityVector`, `makeSet`, `IndexSet`, `Grouped`, `Ordered`, set algebra. Must not include any solver header |
 | `include/dreamor/value_table.hpp` | `dreamor::ValueTable`, shared by both backends |
 | `include/dreamor/concert.hpp` | Concert backend |
 | `include/dreamor/mathopt.hpp` | MathOpt backend |

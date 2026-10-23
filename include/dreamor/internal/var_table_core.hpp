@@ -29,6 +29,7 @@
 #include "dreamor/index_set/indexed.hpp"
 #include "dreamor/index_set/key_args.hpp"
 #include "dreamor/internal/row_index.hpp"
+#include "dreamor/logger/logger_light.hpp"
 #include "dreamor/value_table.hpp"
 
 namespace dreamor {
@@ -58,14 +59,30 @@ concept has_key_name = requires(const Key& key) {
   { keyName(key) } -> is_formattable;  // found via ADL
 };
 
+// An entity pointer column with no keyName() of its own, whose entity has a primary key
+// (EntityVector): the key names it - a name identifies a variable, as the key does the entity.
 template <typename Key>
-concept is_nameable = has_key_name<Key> || is_formattable<Key>;
+concept has_primary_key_name = requires(const Key& key) {
+  requires std::is_pointer_v<typename Key::Value>;
+  { primaryKey(*key.get()) } -> is_formattable;  // found via ADL
+};
 
-// Returns the token to embed in a variable name: the ADL hook if present, else the key.
+template <typename Key>
+concept is_nameable = has_key_name<Key> || has_primary_key_name<Key> || is_formattable<Key>;
+
+// Returns the token to embed in a variable name: the ADL hook if present, else the entity's
+// primary key, else the key. A debug build says once per column when the primary key stands in.
 template <typename Key>
 [[nodiscard]] decltype(auto) toNameToken(const Key& key) {
   if constexpr (has_key_name<Key>) {
     return keyName(key);
+  } else if constexpr (has_primary_key_name<Key>) {
+    [[maybe_unused]] static const bool said = [] {
+      DREAMOR_DEBUG_INFO("VarTable: column \"{}\" has no keyName(), so its entities' primaryKey() names the variables.",
+                         Key::kName);
+      return true;
+    }();
+    return primaryKey(*key.get());
   } else {
     return key;
   }

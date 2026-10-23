@@ -56,6 +56,7 @@ for (const auto& [machine, period, rows] : producedByMachinePeriod)
 - [설치 — CMake](#설치--cmake)
 - [빠른 시작](#빠른-시작)
 - [열(Column)](#열column)
+- [엔티티 — EntityVector](#엔티티--entityvector)
 - [집합 만들기 — makeSet](#집합-만들기--makeset)
 - [집합에서 집합 파생하기](#집합에서-집합-파생하기)
 - [묶기 — groupBy](#묶기--groupby)
@@ -268,12 +269,38 @@ using PeriodCol  = dreamor::Col<std::size_t, "period">;       // 값이 정수�
 - 같은 엔티티 타입에 열이 둘 이상이어도 됩니다. 이름이 다르면 다른 열입니다
   (`FromCol`, `ToCol` 둘 다 `const Node*`).
 - **변수 이름에 들어갈 토큰**: 엔티티 포인터 열은 `keyName(const T*)` 함수를 엔티티와 **같은 네임스페이스**에
-  두면 그걸 씁니다. `std::format`으로 출력되는 값(정수, 문자열)은 훅이 필요 없습니다.
+  두면 그걸 쓰고, 없으면 엔티티의 `primaryKey()`를 씁니다(다음 절, 디버그 빌드는 열마다 한 번 알립니다).
+  `std::format`으로 출력되는 값(정수, 문자열)은 훅이 필요 없습니다.
 - **키로 찾는 곳은 열 값만 받습니다.** `vYield(m, i, t)`, `yieldPlan(m, i, t)`, `slice(i, t)`, `prev(t)`,
   `in_routes(m, i)`는 키의 열을 선언 순서대로, 또는 집합의 행 하나를 받습니다. `Col`이 값에서 암묵 변환되더라도
   맨 값(`x(2, 1)`, 맨 포인터)과 중괄호(`slice({i, t})`)는 받지 않고, 무엇을 바꾸라는지 한 문장으로 멈춥니다.
   값이 int인 열 둘이 자리를 바꿔도 조용히 통과하는 일을 막기 위해서입니다. 값에서 시작한다면 `PeriodCol{2}`처럼
   감쌉니다.
+
+## 엔티티 — EntityVector
+
+엔티티 포인터를 키로 쓰는 집합은 엔티티 하나가 객체 하나라는 데 기댑니다. 머신 하나에 객체가 둘이면, 그 위에
+만든 모든 집합에게는 머신이 둘입니다. `dreamor::EntityVector<T>`는 엔티티가 자기 타입 옆에 선언한 기본 키로
+각 엔티티를 한 번만 담습니다. 선언 방식은 `keyName`과 같습니다.
+
+```cpp
+inline const std::string& primaryKey(const Machine& m) { return m.name; }     // found by ADL
+
+dreamor::EntityVector<Machine> plant;
+const auto [first, inserted] = plant.emplace(Machine{"M1", 40.0, 5.0, {}});   // inserted == false: M1 was there
+const auto sRUN = dreamor::makeSet<MachineCol, PeriodCol>(plant, periods).collect();
+plant.modify(&*first, [](Machine& m) { m.setup = 4.0; });                     // the one way to change one
+```
+
+- 읽기는 `std::vector`처럼(인덱스, 삽입 순서 순회, `size()`), 넣기는 `std::set`처럼 합니다. `insert`와 `emplace`는
+  `{그 키의 원소, 들어갔는지}`를 돌려줍니다. `find(key)`, `contains(key)`도 있습니다.
+- 원소는 움직이지 않고(내부는 `std::deque`) 지우지도 않으므로, 모델에 넘긴 포인터는 계속 그 엔티티를 가리킵니다.
+  복사는 막혀 있습니다(복사본은 모든 엔티티의 두 번째 객체입니다). 이동해도 원소는 제자리에 있습니다.
+- 접근은 const입니다. `modify(entity, fn)`이 원소 하나를 제자리에서 바꾸며, 기본 키는 그대로여야 합니다(디버그
+  빌드가 확인). 집합은 스냅숏이라 이미 만든 집합이나 모델은 다시 계산되지 않습니다. 그래서 `modify`는 모델을 만든
+  뒤 결과를 적어 넣을 때 쓰며, 결과는 보통 `ValueTable`에 두는 편이 맞습니다.
+- 복합 키는 `std::tuple`입니다: `return std::tuple{r.plant, r.code};`.
+- 필수가 아니라 선택입니다. 아래 계약을 지키는 컨테이너라면 무엇이든 소스가 됩니다.
 
 ## 집합 만들기 — makeSet
 
@@ -304,8 +331,9 @@ const auto sNAME = dreamor::makeSet<열...>(소스...).where(술어).where(술�
 - 종속 소스는 엔티티가 아니라 **엔티티의 포인터 범위**(`std::vector<const Item*>`, span, view)를 돌려줘야 합니다.
 - 컨테이너 소스는 lvalue여야 합니다(임시 vector 금지).
 - **어떤 소스도 같은 원소를 두 번 담지 않습니다**: 컨테이너, 의존 소스가 돌려주는 범위, 집합 모두. 엔티티는 객체
-  하나이고 컨테이너 하나가 담으므로, 머신 하나에 객체가 둘이면 그것도 반복입니다. 표준 라이브러리처럼 이것은
-  전제조건이고, 어기면 미정의 동작입니다. 디버그 빌드(`NDEBUG` 없음)는 어긴 소스를 메시지로 알리고 멈춥니다. 그 대가로 집합은 같은 행을 두 번 담지 않고(아래 어떤 연산도 반복을
+  하나이고 컨테이너 하나가 담으므로, 머신 하나에 객체가 둘이면 그것도 반복입니다(엔티티는 `EntityVector`가
+  지켜 줍니다). 표준 라이브러리처럼 이것은 전제조건이고, 어기면 미정의 동작입니다. 디버그 빌드(`NDEBUG` 없음)는
+  어긴 소스를 메시지로 알리고 멈춥니다. 그 대가로 집합은 같은 행을 두 번 담지 않고(아래 어떤 연산도 반복을
   만들지 않습니다), VarTable의 키 하나에는 변수가 정확히 하나입니다.
 - 결과 행 순서는 생성 순서이며, 어떤 열이 가장 빨리 변하는지는 고정이 아닙니다. 순서가 의미를 가지면
   `orderBy`로 정렬하세요.
@@ -398,7 +426,7 @@ const dreamor::concert::VarTable<키 열...> vName{env, 집합, lb, ub, type, "N
   ```
 - 생략하면 `lb = 0`, `ub = IloInfinity`, `ILOFLOAT`, 이름 없음.
 - 반연속 변수: `dreamor::concert::VarTable<...> vBatch{dreamor::concert::semiContinuous, env, sBATCH, sclb, ub, ILOFLOAT, "Batch"};`
-- 이름은 `이름_키0_키1...` (`Yield_M0_I3_2`). 키 토큰은 `keyName()` 훅에서 옵니다. `nullptr`이면 이름 없음.
+- 이름은 `이름_키0_키1...` (`Yield_M0_I3_2`). 키 토큰은 `keyName()` 훅(없으면 `primaryKey()`)에서 옵니다. `nullptr`이면 이름 없음.
 - VarTable은 생성자에서 집합을 받으므로, 모델을 구조체로 묶을 때는 집합을 기반 클래스에 두고 VarTable을
   파생 클래스의 멤버로 둡니다(기반 클래스가 먼저 만들어집니다). 예제의 `Sets` / `Model`이 그 모양입니다.
 
@@ -553,7 +581,7 @@ MathOpt에는 이 절이 해당하지 않습니다. `math_opt::Model`과 `Linear
 | `Col<T, "name">` | 열 타입. `Col(T)`(암묵), `operator T()`, `get()`, 포인터면 `->`, `*`, `==`, 기본 생성 |
 | `Col<...>::kName` | 열 이름 (`std::string_view`) |
 | `ColumnName` | `Col`의 이름 템플릿 인자 타입 (문자열 리터럴) |
-| `keyName(Col)` | 열의 이름 토큰. 값에 `keyName`이 있으면 그것, 없으면 값 자체 |
+| `keyName(Col)` | 열의 이름 토큰. 값에 `keyName`이 있으면 그것, 없으면 엔티티의 `primaryKey()`, 그것도 없으면 값 자체 |
 | `std::hash<Col<...>>` | 열을 `std::unordered_map` 키 등으로 쓸 수 있음 |
 | `PredicateColumns<F>` | 템플릿 `operator()` 함수 객체가 읽는 열을 선언하는 특수화 지점 |
 
@@ -574,6 +602,15 @@ MathOpt에는 이 절이 해당하지 않습니다. `math_opt::Model`과 `Linear
 | `membership()` | → `Membership` |
 | `ordered()` | → `Ordered` |
 | `unite(A, B)`, `intersect(A, B)`, `difference(A, B)` | 이항 연산 → `IndexSet` |
+
+**EntityVector** (`entity_vector.hpp`)
+| | |
+|---|---|
+| `primaryKey(const T&)` | `T` 옆의 ADL 훅: 무엇이 그것을 식별하는지(값 또는 `std::tuple`). `dreamor::Entity<T>`가 이를 확인 |
+| `insert(entity)`, `emplace(args...)` | `{그 키의 원소를 가리키는 반복자, 들어갔는지}` |
+| `find(key)`, `contains(key)` | 기본 키로 찾기 |
+| `operator[]`, `at`, `front`, `back`, `begin`, `end`, `size`, `empty` | const 접근, 삽입 순서 |
+| `modify(entity, fn)` | 원소 하나에 `fn(T&)`; 키는 바뀌면 안 됨 |
 
 **Membership** (`algebra.hpp`)
 | | |

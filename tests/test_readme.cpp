@@ -34,6 +34,9 @@ inline const std::string& keyName(const Item* i) {
 inline const std::string& keyName(const Machine* m) {
   return m->name;
 }
+inline const std::string& primaryKey(const Machine& m) {  // README EntityVector
+  return m.name;
+}
 struct Node {
   std::size_t id;
 };
@@ -150,6 +153,16 @@ int main() try {
   for (const auto& [row, qty] : yieldPlan)
     if (qty > 1e-6) ++printed;
   DREAMOR_CHECK(printed == 9);
+
+  // --- EntityVector
+  {
+    dreamor::EntityVector<Machine> plant;
+    const auto [first, inserted] = plant.emplace(Machine{"M1", 40.0, 5.0, {}});
+    const auto sRUN              = dreamor::makeSet<MachineCol, PeriodCol>(plant, periods).collect();
+    plant.modify(&*first, [](Machine& m) { m.setup = 4.0; });
+    DREAMOR_CHECK(inserted && !plant.emplace(Machine{"M1", 1.0, 1.0, {}}).second && sRUN.size() == periods.size() &&
+                  exactlyEqual(plant.front().setup, 4.0));
+  }
 
   // --- makeSet: entity / smart-pointer containers, predicates
   std::vector<Machine> machineObjects{m0, m1};

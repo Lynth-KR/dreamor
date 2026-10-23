@@ -29,6 +29,9 @@
 
 namespace dreamor {
 
+template <typename T>
+class EntityVector;  // entity_vector.hpp; only its name is needed here
+
 namespace internal {
 template <typename Row, typename Key>
 struct GroupedOn;
@@ -38,6 +41,14 @@ struct GroupedOn<Row, std::tuple<Columns...>> {
 };
 
 class SourceChecks;
+
+// An EntityVector holds each entity once already, so a debug build does not check it again.
+template <typename Source>
+struct ViewsEntityVector : std::false_type {};
+template <typename T>
+struct ViewsEntityVector<std::ranges::ref_view<const EntityVector<T>>> : std::true_type {};
+template <typename T>
+struct ViewsEntityVector<std::ranges::ref_view<EntityVector<T>>> : std::true_type {};
 
 #ifndef NDEBUG
 // The first repeat among keys: {the key held first, the one repeating it}. One instance per key
@@ -423,7 +434,8 @@ class Set {
   template <std::size_t Source>
   void checkSource() {
     using Src = std::tuple_element_t<Source, RangeTuple>;
-    if constexpr (internal::sourceKindOf<Src>() == internal::SourceKind::kContainer) {
+    if constexpr (internal::sourceKindOf<Src>() == internal::SourceKind::kContainer &&
+                  !internal::ViewsEntityVector<Src>::value) {
       checks_->template container<std::tuple_element_t<kColumnsOf<Source>[0], ElemTuple>>(Source,
                                                                                           std::get<Source>(ranges_));
     } else if constexpr (internal::sourceKindOf<Src>() == internal::SourceKind::kSpread) {
