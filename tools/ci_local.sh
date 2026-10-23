@@ -1,0 +1,100 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# Runs what CI runs (.github/workflows/ci.yml) on this machine, over one commit checked out
+# apart: what a push would publish, not the working tree. It needs every tool CI installs and
+# stops before running anything if one is missing - a partial run is not a pass.
+#
+#   tools/ci_local.sh         HEAD
+#   tools/ci_local.sh REV     another commit (the pre-push hook passes the one being pushed)
+#
+# ORTOOLS_DIR is the OR-Tools C++ prebuilt CI downloads (v9.15; default /opt/ortools). The jobs
+# run one after another, each on every core; format and tidy first, and nothing else if either
+# fails, as on CI. Logs go to a temporary folder, kept if a job fails.
+# The jobs are written down twice: change this together with ci.yml.
+set -eu
+cd "$(dirname "$0")/.."
+rev=$(git rev-parse --verify "${1:-HEAD}^{commit}")
+ORTOOLS_DIR=${ORTOOLS_DIR:-/opt/ortools}
+GCC_IMAGE=docker.io/library/gcc:16
+
+# The machine: every tool CI installs, at the versions the scripts pin.
+missing=
+lack() { missing="$missing  $1\n"; }
+for tool in g++-13 clang++-18 clang++-23 cmake podman python3 run-clang-tidy.py; do
+  command -v "$tool" > /dev/null 2>&1 || lack "$tool"
+done
+pinned() {  # pinned TOOL VERSION
+  found=$("$1" --version 2> /dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1) || true
+  [ "$found" = "$2" ] || lack "$1 $2 (found ${found:-none}): uv tool install $1==$2"
+}
+pinned clang-format "$(sed -n 's/^CLANG_FORMAT_VERSION=//p' tools/format.sh)"
+pinned clang-tidy "$(sed -n 's/^CLANG_TIDY_VERSION=//p' tools/tidy.sh)"
+pinned ruff "$(sed -n 's/^required-version = "==\(.*\)"/\1/p' ruff.toml)"
+command -v podman > /dev/null 2>&1 && ! podman image exists "$GCC_IMAGE" && lack "the $GCC_IMAGE image: podman pull $GCC_IMAGE"
+[ -f "$ORTOOLS_DIR/include/ortools/math_opt/cpp/math_opt.h" ] || lack "OR-Tools at ORTOOLS_DIR ($ORTOOLS_DIR)"
+if [ -n "$missing" ]; then
+  printf 'ci_local: this machine lacks what CI has:\n%b' "$missing" >&2
+  exit 1
+fi
+
+work=$(mktemp -d "${TMPDIR:-/tmp}/dreamor-ci.XXXXXX")
+src=$work/src
+logs=$work/logs
+mkdir "$logs"
+git worktree add -q --detach "$src" "$rev"
+failed=
+finish() {
+  git worktree remove --force "$src" 2> /dev/null || true
+  if [ -n "$failed" ]; then
+    echo "ci_local: FAILED:$failed - logs in $logs"
+  else
+    rm -rf "$work"
+  fi
+}
+trap finish EXIT
+trap 'failed=" interrupted"; exit 130' INT TERM
+
+echo "ci_local: $(git log -1 --format='%h %s' "$rev")"
+job() {  # job NAME COMMAND: runs COMMAND in the checkout, its output in NAME.log
+  name=$1
+  start=$(date +%s)
+  if (cd "$src" && sh -c "$2") > "$logs/$name.log" 2>&1 < /dev/null; then
+    printf '  %-32s ok      %4ss\n' "$name" "$(($(date +%s) - start))"
+  else
+    printf '  %-32s FAILED  %4ss\n' "$name" "$(($(date +%s) - start))"
+    failed="$failed $name"
+  fi
+}
+export ORTOOLS_DIR
+
+job format 'tools/format.sh --check'
+job tidy 'python3 tools/gen_compile_commands.py && tools/tidy.sh'
+[ -z "$failed" ] || exit 1
+
+for cxx in g++-13 clang++-18; do
+  for opt in "-O1 -g" "-O3 -DNDEBUG"; do
+    job "stub ($cxx, $opt)" "CXX=$cxx OPT='$opt' tests/run_tests.sh"
+  done
+done
+for san in 1 thread; do
+  job "sanitize ($san)" "CXX=g++-13 SAN=$san tests/run_tests.sh"
+done
+job gcc-latest "podman run --rm -v \"\$PWD\":/src -w /src $GCC_IMAGE sh -c 'CXX=g++ tests/run_tests.sh'"
+job clang-latest 'CXX=clang++-23 tests/run_tests.sh'
+
+# The installed package, for the package and mathopt jobs.
+job install "cmake -S . -B '$work/build' -DCMAKE_INSTALL_PREFIX='$work/prefix' && cmake --install '$work/build'"
+for cxx in g++-13 clang++-18; do
+  job "mathopt ($cxx)" "CXX=$cxx tests/run_tests.sh --mathopt \"\$ORTOOLS_DIR\" &&
+    cmake -S tests/cmake_consumer_mathopt -B '$work/consumer-mathopt-$cxx' -DCMAKE_CXX_COMPILER=$cxx \
+          -DCMAKE_PREFIX_PATH=\"$work/prefix;\$ORTOOLS_DIR\" &&
+    cmake --build '$work/consumer-mathopt-$cxx' -j\"\$(nproc)\" && '$work/consumer-mathopt-$cxx/lot_sizing'"
+done
+for cxx in g++-13 clang++-18; do
+  job "package ($cxx)" "cmake -S tests/cmake_consumer -B '$work/consumer-$cxx' -DCMAKE_CXX_COMPILER=$cxx \
+          -DCMAKE_PREFIX_PATH='$work/prefix' &&
+    cmake --build '$work/consumer-$cxx' && '$work/consumer-$cxx/consumer'"
+done
+
+[ -z "$failed" ] || exit 1
+echo "ci_local: all passed"

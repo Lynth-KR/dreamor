@@ -1,0 +1,12 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# Runs tools/ci_local.sh on each commit pushed to main, and stops the push if it fails.
+# Turn it on in a clone with: git config core.hooksPath tools/hooks
+# Skip it once with: git push --no-verify
+set -eu
+zero=0000000000000000000000000000000000000000
+# git hands the hook one line per ref: <local ref> <local sha> <remote ref> <remote sha>.
+while read -r _ local_sha remote_ref _; do
+  [ "$remote_ref" = refs/heads/main ] && [ "$local_sha" != "$zero" ] || continue
+  tools/ci_local.sh "$local_sha" < /dev/null
+done

@@ -38,6 +38,7 @@ SAN=thread tests/run_tests.sh        # ThreadSanitizer, a build of its own (stub
 JOBS=4 tests/run_tests.sh            # parallel compiles; default every core (tests still report in order)
 tools/format.sh                      # clang-format (C++) and ruff (Python) in place; --check changes nothing
 tools/tidy.sh                        # clang-tidy; needs compile_commands.json (tools/gen_compile_commands.py)
+tools/ci_local.sh [REV]              # what CI runs, on one commit checked out apart; needs every tool CI has
 ```
 
 - **Default mode** runs every `tests/test_*.cpp` against the Concert stub, checks every `tests/compile_fail/*.cpp`,
@@ -67,6 +68,11 @@ tools/tidy.sh                        # clang-tidy; needs compile_commands.json (
   a tidy job (`tools/tidy.sh`), and a format job (`tools/format.sh --check`). The builds start only once format and
   tidy pass. It runs on pushes to main and on pull requests, not on a change of Markdown alone; a work branch runs it
   by hand (`gh workflow run tests --ref <branch>`).
+- **Local CI** (`tools/ci_local.sh`) runs the same jobs on this machine, over a commit checked out in a temporary
+  worktree, so it tests what a push publishes and not the working tree. It checks for every tool CI installs first -
+  GCC 13, Clang 18 and 23, podman with the `gcc:16` image, cmake, OR-Tools at `$ORTOOLS_DIR`, and the pinned
+  formatters and clang-tidy - and runs nothing if one is missing. `tools/hooks/pre-push` runs it on every commit pushed
+  to main; turn it on per clone with `git config core.hooksPath tools/hooks`, skip it once with `--no-verify`.
 - **Compiler support** is a range tested at both ends, nothing in between: the floor is GCC 13 / Clang 18 (raising
   it is a decision, not a cleanup), the ceiling the newest releases (GCC 16 from the `gcc:16` image, Clang 23 from
   apt.llvm.org). Bump the ceiling at each major release - GCC every spring, LLVM every March and September - in
@@ -223,6 +229,7 @@ Several documents are mirrored by code, so they change together:
 | The public API, its defaults, or a runtime exception | `README.md`, `README.ko.md`, `skills/dreamor/SKILL.md`, `skills/dreamor/references/api.md` |
 | A compile-time message | its `// expect:` line and `skills/dreamor/references/diagnostics.md` |
 | What generating a set costs to compile (`set.hpp`, `plan.hpp`) | the compile-cost table in both READMEs: `python3 tools/measure_compile_cost.py` |
+| A CI job (`.github/workflows/ci.yml`) | the same job in `tools/ci_local.sh` |
 | The version | `project(... VERSION ...)` in `CMakeLists.txt` (packages use `SameMinorVersion` compatibility), the `find_package(dreamor 0.1 ...)` lines in the READMEs, and the skill's title |
 
 `compile_commands.json` (from `python3 tools/gen_compile_commands.py`) is machine-specific; do not commit it.
