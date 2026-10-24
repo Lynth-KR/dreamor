@@ -57,9 +57,10 @@ CheckOptions:
   readability-identifier-naming.MacroDefinitionCase: UPPER_CASE
   readability-identifier-naming.MacroDefinitionPrefix: DREAMOR_
   # Names the standard library looks up (iterator and range protocols, std:: specializations),
+  # a container's member types as the standard names them (key_type, size_type, ...),
   # and type traits in the standard / Abseil style: is_*, always_false, ::type, ::value-like
   # members (deducible, known, ...), and head / tail / indices of type lists.
-  readability-identifier-naming.TypeAliasIgnoredRegexp: "^(type|value_type|iterator|const_iterator|iterator_concept|iterator_category|difference_type|reference|pointer|head|tail|indices)$"
+  readability-identifier-naming.TypeAliasIgnoredRegexp: "^(type|value_type|key_type|size_type|iterator|const_iterator|iterator_concept|iterator_category|difference_type|reference|const_reference|pointer|const_pointer|head|tail|indices)$"
   readability-identifier-naming.ClassIgnoredRegexp: "^iterator$"
   readability-identifier-naming.StructIgnoredRegexp: "^is_[a-z_]+$"
   readability-identifier-naming.ConstexprVariableIgnoredRegexp: "^(always_false|enable_borrowed_range|deducible|known|invocable|all_named|all_present|mask|is_[a-z_]+|no_[a-z_]+)$"

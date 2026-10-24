@@ -89,7 +89,8 @@ class EntityVector {
   using value_type     = T;
   using const_iterator = std::deque<T>::const_iterator;
   using iterator       = const_iterator;
-  using Key            = std::remove_cvref_t<internal::PrimaryKeyResult<T>>;  // what primaryKey() returns
+  using key_type       = std::remove_cvref_t<internal::PrimaryKeyResult<T>>;  // what primaryKey() returns
+  using size_type      = std::size_t;
 
   EntityVector()                               = default;
   EntityVector(const EntityVector&)            = delete;
@@ -102,10 +103,10 @@ class EntityVector {
   [[nodiscard]] const_iterator end() const noexcept { return items_.cend(); }
   [[nodiscard]] const_iterator cbegin() const noexcept { return items_.cbegin(); }
   [[nodiscard]] const_iterator cend() const noexcept { return items_.cend(); }
-  [[nodiscard]] std::size_t size() const noexcept { return items_.size(); }
+  [[nodiscard]] size_type size() const noexcept { return items_.size(); }
   [[nodiscard]] bool empty() const noexcept { return items_.empty(); }
-  [[nodiscard]] const T& operator[](std::size_t position) const { return items_[position]; }
-  [[nodiscard]] const T& at(std::size_t position) const { return items_.at(position); }
+  [[nodiscard]] const T& operator[](size_type position) const { return items_[position]; }
+  [[nodiscard]] const T& at(size_type position) const { return items_.at(position); }
   [[nodiscard]] const T& front() const { return items_.front(); }
   [[nodiscard]] const T& back() const { return items_.back(); }
 
@@ -135,11 +136,11 @@ class EntityVector {
   }
 
   // The element with this key, or end().
-  [[nodiscard]] const_iterator find(const Key& key) const {
+  [[nodiscard]] const_iterator find(const key_type& key) const {
     const std::size_t found = index_.find(asIndexKey(key), keyAt());
     return found == Index::kNotFound ? end() : positionOf(found);
   }
-  [[nodiscard]] bool contains(const Key& key) const { return find(key) != end(); }
+  [[nodiscard]] bool contains(const key_type& key) const { return find(key) != end(); }
 
   // Changes one element: fn(T&). The element must be one of this container's, and its primary
   // key must not change - both preconditions, checked by a debug build.
@@ -151,7 +152,7 @@ class EntityVector {
     if (found == Index::kNotFound || &items_[found] != entity) {
       DREAMOR_DEBUG_FATAL("EntityVector::modify: the entity is not one of this container's - a broken contract.");
     }
-    const Key before = primaryKey(*entity);
+    const key_type before = primaryKey(*entity);
 #endif
     // The element is the container's own and not const: const is only how the container hands it out.
     fn(const_cast<T&>(*entity));  // NOLINT(cppcoreguidelines-pro-type-const-cast): see above
@@ -168,8 +169,8 @@ class EntityVector {
   using IndexKey = decltype(internal::indexKeyOf(std::declval<const T&>()));
   using Index    = ::dreamor::general::FlatIndex<IndexKey>;
 
-  [[nodiscard]] static IndexKey asIndexKey(const Key& key) {
-    if constexpr (internal::IsStdTuple<Key>::value) {
+  [[nodiscard]] static IndexKey asIndexKey(const key_type& key) {
+    if constexpr (internal::IsStdTuple<key_type>::value) {
       return key;
     } else {
       return IndexKey{key};
