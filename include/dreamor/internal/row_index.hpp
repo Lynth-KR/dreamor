@@ -12,6 +12,8 @@
 // variable table and value table shares, whatever the backend.
 #pragma once
 
+#include <algorithm>
+#include <array>
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
@@ -65,8 +67,14 @@ struct LastRow {
   const void* row = nullptr;
   bool walking    = false;  // the last answer was the row before it or the one after that
 };
-[[nodiscard]] inline LastRow& lastRow() noexcept {
-  static constinit thread_local LastRow last{};
+// Four of them, each on its own table: model code takes turns between tables - x[l, c] <= y[l] -
+// and with one hint each lookup would find the other table's row there. The first is the hint of
+// the table looked up last, so one table on its own costs what a single hint did; a lookup that
+// finds its table's hint further back swaps it to the front, and a table none is on goes in front
+// when the lookup finds its row, the last hint dropping out.
+using LastRows = std::array<LastRow, 4>;
+[[nodiscard]] inline LastRows& lastRows() noexcept {
+  alignas(sizeof(LastRows)) static constinit thread_local LastRows last{};  // 64 bytes: one cache line
   return last;
 }
 
@@ -91,7 +99,7 @@ class RowIndex {
   //     reached by walking that set or one of its groups. Only its address tells.
   //   - columns: they are copies, so the row they came from is the one sumOf published, if
   //     any - see currentRow() - or else the row the last lookup found, or the one either side
-  //     of it - see lastRow().
+  //     of it - see lastRows().
   // Which of the two applies is known at compile time.
   template <typename... Args>
   [[nodiscard]] std::size_t find(const std::vector<Key>& rows, const Args&... key) const {
@@ -128,13 +136,25 @@ class RowIndex {
 
   // Columns without the published row: the last row found; on a walk, the one after it; else
   // the hash. The row after is read only on a walk: on scattered lookups it is a cache miss
-  // that seldom pays. Rows are distinct, so a row that holds the key is the key's row.
+  // that seldom pays. Before the hash is built, a lookup with no row found yet tries the first
+  // row: a walk over the set starts there, and finds every row after it without the hash.
+  // Rows are distinct, so a row that holds the key is the key's row.
   // Out of line, so that find() - the published-row check and a call - stays small enough to
   // inline into a sumOf term, where the published row answers nearly every lookup.
   template <typename... Columns>
   [[nodiscard, gnu::noinline]] std::size_t findByColumns(const std::vector<Key>& rows, const Columns&... key) const {
-    LastRow& hint          = lastRow();
-    const std::size_t last = positionOf(rows, hint.row);
+    LastRows& hints  = lastRows();
+    std::size_t last = positionOf(rows, hints.front().row);
+    if (last == kNotFound) {
+      for (std::size_t i = 1; i < hints.size(); ++i) {
+        if (const std::size_t at = positionOf(rows, hints[i].row); at != kNotFound) {
+          std::swap(hints.front(), hints[i]);
+          last = at;
+          break;
+        }
+      }
+    }
+    LastRow& hint = hints.front();
     if (last != kNotFound) {
       if (holds(rows[last], key...)) {
         hint.walking = true;
@@ -144,9 +164,14 @@ class RowIndex {
         hint.row = rows.data() + last + 1;
         return last + 1;
       }
+    } else if (!ready_.load(std::memory_order_acquire) && !rows.empty() && holds(rows.front(), key...)) {
+      std::move_backward(hints.begin(), hints.end() - 1, hints.end());
+      hint = {.row = rows.data(), .walking = true};
+      return 0;
     }
     const std::size_t found = built(rows).find(Key{key...}, rowsAt(rows));
     if (found != kNotFound) {
+      if (last == kNotFound) std::move_backward(hints.begin(), hints.end() - 1, hints.end());
       hint.walking = last != kNotFound && found == last + 1;
       hint.row     = rows.data() + found;
     }

@@ -78,11 +78,15 @@ and versions follow [Semantic Versioning](https://semver.org/).
 - A set's row index is built a block of rows at a time: their keys hashed and their slots prefetched first, so the
   cache misses overlap. A table on 1e7 rows builds about a quarter faster (793 ms to 582 ms for one family), and
   smaller ones gain 7-13%.
-- Outside a sum, a lookup by columns tries the row the last lookup on that thread found before hashing - and, once
+- Outside a sum, a lookup by columns tries the row the last lookup on that table found before hashing - and, once
   lookups step from one row to the next, the row after it. `vStock.contains(i, t)` followed by `vStock(i, t)`, and a
   walk over a set looking up each row's neighbour - `vStock(i, t - 1)` - skip the hash: about seven times faster
-  on a 1e7-row table. Like the sum's row, it is a hint checked against the key. A lookup in no order pays a
-  comparison more: about 15 ns on a 1e7-row table, a few ns on smaller ones.
+  on a 1e7-row table. Like the sum's row, it is a hint checked against the key. A thread keeps one for each of the
+  last four tables it looked up, so code that takes turns between tables - `x(l, c) <= y(l)` a row - keeps both
+  hints: p-median's link constraints build in about a third of the time they took with one hint for all tables.
+  Before a table's hash is built, a lookup with no hint tries the set's first row, so a walk over the whole set
+  never builds the hash at all. A lookup in no order pays a comparison more: about 15 ns on a 1e7-row table, a few
+  ns on smaller ones.
 - `intersect` and `difference` keep the rows of the left set that pass, as they come, without an index of the rows
   already kept: a set holds no row twice. `unite` is the left set, then the right set's rows the left lacks, so only
   the left is indexed. On 1e6 rows, `intersect` takes 0.61-0.80 of the time, `difference` 0.41-0.81, `unite` about
