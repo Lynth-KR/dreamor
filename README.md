@@ -633,7 +633,8 @@ that points at its model, so use it only while the model is alive.
 | `primaryKey(const T&)` | ADL hook next to `T`: what identifies it (a value or a `std::tuple`). `dreamor::Entity<T>` checks for it |
 | `insert(entity)`, `emplace(args...)` | `{iterator to the element with that key, whether it went in}` |
 | `find(key)`, `contains(key)` | By primary key |
-| `operator[]`, `at`, `front`, `back`, `begin`, `end`, `size`, `empty` | Const access, insertion order |
+| `operator[]`, `at`, `front`, `back`, `begin`, `end`, `cbegin`, `cend`, `size`, `empty` | Const access, insertion order |
+| `value_type`, `key_type`, `size_type`, `const_iterator` (= `iterator`) | Member types, named as the standard containers name them; `key_type` is what `primaryKey()` returns |
 | `modify(entity, fn)` | `fn(T&)` on one element; its key must not change |
 
 **Membership** (`algebra.hpp`)
