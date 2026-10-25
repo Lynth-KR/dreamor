@@ -114,6 +114,24 @@ Changes must keep these. They are the library's reason to exist, not style prefe
   structure never changes after construction.
 - **No new user-facing concept for performance.** Internal hashing and set sharing are fine; new knobs in the API
   are not.
+- **Optimize for a mechanism, not for the benchmark.** The benchmark's arms, factors, and data are this repository's
+  own, so a win there can be a fit to them. An optimization stands on a property dreamor guarantees (a contract, the
+  structure of generation), not on how the benchmark draws its data; its effect holds across the experiment's cells,
+  not in a few; it serves an operation real models perform; and it lowers a cost rather than moving it to another
+  phase. Check it against the whole experiment and on data it was not tuned on (another seed or machine). What a loss
+  elsewhere may cost depends on how far the library has come:
+  - A fundamental change (a new data structure, a first optimization of an operation) leaves no other phase or cell
+    worse.
+  - Squeezing a library that is already tuned works on a Pareto frontier, where a gain somewhere usually costs a
+    little elsewhere. A loss is accepted when all four of these hold, and the commit message states it:
+    - **Asymmetric:** the gain is at least 5 times the loss, 10 times preferred (15-50% faster against 2-4% slower).
+    - **Where it matters:** the loss falls where building is already fast or the shape is uncommon (small N, data in
+      cache), the gain where models wait (large N, past the cache) - as a service weighs its P95/P99 latency above
+      its average.
+    - **Within noise:** each loss is small enough to sit in a real machine's run-to-run noise, under 5%, measured
+      with the phase alone, not after what other phases left in the heap.
+    - **Net positive:** over every cell of the experiment, the geometric mean ratio is a gain whose 95% interval
+      excludes no change.
 - **One way to do one thing.** No second syntax: no pipe operators, no free-function aliases of members. Two
   combinations of tools reaching the same result is not a second way: never add a rule that forbids a combination
   because another one gives the same result.
