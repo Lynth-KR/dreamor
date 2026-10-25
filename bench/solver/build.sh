@@ -1,7 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: Apache-2.0
 # Builds the solver probe (probe.cpp) - not part of the benchmark - for each backend found:
-#   ./probe_stub     against the experiment's Concert stub (../stub): the containers alone
+#   ./probe_stub     against the experiment's Concert stub (../common/stub): the containers alone
 #   ./probe_concert  against CPLEX Concert at $CPLEX_STUDIO_DIR (default /opt/ibm/ILOG/CPLEX_Studio2212)
 #   ./probe_mathopt  against an OR-Tools C++ prebuilt at $ORTOOLS_DIR (default /opt/ortools)
 # A backend that is not installed is skipped. CXX picks the compiler (default g++).
@@ -10,7 +10,7 @@ cd "$(dirname "$0")"
 CXX=${CXX:-g++}
 FLAGS="-std=c++20 -O2 -DNDEBUG -march=native -Wall -Wextra -I../../include"
 
-$CXX $FLAGS -DPROBE_STUB -I../stub probe.cpp -o probe_stub
+$CXX $FLAGS -DPROBE_STUB -I../common/stub probe.cpp -o probe_stub
 echo "built bench/solver/probe_stub"
 
 STUDIO=${CPLEX_STUDIO_DIR:-/opt/ibm/ILOG/CPLEX_Studio2212}

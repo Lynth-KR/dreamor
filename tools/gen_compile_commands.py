@@ -14,7 +14,7 @@ Which Concert each file sees:
   - the MathOpt backend, its example, the ported OR-Tools samples (examples/mathopt_samples)
     and tests/mathopt: OR-Tools (plus the stub, which tests/mathopt/test_cross_backend.cpp
     uses for the Concert side);
-  - bench/: its own lean stub (bench/stub), as bench/build.sh compiles it.
+  - bench/catalog: the benchmarks' lean stub (bench/common/stub), as bench/catalog/build.sh compiles it.
 tests/compile_fail/*.cpp fail to compile on purpose; clangd reports those errors too.
 Warnings are tests/run_tests.sh's STRICT set (without -Werror) for dreamor's own code, and
 -Wall -Wextra for the ported samples, the compile_fail cases, and bench/.
@@ -60,7 +60,7 @@ STRICT = [
 ]
 LENIENT = ["-Wall", "-Wextra"]
 STUB = [f"-I{ROOT / 'tests' / 'stub'}"]
-BENCH = [f"-I{ROOT / 'bench' / 'stub'}"]
+BENCH = [f"-I{ROOT / 'bench' / 'common' / 'stub'}"]
 if (STUDIO / "concert" / "include").is_dir() and (STUDIO / "cplex" / "include").is_dir():
     REAL = ["-DIL_STD", "-isystem", str(STUDIO / "concert" / "include"), "-isystem", str(STUDIO / "cplex" / "include")]
 else:
@@ -103,8 +103,8 @@ for pattern in (
     "tests/**/*.h",
     "tests/**/*.cpp",
     "tests/**/*.cc",
-    "bench/*.cpp",
-    "bench/stub/**/*.h",
+    "bench/catalog/*.cpp",
+    "bench/common/stub/**/*.h",
 ):
     for path in sorted(ROOT.glob(pattern)):
         if "build" in path.relative_to(ROOT).parts:

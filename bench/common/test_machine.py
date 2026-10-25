@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""Tests run_doe.py: the CPU choice on fake /sys and /proc trees, and the design. python3 -m unittest test_run_doe"""
+"""Tests common/machine.py: the CPU choice on fake /sys and /proc trees. In bench/: python3 -m unittest common.test_machine"""
 
-import itertools
 import os
 import tempfile
 import unittest
 
-import run_doe
+from common.machine import choose_cpu, last_level_cache, parse_cpulist
 
 
 def write(root, rel, text):
@@ -50,7 +49,7 @@ class ChooseCpu(unittest.TestCase):
         cpus = {c: dict(core=f"{c - c % 2}-{c - c % 2 + 1}", freq=5_400_000) for c in range(8)}
         cpus.update({c: dict(freq=3_900_000) for c in range(8, 12)})
         machine(self.root, cpus, pcores="0-7")
-        cpu, info = run_doe.choose_cpu(self.root)
+        cpu, info = choose_cpu(self.root)
         self.assertEqual(cpu, 2)
         self.assertTrue(info["hybrid"])
         self.assertIn("P-cores", info["reason"])
@@ -59,7 +58,7 @@ class ChooseCpu(unittest.TestCase):
         # Homogeneous 8 cores (a 5700X): CPPC ranks cores 3 and 5 highest.
         cpus = {c: dict(perf=166 if c in (3, 5) else 150, freq=4_650_000) for c in range(8)}
         machine(self.root, cpus)
-        cpu, info = run_doe.choose_cpu(self.root)
+        cpu, info = choose_cpu(self.root)
         self.assertEqual(cpu, 3)
         self.assertIn("CPPC", info["reason"])
         self.assertFalse(info["hybrid"])
@@ -69,61 +68,36 @@ class ChooseCpu(unittest.TestCase):
         cpus = {c: dict(l3="96M", perf=150) for c in range(8)}
         cpus.update({c: dict(l3="32M", perf=170) for c in range(8, 16)})
         machine(self.root, cpus)
-        cpu, info = run_doe.choose_cpu(self.root)
+        cpu, info = choose_cpu(self.root)
         self.assertEqual(cpu, 1)
         self.assertIn("96 MB", info["reason"])
 
     def test_cpu0_only_when_alone(self):
         machine(self.root, {0: dict(freq=1)})
-        cpu, _ = run_doe.choose_cpu(self.root)
+        cpu, _ = choose_cpu(self.root)
         self.assertEqual(cpu, 0)
 
     def test_wsl_is_not_pinned(self):
         machine(self.root, {c: {} for c in range(4)}, release="5.15.167.4-microsoft-standard-WSL2")
-        cpu, info = run_doe.choose_cpu(self.root)
+        cpu, info = choose_cpu(self.root)
         self.assertIsNone(cpu)
         self.assertEqual(info["virtualized"], "WSL")
 
     def test_vm_is_not_pinned(self):
         machine(self.root, {c: {} for c in range(4)}, flags="fpu sse2 hypervisor avx2")
-        cpu, info = run_doe.choose_cpu(self.root)
+        cpu, info = choose_cpu(self.root)
         self.assertIsNone(cpu)
         self.assertIn("hypervisor", info["virtualized"])
 
     def test_last_level_cache_is_per_cpu(self):
         cpus = {0: dict(l3="96M"), 1: dict(l3="32M")}
         machine(self.root, cpus)
-        self.assertEqual(run_doe.last_level_cache(self.root, 0), 96 * 1024**2)
-        self.assertEqual(run_doe.last_level_cache(self.root, 1), 32 * 1024**2)
+        self.assertEqual(last_level_cache(self.root, 0), 96 * 1024**2)
+        self.assertEqual(last_level_cache(self.root, 1), 32 * 1024**2)
 
     def test_parse_cpulist(self):
-        self.assertEqual(run_doe.parse_cpulist("0-3,8,10-11"), [0, 1, 2, 3, 8, 10, 11])
-        self.assertEqual(run_doe.parse_cpulist(""), [])
-
-
-class Design(unittest.TestCase):
-    def test_full_has_every_cell(self):
-        self.assertEqual(len(run_doe.design_cells(full=True)), 288)
-
-    def test_half_fraction_is_resolution_five(self):
-        cells = run_doe.design_cells(full=False)
-        self.assertEqual(len(cells), 144)
-        two = [f for f, lv in run_doe.FACTORS.items() if len(lv) == 2]
-
-        def sign(cell, f):
-            return 1 if cell[f] == run_doe.FACTORS[f][1] else -1
-
-        # Main effects and two-factor interactions of the 2-level factors: balanced, and every
-        # pair of them orthogonal - nothing up to two factors is aliased with anything else.
-        columns = {(f,): [sign(c, f) for c in cells] for f in two}
-        for a, b in itertools.combinations(two, 2):
-            columns[(a, b)] = [sign(c, a) * sign(c, b) for c in cells]
-        for name, col in columns.items():
-            self.assertEqual(sum(col), 0, name)
-        for (n1, c1), (n2, c2) in itertools.combinations(columns.items(), 2):
-            self.assertEqual(sum(x * y for x, y in zip(c1, c2)), 0, (n1, n2))
-        # N and A crossed in full with every 2-level combination.
-        self.assertEqual(len({(c["N_target"], c["A"]) for c in cells}), 9)
+        self.assertEqual(parse_cpulist("0-3,8,10-11"), [0, 1, 2, 3, 8, 10, 11])
+        self.assertEqual(parse_cpulist(""), [])
 
 
 if __name__ == "__main__":

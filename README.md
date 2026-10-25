@@ -756,33 +756,20 @@ OR-Tools paths come from the environment variables above), and the repository's 
 
 ## Benchmark
 
-`bench/` compares dreamor with hand-written code, without a solver, as a designed experiment.
-Three implementations build the same rows, the same variables and the same expressions:
+`bench/` compares dreamor with the same model code written by hand, as designed experiments in two
+layers:
 
-- `dreamor`
-- `map`: `std::map` and loops, as in `examples/production_planning_plain.hpp`
-- `flat`: hand-optimized parallel vectors, CSR and a packed-key hash
-
-The variables and expressions are made identically in all three, so the solver's share cancels
-out. What remains is the work of the lot-sizing example's model build: set construction,
-variable creation, groupings of three shapes, group sums with and without coefficients, slices
-driven by another set, lookups and memory. dreamor and `flat` are compared over seven factors, in a resolution V
-half fraction:
-- row count (1e5 to 1e7);
-- K2 ownership;
-- density;
-- fan-out distribution;
-- how ids line up with the order rows come in;
-- group size;
-- families per set.
-
-`map` runs in the example's own cell. No real solver takes part: its cost moves with its insides and the machine,
-not with the containers. `bench/solver/` looks at real backends afterwards. The results come out as a workbook
-computed by formulas.
+- `bench/catalog/`: each operation - lookups, grouping, set operations, slices, generation, order,
+  entities - against hand-written arms (hash maps, direct arrays, sorting, `std::map`) over the
+  shapes data takes and the ways models reach it, without a solver.
+- `bench/scenario/`: whole models built end to end by dreamor and by hand, up to the moment the
+  solver starts on them, through CPLEX and MathOpt: p-median, the model the modeling-language
+  benchmarks use, and the lot-sizing example as written here, against hand-optimized code and
+  against the usual `std::map` code (`examples/production_planning_plain.hpp`).
 
 ```bash
-bench/build.sh
-cd bench && python3 run_doe.py --reps 2 --map   # results/<date>_<commit>_N1e5-1e6-1e7_half/; then make_report.py on its result.csv
+bench/scenario/build.sh
+cd bench/scenario && python3 run.py --scenario lotsizing && python3 report.py ../results/<run>
 ```
 
 Design, fairness conditions and how to read the results are in `bench/README.md`. Timing is not

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // File: bench/solver/probe.cpp
 //
-// Not part of the benchmark. The experiment (bench/) runs against a stub on purpose: a real
+// Not part of the benchmarks. The catalog (bench/catalog) runs against a stub on purpose: a real
 // solver is a black box, and how long it takes to make a variable moves with its insides and
 // the machine, not with the containers in front of it. This probe looks at that black box
 // afterwards, for one question at a time:
@@ -23,8 +23,8 @@
 // in both arms: a result that moves with it measures how the solver's memory accesses overlap
 // from one variable to the next, not the containers.
 //
-// Built three ways by build.sh: against real Concert, against the experiment's Concert stub
-// (bench/stub - the containers alone), and against OR-Tools MathOpt. Prints one CSV line.
+// Built three ways by build.sh: against real Concert, against the benchmarks' Concert stub
+// (bench/common/stub - the containers alone), and against OR-Tools MathOpt. Prints one CSV line.
 #include <chrono>
 #include <cstdint>
 #include <cstdio>

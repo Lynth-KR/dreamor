@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 // Concert stand-in for the container benchmark: no solver behind it, and as cheap as a
 // handle-over-heap-object design can be, so the solver side is the same small constant in
-// every arm (see bench/README.md). Not tests/stub: that one stores names and keeps every
+// every arm (bench/README.md). Not tests/stub: that one stores names and keeps every
 // expression alive for the tests to inspect, which would put most of the memory and time
 // on the solver side here.
 //
-// Only what dreamor/concert.hpp and bench.cpp use. A variable is a 16-byte heap object
+// Only what dreamor/concert.hpp and the benchmarks use. A variable is a 16-byte heap object
 // behind a handle, as in Concert. An expression records its variables and their
-// coefficients, and end() frees it.
+// coefficients, and end() frees it. A constraint or an objective keeps a copy of its terms,
+// so the expression it came from can be ended, as in Concert.
 #pragma once
 #include <cstddef>
+#include <utility>
 #include <vector>
 
 using IloNum = double;
@@ -63,6 +65,8 @@ class IloNumVarArray {
 class IloNumArray {
  public:
   explicit IloNumArray(IloEnv) : v_(new std::vector<IloNum>) {}
+  void add(IloNum x) { v_->push_back(x); }
+  IloInt getSize() const { return static_cast<IloInt>(v_->size()); }
   IloNum operator[](IloInt i) const { return (*v_)[static_cast<std::size_t>(i)]; }
   void end() {
     delete v_;
@@ -91,6 +95,7 @@ inline IloNumExprArg operator*(IloNum coef, const IloNumVar& var) {
 struct IloExprI {
   std::vector<IloNumVarI*> vars;
   std::vector<IloNum> coefs;  // coefs[i] multiplies vars[i]
+  IloNum constant = 0;
 };
 class IloExpr {
  public:
@@ -114,3 +119,69 @@ class IloExpr {
  private:
   IloExprI* impl_;
 };
+
+// A constraint, lb <= terms <= ub, with its own copy of the terms.
+struct IloConstraintI {
+  IloExprI terms;
+  IloNum lb, ub;
+};
+class IloConstraint {
+ public:
+  explicit IloConstraint(IloConstraintI* impl) : impl_(impl) {}
+  IloConstraintI* getImpl() const { return impl_; }
+
+ private:
+  IloConstraintI* impl_;
+};
+using IloRange = IloConstraint;  // Concert's comparison operators give an IloRange
+inline IloConstraint operator<=(const IloNumVar& a, const IloNumVar& b) {
+  return IloConstraint{new IloConstraintI{{{a.getImpl(), b.getImpl()}, {1, -1}}, -IloInfinity, 0}};
+}
+inline IloConstraint operator<=(const IloNumVar& a, const IloNumExprArg& b) {
+  return IloConstraint{new IloConstraintI{{{a.getImpl(), b.var()}, {1, -b.coef()}}, -IloInfinity, 0}};
+}
+inline IloConstraint operator==(const IloExpr& e, IloNum rhs) {
+  const IloExprI& terms = *e.getImpl();
+  return IloConstraint{new IloConstraintI{terms, rhs - terms.constant, rhs - terms.constant}};
+}
+inline IloConstraint operator<=(const IloExpr& e, IloNum rhs) {
+  const IloExprI& terms = *e.getImpl();
+  return IloConstraint{new IloConstraintI{terms, -IloInfinity, rhs - terms.constant}};
+}
+inline IloConstraint operator==(const IloExpr& e, const IloNumVar& v) {
+  auto* c = new IloConstraintI{*e.getImpl(), 0, 0};
+  c->terms.vars.push_back(v.getImpl());
+  c->terms.coefs.push_back(-1);
+  c->lb = c->ub = -c->terms.constant;
+  return IloConstraint{c};
+}
+// A new expression, as Concert's arithmetic on expressions makes one.
+inline IloExpr operator-(const IloExpr& e, IloNum c) {
+  IloExpr out(IloEnv{});
+  *out.getImpl() = *e.getImpl();
+  out.getImpl()->constant -= c;
+  return out;
+}
+inline IloExpr operator+(const IloExpr& a, const IloExpr& b) {
+  IloExpr out(IloEnv{});
+  IloExprI& sum = *out.getImpl();
+  sum           = *a.getImpl();
+  sum.vars.insert(sum.vars.end(), b.getImpl()->vars.begin(), b.getImpl()->vars.end());
+  sum.coefs.insert(sum.coefs.end(), b.getImpl()->coefs.begin(), b.getImpl()->coefs.end());
+  sum.constant += b.getImpl()->constant;
+  return out;
+}
+
+class IloObjective {
+ public:
+  explicit IloObjective(IloExprI* impl) : impl_(impl) {}
+  IloExprI* getImpl() const { return impl_; }
+
+ private:
+  IloExprI* impl_;
+};
+inline IloObjective IloMinimize(IloEnv, const IloExpr& e) {
+  return IloObjective{new IloExprI{*e.getImpl()}};
+}
+
+// IloModel is not here: as in real Concert, it lives in <ilconcert/ilomodel.h>.

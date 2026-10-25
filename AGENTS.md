@@ -19,7 +19,7 @@ Version 0.1.0, Apache 2.0.
 | `include/dreamor/general/`, `include/dreamor/logger/` | Utilities (`tuple_hash.hpp`, `flat_index.hpp`, `format_buffer.hpp`, `third_party_headers.hpp`, `logger_light.hpp`) |
 | `examples/` | Lot-sizing example: `production_planning_sets.hpp` (solver-free), `production_planning.hpp` (Concert), `production_planning_mathopt.hpp` (MathOpt), `production_planning_plain.hpp` (without dreamor, for comparison). `mathopt_samples/`: three OR-Tools MathOpt samples ported to dreamor, with a walkthrough of each port (keep Google's license header and the modification notice on these files) |
 | `tests/` | Framework-free tests, `tests/run_tests.sh`, Concert stub (`tests/stub/`), compile-fail cases |
-| `bench/` | Container benchmark without a solver: dreamor vs hand-optimized arrays as a 144-cell resolution V fraction over the lot-sizing example's operations, hand-written `std::map` in a reference cell (`bench/README.md`). Own lean Concert stub in `bench/stub/`. `bench/solver/`: a probe of real backends, run after the experiment and not part of it. `bench/plan/`: how `makeSet`'s visit order compares with every other order - a cost model over made-up sets of 3 to 16 sources, and a timed three-source experiment. Not run in CI |
+| `bench/` | Benchmarks, not run in CI (`bench/README.md`). `bench/catalog/`: layer 1, each operation against hand-written code over data shapes and access patterns, a resolution IV screening design per family (lookups, grouping, set operations, slices, generation, order) and a full design of its own for entities and solution values, against the lean Concert stub. `bench/scenario/`: layer 2, whole models (p-median, the modeling-language benchmarks' model, and the lot-sizing example as written) built by dreamor and by hand up to the solver's start, on the stub, CPLEX and MathOpt. `bench/common/`: the measurement header, the run's JSON result, the lean stub, the machine helpers. `bench/solver/`: how Concert's variable creation meets the caller's code. `bench/plan/`: how `makeSet`'s visit order compares with every other order - a cost model over made-up sets of 3 to 16 sources, and a timed three-source experiment |
 | `skills/dreamor/` | Agent Skill for users writing dreamor code |
 | `cmake/`, `CMakeLists.txt` | `dreamor::dreamor` INTERFACE target and install/package config |
 
@@ -129,7 +129,7 @@ Changes must keep these. They are the library's reason to exist, not style prefe
       cache), the gain where models wait (large N, past the cache) - as a service weighs its P95/P99 latency above
       its average.
     - **Within noise:** each loss is small enough to sit in a real machine's run-to-run noise, under 5%, measured
-      with the phase alone, not after what other phases left in the heap.
+      with the phase alone (`run.py --phases`), not after what other phases left in the heap.
     - **Net positive:** over every cell of the experiment, the geometric mean ratio is a gain whose 95% interval
       excludes no change.
 - **One way to do one thing.** No second syntax: no pipe operators, no free-function aliases of members. Two
@@ -169,18 +169,19 @@ Shared logic belongs in `include/dreamor/internal/`.
 
 ## Benchmark
 
-`bench/` is not part of the test suite or CI. When a change touches what the benchmark exercises
-(`makeSet`, `groupBy`, `VarTable` construction or lookup, `sumOf`), check two things with
-`bench/build.sh` and a quick `python3 run_doe.py --reps 2 --n-levels 100000` (it writes to `bench/results/`):
-- it still builds;
-- `groups` and every `chk_<phase>` column agree across arms for each model, and flat's `chk_set_*_merge`
-  with `chk_set_*` (`make_report.py`'s Check sheet reports no mismatch).
+`bench/` is not part of the test suite or CI. When a change touches what the benchmarks exercise
+(`makeSet`, `groupBy`, `VarTable` construction or lookup, `sumOf`, the set algebra, `Ordered`,
+`EntityVector`, `ValueTable`), check with `bench/catalog/build.sh` and `bench/scenario/build.sh`:
+- both still build;
+- every arm still does the same work: a quick run of each family the change reaches
+  (`python3 run.py --family <family> --n-levels 100000 --reps 1` in `bench/catalog/`, then
+  `report.py`) and of a scenario (`python3 run.py --scenario lotsizing --levels 170 --reps 1` in
+  `bench/scenario/`, then `report.py`) report no check mismatch.
 
-If the change touches how variables are created, `bench/solver/build.sh` and `python3 run.py` there show it under the
-real backends that are installed - as a check, not a timing result (`bench/solver/README.md`).
-`python3 -m unittest test_run_doe` (in `bench/`) tests the runner's CPU choice and design.
-
-Timing conclusions need the full run (`bench/README.md`). An agent's sandbox is not a benchmark
+A timing claim compares builds: the catalog's `run.py --builds base=<old>,head=<new>` and `compare.py`
+over the families the change reaches, the whole experiment and not a few cells (see "Optimize for a
+mechanism"), and the scenarios for a change a whole model would feel. `python3 -m unittest
+common.test_machine` (in `bench/`) tests the CPU choice. An agent's sandbox is not a benchmark
 machine.
 
 ## Diagnostics

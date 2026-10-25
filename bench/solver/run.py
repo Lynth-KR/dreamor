@@ -28,7 +28,7 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
-from run_doe import code_state, cpu_model, short_n  # noqa: E402
+from common.machine import code_state, cpu_model, short_n  # noqa: E402
 
 PROBES = ["stub", "concert", "mathopt"]  # probe_<name>, as build.sh names them
 ARMS = ["dreamor", "flat"]

@@ -111,14 +111,19 @@ and versions follow [Semantic Versioning](https://semver.org/).
   cases.
 - `tools/ci_local.sh` runs CI's jobs locally on a commit checked out apart, once every tool CI has is present, and
   `tools/hooks/pre-push` runs it on what is pushed to main (`git config core.hooksPath tools/hooks`).
-- The container benchmark (`bench/`) is a designed experiment over the lot-sizing example's model build: 7 factors
-  (row count 1e5 to 1e7, ownership, density, fan-out, id order, group size, families per set) in a resolution V half
-  fraction of 144 cells (`--full`: 288), dreamor against hand-optimized arrays. Every phase records system time and
-  page faults. The runner pins one CPU of the fastest core class unless the machine is virtualized, and records the
-  machine with the results. No real solver takes part: `bench/solver/` probes CPLEX Concert and MathOpt after the
-  experiment, for the containers' share of a real build and whether a gap there is theirs. Set operations - a
-  projection, union, intersection, difference and a membership filter - are measured beside the model build, with
-  flat writing each two ways: a `std::unordered_set`, and sorted keys merged with `<algorithm>`.
+- The benchmarks are two layers of designed experiments. `bench/catalog/` measures each operation - lookups,
+  grouping, set operations, slices, generation, order, entities and solution values - against hand-written arms
+  (hash maps with an identity or a mixed hash, direct arrays, sorting, `std::map`) over the shapes data takes and
+  the ways models reach it: a resolution IV screening design per family over k columns, N and six two-level data
+  factors, against a lean Concert stub, and `--builds` to compare two builds of the library run by run.
+  `bench/scenario/` builds whole models end to end, by dreamor and by hand, up to a solve with no time - the
+  modeling-language benchmarks' measure - on the stub, CPLEX and MathOpt: p-median at those benchmarks' sizes, and
+  the lot-sizing example as written, against hand-optimized code and against the example's own `std::map`
+  version. Every run is a fresh process under a memory layout of its repetition's own (an environment padding and a
+  preconditioned heap), records system time, page faults and, with `--pmu`, hardware counters per phase, and
+  checks that every arm did the same work. The container benchmark of the lot-sizing build (`bench/run_doe.py`) is
+  retired: the catalog covers its operations and factors, the lot-sizing scenario the example's build.
+  `bench/solver/` probes how Concert's variable creation meets the caller's code.
 - `bench/plan/model.cpp` calls the planner on thousands of made-up sets of 3 to 16 sources - six predicate shapes,
   with and without dependent sources, sizes and selectivities spread over two orders of magnitude - and sets its
   order against the best, the worst and declaration order by the work the loops do, with the best and worst exact

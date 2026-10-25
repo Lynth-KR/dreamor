@@ -38,7 +38,7 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
-from run_doe import code_state, cpu_model  # noqa: E402
+from common.machine import code_state, cpu_model  # noqa: E402
 
 ORDERS = ["ABC", "ACB", "BAC", "BCA", "CAB", "CBA"]
 N, BIG = 200, 2000  # a source's rows; a big source's
