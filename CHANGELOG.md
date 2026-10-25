@@ -83,6 +83,10 @@ and versions follow [Semantic Versioning](https://semver.org/).
   walk over a set looking up each row's neighbour - `vStock(i, t - 1)` - skip the hash: about seven times faster
   on a 1e7-row table. Like the sum's row, it is a hint checked against the key. A lookup in no order pays a
   comparison more: about 15 ns on a 1e7-row table, a few ns on smaller ones.
+- `intersect` and `difference` keep the rows of the left set that pass, as they come, without an index of the rows
+  already kept: a set holds no row twice. `unite` is the left set, then the right set's rows the left lacks, so only
+  the left is indexed. On 1e6 rows, `intersect` takes 0.61-0.80 of the time, `difference` 0.41-0.81, `unite` about
+  0.73.
 - `groupBy` tries the previous row's group before hashing the key, so grouping by the columns a set was generated
   with outermost - its leading column, typically - hashes once per group instead of once per row: about twice as
   fast. Grouping by other columns costs one comparison more per row. When every change of key opens a new group,

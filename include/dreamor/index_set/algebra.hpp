@@ -103,28 +103,25 @@ template <typename Tup>
   return out;
 }
 
-// The first occurrence of each row of left that is in right (keep) or is not (!keep).
+// Appends each row of `from` that is in `by` (keep) or is not (!keep), in from's order. A set holds
+// no row twice, so no row needs to be checked against the ones already kept.
 template <typename Tup>
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): two sets of one type is what filtering one by the other means
-[[nodiscard]] std::vector<Tup> filterAgainst(const IndexSet<Tup>& left, const IndexSet<Tup>& right, bool keep) {
-  const auto& left_rows  = SetAccess::rows(left);
-  const auto& right_rows = SetAccess::rows(right);
-  const auto rhs         = indexRows(right_rows);
-  std::vector<Tup> out;
-  TupleIndex<Tup> emitted{left_rows.size()};
+void appendFiltered(std::vector<Tup>& out, const IndexSet<Tup>& from, const IndexSet<Tup>& by, bool keep) {
+  const auto& from_rows = SetAccess::rows(from);
+  const auto& by_rows   = SetAccess::rows(by);
+  const auto index      = indexRows(by_rows);
   ::dreamor::general::hashedBlocks(
       0,
-      left_rows.size(),
-      rowsAt(left_rows),
+      from_rows.size(),
+      rowsAt(from_rows),
       [&](std::size_t row, std::size_t hash) {
-        if ((rhs.find(left_rows[row], hash, rowsAt(right_rows)) != TupleIndex<Tup>::kNotFound) == keep) {
-          appendNew(out, emitted, left_rows[row], hash);
+        if ((index.find(from_rows[row], hash, rowsAt(by_rows)) != TupleIndex<Tup>::kNotFound) == keep) {
+          out.push_back(from_rows[row]);
         }
         return true;
       },
-      rhs,
-      emitted);
-  return out;
+      index);
 }
 
 }  // namespace internal
@@ -213,14 +210,14 @@ auto IndexSet<Tup>::select(Expr expr) const {
   }
 }
 
-// A ∪ B
+// A ∪ B: A, then B \ A. Neither holds a row twice, so only A needs an index.
 template <typename Tup>
 [[nodiscard]] IndexSet<Tup> unite(const IndexSet<Tup>& left, const IndexSet<Tup>& right) {
+  const auto& left_rows = internal::SetAccess::rows(left);
   std::vector<Tup> out;
   out.reserve(left.size() + right.size());
-  internal::TupleIndex<Tup> seen{left.size() + right.size()};
-  internal::appendFirstOccurrences(out, seen, internal::SetAccess::rows(left));
-  internal::appendFirstOccurrences(out, seen, internal::SetAccess::rows(right));
+  out.insert(out.end(), left_rows.begin(), left_rows.end());
+  internal::appendFiltered(out, right, left, false);
   return internal::SetAccess::make(std::move(out));
 }
 
@@ -228,14 +225,18 @@ template <typename Tup>
 template <typename Tup>
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): two sets of one type is what intersecting means
 [[nodiscard]] IndexSet<Tup> intersect(const IndexSet<Tup>& left, const IndexSet<Tup>& right) {
-  return internal::SetAccess::make(internal::filterAgainst(left, right, true));
+  std::vector<Tup> out;
+  internal::appendFiltered(out, left, right, true);
+  return internal::SetAccess::make(std::move(out));
 }
 
 // A \ B
 template <typename Tup>
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): two sets of one type is what A \ B means
 [[nodiscard]] IndexSet<Tup> difference(const IndexSet<Tup>& left, const IndexSet<Tup>& right) {
-  return internal::SetAccess::make(internal::filterAgainst(left, right, false));
+  std::vector<Tup> out;
+  internal::appendFiltered(out, left, right, false);
+  return internal::SetAccess::make(std::move(out));
 }
 
 // O(1) membership test, so one set can filter another during generation instead of
