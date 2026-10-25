@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <limits>
 #include <optional>
 #include <ranges>
 #include <tuple>
@@ -200,12 +201,39 @@ class Set {
 #endif
     indexJoins(std::make_index_sequence<kSourceCount>{});
     std::vector<ElemTuple> out;
+    out.reserve(exactRows(std::make_index_sequence<kSourceCount>{}));
     generate<0, std::index_sequence<>>(out);
     checks_ = nullptr;
     return internal::SetAccess::make(std::move(out));
   }
 
  private:
+  // How many rows collect() makes, when that is known before it makes them: every source a sized
+  // range of its own - no dependent column, no join, no predicate - so the rows are the product of
+  // the sources' sizes. Reserved, it spares the vector its doublings, each a copy of every row so
+  // far into memory the system has to fault in. 0 when it is not known (or does not fit).
+  template <std::size_t... Ss>
+  [[nodiscard]] std::size_t exactRows(std::index_sequence<Ss...> /*unused*/) {
+    if constexpr (std::tuple_size_v<PredTuple> == 0 &&
+                  ((internal::sourceKindOf<std::tuple_element_t<Ss, RangeTuple>>() !=
+                        internal::SourceKind::kDependent &&
+                    !kJoins<Ss> && std::ranges::sized_range<std::tuple_element_t<Ss, RangeTuple>&>) &&
+                   ...)) {
+      std::size_t rows = 1;
+      bool fits        = true;
+      (
+          [&] {
+            const auto n = static_cast<std::size_t>(std::ranges::size(std::get<Ss>(ranges_)));
+            fits         = fits && (n == 0 || rows <= std::numeric_limits<std::size_t>::max() / n);
+            rows         = fits ? rows * n : 0;
+          }(),
+          ...);
+      return rows;
+    } else {
+      return 0;
+    }
+  }
+
   // Runs every predicate whose columns are all bound and one of which is the column just
   // bound - so each predicate fires exactly once, at the earliest point it can.
   template <std::size_t JustBound, typename BoundCols, typename... Bound>

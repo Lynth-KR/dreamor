@@ -91,6 +91,9 @@ and versions follow [Semantic Versioning](https://semver.org/).
   already kept: a set holds no row twice. `unite` is the left set, then the right set's rows the left lacks, so only
   the left is indexed. On 1e6 rows, `intersect` takes 0.61-0.80 of the time, `difference` 0.41-0.81, `unite` about
   0.73.
+- `collect()` reserves its rows when their number is known before it makes them - every source a sized range of
+  its own, no dependent column, no join, no predicate - instead of growing the vector: 5e6 rows of a product take a
+  third of the time.
 - `groupBy` tries the previous row's group before hashing the key, so grouping by the columns a set was generated
   with outermost - its leading column, typically - hashes once per group instead of once per row: about twice as
   fast. Grouping by other columns costs one comparison more per row. When every change of key opens a new group,
