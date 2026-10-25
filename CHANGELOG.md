@@ -51,7 +51,9 @@ and versions follow [Semantic Versioning](https://semver.org/).
   `groupBy` - is now the flat index `VarTable` already used: 4-byte slots of row
   numbers into rows the set already holds, instead of a node per key holding a copy of it. A `membership()` shares
   its set rather than copying the rows. These operations now stop at 2^32 - 2 rows with `std::length_error`, as
-  `VarTable` and `groupBy` did.
+  `VarTable` and `groupBy` did. From 2^16 slots on, a slot's spare high bits carry the top of its key's hash, so a
+  probe reads a key only where they agree: on 1e6 rows, misses take about 0.57 of the time, lookups half of which
+  miss 0.82, building a row index 0.74.
 - A `VarTable` or `ValueTable` given one row of the set it was built on - walking that set or one of its groups,
   and `sumOf(env, rows, vYield)` with the table as its term - finds it by the row's address instead of hashing it.
   Group sums with the table as the term are several times faster.
