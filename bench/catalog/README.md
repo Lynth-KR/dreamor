@@ -153,3 +153,79 @@ python3 report.py ../results/<run>                            # summary.md and c
 - The machine: these runs are screening runs under WSL2 (a virtual machine, not pinned); results a
   conclusion rests on belong on bare metal with the CPU's frequency fixed.
 
+## Results
+
+A screening run of every family on the library this section was committed with: AMD Ryzen 7 5700X (32 MB L3),
+WSL2, not pinned; GCC 13.3, `-O2 -march=native`; the default design (resolution IV, k 2, 3, 5, N
+1e5 and 1e6; data's own full design), 2 repetitions (seeds 20261025 and 20261026, a layout each);
+5808 runs, no check mismatch. Each family's `summary.md` holds the rest: every arm, absolute times,
+the variation between layouts, the factors' effects.
+
+A ratio is a hand-written arm's time over dreamor's, the geometric mean over the cells the arm ran in;
+above 1, dreamor is faster. `best` is the fastest hand-written arm in each cell; the usual code is
+`std::map` (`std::set` in setop). The 95% intervals, from the variation between repetitions, are
+within 1-3% of each ratio (data, with 8 cells: 3-7%), so they are left out here.
+
+| Family | Phase | best | usual code |
+|---|---|---|---|
+| lookup | build | 1.38 | 2.29 |
+| | index | 6.72 | - |
+| | neighbor | 1.24 | 2.81 |
+| | project | 1.30 | 6.16 |
+| | hit | 1.09 | 5.81 |
+| | miss | 2.16 | 21.06 |
+| | half | 1.04 | 6.07 |
+| | **total** | **1.59** | **6.27** |
+| group | build | 0.70 | 0.88 |
+| | prep_inner / sum_inner | 0.73 / 0.90 | 5.23 / 1.10 |
+| | prep_lead / sum_lead | 1.23 / 0.89 | 3.48 / 1.06 |
+| | prep_mid / sum_mid | 1.13 / 0.90 | 3.39 / 1.09 |
+| | sum_where | 0.91 | 1.06 |
+| | **total** | **1.00** | **2.19** |
+| setop | build | 0.78 | 0.79 |
+| | select | 0.74 | 2.89 |
+| | unite | 1.12 | 4.53 |
+| | intersect | 1.27 | 6.85 |
+| | difference | 1.59 | 7.31 |
+| | member | 1.64 | 4.90 |
+| | **total** | **1.35** | **5.03** |
+| slice | build | 0.79 | 0.98 |
+| | prep_inner / slice_inner | 1.26 / 0.99 | 5.60 / 1.30 |
+| | split / coef | 0.94 / 0.92 | 1.17 / 1.20 |
+| | prep_lead / slice_lead | 1.16 / 0.93 | 3.25 / 1.27 |
+| | **total** | **1.04** | **1.81** |
+| make | collect | 1.01 | 1.03 |
+| | vars / vars_named | 0.99 / 0.86 | 1.03 / 0.90 |
+| | join | 1.40 | 1.64 |
+| | **total** | **1.12** | **1.23** |
+| order | build | 0.73 | 2.17 |
+| | index | 4.08 | - |
+| | step | 0.17 | 0.39 |
+| | lag | 1.45 | 2.33 |
+| | window | 0.78 | 1.84 |
+| | **total** | **1.07** | **1.75** |
+| data | build | 0.91 | 7.15 |
+| | load | 2.84 | 6.97 |
+| | find_hit / find_miss | 1.38 / 1.63 | 11.47 / 17.32 |
+| | solution | 0.38 | 6.99 |
+| | value | 0.05 | 22.09 |
+| | **total** | **1.69** | **9.65** |
+
+Coverage: dreamor and the usual code run every cell. Packed keys do not fit in 64 bits in up to 4
+cells of a family (k = 5, owned middle columns, small lists), and the direct array fits in 16 of 96
+(lookup, order).
+
+- **Against the usual code**, dreamor is faster in every family's total: 1.2 to 9.7 times, and
+  21 times on lookups of absent keys.
+- **Against the best hand-written arm**, it is ahead in four families' totals (lookup 1.59, setop
+  1.35, make 1.12, data 1.69), level in group, slice and order (1.00-1.07), and behind in no
+  family's total. A hash map or a sorted array that the hand-coder picks per cell does not beat it overall.
+- **Where hand-written code wins, it knows the data's structure.** `build` in group, setop, slice and
+  order (0.70-0.79): the hand-written arms keep ids or positions, dreamor a set of rows it can
+  index. `prep_inner` (0.73): the hand-coder knows the inner groups are runs. `step` and `window`
+  (0.17, 0.78): a position kept beside each entity, and arithmetic on it, against `Ordered`'s lookup.
+  `select` (0.74): sorting packed integers and dropping repeats, against a hash of tuples. `solution`
+  and `value` (0.38, 0.05): values in an array by the entity's place, against a table keyed by the
+  entity. `vars_named` (0.86): a name written straight into a buffer.
+- **The direct array, where it fits** (16 cells of lookup and order), is the fastest arm in every
+  lookup phase: lookup's total 0.70 of dreamor's time, order's 0.44.
