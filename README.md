@@ -729,16 +729,16 @@ and with GCC 16 and Clang 23, and goes as far as installing the CMake package an
 
 **Compile cost of wide sets.** One translation unit that builds a set of N columns, filters it, groups it, puts a
 `VarTable` on it and sums over it (`-std=c++20 -O2 -c` without `NDEBUG`, so with the debug build's contract checks,
-which `-DNDEBUG` compiles out; CPU time and peak memory; AMD Ryzen 7 5700X, WSL2 Ubuntu 24.04, 2026-10-24). `tests/test_arity.cpp` runs 63 and 64 columns on every test run, so a blow-up would show there;
+which `-DNDEBUG` compiles out; CPU time and peak memory; AMD Ryzen 7 5700X, WSL2 Ubuntu 24.04, 2026-10-25). `tests/test_arity.cpp` runs 63 and 64 columns on every test run, so a blow-up would show there;
 `python3 tools/measure_compile_cost.py [compiler ...]` re-measures the table.
 
 | Columns | g++ 13.3 | clang++ 18.1 | clang++ 23.1 |
 |---|---|---|---|
-| 4 | 3.1 s, 309 MB | 3.0 s, 216 MB | 3.0 s, 230 MB |
-| 16 | 3.7 s, 331 MB | 3.7 s, 244 MB | 4.1 s, 257 MB |
-| 32 | 4.6 s, 384 MB | 5.1 s, 297 MB | 4.9 s, 310 MB |
-| 63 | 6.7 s, 533 MB | 8.9 s, 466 MB | 8.6 s, 472 MB |
-| 64 | 6.9 s, 540 MB | 8.9 s, 474 MB | 8.4 s, 479 MB |
+| 4 | 3.3 s, 315 MB | 3.0 s, 216 MB | 3.1 s, 230 MB |
+| 16 | 3.8 s, 331 MB | 3.6 s, 246 MB | 3.7 s, 258 MB |
+| 32 | 4.6 s, 390 MB | 4.9 s, 301 MB | 4.7 s, 312 MB |
+| 63 | 7.6 s, 569 MB | 8.8 s, 469 MB | 8.3 s, 474 MB |
+| 64 | 7.8 s, 580 MB | 9.0 s, 477 MB | 8.5 s, 482 MB |
 
 OR-Tools needs no installation: unpack the release's C++ prebuilt anywhere and point to that folder (no CMake needed).
 

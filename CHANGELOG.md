@@ -94,6 +94,10 @@ and versions follow [Semantic Versioning](https://semver.org/).
 - `collect()` reserves its rows when their number is known before it makes them - every source a sized range of
   its own, no dependent column, no join, no predicate - instead of growing the vector: 5e6 rows of a product take a
   third of the time.
+- Variable names: a text token - a `keyName()` returning a `std::string` - is copied into the name instead of going
+  through `std::format`, and the name builder is inlined into the loop that creates the variables. The names are
+  the same bytes. Three named families of 1e6 rows with text keys build in about two thirds of the time; with
+  integer keys, 4-6% faster. g++ takes about 1 s more to compile a 63- or 64-column table (README, compile cost).
 - `groupBy` tries the previous row's group before hashing the key, so grouping by the columns a set was generated
   with outermost - its leading column, typically - hashes once per group instead of once per row: about twice as
   fast. Grouping by other columns costs one comparison more per row. When every change of key opens a new group,

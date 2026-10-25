@@ -32,6 +32,14 @@ inline Token keyName(const Thing* /*thing*/) {
   return {};
 }
 }  // namespace throwing
+namespace named {
+struct Thing {
+  std::string name;
+};
+inline const std::string& keyName(const Thing* thing) {
+  return thing->name;
+}
+}  // namespace named
 }  // namespace
 
 template <>
@@ -42,6 +50,7 @@ struct std::formatter<throwing::Token> {
   }
 };
 using ThingCol = dreamor::Col<const throwing::Thing*, "thing">;
+using NamedCol = dreamor::Col<const named::Thing*, "named">;
 
 namespace {
 
@@ -215,6 +224,17 @@ int main() try {
   const auto sTHINGS = dreamor::makeSet<ThingCol>(things).collect();
   const dreamor::concert::VarTable<ThingCol> t{env, sTHINGS, 0, 1, ILOFLOAT, "t"};
   DREAMOR_CHECK(std::string{t(ThingCol{things.data()}).getName()} == "t_");
+
+  // text tokens - a keyName() returning a std::string - written as they are, a name too long cut
+  // at the buffer (and a warning)
+  const std::vector<named::Thing> named_things{{"M3"}, {std::string(300, 'z')}};
+  const std::vector<std::size_t> seven{7};
+  const auto sNAMED = dreamor::makeSet<NamedCol>(named_things).collect();
+  const dreamor::concert::VarTable<NamedCol, JCol> vNamed{
+      env, dreamor::makeSet<JCol>(sNAMED, seven).collect(), 0, 1, ILOFLOAT, "n"};
+  DREAMOR_CHECK(std::string{vNamed(NamedCol{named_things.data()}, JCol{7}).getName()} == "n_M3_7");
+  const std::string cut{vNamed(NamedCol{&named_things[1]}, JCol{7}).getName()};
+  DREAMOR_CHECK(cut.size() == 255 && cut == "n_" + std::string(253, 'z'));
   return report("vartable");
 } catch (...) {
   return ::uncaught();

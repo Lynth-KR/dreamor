@@ -112,12 +112,16 @@ class NameBuilder {
   // std::to_chars instead of the general formatter, ~5x faster (measured).
   // Output is byte-identical to std::format's default "{}" for these types
   // (both are the locale-independent shortest round-trip representation),
-  // so this changes performance only, not the names produced. Anything
-  // else (strings, ADL keyName() results with a custom formatter) still
-  // goes through std::format_to_n.
+  // so this changes performance only, not the names produced. Text is
+  // copied as it is; anything else (ADL keyName() results with a custom
+  // formatter) still goes through std::format_to_n.
+  // Always inlined: a VarTable calls it once a column for every variable, and out of line the call
+  // cost about as much as the formatting.
   template <typename Token>
-  [[nodiscard]] std::size_t append(std::size_t length, const Token& token, std::string_view separator = "_") noexcept(
-      Policy == OnFormatOverflow::kLogAndClear) {
+  [[nodiscard, gnu::always_inline]] std::size_t append(
+      std::size_t length,
+      const Token& token,
+      std::string_view separator = "_") noexcept(Policy == OnFormatOverflow::kLogAndClear) {
     if (!enabled_) {
       return 0;
     }
@@ -147,6 +151,13 @@ class NameBuilder {
       }
       *ptr = '\0';
       return clamp(static_cast<std::size_t>(ptr - buffer_.data()));
+    } else if constexpr (std::is_convertible_v<const Token&, std::string_view>) {
+      // Text (a keyName() returning a std::string, say) is copied: what std::format's "{}" writes
+      // for it, cut where format_to_n would cut it, without parsing a format string per token.
+      const std::string_view text{token};
+      const std::size_t copied = text.copy(out, kMaxLength - length);
+      out[copied]              = '\0';
+      return clamp(length + text.size());
     } else {
       // A user's std::formatter (a keyName() result) may throw. Under kLogAndClear this is
       // noexcept, so the throw ends here - the name stops after the separator, as above.
