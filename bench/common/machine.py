@@ -3,10 +3,13 @@
 """The machine and the code a run measures, for every runner under bench/: which CPU to pin, what the
 machine is set to, and which commit (and uncommitted diff) the binaries were built from."""
 
+import ctypes
+import ctypes.util
 import hashlib
 import os
 import platform
 import re
+import struct
 import subprocess
 
 
@@ -174,6 +177,40 @@ def cpu_model():
     except OSError:
         pass
     return platform.processor() or "unknown"
+
+
+PERF_EVENT_OPEN = {"x86_64": 298, "aarch64": 241}  # the syscall's number
+
+
+def counts_instructions():
+    """(True, None) when this process can count its own user-mode instructions, else (False, why).
+
+    Opens the counter the runs would - perf_event_open, PERF_COUNT_HW_INSTRUCTIONS, kernel excluded
+    as perf_event_paranoid 2 asks - and closes it again: a VM or a container may lack it.
+    """
+    nr = PERF_EVENT_OPEN.get(platform.machine())
+    if nr is None or platform.system() != "Linux":
+        return False, f"no perf_event_open on {platform.system()} {platform.machine()}"
+    # perf_event_attr: type, size, config, sample_period, sample_type, read_format, then the flag
+    # bits disabled (0), exclude_kernel (5), exclude_hv (6); the rest of its 128 bytes stays 0.
+    attr = struct.pack("=IIQQQQQ", 0, 128, 1, 0, 0, 0, 1 | 1 << 5 | 1 << 6).ljust(128, b"\0")
+    libc = ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True)
+    libc.syscall.restype = ctypes.c_long
+    fd = libc.syscall(nr, ctypes.c_char_p(attr), 0, -1, -1, 0)
+    if fd < 0:
+        return False, f"perf_event_open: {os.strerror(ctypes.get_errno())}"
+    os.close(fd)
+    return True, None
+
+
+def choose_pmu(spec):
+    """The --pmu a run passes on, and why: auto counts instructions wherever the machine can."""
+    if spec == "auto":
+        ok, why = counts_instructions()
+        return ("instructions", "auto: user-mode instructions") if ok else ("", f"auto: none ({why})")
+    if spec in ("", "none"):
+        return "", "none (--pmu none)"
+    return spec, f"given (--pmu {spec})"
 
 
 def compiler_version(cxx):

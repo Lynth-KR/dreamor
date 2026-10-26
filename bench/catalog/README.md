@@ -133,7 +133,9 @@ python3 report.py ../results/<run>                            # summary.md and c
 - `--pmu` takes hardware counters, comma-separated: `cycles`, `instructions`, `l1d_miss`,
   `dtlb_miss`, `branch_miss`, or `name=0x<config>` for a raw event (Zen 3's demand fills from L2,
   L3 and DRAM: `0x0843`, `0x0243`, `0x0143`). They form one group, counted in user mode, and show in
-  each phase of `runs.jsonl`.
+  each phase of `runs.jsonl`. The default, `auto`, counts `instructions` wherever the machine lets a
+  process count its own (not on CI, nor in most containers) and says which in `meta.json`; `none`
+  counts nothing.
 - Results go to `../results/<date>_<commit>_catalog_<family>_N<levels>_res<4|6>/`: `runs.jsonl` (a
   run a line) and `meta.json` (design, machine, commit). Running the same thing again resumes it.
 - `--phases a,b` measures those phases only, for a run that looks at a few: the phases they stand
@@ -147,7 +149,9 @@ python3 report.py ../results/<run>                            # summary.md and c
   after a change: every run of the plan runs once per build, one right after the other in a random
   order, under the same seed and layout. `python3 compare.py ../results/<run>` gives the later
   build's time over the earlier one's per family, phase and N, with an interval over cells, the
-  cells that moved, and any result that differs between the builds. A phase's time includes what
+  cells that moved, and any result that differs between the builds; with counters, each one's
+  ratio beside the time. Instructions barely move with the cache or the heap: a time ratio they do
+  not follow is memory, one they follow is the code the compiler made. A phase's time includes what
   the phases before it left in the heap, so a phase whose code did not change can move too:
   measure it alone with `--phases` before reading that as an effect.
 - The machine: these runs are screening runs under WSL2 (a virtual machine, not pinned); results a

@@ -27,6 +27,12 @@ from report import T95, TOTAL, load
 MOVED = 0.05  # a cell counts as moved when its ratio is past 1 +- this
 
 
+def geomean(cells):
+    """The geometric mean ratio over cells, each the mean of its repetitions' ln ratios; nan if none."""
+    xs = [statistics.fmean(v) for v in cells.values()]
+    return math.exp(statistics.fmean(xs)) if xs else math.nan
+
+
 def main():
     folder = sys.argv[1]
     meta, runs = load(folder)
@@ -54,6 +60,10 @@ def main():
 
     differ = []
     ratios = defaultdict(lambda: defaultdict(list))  # (phase, N) -> cell -> [ln ratio]
+    # run.py --pmu: the same per counter. Instructions barely move with the cache or the heap, so a
+    # time ratio they do not follow is memory, one they follow is the code the compiler made.
+    counted = defaultdict(lambda: defaultdict(list))  # (phase, N, counter) -> cell -> [ln ratio]
+    counters = []
     for (cell, rep), d in pairs.items():
         a, b = d[before], d[after]
         for ph, chk in a.get("checks", {}).items():
@@ -65,6 +75,14 @@ def main():
             ta, tb = totals if ph == TOTAL else (a["phases"][ph]["ms"], b["phases"][ph]["ms"])
             if ta > 0 and tb > 0:
                 ratios[(ph, cell[2])][cell].append(math.log(tb / ta))
+        for name in a["phases"][phases[0]].get("counters", {}) if phases else []:
+            if name not in counters:
+                counters.append(name)
+            totals = [sum(x["phases"][ph]["counters"][name] for ph in phases if ph != "build") for x in (a, b)]
+            for ph in [*phases, TOTAL]:
+                ca, cb = totals if ph == TOTAL else (x["phases"][ph]["counters"][name] for x in (a, b))
+                if ca > 0 and cb > 0:
+                    counted[(ph, cell[2], name)][cell].append(math.log(cb / ca))
 
     if differ:
         p(f"## Results that differ ({len(differ)})")
@@ -75,8 +93,8 @@ def main():
 
     p("## By phase")
     p()
-    p("| phase | N | ratio | 95% interval | cells faster | cells slower | of |")
-    p("|---|---|---|---|---|---|---|")
+    p(f"| phase | N | ratio | 95% interval | cells faster | cells slower | of |{''.join(f' {c} |' for c in counters)}")
+    p(f"|---|---|---|---|---|---|---|{'---|' * len(counters)}")
     order = list(dict.fromkeys(ph for ph, _ in ratios))
     worst = []
     for ph in order:
@@ -89,7 +107,7 @@ def main():
             slow = sum(x > math.log(1 + MOVED) for x in ms)
             p(
                 f"| {ph} | {n:.0e} | {math.exp(m):.3f} | {math.exp(m - h):.3f}-{math.exp(m + h):.3f} | {fast} | "
-                f"{slow} | {len(ms)} |"
+                f"{slow} | {len(ms)} |" + "".join(f" {geomean(counted[(ph, n, c)]):.3f} |" for c in counters)
             )
             worst += [(x, ph, c) for c, x in cells.items()]
     p()

@@ -32,6 +32,9 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 - Every CI job stops after 20 minutes. Each takes under 5; one past 20 is stuck - a package mirror that stopped
   answering held a job for 21 minutes - and would otherwise hold a runner for GitHub's default of six hours.
+- The benchmark runners count instructions wherever the machine lets a process count its own (`--pmu auto`, the
+  default; `none` turns it off), and `bench/catalog/compare.py` puts each counter's ratio beside the time's. Time
+  that the instructions do not follow is memory; time they follow is the code the compiler made.
 
 ## [0.2.0] - 2026-10-25
 

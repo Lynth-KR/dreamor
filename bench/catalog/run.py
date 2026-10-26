@@ -45,6 +45,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from common.machine import (  # noqa: E402
     choose_cpu,
+    choose_pmu,
     code_state,
     compiler_version,
     cpu_model,
@@ -127,7 +128,7 @@ def main():
     ap.add_argument("--top-reps", type=int, help="repetitions at the largest N; default: --reps")
     ap.add_argument("--seed", type=int, default=20261025)
     ap.add_argument("--lookups", type=int, default=1_000_000)
-    ap.add_argument("--pmu", default="", help="hardware counters, as ../bench --pmu takes them")
+    ap.add_argument("--pmu", default="auto", help="hardware counters, as ./catalog --pmu takes them; auto or none")
     ap.add_argument("--phases", default="", help="measure these phases only (the ones they stand on run unreported)")
     ap.add_argument("--cpu", default="auto", help="auto, none, or a CPU list")
     ap.add_argument("--timeout", type=int, default=1800)
@@ -185,7 +186,9 @@ def main():
         with open(runs_path) as f:
             done = {key_of(json.loads(line)) for line in f if line.strip()}
     todo = [p for p in plan if key_of(p) not in done]
+    pmu, pmu_choice = choose_pmu(args.pmu)
     print(f"results: {os.path.relpath(out)}  ({cpu_model()}; cpu: {sorted(cpus) if cpus else cpu_info['reason']})")
+    print(f"counters: {pmu_choice}")
     print(f"{len(todo)} runs to go (of {len(plan)})")
     if args.dry_run:
         return
@@ -204,7 +207,8 @@ def main():
         layout=args.layout,
         aslr=read_text("/proc/sys/kernel/randomize_va_space"),
         lookups=args.lookups,
-        pmu=args.pmu,
+        pmu=pmu,
+        pmu_choice=pmu_choice,
         phases=args.phases,
         builds={name: os.path.abspath(path) for name, path in builds.items()} if args.builds else None,
         cpu=cpu_model(),
@@ -243,8 +247,8 @@ def main():
             pad, heap_seed = layout_of(args.seed, p["rep"]) if args.layout == "on" else (0, 0)
             cmd += ["--heap-seed", str(heap_seed)]
             env = dict(os.environ, CATALOG_PAD="x" * pad)
-            if args.pmu:
-                cmd += ["--pmu", args.pmu]
+            if pmu:
+                cmd += ["--pmu", pmu]
             if args.phases:
                 cmd += ["--phases", args.phases]
             start = time.monotonic()

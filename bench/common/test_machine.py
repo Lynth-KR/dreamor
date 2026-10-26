@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""Tests common/machine.py: the CPU choice on fake /sys and /proc trees. In bench/: python3 -m unittest common.test_machine"""
+"""Tests common/machine.py: the CPU choice on fake /sys and /proc trees, and the counters --pmu auto picks. In bench/: python3 -m unittest common.test_machine"""
 
 import os
 import tempfile
 import unittest
 
-from common.machine import choose_cpu, last_level_cache, parse_cpulist
+from common.machine import choose_cpu, choose_pmu, counts_instructions, last_level_cache, parse_cpulist
 
 
 def write(root, rel, text):
@@ -98,6 +98,15 @@ class ChooseCpu(unittest.TestCase):
     def test_parse_cpulist(self):
         self.assertEqual(parse_cpulist("0-3,8,10-11"), [0, 1, 2, 3, 8, 10, 11])
         self.assertEqual(parse_cpulist(""), [])
+
+    def test_pmu_auto_counts_instructions_where_the_machine_can(self):
+        ok, why = counts_instructions()
+        self.assertEqual(choose_pmu("auto")[0], "instructions" if ok else "")
+        self.assertEqual(why is None, ok)
+
+    def test_pmu_none_and_given(self):
+        self.assertEqual(choose_pmu("none")[0], "")
+        self.assertEqual(choose_pmu("cycles,instructions")[0], "cycles,instructions")
 
 
 if __name__ == "__main__":
