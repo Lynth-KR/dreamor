@@ -30,6 +30,8 @@ and versions follow [Semantic Versioning](https://semver.org/).
 - The guide's "Steering the visit order": `makeSet` plans from columns, not sizes, so a user who knows which
   predicate is the selective one builds that part first as a set of its own and hands it on - the same rows and
   type, the predicate run over the smaller product. No option names an order.
+- `SECURITY.md`: vulnerabilities are reported privately, through GitHub's private vulnerability reporting, and a
+  broken precondition - a repeat handed to `makeSet` - is not one.
 
 ### Development
 
