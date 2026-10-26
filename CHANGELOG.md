@@ -44,6 +44,8 @@ and versions follow [Semantic Versioning](https://semver.org/).
   both compilers at CI's floor, GCC 13 and Clang 18. A phase's loss is weighed against the gain and stated per
   operation, not held to a fixed bound; what may not get slower is the whole - a catalog family's total, a scenario
   through the real solver. A loss the allocator's history makes, shown by its page faults, is not the change's cost.
+- CI checks out with `actions/checkout@v7`, which runs on Node.js 24: v4's Node.js 20 is deprecated on GitHub's
+  runners.
 
 ## [0.2.0] - 2026-10-25
 
