@@ -1,0 +1,106 @@
+# 공개 API 전체 목록
+
+[English](../reference.md) · **한국어**
+
+공개된 타입과 함수 전부를 헤더별로 정리했습니다. 실제로 쓰는 법은 [가이드](guide.md)에 있습니다.
+
+**열** (`column.hpp`)
+| | |
+|---|---|
+| `Col<T, "name">` | 열 타입. `Col(T)`(암묵), `operator T()`, `get()`, 포인터면 `->`, `*`, `==`, 기본 생성 |
+| `Col<...>::kName` | 열 이름 (`std::string_view`) |
+| `ColumnName` | `Col`의 이름 템플릿 인자 타입 (문자열 리터럴) |
+| `keyName(Col)` | 열의 이름 토큰. 값에 `keyName`이 있으면 그것, 없으면 엔티티의 `primaryKey()`, 그것도 없으면 값 자체 |
+| `std::hash<Col<...>>` | 열을 `std::unordered_map` 키 등으로 쓸 수 있음 |
+| `PredicateColumns<F>` | 템플릿 `operator()` 함수 객체가 읽는 열을 선언하는 특수화 지점 |
+
+**집합 만들기** (`set.hpp`)
+| | |
+|---|---|
+| `makeSet<Cols...>(sources...)` | 집합 빌더 |
+| 빌더 `.where(p)` | 술어 하나 추가 (여러 개면 이어서 호출) |
+| 빌더 `.collect()` | `IndexSet`으로 확정 |
+
+**집합** (`indexed.hpp`, 구현은 `set.hpp`/`algebra.hpp`/`grouped.hpp`/`ordered.hpp`)
+| | |
+|---|---|
+| `IndexSet<std::tuple<Cols...>>`, 별칭 `SetOf<Cols...>` | 읽기 전용 집합. 기본 생성(빈 집합), 복사 O(1) |
+| `begin()`, `end()`, `size()` | random access 순회 |
+| `where(p...)`, `orderBy(key)`, `select<Cols...>()`, `select(expr)` | 파생 → `IndexSet` |
+| `groupBy<Cols...>()` | → `Grouped` |
+| `membership()` | → `Membership` |
+| `ordered()` | → `Ordered` |
+| `unite(A, B)`, `intersect(A, B)`, `difference(A, B)` | 이항 연산 → `IndexSet` |
+
+**EntityVector** (`entity_vector.hpp`)
+| | |
+|---|---|
+| `primaryKey(const T&)` | `T` 옆의 ADL 훅: 무엇이 그것을 식별하는지(값 또는 `std::tuple`). `dreamor::Entity<T>`가 이를 확인 |
+| `insert(entity)`, `emplace(args...)` | `{그 키의 원소를 가리키는 반복자, 들어갔는지}` |
+| `find(key)`, `contains(key)` | 기본 키로 찾기 |
+| `operator[]`, `at`, `front`, `back`, `begin`, `end`, `cbegin`, `cend`, `size`, `empty` | const 접근, 삽입 순서 |
+| `value_type`, `key_type`, `size_type`, `const_iterator` (= `iterator`) | 멤버 타입. 표준 컨테이너와 같은 이름이며, `key_type`은 `primaryKey()`가 돌려주는 타입 |
+| `modify(entity, fn)` | 원소 하나에 `fn(T&)`; 키는 바뀌면 안 됨 |
+
+**Membership** (`algebra.hpp`)
+| | |
+|---|---|
+| `(열...)` / `(행)` | 소속 여부 `bool` |
+
+**Grouped** (`grouped.hpp`)
+| | |
+|---|---|
+| `begin()`, `end()` | 존재하는 묶음 전부 (첫 등장 순). 원소 `Group`은 `[열..., rows]`로 풀림 |
+| `Key`, `Group{key, tuples}` | 묶음 키 튜플, 묶음 하나 |
+| `slice(열...)`, `slice(key)` | 그 키의 `RowSlice` (없으면 빈 것). `key`는 `keyAt()`이나 `Group::key`에서 |
+| `contains(열...)`, `sliceSize(열...)` | 키 존재, 묶음 크기 (`key`도 받음) |
+| `size()`, `empty()` | 묶음 수 |
+| `keyAt(g)`, `at(g)` | g번째 묶음의 키, 묶음 (범위 밖이면 `std::out_of_range`) |
+| `regrouped()` | 묶음별로 모은 새 `IndexSet` |
+
+**RowSlice** (`grouped.hpp`)
+| | |
+|---|---|
+| `begin()`, `end()`, `size()`, `empty()`, `operator[](i)`, `front()`, `back()` | random access 뷰, 기본 생성(빈 것) |
+
+**Ordered** (`ordered.hpp`)
+| | |
+|---|---|
+| `ord(열...)` | 위치 (`std::optional<std::size_t>`, 없으면 비어 있음). 아래 모두 열 대신 행 하나도 받음 |
+| `next(열...)`, `next(열..., steps)`, `prev(...)` 같은 꼴 | 이웃 행 포인터 또는 `nullptr` |
+| `nextCyclic(...)`, `prevCyclic(...)` | 끝에서 처음으로 돌아가는 이웃 |
+| `first()`, `last()`, `at(pos)` | 처음, 끝, 위치로 |
+| `isFirst(열...)`, `isLast(열...)`, `contains(열...)` | 판정 |
+| `size()`, `empty()`, `members()` | 크기, 중복 제거된 집합 |
+
+**변수** (`concert.hpp`, 네임스페이스 `dreamor::concert`)
+| | |
+|---|---|
+| `VarTable<Keys...>{env, set, lb = 0, ub = IloInfinity, type = ILOFLOAT, name = nullptr}` | lb, ub는 숫자 또는 열 함수 |
+| `VarTable<Keys...>{semiContinuous, env, set, sclb, ub, type, name}` | 반연속 |
+| `Key` | `std::tuple<Keys...>` |
+| `(keys...)`, `(row)` | 변수: `vYield(m, i, t)`, `vYield(row)` (없으면 `std::out_of_range`, 모든 백엔드 공통) |
+| `contains(keys...)`, `contains(row)`, `size()`, `keys()` | |
+| `begin()`, `end()` | `(row, var)` 순회 |
+| `solution(algorithm)` | → `ValueTable` |
+| `SemiContinuous`, `semiContinuous` | 반연속 생성자 태그 |
+
+**값** (`value_table.hpp`, 네임스페이스 `dreamor`, 백엔드 공통)
+| | |
+|---|---|
+| `ValueTable<Keys...>` | `(keys...)`/`(row)`로 값: `yieldPlan(m, i, t)` (없으면 `std::out_of_range`), `contains`, `size()`, `keys()`, `(row, value)` 순회 |
+
+**합** (`concert.hpp`, 네임스페이스 `dreamor::concert`)
+| | |
+|---|---|
+| `sumOf(env, rows, term)`, `sumOf<Col>(env, container, term)` | 합 빌더. term은 열 함수 또는 `VarTable` 자체 |
+| 빌더 `.where(p...)`, `.split(p...)`, `.build()` | 거르기, 나눠 합, `IloExpr` 또는 `std::array<IloExpr, N>` |
+
+**MathOpt 백엔드** (`mathopt.hpp`, 네임스페이스 `dreamor::mathopt`)
+| | |
+|---|---|
+| `VarTable<Keys...>{model, set, lb = 0, ub = +inf, is_integer = false, name = nullptr}` | `model`은 `math_opt::Model&`; lb, ub는 숫자 또는 열 함수 |
+| `(keys...)`, `(row)`, `contains`, `size`, `keys`, `begin`/`end` | Concert와 같음 (변수는 `math_opt::Variable`) |
+| `solution(result)` | `math_opt::SolveResult` → `ValueTable`; 가능해가 없으면 `std::logic_error` |
+| `sumOf(rows, term)`, `sumOf<Col>(container, term)` | 합 빌더; `build()`는 `math_opt::LinearExpression` (`split`이면 그 배열) |
+

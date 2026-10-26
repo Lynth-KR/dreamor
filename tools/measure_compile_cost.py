@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""Measures what a wide set costs to compile, for the table in README.md / README.ko.md.
+"""Measures what a wide set costs to compile, for the table in docs/guide.md / docs/ko/guide.md.
 
     python3 tools/measure_compile_cost.py [compiler ...]     (default: g++ clang++)
 

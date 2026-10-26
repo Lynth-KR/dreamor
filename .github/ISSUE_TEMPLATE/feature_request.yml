@@ -1,0 +1,37 @@
+name: Feature request
+description: A model that dreamor could make clearer.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please write in English. dreamor is small on purpose: a feature is weighed against its
+        [philosophy](https://github.com/Lynth-KR/dreamor/blob/main/docs/philosophy.md), and some things are left out by design
+        ([what dreamor does not do](https://github.com/Lynth-KR/dreamor/blob/main/docs/philosophy.md#what-dreamor-does-not-do)).
+  - type: checkboxes
+    id: philosophy
+    attributes:
+      label: Before you propose
+      options:
+        - label: I have read the philosophy, and this is not on the list of what dreamor does not do.
+          required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: The modeling problem
+      description: What the model says - in AMPL if you can, e.g. `sum {(m,i,t) in PRODUCE} time[i] * Yield[m,i,t]`.
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: How you write it today
+      description: The dreamor (or plain) code you use for it now, and what is awkward about it.
+      render: cpp
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you have in mind
+      description: Optional. The problem matters more than a proposed API.

@@ -1,7 +1,7 @@
 name: tests
 # CI is for what is published: pushes to main and pull requests, or a run started by hand
-# (workflow_dispatch) for a work branch. A change of Markdown alone builds nothing: README code
-# blocks are compiled by tests/test_readme.cpp, which a change to them touches too.
+# (workflow_dispatch) for a work branch. A change of Markdown alone builds nothing: the code
+# blocks of the README and docs/guide.md are compiled by tests/test_readme.cpp, which a change to them touches too.
 on:
   push:
     branches: [main]

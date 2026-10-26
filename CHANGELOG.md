@@ -5,6 +5,23 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- The documentation is split by what it is for. The README introduces dreamor and maps the rest;
+  `docs/philosophy.md` states the principles - including ones the README only implied: a set is a set by contract,
+  the solver's API stays the solver's, misuse stops at compile time in one sentence, the standard library is the
+  precedent, speed is measured - with the naming, the rules of use and what dreamor leaves out; `docs/guide.md`
+  explains every part in use; `docs/reference.md` lists the API. Each in English and Korean (`docs/ko/`).
+
+### Added
+
+- `CONTRIBUTING.md` (and its Korean version): how to report a bug, propose a feature, build and test, and get a
+  change in. Commits in a pull request are signed off under the Developer Certificate of Origin (`git commit -s`).
+- `CODE_OF_CONDUCT.md`: the Contributor Covenant 2.1.
+- Issue forms for a bug report and a feature request (the latter asks that the philosophy was read), and a pull
+  request checklist. Questions go to GitHub Discussions; issues, pull requests and discussions are in English.
+- `NOTICE`: the copyright, and the attribution of the OR-Tools samples ported in `examples/mathopt_samples/`.
+
 ## [0.2.0] - 2026-10-25
 
 ### Added

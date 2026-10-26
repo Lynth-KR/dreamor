@@ -1,0 +1,7 @@
+dreamor
+Copyright 2026 Lynth-KR
+
+This product includes software developed at Google LLC (Copyright 2010-2025 Google LLC): three
+OR-Tools MathOpt samples (google/or-tools, ortools/math_opt/samples/cpp), ported to dreamor in
+examples/mathopt_samples/. They are licensed under the Apache License, Version 2.0; each file keeps
+its original copyright and license header and states how it was modified.

@@ -1,0 +1,52 @@
+name: Bug report
+description: dreamor does something wrong - a wrong result, a crash, a compile error where the code is right, or a message that misleads.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please write in English. A question rather than a bug goes to [Discussions](https://github.com/Lynth-KR/dreamor/discussions).
+  - type: input
+    id: version
+    attributes:
+      label: dreamor version
+      description: The release (`0.2.0`) or the commit.
+    validations:
+      required: true
+  - type: input
+    id: compiler
+    attributes:
+      label: Compiler and version
+      placeholder: g++ 13.3, clang++ 18.1, ...
+    validations:
+      required: true
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Backend
+      options:
+        - The set layer alone (no solver)
+        - CPLEX Concert
+        - OR-Tools MathOpt
+    validations:
+      required: true
+  - type: input
+    id: backend-version
+    attributes:
+      label: Solver version
+      placeholder: CPLEX 22.1.2, OR-Tools 9.15, ...
+  - type: textarea
+    id: code
+    attributes:
+      label: The smallest code that shows it
+      description: A set, a table and a few rows usually do. It should compile on its own, or fail to compile as reported.
+      render: cpp
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected, and what happened
+      description: For a compile error, its first lines - dreamor's own message comes first when it is one of ours.
+    validations:
+      required: true

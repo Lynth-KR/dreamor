@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question
+    url: https://github.com/Lynth-KR/dreamor/discussions
+    about: How to model something, why a call does not compile, how a part works - ask in Discussions.

@@ -1,7 +1,8 @@
 # AGENTS.md
 
 Instructions for coding agents working **on** this repository. For writing models **with** dreamor, see the skill in
-`skills/dreamor/` (or `README.md`).
+`skills/dreamor/` (or `README.md` and `docs/`). For people contributing, `CONTRIBUTING.md` says the same rules in
+brief.
 
 dreamor is a header-only C++20 modeling layer: index sets (solver-independent), variable families (`VarTable`), and
 sums (`sumOf`), with two backends, CPLEX Concert (`dreamor::concert`) and OR-Tools MathOpt (`dreamor::mathopt`).
@@ -21,6 +22,8 @@ Version 0.2.0, Apache 2.0.
 | `tests/` | Framework-free tests, `tests/run_tests.sh`, Concert stub (`tests/stub/`), compile-fail cases |
 | `bench/` | Benchmarks, not run in CI (`bench/README.md`). `bench/catalog/`: layer 1, each operation against hand-written code over data shapes and access patterns, a resolution IV screening design per family (lookups, grouping, set operations, slices, generation, order) and a full design of its own for entities and solution values, against the lean Concert stub. `bench/scenario/`: layer 2, whole models (p-median, the modeling-language benchmarks' model, and the lot-sizing example as written) built by dreamor and by hand up to the solver's start, on the stub, CPLEX and MathOpt. `bench/common/`: the measurement header, the run's JSON result, the lean stub, the machine helpers. `bench/solver/`: how Concert's variable creation meets the caller's code. `bench/plan/`: how `makeSet`'s visit order compares with every other order - a cost model over made-up sets of 3 to 16 sources, and a timed three-source experiment |
 | `skills/dreamor/` | Agent Skill for users writing dreamor code |
+| `README.md`, `docs/` | User documentation, English and Korean (`README.ko.md`, `docs/ko/`): the README introduces and maps; `docs/philosophy.md` the principles and rules of use, `docs/guide.md` every part in use, `docs/reference.md` the API in tables |
+| `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `NOTICE` | For people contributing (English and Korean), the Contributor Covenant 2.1, the copyright and attribution notice |
 | `cmake/`, `CMakeLists.txt` | `dreamor::dreamor` INTERFACE target and install/package config |
 
 ## Build and test
@@ -83,8 +86,8 @@ tools/ci_local.sh [REV]              # what CI runs, on one commit checked out a
   `podman run --rm -v "$PWD":/src -w /src docker.io/library/gcc:16 sh -c 'CXX=g++ tests/run_tests.sh'`.
 - **Formatting** is `.clang-format` (clang-format 23.1.3) and `ruff.toml` (ruff 0.17.1), pinned because output differs
   between versions: `uv tool install clang-format==23.1.3`, `uv tool install ruff==0.17.1`.
-  `examples/mathopt_samples/` is left as ported, and README code blocks are formatted by hand. The script also
-  adds the SPDX license line where it is missing.
+  `examples/mathopt_samples/` is left as ported, and the code blocks of the README and `docs/` are formatted by
+  hand. The script also adds the SPDX license line where it is missing.
   CI runs `tools/format.sh --check`. To bump a formatter, change all of its pins together (`CLANG_FORMAT_VERSION` in
   `tools/format.sh` and the pipx line in CI; `required-version` in `ruff.toml` and the pipx line), run
   `tools/format.sh`, commit only the reformatting, and add that commit to `.git-blame-ignore-revs`. Time to bump:
@@ -222,7 +225,7 @@ Follow it in library code:
 - macros `SCREAMING_SNAKE_CASE`, prefixed `DREAMOR_` (a bare `CHECK` collides with Abseil and glog, see
   `tests/check.hpp`).
 
-User-facing examples (README, header comments, examples, skill) follow the user conventions instead:
+User-facing examples (README, `docs/`, header comments, examples, skill) follow the user conventions instead:
 - columns `PascalCaseCol`, sets `sSCREAMING_SNAKE`, variable families `vPascalCase`;
 - callables taking columns in `snake_case`;
 - everything else in `camelCase`.
@@ -245,11 +248,11 @@ Several documents are mirrored by code, so they change together:
 
 | If you change | Also change |
 |---|---|
-| A code block in `README.md` | the same block in `README.ko.md` (code is identical; only prose and comments differ), and `tests/test_readme.cpp`, which compiles that code |
+| A code block in `README.md` or `docs/guide.md` | the same block in its Korean version (`README.ko.md`, `docs/ko/guide.md`: code is identical; only prose and comments differ), and `tests/test_readme.cpp`, which compiles that code |
 | A usage example in a header comment | `tests/test_docs.cpp`, which compiles those examples |
-| The public API, its defaults, or a runtime exception | `README.md`, `README.ko.md`, `skills/dreamor/SKILL.md`, `skills/dreamor/references/api.md` |
+| The public API, its defaults, or a runtime exception | `docs/reference.md` and `docs/ko/reference.md`, the guide where it explains that part (`docs/guide.md`, `docs/ko/guide.md`), `skills/dreamor/SKILL.md`, `skills/dreamor/references/api.md` |
 | A compile-time message | its `// expect:` line and `skills/dreamor/references/diagnostics.md` |
-| What generating a set costs to compile (`set.hpp`, `plan.hpp`) | the compile-cost table in both READMEs: `python3 tools/measure_compile_cost.py` |
+| What generating a set costs to compile (`set.hpp`, `plan.hpp`) | the compile-cost table in both guides (`docs/guide.md`, `docs/ko/guide.md`): `python3 tools/measure_compile_cost.py` |
 | A CI job (`.github/workflows/ci.yml`) | the same job in `tools/ci_local.sh` |
 | The version | `project(... VERSION ...)` in `CMakeLists.txt` (packages use `SameMinorVersion` compatibility), the `find_package(dreamor 0.2 ...)` lines in the READMEs, and the skill's title |
 
