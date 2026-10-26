@@ -22,6 +22,11 @@ and versions follow [Semantic Versioning](https://semver.org/).
   request checklist. Questions go to GitHub Discussions; issues, pull requests and discussions are in English.
 - `NOTICE`: the copyright, and the attribution of the OR-Tools samples ported in `examples/mathopt_samples/`.
 
+### Development
+
+- Every CI job stops after 20 minutes. Each takes under 5; one past 20 is stuck - a package mirror that stopped
+  answering held a job for 21 minutes - and would otherwise hold a runner for GitHub's default of six hours.
+
 ## [0.2.0] - 2026-10-25
 
 ### Added

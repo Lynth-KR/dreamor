@@ -13,6 +13,8 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+# Every job takes under 5 minutes; one past 20 is stuck - on a package mirror that stopped
+# answering, say - and would otherwise hold a runner for GitHub's default of six hours.
 jobs:
   stub:
     # The builds wait for lint (format and tidy), the checks that fail most: a run that fails
@@ -28,6 +30,7 @@ jobs:
     # find_package(dreamor), with both compilers, as a user would.
     needs: lint
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -58,6 +61,7 @@ jobs:
     # index across threads, behind a lock. The compile-time checks are the stub job's.
     needs: lint
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -72,6 +76,7 @@ jobs:
     # spring, LLVM every March and September). The official image: Ubuntu 24.04 has no GCC 16.
     needs: lint
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     container: gcc:16
     steps:
       - uses: actions/checkout@v4
@@ -81,6 +86,7 @@ jobs:
     # The newest LLVM release, from apt.llvm.org (see gcc-latest).
     needs: lint
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - run: wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- 23
@@ -92,6 +98,7 @@ jobs:
     # MathOpt compile_fail cases.
     needs: lint
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -122,6 +129,7 @@ jobs:
     # the version tools/tidy.sh pins, over the library, the tests and the examples. OR-Tools'
     # headers are needed to see the MathOpt backend; CPLEX is not, the stub stands in.
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     env:
       ORTOOLS_URL: https://github.com/google/or-tools/releases/download/v9.15/or-tools_amd64_ubuntu-24.04_cpp_v9.15.6755.tar.gz
     steps:
