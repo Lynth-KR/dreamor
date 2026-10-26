@@ -90,6 +90,35 @@ Each column of `makeSet<A, B, C>` corresponds to one source. There are three kin
   `orderBy`.
 - To spell out a set's type, use `dreamor::SetOf<MachineCol, ItemCol>`.
 
+## Steering the visit order
+
+`makeSet` picks the order it visits its sources in at compile time, from their columns alone: every predicate runs as
+soon as the columns it reads are bound, and a source that lets predicates run sooner comes sooner. It knows no sizes,
+so it cannot tell a predicate that keeps one row in fifty from one that keeps them all. When you know which part is
+selective, build that part first, as a set of its own, and hand the set on:
+
+```cpp
+// {m in MACHINES, i in ITEMS, t in PERIODS: 30 * time[i] <= capacity[m] and demand[i,t] > 0}
+const auto fits_batch = [](MachineCol m, ItemCol i) { return 30 * i->time <= m->capacity; };
+const auto sMAKE = dreamor::makeSet<MachineCol, ItemCol, PeriodCol>(machines, items, periods)
+                       .where(fits_batch)
+                       .where(is_open)
+                       .collect();
+
+// The same rows in two steps: is_open over items x periods alone, then fits_batch over what passed
+const auto sOPEN        = dreamor::makeSet<ItemCol, PeriodCol>(items, periods).where(is_open).collect();
+const auto sMAKE_STAGED = dreamor::makeSet<MachineCol>(machines, sOPEN).where(fits_batch).collect();
+```
+
+- **The same set.** The rows are the same, and so is the type: a set's columns come in the order of its sources, so
+  `machines` first gives `(machine, item, period)`. Only the row order may differ (`orderBy` if it matters).
+- **What the step fixes** is which predicate runs over which product, not the order of the loops: inside each
+  `makeSet` the planner still chooses. Above, `is_open` runs once for every item and period instead of once for every
+  machine, item and period whose batch fits - with few open pairs and most batches fitting, that is most of the work.
+- **The step is a set in memory**: it pays where it is the small part.
+- **There is no option to name an order.** An order written into a model does not follow its data, nor a better
+  planner; a step is plain code, read as the model reads.
+
 ## Deriving sets from sets
 
 A set is read-only (`begin`/`end`/`size`, range-for, and read-only algorithms). Instead you **derive**. Copying is

@@ -27,6 +27,9 @@ and versions follow [Semantic Versioning](https://semver.org/).
 - Issue forms for a bug report and a feature request (the latter asks that the philosophy was read), and a pull
   request checklist. Questions go to GitHub Discussions; issues, pull requests and discussions are in English.
 - `NOTICE`: the copyright, and the attribution of the OR-Tools samples ported in `examples/mathopt_samples/`.
+- The guide's "Steering the visit order": `makeSet` plans from columns, not sizes, so a user who knows which
+  predicate is the selective one builds that part first as a set of its own and hands it on - the same rows and
+  type, the predicate run over the smaller product. No option names an order.
 
 ### Development
 

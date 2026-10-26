@@ -88,6 +88,34 @@ const auto sNAME = dreamor::makeSet<열...>(소스...).where(술어).where(술�
   `orderBy`로 정렬하세요.
 - 집합 타입을 적을 때는 `dreamor::SetOf<MachineCol, ItemCol>`을 씁니다.
 
+## 방문 순서 유도하기
+
+`makeSet`은 소스를 방문할 순서를 컴파일 시점에 소스의 열만 보고 정합니다. 술어는 읽는 열이 모두 정해지는 즉시
+돌고, 술어를 더 일찍 돌게 하는 소스가 먼저 옵니다. 크기는 모르므로, 50행에 하나만 남기는 술어와 모두 남기는
+술어를 구별하지 못합니다. 어느 쪽이 걸러내는지 안다면 그 부분을 먼저 집합으로 만들어 넘기세요.
+
+```cpp
+// {m in MACHINES, i in ITEMS, t in PERIODS: 30 * time[i] <= capacity[m] and demand[i,t] > 0}
+const auto fits_batch = [](MachineCol m, ItemCol i) { return 30 * i->time <= m->capacity; };
+const auto sMAKE = dreamor::makeSet<MachineCol, ItemCol, PeriodCol>(machines, items, periods)
+                       .where(fits_batch)
+                       .where(is_open)
+                       .collect();
+
+// The same rows in two steps: is_open over items x periods alone, then fits_batch over what passed
+const auto sOPEN        = dreamor::makeSet<ItemCol, PeriodCol>(items, periods).where(is_open).collect();
+const auto sMAKE_STAGED = dreamor::makeSet<MachineCol>(machines, sOPEN).where(fits_batch).collect();
+```
+
+- **같은 집합입니다.** 행도 타입도 같습니다. 집합의 열은 소스 순서대로 오므로 `machines`를 앞에 두면
+  `(machine, item, period)`가 됩니다. 행 순서만 다를 수 있습니다(중요하면 `orderBy`).
+- **단계가 정하는 것**은 어느 술어가 어느 곱 위에서 도느냐이지, 루프의 순서가 아닙니다. 각 `makeSet` 안에서는
+  여전히 planner가 고릅니다. 위에서 `is_open`은 배치가 맞는 (기계, 품목, 기간)마다가 아니라 (품목, 기간)마다 한 번
+  돕니다. 열린 쌍이 적고 대부분의 배치가 맞는다면 일의 대부분이 여기서 줄어듭니다.
+- **단계는 메모리에 놓이는 집합입니다.** 작은 쪽일 때 이득입니다.
+- **순서를 지정하는 옵션은 없습니다.** 모델에 적어 넣은 순서는 데이터를 따라가지 못하고, 더 나은 planner의 덕도
+  보지 못합니다. 단계는 모델을 읽듯 읽히는 평범한 코드입니다.
+
 ## 집합에서 집합 파생하기
 
 집합은 읽기 전용입니다(`begin`/`end`/`size`, range-for와 읽기 전용 알고리즘). 대신 **파생**합니다.

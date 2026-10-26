@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 #include <tuple>
+#include <type_traits>
 #include <unordered_map>
 #include <vector>
 
@@ -176,6 +177,17 @@ int main() try {
   DREAMOR_CHECK(dreamor::makeSet<PeriodCol>(sROUTES, periods).where(is_open).collect().size() == 6);
   const auto sOPEN = dreamor::makeSet<ItemCol, PeriodCol>(items, periods).where(is_open).collect();
   DREAMOR_CHECK(dreamor::makeSet<>(sROUTES, sOPEN).collect().size() == 6);
+
+  // --- Steering the visit order (sOPEN is the one just above)
+  const auto fits_batch   = [](MachineCol m, ItemCol i) { return 30 * i->time <= m->capacity; };
+  const auto sMAKE        = dreamor::makeSet<MachineCol, ItemCol, PeriodCol>(machines, items, periods)
+                                .where(fits_batch)
+                                .where(is_open)
+                                .collect();
+  const auto sMAKE_STAGED = dreamor::makeSet<MachineCol>(machines, sOPEN).where(fits_batch).collect();
+  static_assert(std::is_same_v<decltype(sMAKE), decltype(sMAKE_STAGED)>);
+  DREAMOR_CHECK(sMAKE.size() == 9 && sMAKE_STAGED.size() == sMAKE.size() &&
+                std::ranges::all_of(sMAKE_STAGED, sMAKE.membership()));
   const auto sOPEN_ITEMS = sOPEN.select<ItemCol>();
   DREAMOR_CHECK(
       std::ranges::equal(dreamor::makeSet<>(sROUTES, sOPEN_ITEMS).collect(), sROUTES.where(sOPEN_ITEMS.membership())));
