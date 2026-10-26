@@ -99,10 +99,12 @@ headline, the geometric mean over the sizes.
 
 ## Results
 
-On the home machine (AMD Ryzen 7 5700X, WSL2 - screening results, not a headline machine), on the
-library this section was committed with (p-median before text name tokens were copied rather than
-formatted, a path its integer names never take), 5 repetitions, every check agreeing. dreamor / each hand-written arm, the geometric mean over the
-sizes; below 1, dreamor is faster. The headline is the time to the solver's start, the benchmarks'
+On the home machine (AMD Ryzen 7 5700X, WSL2 - screening results, not a headline machine), on
+dreamor 0.2.0 (`032c34c`; p-median just before text name tokens were copied rather than formatted, a
+path its integer names never take), 5 repetitions, every check agreeing. The library since then builds lot
+sizing level or faster ([CHANGELOG](../../CHANGELOG.md)); the tables are measured again at the next release, built
+with GCC 13 and with Clang 18. dreamor / each hand-written arm, the geometric mean over the sizes; below 1, dreamor
+is faster. The headline is the time to the solver's start, the benchmarks'
 measure:
 
 | Scenario | Arm | CPLEX | MathOpt (HiGHS) | stub (containers alone) |

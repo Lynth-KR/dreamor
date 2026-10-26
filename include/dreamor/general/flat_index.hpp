@@ -28,7 +28,8 @@
 // 2^(32 - c) of the slots that hold another key, with the slot picked by the hash's low bits.
 // A table small enough to sit in a core's cache (under 2^16 slots) reads keys that are in cache
 // too, and the tags would only add work to every probe: it has none. Neither have tables of 2^32
-// slots and more, which have no bits to spare.
+// slots and more, which have no bits to spare. Without tags, every slot's tag and every key's is 0:
+// the one probe serves both, its tag check always passing.
 //
 // On a large table every probe is a cache miss, and one key after another they would come one
 // after another. Where a run of keys is known up front, hashedBlocks() hashes a block of them,
@@ -102,7 +103,7 @@ class FlatIndex {
     if (slots_.empty()) {
       return kNotFound;
     }
-    return tag_bits_ == 0 ? probe<false>(key, hash, key_at) : probe<true>(key, hash, key_at);
+    return probe(key, hash, key_at);
   }
 
   // The entry that already holds key, or kNotFound once `entry` holds it. key_at(entry) has
@@ -167,32 +168,28 @@ class FlatIndex {
   }
 
   // The slot a probe for key stops at, and whether the key is there: the slot holding it, or the
-  // empty one that ends the probe. Tagged, a slot's key is read only where its tag agrees; a table
-  // without tags compares every key, in the same instructions as an index that never had tags.
-  // Inlined into its two callers, so that each picks its probe once and the probe stays tight.
-  template <bool Tagged, typename KeyAt>
+  // empty one that ends the probe. A slot's key is read only where its tag agrees. One probe for
+  // tables with tags and without, not one each: two copies make find() too large to inline into
+  // its callers, and a short lookup - Ordered's prev(t) - then pays for a call or two.
+  template <typename KeyAt>
   [[nodiscard, gnu::always_inline]] std::pair<std::size_t, bool> seek(const Key& key,
                                                                       std::size_t hash,
                                                                       const KeyAt& key_at) const {
-    const std::uint32_t tag = Tagged ? tagOf(hash) : 0;
+    const std::uint32_t tag = tagOf(hash);
     for (std::size_t slot = hash & mask_;; slot = (slot + 1) & mask_) {
       const std::uint32_t held = slots_[slot];
       if (held == kEmpty) {
         return {slot, false};
       }
-      if constexpr (Tagged) {
-        if ((held & ~entry_mask_) == tag && key_at(held & entry_mask_) == key) {
-          return {slot, true};
-        }
-      } else if (key_at(held) == key) {
+      if ((held & ~entry_mask_) == tag && key_at(held & entry_mask_) == key) {
         return {slot, true};
       }
     }
   }
 
-  template <bool Tagged, typename KeyAt>
+  template <typename KeyAt>
   [[nodiscard, gnu::always_inline]] std::size_t probe(const Key& key, std::size_t hash, const KeyAt& key_at) const {
-    const auto [slot, found] = seek<Tagged>(key, hash, key_at);
+    const auto [slot, found] = seek(key, hash, key_at);
     return found ? (slots_[slot] & entry_mask_) : kNotFound;
   }
 
@@ -200,7 +197,7 @@ class FlatIndex {
   template <typename KeyAt>
   // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): the hash and the entry, in insert()'s order
   std::size_t place(const Key& key, std::size_t hash, std::size_t entry, const KeyAt& key_at) {
-    const auto [slot, found] = tag_bits_ == 0 ? seek<false>(key, hash, key_at) : seek<true>(key, hash, key_at);
+    const auto [slot, found] = seek(key, hash, key_at);
     if (found) {
       return slots_[slot] & entry_mask_;
     }
@@ -235,17 +232,15 @@ class FlatIndex {
     slots_.assign(capacity, kEmpty);
     mask_                 = capacity - 1;
     const auto entry_bits = static_cast<unsigned>(std::countr_zero(capacity));
-    tag_bits_             = entry_bits < kTaggedFrom || entry_bits >= kSlotBits ? 0U : kSlotBits - entry_bits;
-    entry_mask_           = tag_bits_ == 0 ? kEmpty : (std::uint32_t{1} << entry_bits) - 1U;
+    const bool tagged     = entry_bits >= kTaggedFrom && entry_bits < kSlotBits;
+    entry_mask_           = tagged ? (std::uint32_t{1} << entry_bits) - 1U : kEmpty;
   }
 
-  // The tag of a key with this hash, in the bits of a slot above the entry number.
+  // The tag of a key with this hash, in the bits of a slot above the entry number: the hash's top
+  // bits. 0 in a table without tags, whose entry mask keeps every bit.
   [[nodiscard]] std::uint32_t tagOf(std::size_t hash) const noexcept {
-    if (tag_bits_ == 0) {
-      return 0;
-    }
     constexpr unsigned kHashBits = std::numeric_limits<std::size_t>::digits;
-    return static_cast<std::uint32_t>(hash >> (kHashBits - tag_bits_)) << (kSlotBits - tag_bits_);
+    return static_cast<std::uint32_t>(hash >> (kHashBits - kSlotBits)) & ~entry_mask_;
   }
 
   template <typename KeyAt>
@@ -270,7 +265,6 @@ class FlatIndex {
   std::vector<std::uint32_t> slots_;
   std::size_t mask_         = 0;
   std::size_t size_         = 0;
-  unsigned tag_bits_        = 0;
   std::uint32_t entry_mask_ = kEmpty;
 };
 

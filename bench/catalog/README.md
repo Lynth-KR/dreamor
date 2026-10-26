@@ -155,11 +155,13 @@ python3 report.py ../results/<run>                            # summary.md and c
 
 ## Results
 
-A screening run of every family on the library this section was committed with: AMD Ryzen 7 5700X (32 MB L3),
+A screening run of every family on dreamor 0.2.0 (`032c34c`): AMD Ryzen 7 5700X (32 MB L3),
 WSL2, not pinned; GCC 13.3, `-O2 -march=native`; the default design (resolution IV, k 2, 3, 5, N
 1e5 and 1e6; data's own full design), 2 repetitions (seeds 20261025 and 20261026, a layout each);
 5808 runs, no check mismatch. Each family's `summary.md` holds the rest: every arm, absolute times,
-the variation between layouts, the factors' effects.
+the variation between layouts, the factors' effects. The library since then is level or faster in every family
+([CHANGELOG](../../CHANGELOG.md)); the tables are measured again at the next release, built with GCC 13 and with
+Clang 18.
 
 A ratio is a hand-written arm's time over dreamor's, the geometric mean over the cells the arm ran in;
 above 1, dreamor is faster. `best` is the fastest hand-written arm in each cell; the usual code is

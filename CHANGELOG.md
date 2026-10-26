@@ -12,6 +12,12 @@ and versions follow [Semantic Versioning](https://semver.org/).
   the solver's API stays the solver's, misuse stops at compile time in one sentence, the standard library is the
   precedent, speed is measured - with the naming, the rules of use and what dreamor leaves out; `docs/guide.md`
   explains every part in use; `docs/reference.md` lists the API. Each in English and Korean (`docs/ko/`).
+- `FlatIndex` has one probe for tables with tags and without, not one each. With two, `find()` grew too large for
+  its callers to inline it: `Ordered::prev(t)` - 3 ns a call - took 1.4 times as long since 0.2.0's tags, under GCC 13
+  and Clang 18 alike. The catalog's families now total 0.93-0.99 of 0.2.0's time on both compilers (order, setop
+  and lookup gain the most), and Clang's index builds 0.79-0.87. Against the library before the tags, a `prev(t)`
+  still costs about 0.2 ns more - small tables check a tag of 0 too - while lot sizing through CPLEX builds in
+  0.96-0.98 of that library's time on both compilers.
 
 ### Added
 
