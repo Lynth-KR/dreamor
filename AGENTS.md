@@ -121,8 +121,10 @@ Changes must keep these. They are the library's reason to exist, not style prefe
   own, so a win there can be a fit to them. An optimization stands on a property dreamor guarantees (a contract, the
   structure of generation), not on how the benchmark draws its data; its effect holds across the experiment's cells,
   not in a few; it serves an operation real models perform; and it lowers a cost rather than moving it to another
-  phase. Check it against the whole experiment and on data it was not tuned on (another seed or machine). What a loss
-  elsewhere may cost depends on how far the library has come:
+  phase. Check it against the whole experiment and on data it was not tuned on (another seed or machine), and build
+  every A/B with both compilers at CI's floor, GCC 13 and Clang 18: they inline and lay out code differently, and a
+  change can hold under one alone (newer compilers are welcome, not required). What a loss elsewhere may cost depends
+  on how far the library has come:
   - A fundamental change (a new data structure, a first optimization of an operation) leaves no other phase or cell
     worse.
   - Squeezing a library that is already tuned works on a Pareto frontier, where a gain somewhere usually costs a
@@ -131,10 +133,21 @@ Changes must keep these. They are the library's reason to exist, not style prefe
     - **Where it matters:** the loss falls where building is already fast or the shape is uncommon (small N, data in
       cache), the gain where models wait (large N, past the cache) - as a service weighs its P95/P99 latency above
       its average.
-    - **Within noise:** each loss is small enough to sit in a real machine's run-to-run noise, under 5%, measured
-      with the phase alone (`run.py --phases`), not after what other phases left in the heap.
+    - **The whole holds, absolutely:** a phase's loss is weighed, not capped - against the gain (above), and stated
+      as what one operation costs (ns a call, a row), measured with the phase alone (`run.py --phases`), not after
+      what other phases left in the heap. What is absolute is the whole: no family's total in the catalog and no
+      scenario - a whole model, through the real solver - is slower at any N, by its 95% interval. The catalog's
+      mix of phases is the benchmark's own; a scenario is how a model actually weighs them.
     - **Net positive:** over every cell of the experiment, the geometric mean ratio is a gain whose 95% interval
       excludes no change.
+
+    A phase's loss that the allocator's history makes, not the changed code, is not the change's cost: the phase
+    runs the same instructions and pays for memory an earlier phase used to leave it - blocks freed by vector
+    doublings the change no longer makes, or the glibc mmap threshold those frees raised. Show the mechanism (the
+    phase's page faults; the loss gone or shrunk with `GLIBC_TUNABLES=glibc.malloc.mmap_threshold=33554432`) and
+    state it in the commit message with its numbers. Instructions tell the two apart: `run.py` counts them where the
+    machine can (`--pmu auto`), and `compare.py` puts their ratio beside the time's - a loss they follow is the code
+    the compiler made, one they do not is memory.
 - **One way to do one thing.** No second syntax: no pipe operators, no free-function aliases of members. Two
   combinations of tools reaching the same result is not a second way: never add a rule that forbids a combination
   because another one gives the same result.

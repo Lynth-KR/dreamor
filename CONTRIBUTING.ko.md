@@ -94,7 +94,8 @@ OR-Tools 경로는 위의 환경 변수로), 저장소의 `.clangd`와 `.vscode/
   영어판, 그리고 `skills/dreamor/`의 에이전트 skill도 바꿉니다.
 - **성능.** 빨라졌다는 주장에는 측정이 따라야 합니다. catalog가 라이브러리의 두 빌드를 짝지어 비교합니다
   ([bench/README.md](bench/README.md#checking-a-change), 영어). 최적화는 dreamor가 보장하는 성질에 기대야 하고, 몇몇
-  셀이 아니라 실험 전체에서 성립해야 합니다.
+  셀이 아니라 실험 전체에서, GCC 13으로 빌드해도 Clang 18로 빌드해도 성립해야 합니다. 다른 단계가 크게 얻는다면
+  한 단계가 조금 잃을 수는 있지만, 묶음 전체나 솔버를 거친 모델 전체가 느려져서는 안 됩니다.
 - **완료**는 기본 테스트가 GCC와 Clang에서 통과하고, MathOpt 백엔드나 공용 코드를 건드렸다면 `--mathopt`도 통과하고,
   `tools/format.sh --check`가 통과하고, `tools/tidy.sh`가 아무것도 보고하지 않는 상태입니다.
 

@@ -35,6 +35,10 @@ and versions follow [Semantic Versioning](https://semver.org/).
 - The benchmark runners count instructions wherever the machine lets a process count its own (`--pmu auto`, the
   default; `none` turns it off), and `bench/catalog/compare.py` puts each counter's ratio beside the time's. Time
   that the instructions do not follow is memory; time they follow is the code the compiler made.
+- How a performance change is judged (`AGENTS.md`, and in `CONTRIBUTING.md` for people): every A/B is built with
+  both compilers at CI's floor, GCC 13 and Clang 18. A phase's loss is weighed against the gain and stated per
+  operation, not held to a fixed bound; what may not get slower is the whole - a catalog family's total, a scenario
+  through the real solver. A loss the allocator's history makes, shown by its page faults, is not the change's cost.
 
 ## [0.2.0] - 2026-10-25
 

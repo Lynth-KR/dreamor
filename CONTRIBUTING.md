@@ -99,7 +99,9 @@ OR-Tools paths come from the environment variables above), and the repository's 
   in `skills/dreamor/`.
 - **Performance.** A claim that something is faster comes with a measurement: the catalog compares two builds of
   the library run by run ([bench/README.md](bench/README.md#checking-a-change)). An optimization has to rest on
-  something dreamor guarantees, and hold across the experiment, not in a few cells.
+  something dreamor guarantees, and hold across the experiment, not in a few cells, built with GCC 13 and with
+  Clang 18 alike. A phase may lose a little where another gains much; a whole family, or a whole model through the
+  solver, may not get slower.
 - **Done** means the default tests pass on GCC and Clang, `--mathopt` passes if the MathOpt backend or the shared
   machinery is touched, `tools/format.sh --check` passes, and `tools/tidy.sh` reports nothing.
 
