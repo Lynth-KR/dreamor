@@ -8,20 +8,22 @@
 #   tools/format.sh --check   change nothing; fail if anything is not formatted (what CI runs)
 #
 # Formatting differs between versions, so both are pinned: clang-format here, ruff in ruff.toml.
-#   uv tool install clang-format==23.1.3 && uv tool install ruff==0.17.1
-# CLANG_FORMAT and RUFF override the binaries.
+# uvx runs the pinned versions (installing nothing on PATH); CLANG_FORMAT and RUFF override the
+# commands, e.g. CLANG_FORMAT=clang-format for one on PATH (its version must still match).
 set -eu
 cd "$(dirname "$0")/.."
 CLANG_FORMAT_VERSION=23.1.3
-CLANG_FORMAT=${CLANG_FORMAT:-clang-format}
-RUFF=${RUFF:-ruff}
+RUFF_VERSION=$(sed -n 's/^required-version = "==\(.*\)"/\1/p' ruff.toml)
+CLANG_FORMAT=${CLANG_FORMAT:-uvx -q clang-format@$CLANG_FORMAT_VERSION}
+RUFF=${RUFF:-uvx -q ruff@$RUFF_VERSION}
 SPDX="SPDX-License-Identifier: Apache-2.0"
 CHECK=
 [ "${1:-}" = "--check" ] && CHECK=1
 
-found=$("$CLANG_FORMAT" --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)
+# CLANG_FORMAT and RUFF are commands of several words: they are expanded unquoted below.
+found=$($CLANG_FORMAT --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)
 if [ "$found" != "$CLANG_FORMAT_VERSION" ]; then
-  echo "clang-format $CLANG_FORMAT_VERSION needed, found ${found:-none}: uv tool install clang-format==$CLANG_FORMAT_VERSION" >&2
+  echo "clang-format $CLANG_FORMAT_VERSION needed, found ${found:-none} ($CLANG_FORMAT)" >&2
   exit 1
 fi
 
@@ -49,11 +51,11 @@ if [ -n "$missing" ]; then
 fi
 
 if [ -n "$CHECK" ]; then
-  files -z '*.hpp' '*.cpp' '*.cc' '*.h' | xargs -0 "$CLANG_FORMAT" --dry-run --Werror
-  files -z '*.py' | xargs -0 "$RUFF" format --check
-  files -z '*.py' | xargs -0 "$RUFF" check
+  files -z '*.hpp' '*.cpp' '*.cc' '*.h' | xargs -0 $CLANG_FORMAT --dry-run --Werror
+  files -z '*.py' | xargs -0 $RUFF format --check
+  files -z '*.py' | xargs -0 $RUFF check
 else
-  files -z '*.hpp' '*.cpp' '*.cc' '*.h' | xargs -0 "$CLANG_FORMAT" -i
-  files -z '*.py' | xargs -0 "$RUFF" format
-  files -z '*.py' | xargs -0 "$RUFF" check --fix
+  files -z '*.hpp' '*.cpp' '*.cc' '*.h' | xargs -0 $CLANG_FORMAT -i
+  files -z '*.py' | xargs -0 $RUFF format
+  files -z '*.py' | xargs -0 $RUFF check --fix
 fi

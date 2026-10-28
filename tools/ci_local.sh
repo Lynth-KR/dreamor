@@ -17,19 +17,13 @@ rev=$(git rev-parse --verify "${1:-HEAD}^{commit}")
 ORTOOLS_DIR=${ORTOOLS_DIR:-/opt/ortools}
 GCC_IMAGE=docker.io/library/gcc:16
 
-# The machine: every tool CI installs, at the versions the scripts pin.
+# The machine: every tool CI installs. uv runs the pinned formatters and clang-tidy (uvx), at the
+# versions tools/format.sh, tools/tidy.sh and ruff.toml pin.
 missing=
 lack() { missing="$missing  $1\n"; }
-for tool in g++-13 clang++-18 clang++-23 cmake podman python3 run-clang-tidy.py; do
+for tool in g++-13 clang++-18 clang++-23 cmake podman python3 uv; do
   command -v "$tool" > /dev/null 2>&1 || lack "$tool"
 done
-pinned() {  # pinned TOOL VERSION
-  found=$("$1" --version 2> /dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1) || true
-  [ "$found" = "$2" ] || lack "$1 $2 (found ${found:-none}): uv tool install $1==$2"
-}
-pinned clang-format "$(sed -n 's/^CLANG_FORMAT_VERSION=//p' tools/format.sh)"
-pinned clang-tidy "$(sed -n 's/^CLANG_TIDY_VERSION=//p' tools/tidy.sh)"
-pinned ruff "$(sed -n 's/^required-version = "==\(.*\)"/\1/p' ruff.toml)"
 if command -v podman > /dev/null 2>&1 && ! podman image exists "$GCC_IMAGE"; then
   lack "the $GCC_IMAGE image: podman pull $GCC_IMAGE"
 fi

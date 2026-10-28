@@ -82,10 +82,11 @@ OR-Tools 경로는 위의 환경 변수로), 저장소의 `.clangd`와 `.vscode/
 
 - **스타일.** `tools/format.sh`가 C++(clang-format 23.1.3)과 Python(ruff 0.17.1)을 포맷하고, 모든 파일 첫 줄의 SPDX
   줄을 넣습니다. `tools/tidy.sh`는 라이브러리, 테스트, 예제에 clang-tidy 23.1.3을 돌리며, 아무것도 보고하지 않아야
-  합니다. 도구 버전은 고정되어 있습니다: `uv tool install clang-format==23.1.3 clang-tidy==23.1.3 ruff==0.17.1`.
-  라이브러리 코드는 타입 `PascalCase`, 함수 `camelCase`, 변수 `snake_case`(멤버는 끝에 `_`), 상수 `kPascalCase`를
-  씁니다. 예제와 문서는 [철학](docs/ko/philosophy.md#이름-짓기)의 사용자 규칙을 따릅니다. 개수, 크기, 인덱스는
-  부호 없는 타입입니다.
+  합니다. 도구 버전은 고정되어 있고 스크립트가 `uvx`로 그 버전을 실행하니, [uv](https://docs.astral.sh/uv/)만
+  설치하면 됩니다. 에디터의 clang-format 경로를 `tools/clang-format`으로 지정하면 저장할 때도 CI와 같게 포맷됩니다.
+  라이브러리 코드는 타입 `PascalCase`, 함수 `camelCase`, 변수 `snake_case`(멤버는 끝에 `_`),
+  상수 `kPascalCase`를 씁니다. 예제와 문서는 [철학](docs/ko/philosophy.md#이름-짓기)의 사용자 규칙을 따릅니다.
+  개수, 크기, 인덱스는 부호 없는 타입입니다.
 - **테스트.** 동작이 바뀌면 테스트도 함께 바꿉니다. 새 컴파일 시점 진단에는 `tests/compile_fail/`에 사례를 더하고,
   `// expect:` 줄에 컴파일러가 가장 먼저 내야 할 문장을 적습니다. GCC 13과 Clang 18 모두에서 성립해야 합니다. 새
   디버그 빌드 계약 검사에는 `tests/contract_fail/`에 사례를 더합니다.

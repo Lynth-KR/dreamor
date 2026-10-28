@@ -84,11 +84,12 @@ OR-Tools paths come from the environment variables above), and the repository's 
 
 ## Making a change
 
-- **Style.** `tools/format.sh` formats C++ (clang-format 23.1.3) and Python (ruff 0.17.1) and adds the SPDX line
-  every file starts with; `tools/tidy.sh` runs clang-tidy 23.1.3 over the library, the tests and the examples, and
-  must report nothing. The formatters are pinned: `uv tool install clang-format==23.1.3 clang-tidy==23.1.3
-  ruff==0.17.1`. Library code names types `PascalCase`, functions `camelCase`, variables `snake_case` (members with
-  a trailing `_`), constants `kPascalCase`; examples and documentation use the user conventions of the
+- **Style.** `tools/format.sh` formats C++ (clang-format 23.1.3) and Python (ruff 0.17.1) and adds the SPDX line every
+  file starts with; `tools/tidy.sh` runs clang-tidy 23.1.3 over the library, the tests and the examples, and must
+  report nothing. The versions are pinned, and the scripts run them through `uvx`: install
+  [uv](https://docs.astral.sh/uv/) and nothing else; point your editor's clang-format at `tools/clang-format` to
+  format on save as CI does. Library code names types `PascalCase`, functions `camelCase`, variables `snake_case`
+  (members with a trailing `_`), constants `kPascalCase`; examples and documentation use the user conventions of the
   [philosophy](docs/philosophy.md#naming). A count, size or index is never signed.
 - **Tests.** A change of behavior comes with a test. A new compile-time diagnostic comes with a case in
   `tests/compile_fail/` whose `// expect:` line names the sentence the compiler must print first, on GCC 13 and

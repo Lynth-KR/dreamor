@@ -75,9 +75,10 @@ tools/ci_local.sh [REV]              # what CI runs, on one commit checked out a
   (`gh workflow run tests --ref <branch>`).
 - **Local CI** (`tools/ci_local.sh`) runs the same jobs on this machine, over a commit checked out in a temporary
   worktree, so it tests what a push publishes and not the working tree. It checks for every tool CI installs first -
-  GCC 13, Clang 18 and 23, podman with the `gcc:16` image, cmake, OR-Tools at `$ORTOOLS_DIR`, and the pinned
-  formatters and clang-tidy - and runs nothing if one is missing. `tools/hooks/pre-push` runs it on every commit pushed
-  to main; turn it on per clone with `git config core.hooksPath tools/hooks`, skip it once with `--no-verify`.
+  GCC 13, Clang 18 and 23, podman with the `gcc:16` image, cmake, OR-Tools at `$ORTOOLS_DIR`, and uv (for the
+  pinned formatters and clang-tidy) - and runs nothing if one is missing. `tools/hooks/pre-push` runs it on every
+  commit pushed to main; turn it on per clone with `git config core.hooksPath tools/hooks`, skip it once with
+  `--no-verify`.
 - **Compiler support** is a range tested at both ends, nothing in between: the floor is GCC 13 / Clang 18 (raising
   it is a decision, not a cleanup), the ceiling the newest releases (GCC 16 from the `gcc:16` image, Clang 23 from
   apt.llvm.org). Bump the ceiling at each major release - GCC every spring, LLVM every March and September - in
@@ -85,14 +86,16 @@ tools/ci_local.sh [REV]              # what CI runs, on one commit checked out a
   fix it, then bump. Locally: `CXX=clang++-23 tests/run_tests.sh`, and
   `podman run --rm -v "$PWD":/src -w /src docker.io/library/gcc:16 sh -c 'CXX=g++ tests/run_tests.sh'`.
 - **Formatting** is `.clang-format` (clang-format 23.1.3) and `ruff.toml` (ruff 0.17.1), pinned because output differs
-  between versions: `uv tool install clang-format==23.1.3`, `uv tool install ruff==0.17.1`.
+  between versions. The scripts run the pinned versions through `uvx`, so all they need is
+  [uv](https://docs.astral.sh/uv/); nothing is installed on PATH, and another project's pins do not collide.
   `examples/mathopt_samples/` is left as ported, and the code blocks of the README and `docs/` are formatted by
   hand. The script also adds the SPDX license line where it is missing.
-  CI runs `tools/format.sh --check`. To bump a formatter, change all of its pins together (`CLANG_FORMAT_VERSION` in
-  `tools/format.sh` and the pipx line in CI; `required-version` in `ruff.toml` and the pipx line), run
-  `tools/format.sh`, commit only the reformatting, and add that commit to `.git-blame-ignore-revs`. Time to bump:
-  when clangd in the editor gets ahead of the pin and format-on-save starts to disagree with CI.
-- **Linting** is `.clang-tidy` (clang-tidy 23.1.3, `uv tool install clang-tidy==23.1.3`): broad check families, with
+  CI runs `tools/format.sh --check`. To bump a formatter, change its pin (`CLANG_FORMAT_VERSION` in `tools/format.sh`,
+  `required-version` in `ruff.toml`), run `tools/format.sh`, commit only the reformatting, and add that commit to
+  `.git-blame-ignore-revs`. Time to bump: when clangd in the editor gets ahead of the pin and format-on-save starts
+  to disagree with CI. `tools/clang-format` is the pinned clang-format as one executable, for an editor's
+  format-on-save (VS Code: `clang-format.executable`).
+- **Linting** is `.clang-tidy` (clang-tidy 23.1.3, run through `uvx` as well): broad check families, with
   the few that clash with this codebase turned off and the reason written beside each. tests/ and examples/ relax
   what test and example code does on purpose; tests/stub, the compile_fail cases, the ported samples and bench/ are
   not checked. An exception to a check that stays on is `NOLINT(check): reason` - never a bare NOLINT. Review what

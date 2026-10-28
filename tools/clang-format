@@ -1,0 +1,7 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# clang-format at the version tools/format.sh pins, run through uvx, for an editor that wants one
+# executable: point its clang-format path here (e.g. VS Code's clang-format.executable) and
+# format-on-save matches CI. Arguments go to clang-format as they are.
+CLANG_FORMAT_VERSION=$(sed -n 's/^CLANG_FORMAT_VERSION=//p' "$(dirname "$0")/format.sh")
+exec uvx -q clang-format@"$CLANG_FORMAT_VERSION" "$@"
