@@ -99,28 +99,26 @@ headline, the geometric mean over the sizes.
 
 ## Results
 
-On the home machine (AMD Ryzen 7 5700X, WSL2 - screening results, not a headline machine), on
-dreamor 0.2.0 (`032c34c`; p-median just before text name tokens were copied rather than formatted, a
-path its integer names never take), 5 repetitions, every check agreeing. The library since then builds lot
-sizing level or faster ([CHANGELOG](../../CHANGELOG.md)); the tables are measured again at the next release, built
-with GCC 13 and with Clang 18. dreamor / each hand-written arm, the geometric mean over the sizes; below 1, dreamor
-is faster. The headline is the time to the solver's start, the benchmarks'
-measure:
+The reference run on dreamor 0.3.0 (the library at `52f5cc9`): AMD Ryzen 7 5700X, bare metal, boost
+off and the `performance` governor, pinned to one core; built with GCC 13.3 and with Clang 18.1;
+5 repetitions, every check agreeing. dreamor / each hand-written arm, the geometric mean over the
+sizes, GCC 13 / Clang 18 in each cell; below 1, dreamor is faster. The headline is the time to the
+solver's start, the benchmarks' measure:
 
 | Scenario | Arm | CPLEX | MathOpt (HiGHS) | stub (containers alone) |
 |---|---|---|---|---|
-| p-median | hand, positional | 1.027 | 1.004 | 1.122 |
-| lot sizing | flat, hand-optimized | 1.040 | 1.016 | 1.259 |
-| lot sizing | plain, `std::map` | 0.664 | - | 0.272 |
+| p-median | hand, positional | 1.045 / 1.042 | 1.009 / 1.009 | 1.155 / 1.160 |
+| lot sizing | flat, hand-optimized | 1.042 / 1.036 | 1.021 / 1.023 | 1.300 / 1.309 |
+| lot sizing | plain, `std::map` | 0.595 / 0.631 | - | 0.219 / 0.219 |
 
-- **Through a solver, dreamor builds what hand-optimized code builds in the same time:** within 4%
-  in the geometric mean, and every size's 95% interval but one holds 1. Against the code usually
-  written without index sets, it takes two thirds of the time through CPLEX and about a quarter on
-  the stub.
+- **Through a solver, dreamor builds what hand-optimized code builds within 5%:** 1.03-1.05 through
+  CPLEX and 1.00-1.03 through MathOpt, at every size and on both compilers. Against the code usually
+  written without index sets, it takes 0.52-0.69 of the time through CPLEX and about a fifth on the
+  stub.
 - **On the stub, the gap to hand-optimized code is the rows dreamor makes.** A hand-coder who knows
   the rows are a product - locations x customers, routes x periods - computes positions instead of
-  making them: p-median's 5e6 assignment rows cost dreamor 47 ms, lot sizing's `variables` phase is
-  1.5 times flat's. Grouping such rows (p-median's `assign`, lot sizing's balance and capacity
-  groups) is the rest: 1.2 to 1.7 times a loop that strides by position.
-- **At 1e7 rows** (p-median at L = 100000, stub and CPLEX, 3 repetitions) the picture holds: CPLEX
-  1.046 [0.939, 1.165], stub 1.074. MathOpt would need about 20 GB there and was not run.
+  making them: p-median's 5e6 assignment rows cost dreamor 40 ms, lot sizing's `variables` phase is
+  1.4-1.6 times flat's. Grouping such rows (p-median's `assign`, lot sizing's balance and capacity
+  groups) is the rest: 1.2 to 1.9 times a loop that strides by position.
+- **At 1e7 rows** (p-median at L = 100000, 5 repetitions) the picture holds: CPLEX 1.048 / 1.041,
+  MathOpt 1.007 / 1.017 (about 19 GB at the peak), stub 1.158 / 1.165.

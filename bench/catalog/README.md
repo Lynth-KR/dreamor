@@ -154,84 +154,99 @@ python3 report.py ../results/<run>                            # summary.md and c
   not follow is memory, one they follow is the code the compiler made. A phase's time includes what
   the phases before it left in the heap, so a phase whose code did not change can move too:
   measure it alone with `--phases` before reading that as an effect.
-- The machine: these runs are screening runs under WSL2 (a virtual machine, not pinned); results a
-  conclusion rests on belong on bare metal with the CPU's frequency fixed.
+- The machine: a result a conclusion rests on comes from bare metal with the CPU's frequency fixed
+  (boost off, the `performance` governor) and the runner pinned to one core, as the results below
+  are. A run under WSL2 or another virtual machine is not pinned and screens only.
 
 ## Results
 
-A screening run of every family on dreamor 0.2.0 (`032c34c`): AMD Ryzen 7 5700X (32 MB L3),
-WSL2, not pinned; GCC 13.3, `-O2 -march=native`; the default design (resolution IV, k 2, 3, 5, N
-1e5 and 1e6; data's own full design), 2 repetitions (seeds 20261025 and 20261026, a layout each);
-5808 runs, no check mismatch. Each family's `summary.md` holds the rest: every arm, absolute times,
-the variation between layouts, the factors' effects. The library since then is level or faster in every family
-([CHANGELOG](../../CHANGELOG.md)); the tables are measured again at the next release, built with GCC 13 and with
-Clang 18.
+The reference run of every family on dreamor 0.3.0 (the library at `52f5cc9`): AMD Ryzen 7 5700X
+(32 MB L3), bare metal, Linux 7.0, boost off and the `performance` governor (3.25 GHz), pinned to
+one core; built with GCC 13.3 and with Clang 18.1, `-O2 -march=native`; resolution VI (32 cells of
+the six factors, by k 2, 3, 5 and N 1e5, 1e6: 192 cells; data's own full design, 8), 5 repetitions,
+a layout each; 28,920 runs per compiler, no check mismatch. Each family's `summary.md` holds the rest:
+every arm, absolute times, the variation between layouts, the factors' effects.
 
 A ratio is a hand-written arm's time over dreamor's, the geometric mean over the cells the arm ran in;
 above 1, dreamor is faster. `best` is the fastest hand-written arm in each cell; the usual code is
-`std::map` (`std::set` in setop). The 95% intervals, from the variation between repetitions, are
-within 1-3% of each ratio (data, with 8 cells: 3-7%), so they are left out here.
+`std::map` (`std::set` in setop). Each cell shows GCC 13 / Clang 18. The 95% intervals, from the
+variation between repetitions, are within 4% of each ratio (data under Clang, with 8 cells: 6%), so
+they are left out here.
 
 | Family | Phase | best | usual code |
 |---|---|---|---|
-| lookup | build | 1.38 | 2.29 |
-| | index | 6.72 | - |
-| | neighbor | 1.24 | 2.81 |
-| | project | 1.30 | 6.16 |
-| | hit | 1.09 | 5.81 |
-| | miss | 2.16 | 21.06 |
-| | half | 1.04 | 6.07 |
-| | **total** | **1.59** | **6.27** |
-| group | build | 0.70 | 0.88 |
-| | prep_inner / sum_inner | 0.73 / 0.90 | 5.23 / 1.10 |
-| | prep_lead / sum_lead | 1.23 / 0.89 | 3.48 / 1.06 |
-| | prep_mid / sum_mid | 1.13 / 0.90 | 3.39 / 1.09 |
-| | sum_where | 0.91 | 1.06 |
-| | **total** | **1.00** | **2.19** |
-| setop | build | 0.78 | 0.79 |
-| | select | 0.74 | 2.89 |
-| | unite | 1.12 | 4.53 |
-| | intersect | 1.27 | 6.85 |
-| | difference | 1.59 | 7.31 |
-| | member | 1.64 | 4.90 |
-| | **total** | **1.35** | **5.03** |
-| slice | build | 0.79 | 0.98 |
-| | prep_inner / slice_inner | 1.26 / 0.99 | 5.60 / 1.30 |
-| | split / coef | 0.94 / 0.92 | 1.17 / 1.20 |
-| | prep_lead / slice_lead | 1.16 / 0.93 | 3.25 / 1.27 |
-| | **total** | **1.04** | **1.81** |
-| make | collect | 1.01 | 1.03 |
-| | vars / vars_named | 0.99 / 0.86 | 1.03 / 0.90 |
-| | join | 1.40 | 1.64 |
-| | **total** | **1.12** | **1.23** |
-| order | build | 0.73 | 2.17 |
-| | index | 4.08 | - |
-| | step | 0.17 | 0.39 |
-| | lag | 1.45 | 2.33 |
-| | window | 0.78 | 1.84 |
-| | **total** | **1.07** | **1.75** |
-| data | build | 0.91 | 7.15 |
-| | load | 2.84 | 6.97 |
-| | find_hit / find_miss | 1.38 / 1.63 | 11.47 / 17.32 |
-| | solution | 0.38 | 6.99 |
-| | value | 0.05 | 22.09 |
-| | **total** | **1.69** | **9.65** |
+| lookup | build | 1.41 / 1.44 | 2.57 / 2.81 |
+| | index | 5.53 / 5.91 | - |
+| | neighbor | 1.11 / 1.20 | 2.97 / 2.96 |
+| | project | 1.07 / 1.18 | 5.88 / 6.88 |
+| | hit | 1.14 / 3.32 | 6.58 / 5.77 |
+| | miss | 1.59 / 3.52 | 14.31 / 13.53 |
+| | half | 1.01 / 2.58 | 5.73 / 5.83 |
+| | **total** | **1.50 / 2.85** | **5.94 / 5.79** |
+| group | build | 0.80 / 0.78 | 0.93 / 0.93 |
+| | prep_inner / sum_inner | 0.82 / 0.89, 0.90 / 0.93 | 6.22 / 5.76, 1.03 / 1.05 |
+| | prep_lead / sum_lead | 1.19 / 1.23, 0.90 / 0.96 | 3.79 / 3.54, 0.98 / 1.04 |
+| | prep_mid / sum_mid | 1.11 / 1.16, 0.95 / 0.98 | 3.71 / 3.40, 1.05 / 1.08 |
+| | sum_where | 0.96 / 1.01 | 1.04 / 1.08 |
+| | **total** | **1.02 / 1.07** | **2.28 / 2.18** |
+| setop | build | 0.87 / 0.81 | 0.87 / 0.81 |
+| | select | 0.94 / 0.88 | 3.86 / 3.49 |
+| | unite | 1.52 / 1.56 | 5.68 / 5.75 |
+| | intersect | 1.63 / 1.62 | 7.28 / 7.14 |
+| | difference | 1.94 / 1.96 | 7.72 / 7.52 |
+| | member | 2.06 / 1.94 | 5.38 / 4.86 |
+| | **total** | **1.78 / 1.75** | **5.83 / 5.61** |
+| slice | build | 0.86 / 0.83 | 1.00 / 0.99 |
+| | prep_inner / slice_inner | 1.25 / 1.23, 0.98 / 0.96 | 5.93 / 5.81, 1.23 / 1.20 |
+| | split / coef | 0.98 / 0.97, 0.96 / 0.89 | 1.15 / 1.13, 1.18 / 1.09 |
+| | prep_lead / slice_lead | 1.21 / 1.26, 0.91 / 0.96 | 3.42 / 3.33, 1.17 / 1.21 |
+| | **total** | **1.06 / 1.05** | **1.83 / 1.76** |
+| make | collect | 1.07 / 1.05 | 1.08 / 1.06 |
+| | vars / vars_named | 1.09 / 1.22, 0.89 / 1.06 | 1.10 / 1.23, 0.90 / 1.07 |
+| | join | 1.42 / 1.43 | 1.77 / 1.97 |
+| | **total** | **1.13 / 1.21** | **1.27 / 1.45** |
+| order | build | 0.82 / 0.80 | 2.38 / 2.40 |
+| | index | 3.86 / 4.16 | - |
+| | step | 0.19 / 0.25 | 0.32 / 0.35 |
+| | lag | 1.51 / 1.69 | 2.41 / 2.32 |
+| | window | 0.77 / 0.76 | 1.85 / 2.12 |
+| | **total** | **1.09 / 1.17** | **1.78 / 1.96** |
+| data | build | 0.90 / 0.92 | 6.92 / 10.97 |
+| | load | 2.30 / 2.25 | 5.66 / 6.02 |
+| | find_hit / find_miss | 1.10 / 0.97, 1.23 / 0.92 | 11.37 / 9.48, 15.72 / 11.56 |
+| | solution | 0.39 / 0.40 | 8.64 / 14.78 |
+| | value | 0.06 / 0.08 | 26.73 / 20.21 |
+| | **total** | **1.42 / 1.32** | **9.88 / 9.56** |
 
-Coverage: dreamor and the usual code run every cell. Packed keys do not fit in 64 bits in up to 4
-cells of a family (k = 5, owned middle columns, small lists), and the direct array fits in 16 of 96
+Coverage: dreamor and the usual code run every cell. Packed keys do not fit in 64 bits in up to 8
+cells of a family (k = 5, owned middle columns, small lists), and the direct array fits in 32 of 192
 (lookup, order).
 
-- **Against the usual code**, dreamor is faster in every family's total: 1.2 to 9.7 times, and
-  21 times on lookups of absent keys.
-- **Against the best hand-written arm**, it is ahead in four families' totals (lookup 1.59, setop
-  1.35, make 1.12, data 1.69), level in group, slice and order (1.00-1.07), and behind in no
-  family's total. A hash map or a sorted array that the hand-coder picks per cell does not beat it overall.
+- **Against the usual code**, dreamor is faster in every family's total on both compilers: 1.3 to
+  9.9 times, and 13.5-14 times on lookups of absent keys.
+- **Against the best hand-written arm**, it is ahead in every family's total on both compilers:
+  setop 1.78 / 1.75, lookup 1.50 / 2.85, data 1.42 / 1.32, make 1.13 / 1.21, order 1.09 / 1.17, and
+  slice and group by 2-7%. A hash map or a sorted array that the hand-coder picks per cell does not
+  beat it overall.
 - **Where hand-written code wins, it knows the data's structure.** `build` in group, setop, slice and
-  order (0.70-0.79): the hand-written arms keep ids or positions, dreamor a set of rows it can
-  index. `prep_inner` (0.73): the hand-coder knows the inner groups are runs. `step` and `window`
-  (0.17, 0.78): a position kept beside each entity, and arithmetic on it, against `Ordered`'s lookup.
-  `select` (0.74): sorting packed integers and dropping repeats, against a hash of tuples. `solution`
-  and `value` (0.38, 0.05): values in an array by the entity's place, against a table keyed by the
-  entity. `vars_named` (0.86): a name written straight into a buffer.
-- **The direct array, where it fits** (16 cells of lookup and order), is the fastest arm in every
-  lookup phase: lookup's total 0.70 of dreamor's time, order's 0.44.
+  order (0.78-0.87): the hand-written arms keep ids or positions, dreamor a set of rows it can
+  index. `prep_inner` (0.82 / 0.89): the hand-coder knows the inner groups are runs. `step` and
+  `window` (0.19-0.25, 0.76-0.77): a position kept beside each entity, and arithmetic on it, against
+  `Ordered`'s lookup. `select` (0.94 / 0.88): sorting packed integers and dropping repeats, against a
+  hash of tuples. `solution` and `value` (0.39-0.40, 0.06-0.08): values in an array by the entity's
+  place, against a table keyed by the entity. `vars_named` under GCC (0.89): a name written straight
+  into a buffer.
+- **The direct array, where it fits** (32 cells of lookup and order), is the fastest arm in order -
+  0.49 / 0.53 of dreamor's time - and in lookup under GCC (0.62). Under Clang lookup's array takes
+  1.61 times dreamor's time.
+- **The two compilers agree on dreamor; the hand-written lookups are what moves.** Clang 18 over
+  GCC 13, the same cell and repetition: dreamor's time is 0.89-1.02 by family, while lookup's direct
+  array takes 2.60 times its GCC time and the two packed-key arms 1.80 and 1.51 - hence lookup's
+  best at 2.85 under Clang against 1.50 under GCC. Their instructions barely move (0.9-1.4 times in
+  the phases that look keys up), at every N and every factor level alike: a fixed stall per key. The
+  hand-written arms collect a key's ids in a `std::array` returned by value, and Clang copies it with
+  one 16-byte load over the 4-byte stores just made, which the store buffer cannot forward; GCC reads
+  each id where it was stored. Which factors widen or narrow the gap to the best arm is the same
+  under both: of the effects past 5% (Holm-adjusted, per family), all but one move the gap the same
+  way, at nearly the same size - setop's permuted ids (I) 1.68 / 1.69, order's sparse rows (D)
+  1.90 / 1.99.
