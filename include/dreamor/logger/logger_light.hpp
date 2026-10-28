@@ -263,8 +263,8 @@ inline void flush() noexcept {
 // RAII: "log to this file for the rest of this scope."
 //
 //     int main() {
-//       logger::FileSink sink("scheduler.log");   // opens, redirects
-//       LOG_INFO("started");
+//       const dreamor::logger::FileSink sink("scheduler.log");   // opens, redirects
+//       DREAMOR_LOG_INFO("started");
 //       ...
 //     }   // <- flushed, previous target restored, file closed. Automatically.
 //

@@ -194,3 +194,17 @@ sumOf<Col>(container, term)
 - `yieldPlan(keys...)`, `yieldPlan(row)` → `double`; `std::out_of_range` if absent (never a silent 0).
 - `contains`, `size()`, `keys()`, range-for `[row, value]` in set order.
 - Holds only doubles, so it outlives `IloCplex`, `IloEnv`, and the `SolveResult`.
+
+## Utilities
+
+No solver; the library uses them itself.
+
+- `dreamor/general/format_buffer.hpp`: `class Model : private dreamor::general::FormatBuffer<256>`, then
+  `model.add(expr <= cap).setName(format("Capacity_{}_{}", m, t));`. A column formats as its name token; the
+  returned `const char*` is valid until the next `format`. Too long a name throws (`kThrow`, the default) or logs and
+  clears (`OnFormatOverflow::kLogAndClear`).
+- `dreamor/logger/logger_light.hpp`: `DREAMOR_LOG_INFO/WARNING/ERROR/FATAL(fmt, args...)` (`std::format`, checked
+  at compile time; `FATAL` aborts in every build), `DREAMOR_DEBUG_INFO/ERROR/FATAL` (gone under `NDEBUG`),
+  `dreamor::logger::setLevel(Level::kWarning)`, `dreamor::logger::FileSink sink{"model.log"};` (this thread, this
+  scope).
+

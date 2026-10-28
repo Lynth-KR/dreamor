@@ -2,7 +2,9 @@
 // The usage examples in the headers' comments, as written there. If a header's example
 // changes, change it here too.
 #include <cstdint>
+#include <filesystem>
 #include <format>
+#include <fstream>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -10,6 +12,7 @@
 #include "check.hpp"
 #include "dreamor/concert.hpp"
 #include "dreamor/index_set.hpp"
+#include "dreamor/logger/logger_light.hpp"
 #include "float_compare.hpp"
 
 using namespace dreamor;
@@ -136,6 +139,24 @@ int main() try {
     const FromCol i{&n1};
     const ToCol j{&n2};
     DREAMOR_CHECK(std::format("Cap_{}_{}", i, j) == "Cap_1_2");
+  }
+
+  // logger/logger_light.hpp (FileSink): the lines go to the file for the scope, then back
+  {
+    const std::filesystem::path logFile = std::filesystem::temp_directory_path() / "dreamor_test_docs_filesink.log";
+    std::filesystem::remove(logFile);
+    {
+      const dreamor::logger::FileSink sink(logFile.c_str());  // opens, redirects
+      DREAMOR_CHECK(sink.isOpen());
+      DREAMOR_LOG_INFO("started");
+    }  // flushed, previous target restored, file closed
+    std::ifstream in(logFile);
+    bool logged = false;
+    for (std::string line; std::getline(in, line);) {
+      logged = logged || line.find("started") != std::string::npos;
+    }
+    DREAMOR_CHECK(logged && dreamor::logger::getOutput() == stderr);
+    std::filesystem::remove(logFile);
   }
   return report("docs");
 } catch (...) { return ::uncaught(); }

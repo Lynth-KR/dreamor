@@ -214,8 +214,8 @@ const auto yieldPlan = vYield.solution(*result);   // std::logic_error if no pri
   inherits `dreamor::general::FormatBuffer<256>` (or `std::format(...).c_str()`).
 - **Duals and reduced costs:** use the solver API (`getDuals`, `dual_values()`). There is no keyed accessor.
 - **Several sums in one pass:** `.split(p1, p2).build()` returns `std::array<..., 2>` and computes each term once.
-- **Model in a struct:** put the sets in a base class and the `VarTable`s as members of a derived class (the base is
-  constructed first).
+- **Model in a struct:** the sets must be built before the `VarTable`s that take them - declare them as members before
+  the `VarTable`s (members are constructed in declaration order), or put them in a base class.
 - **Generic code over sets:** `sANY.template select<A>()`.
 - **A function object with a template `operator()` as a predicate:** specialize
   `dreamor::PredicateColumns<F>` with `using type = std::tuple<Cols...>;`.

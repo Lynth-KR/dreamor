@@ -213,9 +213,9 @@ const dreamor::concert::VarTable<KeyCols...> vName{env, set, lb, ub, type, "Name
 - Names are `name_key0_key1...` (`Yield_M0_I3_2`). Key tokens come from the `keyName()` hook (or `primaryKey()`).
   `nullptr` means no name. A column under `std::format` prints the same token, so a row can be named the way its
   variables are: `std::format("Cap_{}_{}", m, t)` (or a `FormatBuffer`'s `format`).
-- A VarTable takes its set in its constructor, so when you bundle a model into a struct, put the sets in a base class
-  and the VarTables as members of a derived class (the base class is constructed first). The example's `Sets` /
-  `Model` has that shape.
+- A VarTable takes its set in its constructor, so the set must be built first. When you bundle a model into a struct,
+  either declare the sets as members before the VarTables (members are constructed in declaration order) or put them
+  in a base class (a base is constructed before the members). The example's `Sets` / `Model` takes the base class.
 
 | Use | |
 |---|---|

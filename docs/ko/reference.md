@@ -105,3 +105,21 @@
 | `solution(result)` | `math_opt::SolveResult` → `ValueTable`; 가능해가 없으면 `std::logic_error` |
 | `sumOf(rows, term)`, `sumOf<Col>(container, term)` | 합 빌더; `build()`는 `math_opt::LinearExpression` (`split`이면 그 배열) |
 
+## 유틸리티
+
+**이름** (`general/format_buffer.hpp`, 네임스페이스 `dreamor::general`)
+| | |
+|---|---|
+| `FormatBuffer<N, Policy = OnFormatOverflow::kThrow>` | 이름용 고정 버퍼(`N`글자). private으로 상속하고 `format(fmt, args...)`을 부름. 돌려주는 `const char*`는 같은 객체의 다음 `format`까지 유효 (복사해 가는 `setName`에 바로 넘김). 열은 이름 토큰으로 출력 |
+| `OnFormatOverflow::kThrow`, `kLogAndClear` | 이름이 `N - 1`글자를 넘으면: `std::runtime_error`, 또는 경고와 빈 이름 (이때 `format`은 `noexcept`) |
+
+**로그** (`logger/logger_light.hpp`)
+| | |
+|---|---|
+| `DREAMOR_LOG_INFO(fmt, args...)`, `DREAMOR_LOG_WARNING`, `DREAMOR_LOG_ERROR` | 한 줄: `[+경과 ms] [파일:줄] [수준] 본문`. 본문은 `std::format` (컴파일 시점 검사). 터미널이면 색을 입힘 (`NO_COLOR`가 있으면 끔). `ERROR`는 바로 flush |
+| `DREAMOR_LOG_FATAL(fmt, args...)` | 기록하고 flush한 뒤 중단. 모든 빌드에서 |
+| `DREAMOR_DEBUG_INFO`, `DREAMOR_DEBUG_ERROR`, `DREAMOR_DEBUG_FATAL` | 디버그 빌드에서만 같은 동작. `NDEBUG`에서는 인자까지 사라짐 |
+| `logger::setLevel(Level)`, `logger::getLevel()` | `Level::kInfo` / `kWarning` / `kError`보다 낮은 줄은 포매팅 전에 버림. 프로세스 전체 |
+| `logger::setOutput(FILE*)`, `logger::getOutput()`, `logger::flush()` | 호출한 스레드의 출력 대상 (기본 `stderr`) |
+| `logger::FileSink{path, mode = "a"}` | 범위가 끝날 때까지 호출한 스레드의 로그를 `path`로 보내고, 끝나면 이전 대상으로 되돌림 |
+| `DREAMOR_LOGGER_ENABLE_TIMESTAMP` | include 전에 `0`으로 정의하면 경과 시간 접두어를 뺌 |

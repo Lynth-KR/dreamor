@@ -212,6 +212,17 @@ Concert만으로 쓴 비교판은 `production_planning_plain.hpp`입니다.
 세 개(`cocktail_hour`, `time_indexed_scheduling`, `lagrangian_relaxation`)를 dreamor로 옮긴 것과, 각각 무엇이
 달라지는지 설명한 글이 있습니다.
 
+## 유틸리티
+
+dreamor가 스스로 쓰는 헤더 두 개로, 모델 코드에서도 쓸 수 있습니다. 둘 다 솔버에 의존하지 않습니다.
+
+| 헤더 | |
+|---|---|
+| `dreamor/general/format_buffer.hpp` | `dreamor::general::FormatBuffer<N>`는 고정 버퍼에 이름을 만들어서, 이름마다 메모리를 할당하지 않습니다. 모델 클래스가 private으로 상속하고 `format(...)`으로 행 이름을 짓습니다. 열은 변수 이름에 쓰이는 토큰으로 출력되므로, `model.add(load <= cap).setName(format("Capacity_{}_{}", m, t))`는 `VarTable`이 변수 이름을 짓는 방식대로 행 이름을 짓습니다 |
+| `dreamor/logger/logger_light.hpp` | `DREAMOR_LOG_INFO` / `WARNING` / `ERROR` / `FATAL(fmt, args...)`는 경과 시간, 호출 위치, 수준과 함께 한 줄을 쓰고, 본문은 컴파일 시점에 검사되는 `std::format`으로 만듭니다. `DREAMOR_DEBUG_*`는 `NDEBUG`에서 인자까지 통째로 사라집니다. `dreamor::logger::FileSink sink{"model.log"};`는 그 범위가 끝날 때까지 이 스레드의 로그를 파일로 보냅니다 |
+
+나머지는 [API 목록](docs/ko/reference.md#유틸리티)에 있습니다.
+
 ## 벤치마크
 
 `bench/`는 dreamor를 같은 모형을 손으로 짠 코드와 비교합니다. 실험계획법으로 두 층에서 잽니다.

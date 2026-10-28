@@ -105,3 +105,21 @@ Every public type and function, by header. The [guide](guide.md) explains them i
 | `solution(result)` | `math_opt::SolveResult` → `ValueTable`; `std::logic_error` if there is no feasible solution |
 | `sumOf(rows, term)`, `sumOf<Col>(container, term)` | Sum builder; `build()` gives `math_opt::LinearExpression` (an array of them with `split`) |
 
+## Utilities
+
+**Names** (`general/format_buffer.hpp`, namespace `dreamor::general`)
+| | |
+|---|---|
+| `FormatBuffer<N, Policy = OnFormatOverflow::kThrow>` | A fixed buffer of `N` chars for names. Inherit privately; `format(fmt, args...)` returns a `const char*` valid until the next `format` on the same object (hand it straight to `setName`, which copies it). A column formats as its name token |
+| `OnFormatOverflow::kThrow`, `kLogAndClear` | A name longer than `N - 1` chars: `std::runtime_error`, or a warning and an empty name (`format` is then `noexcept`) |
+
+**Logging** (`logger/logger_light.hpp`)
+| | |
+|---|---|
+| `DREAMOR_LOG_INFO(fmt, args...)`, `DREAMOR_LOG_WARNING`, `DREAMOR_LOG_ERROR` | One line: `[+elapsed ms] [file:line] [LEVEL] text`, the text through `std::format` (checked at compile time). Coloured on a terminal unless `NO_COLOR` is set; `ERROR` flushes |
+| `DREAMOR_LOG_FATAL(fmt, args...)` | Logs, flushes and aborts, in every build |
+| `DREAMOR_DEBUG_INFO`, `DREAMOR_DEBUG_ERROR`, `DREAMOR_DEBUG_FATAL` | The same in debug builds; under `NDEBUG` they vanish, arguments and all |
+| `logger::setLevel(Level)`, `logger::getLevel()` | Lines below `Level::kInfo` / `kWarning` / `kError` are dropped before formatting; process-wide |
+| `logger::setOutput(FILE*)`, `logger::getOutput()`, `logger::flush()` | The calling thread's target (default `stderr`) |
+| `logger::FileSink{path, mode = "a"}` | The calling thread logs to `path` until the scope ends; then the previous target is back |
+| `DREAMOR_LOGGER_ENABLE_TIMESTAMP` | Define as `0` before the include to drop the elapsed-time prefix |

@@ -218,6 +218,17 @@ the same constraints. A comparison version of the same model written with only `
 (`cocktail_hour`, `time_indexed_scheduling`, `lagrangian_relaxation`) ported to dreamor, with a walkthrough of
 what changes in each.
 
+## Utilities
+
+Two headers dreamor uses itself, there for model code too. Neither depends on a solver.
+
+| Header | |
+|---|---|
+| `dreamor/general/format_buffer.hpp` | `dreamor::general::FormatBuffer<N>` builds names in a fixed buffer, with no allocation per name. A model class inherits it privately and names rows with `format(...)`; a column prints as the token its variables' names use, so `model.add(load <= cap).setName(format("Capacity_{}_{}", m, t))` names a row the way `VarTable` names variables |
+| `dreamor/logger/logger_light.hpp` | `DREAMOR_LOG_INFO` / `WARNING` / `ERROR` / `FATAL(fmt, args...)` write a line with the elapsed time, the call site and the level, the text through `std::format`, checked at compile time. `DREAMOR_DEBUG_*` vanish under `NDEBUG`, arguments and all. `dreamor::logger::FileSink sink{"model.log"};` sends the thread's lines to a file until the scope ends |
+
+The [API reference](docs/reference.md#utilities) lists the rest.
+
 ## Benchmark
 
 `bench/` compares dreamor with the same model code written by hand, as designed experiments in two
