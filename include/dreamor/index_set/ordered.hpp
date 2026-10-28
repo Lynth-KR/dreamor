@@ -222,16 +222,12 @@ class Ordered {
   // past either end (not Cyclic) or in an empty set.
   [[nodiscard]] const Tup* stepFrom(const Tup& element, std::ptrdiff_t steps, bool cyclic) const {
     const auto position = ordOf(element);
-    if (!position.has_value() || members_.size() == 0) {
-      return nullptr;
-    }
+    if (!position.has_value() || members_.size() == 0) { return nullptr; }
     const auto count = static_cast<std::ptrdiff_t>(members_.size());
     auto target      = static_cast<std::ptrdiff_t>(*position) + steps;
     if (cyclic) {
       target %= count;
-      if (target < 0) {
-        target += count;
-      }
+      if (target < 0) { target += count; }
     } else if (target < 0 || target >= count) {
       return nullptr;
     }

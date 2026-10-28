@@ -221,7 +221,9 @@ const dreamor::concert::VarTable<키 열...> vName{env, 집합, lb, ub, type, "N
 
 ```cpp
 const auto in_maintenance = [](MachineCol m, PeriodCol t) { return m->name == "M0" && t.get() == 2; };
-for (const auto& row : vYield.keys().where(in_maintenance)) vYield(row).setUB(0);
+for (const auto& row : vYield.keys().where(in_maintenance)) {
+  vYield(row).setUB(0);
+}
 ```
 
 추출(`IloCplex cplex(model)`) 전에 하면 변경 통지 비용이 없습니다.
@@ -267,8 +269,9 @@ MathOpt의 `LinearExpression`은 보통의 값이라 신경 쓸 것이 없습니
 
 ```cpp
 // 집합 위의 제약족: 묶음마다 하나
-for (const auto& [machine, period, rows] : producedByMachinePeriod)
+for (const auto& [machine, period, rows] : producedByMachinePeriod) {
   model.add(dreamor::concert::sumOf(env, rows, machine_usage).build() <= machine->capacity);
+}
 
 // 단 하나뿐인 전역 제약: 이름이 필요하면 setName
 IloRange setupBudget = (dreamor::concert::sumOf(env, sPRODUCE, setup_cost).build() <= B);

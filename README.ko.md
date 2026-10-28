@@ -38,8 +38,9 @@ const dreamor::concert::VarTable<MachineCol, ItemCol, PeriodCol> vYield{env, sPR
 // subject to Capacity {m in MACHINES, t in PERIODS}: sum {i: (m,i,t) in PRODUCE} time[i] * Yield[m,i,t] <= cap[m];
 const auto machine_usage = [&](MachineCol m, ItemCol i, PeriodCol t) { return i->time * vYield(m, i, t); };
 const auto producedByMachinePeriod = sPRODUCE.groupBy<MachineCol, PeriodCol>();
-for (const auto& [machine, period, rows] : producedByMachinePeriod)
+for (const auto& [machine, period, rows] : producedByMachinePeriod) {
   model.add(dreamor::concert::sumOf(env, rows, machine_usage).build() <= machine->capacity);
+}
 ```
 
 실제 모형 코드가 어떻게 달라지는지는 [OR-Tools가 직접 제공하는 MathOpt 예제 세 개를 dreamor로 옮긴
@@ -164,7 +165,7 @@ const auto orderedPeriods = sPERIODS.ordered();
 const auto producedByItemPeriod = sPRODUCE.groupBy<ItemCol, PeriodCol>();
 for (const auto& [i, t] : sSTOCK) {
   IloExpr totalInFlow = dreamor::concert::sumOf(env, producedByItemPeriod.slice(i, t), vYield).build();
-  if (const auto* prevPeriod = orderedPeriods.prev(t)) totalInFlow += vStock(i, std::get<PeriodCol>(*prevPeriod));
+  if (const auto* prevPeriod = orderedPeriods.prev(t)) { totalInFlow += vStock(i, std::get<PeriodCol>(*prevPeriod)); }
   const double currentDemand = i->demand[t.get()];
   const auto endingStock = vStock(i, t);
   model.add(totalInFlow - currentDemand == endingStock);
@@ -178,7 +179,9 @@ for (const auto& [machine, period, rows] : producedByMachinePeriod) {
   totalLoad.end();
 }
 //    셋업 없이는 생산 없음
-for (const auto& [row, yieldVar] : vYield) model.add(yieldVar <= yieldVar.getUB() * vSetup(row));
+for (const auto& [row, yieldVar] : vYield) {
+  model.add(yieldVar <= yieldVar.getUB() * vSetup(row));
+}
 
 // 6) 목적
 IloExpr holdingCost = dreamor::concert::sumOf(env, sSTOCK, [&](ItemCol i, PeriodCol t) { return i->hold * vStock(i, t); }).build();
@@ -193,8 +196,9 @@ totalCost.end();
 IloCplex cplex(model);
 cplex.solve();
 const auto yieldPlan = vYield.solution(cplex);
-for (const auto& [row, qty] : yieldPlan)
-  if (qty > 1e-6) print(std::get<MachineCol>(row), std::get<ItemCol>(row), std::get<PeriodCol>(row), qty);
+for (const auto& [row, qty] : yieldPlan) {
+  if (qty > 1e-6) { print(std::get<MachineCol>(row), std::get<ItemCol>(row), std::get<PeriodCol>(row), qty); }
+}
 ```
 
 전체 예제는 `examples/`에 있습니다. 데이터·열·집합은 솔버와 무관한 `production_planning_sets.hpp` 하나이고,

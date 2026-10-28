@@ -60,7 +60,9 @@ struct FakeAlgorithm {
   [[nodiscard]] IloEnv getEnv() const { return env; }
   // "Solution" = lb + ub, so each value is checkable from the variable itself.
   static void getValues(IloNumArray out, const IloNumVarArray vars) {
-    for (IloInt i = 0; i < vars.getSize(); ++i) out.add(vars[i].getLB() + vars[i].getUB());
+    for (IloInt i = 0; i < vars.getSize(); ++i) {
+      out.add(vars[i].getLB() + vars[i].getUB());
+    }
   }
 };
 
@@ -129,8 +131,8 @@ int main() try {
           const auto [i, j] = key;
           const auto at     = std::ranges::find(IJ, key);
           hintsAgree        = hintsAgree && x.contains(i, j) == (at != IJ.end());
-          if (at != IJ.end()) hintsAgree = hintsAgree && x(i, j).getImpl() == x(*at).getImpl();
-          if (x2.contains(i, j)) hintsAgree = hintsAgree && x2(i, j).getImpl() == x2(key).getImpl();
+          if (at != IJ.end()) { hintsAgree = hintsAgree && x(i, j).getImpl() == x(*at).getImpl(); }
+          if (x2.contains(i, j)) { hintsAgree = hintsAgree && x2(i, j).getImpl() == x2(key).getImpl(); }
         }
       }
     }
@@ -158,7 +160,9 @@ int main() try {
 
   // bounds tightened afterwards: the variables are ordinary Concert objects
   const auto atTwo = [](ICol i) { return i.get() == 2; };
-  for (const auto& row : x.keys().where(atTwo)) x(row).setUB(0);
+  for (const auto& row : x.keys().where(atTwo)) {
+    x(row).setUB(0);
+  }
   DREAMOR_CHECK(exactlyEqual(x(ICol{2}, JCol{10}).getUB(), 0) && exactlyEqual(x(ICol{3}, JCol{10}).getUB(), 1));
 
   // tables on one set share its row index, built by the first: one built after every other
@@ -168,8 +172,9 @@ int main() try {
   const auto IJ3           = dreamor::makeSet<ICol, JCol>(I3, J).collect();
   const auto findsEveryRow = [&IJ3](const dreamor::concert::VarTable<ICol, JCol>& t) {
     bool all = t.size() == IJ3.size();
-    for (const auto& [row, var] : t)
+    for (const auto& [row, var] : t) {
       all = all && t(std::get<ICol>(row), std::get<JCol>(row)).getImpl() == var.getImpl();
+    }
     return all && !t.contains(ICol{1}, JCol{10});
   };
   {
@@ -186,10 +191,14 @@ int main() try {
   {
     std::vector<std::jthread> threads;
     threads.reserve(onThreads.size());
-    for (auto& slot : onThreads) threads.emplace_back([&slot, &IJ3] { slot.emplace(IloEnv{}, IJ3, 0, 1); });
+    for (auto& slot : onThreads) {
+      threads.emplace_back([&slot, &IJ3] { slot.emplace(IloEnv{}, IJ3, 0, 1); });
+    }
   }
   bool threadsAgree = true;
-  for (const auto& t : onThreads) threadsAgree = threadsAgree && t.has_value() && findsEveryRow(*t);
+  for (const auto& t : onThreads) {
+    threadsAgree = threadsAgree && t.has_value() && findsEveryRow(*t);
+  }
   DREAMOR_CHECK(threadsAgree);
 
   // solution: one call, values keyed like the table, temporaries ended
@@ -236,6 +245,4 @@ int main() try {
   const std::string cut{vNamed(NamedCol{&named_things[1]}, JCol{7}).getName()};
   DREAMOR_CHECK(cut.size() == 255 && cut == "n_" + std::string(253, 'z'));
   return report("vartable");
-} catch (...) {
-  return ::uncaught();
-}
+} catch (...) { return ::uncaught(); }

@@ -67,9 +67,7 @@ class SharedSlot {
   template <typename T, typename Make>
   [[nodiscard]] std::shared_ptr<const T> get(const Make& make) const {
     const std::scoped_lock lock{mutex_};
-    if (const std::shared_ptr<const void> held = held_.lock()) {
-      return std::static_pointer_cast<const T>(held);
-    }
+    if (const std::shared_ptr<const void> held = held_.lock()) { return std::static_pointer_cast<const T>(held); }
     std::shared_ptr<const T> made = make();
     held_                         = made;
     return made;

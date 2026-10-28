@@ -36,11 +36,19 @@ int main() try {
     const IloModel model(env);
     const auto xv  = [&x](ICol i, JCol j) { return x(i, j); };
     const auto byI = IJ.groupBy<ICol>();
-    for (const auto& [i, rows] : byI) model.add(dreamor::concert::sumOf(env, rows, xv).build() <= 1);
+    for (const auto& [i, rows] : byI) {
+      model.add(dreamor::concert::sumOf(env, rows, xv).build() <= 1);
+    }
     const auto byJ = IJ.groupBy<JCol>();
-    for (const auto& [j, rows] : byJ) model.add(dreamor::concert::sumOf(env, rows, xv).build() <= 2);
-    for (const auto& [row, v] : sc) model.add(v <= 5.0 * x(row));
-    for (const auto& [row, v] : slack) model.add(v >= 0.5 * dreamor::concert::sumOf(env, byI.slice(row), xv).build());
+    for (const auto& [j, rows] : byJ) {
+      model.add(dreamor::concert::sumOf(env, rows, xv).build() <= 2);
+    }
+    for (const auto& [row, v] : sc) {
+      model.add(v <= 5.0 * x(row));
+    }
+    for (const auto& [row, v] : slack) {
+      model.add(v >= 0.5 * dreamor::concert::sumOf(env, byI.slice(row), xv).build());
+    }
 
     IloExpr obj = dreamor::concert::sumOf(env, IJ, [&x](ICol i, JCol j) {
                     return static_cast<double>(((i.get() * 7) + j.get()) % 11) * x(i, j);
@@ -58,14 +66,20 @@ int main() try {
     // solution(): one call, same values as asking variable by variable
     const auto vx = x.solution(cplex);
     DREAMOR_CHECK(vx.size() == x.size());
-    for (const auto& [row, var] : x) DREAMOR_CHECK(std::abs(vx(row) - cplex.getValue(var)) < 1e-9);
+    for (const auto& [row, var] : x) {
+      DREAMOR_CHECK(std::abs(vx(row) - cplex.getValue(var)) < 1e-9);
+    }
     for (const auto& [i, rows] : byI) {
       double sum = 0;
-      for (const auto& row : rows) sum += vx(row);
+      for (const auto& row : rows) {
+        sum += vx(row);
+      }
       DREAMOR_CHECK(sum <= 1 + 1e-6);
     }
     const auto vsc = sc.solution(cplex);
-    for (const auto& [row, v] : vsc) DREAMOR_CHECK(v < 1e-6 || (v > 2 - 1e-6 && v < 5 + 1e-6));
+    for (const auto& [row, v] : vsc) {
+      DREAMOR_CHECK(v < 1e-6 || (v > 2 - 1e-6 && v < 5 + 1e-6));
+    }
 
     // key-based names reach CPLEX
     const std::string lp = "dreamor_test_cplex.lp";
@@ -81,6 +95,4 @@ int main() try {
   }
   env.end();
   return report("cplex");
-} catch (...) {
-  return ::uncaught();
-}
+} catch (...) { return ::uncaught(); }

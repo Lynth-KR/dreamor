@@ -61,7 +61,9 @@ int main() try {
         const auto producedByItemPeriod = m.sPRODUCE.groupBy<ItemCol, PeriodCol>();
         for (const auto& [i, t] : m.sSTOCK) {
           double netFlow = (t.get() > 0 ? stockPlan(i, PeriodCol{t.get() - 1}) : 0.0) - i->demand[t.get()];
-          for (const auto& row : producedByItemPeriod.slice(i, t)) netFlow += yieldPlan(row);
+          for (const auto& row : producedByItemPeriod.slice(i, t)) {
+            netFlow += yieldPlan(row);
+          }
           DREAMOR_CHECK(std::abs(netFlow - stockPlan(i, t)) < 1e-6);
         }
         cplex.end();
@@ -89,6 +91,4 @@ int main() try {
     DREAMOR_CHECK(std::abs(lib.objective - plain.objective) < 1e-6 * (1 + std::abs(plain.objective)));
   }
   return report("cplex_example");
-} catch (...) {
-  return ::uncaught();
-}
+} catch (...) { return ::uncaught(); }

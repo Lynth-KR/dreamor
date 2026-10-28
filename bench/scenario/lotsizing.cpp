@@ -61,7 +61,9 @@ struct Routes {
   explicit Routes(const Instance& in) {
     std::unordered_map<const planning::Item*, std::uint32_t> number;
     number.reserve(in.items.size());
-    for (std::uint32_t i = 0; i < in.items.size(); ++i) number.emplace(in.items[i].get(), i);
+    for (std::uint32_t i = 0; i < in.items.size(); ++i) {
+      number.emplace(in.items[i].get(), i);
+    }
     machine_start.push_back(0);
     for (const auto& m : in.machines) {
       for (const planning::Item* it : m->items) {
@@ -72,11 +74,17 @@ struct Routes {
       machine_start.push_back(static_cast<std::uint32_t>(item.size()));
     }
     item_start.assign(in.items.size() + 1, 0);
-    for (const std::uint32_t i : item_number) ++item_start[i + 1];
-    for (std::size_t i = 0; i < in.items.size(); ++i) item_start[i + 1] += item_start[i];
+    for (const std::uint32_t i : item_number) {
+      ++item_start[i + 1];
+    }
+    for (std::size_t i = 0; i < in.items.size(); ++i) {
+      item_start[i + 1] += item_start[i];
+    }
     of_item.resize(item.size());
     std::vector<std::uint32_t> next(item_start.begin(), item_start.end() - 1);
-    for (std::uint32_t r = 0; r < item.size(); ++r) of_item[next[item_number[r]]++] = r;
+    for (std::uint32_t r = 0; r < item.size(); ++r) {
+      of_item[next[item_number[r]]++] = r;
+    }
   }
 };
 
@@ -140,37 +148,49 @@ void runFlat(const Instance& in, Result& r) {
         setup.push_back(model.AddVariable(0, 1, true, setup_name(m->name, i->name, t)));
       }
     }
-    for (const auto& i : in.items)
-      for (const std::size_t t : in.periods)
+    for (const auto& i : in.items) {
+      for (const std::size_t t : in.periods) {
         stock.push_back(model.AddVariable(0, std::numeric_limits<double>::infinity(), false, stock_name(i->name, t)));
+      }
+    }
   });
   r.measure("constraints", [&] {
     using math_opt::LinearExpression;
     for (std::size_t i = 0; i < in.items.size(); ++i) {
       for (std::size_t t = 0; t < t_count; ++t) {
         LinearExpression in_flow;
-        for (std::uint32_t k = routes->item_start[i]; k < routes->item_start[i + 1]; ++k)
+        for (std::uint32_t k = routes->item_start[i]; k < routes->item_start[i + 1]; ++k) {
           in_flow += yield[routes->of_item[k] * t_count + t];
-        if (t > 0) in_flow += stock[i * t_count + t - 1];
+        }
+        if (t > 0) { in_flow += stock[i * t_count + t - 1]; }
         model.AddLinearConstraint(std::move(in_flow) - in.items[i]->demand[t] == stock[i * t_count + t]);
       }
     }
     for (std::size_t m = 0; m < in.machines.size(); ++m) {
       const std::uint32_t first = routes->machine_start[m], last = routes->machine_start[m + 1];
-      if (first == last) continue;
+      if (first == last) { continue; }
       for (std::size_t t = 0; t < t_count; ++t) {
         LinearExpression load;
-        for (std::uint32_t q = first; q < last; ++q) load += routes->item[q]->time * yield[q * t_count + t];
+        for (std::uint32_t q = first; q < last; ++q) {
+          load += routes->item[q]->time * yield[q * t_count + t];
+        }
         model.AddLinearConstraint(std::move(load) <= in.machines[m]->capacity);
       }
     }
-    for (std::size_t v = 0; v < yield.size(); ++v)
+    for (std::size_t v = 0; v < yield.size(); ++v) {
       model.AddLinearConstraint(yield[v] <= yield[v].upper_bound() * setup[v]);
+    }
     LinearExpression cost;
-    for (std::size_t i = 0; i < in.items.size(); ++i)
-      for (std::size_t t = 0; t < t_count; ++t) cost += in.items[i]->hold * stock[i * t_count + t];
-    for (std::size_t q = 0; q < routes->item.size(); ++q)
-      for (std::size_t t = 0; t < t_count; ++t) cost += routes->machine[q]->setup * setup[q * t_count + t];
+    for (std::size_t i = 0; i < in.items.size(); ++i) {
+      for (std::size_t t = 0; t < t_count; ++t) {
+        cost += in.items[i]->hold * stock[i * t_count + t];
+      }
+    }
+    for (std::size_t q = 0; q < routes->item.size(); ++q) {
+      for (std::size_t t = 0; t < t_count; ++t) {
+        cost += routes->machine[q]->setup * setup[q * t_count + t];
+      }
+    }
     model.Minimize(std::move(cost));
   });
   solve(model, r);
@@ -223,36 +243,50 @@ void runFlat(const Instance& in, Result& r) {
         setup.emplace_back(env, 0, 1, ILOBOOL, setup_name(m->name, i->name, t));
       }
     }
-    for (const auto& i : in.items)
-      for (const std::size_t t : in.periods) stock.emplace_back(env, 0, IloInfinity, ILOFLOAT, stock_name(i->name, t));
+    for (const auto& i : in.items) {
+      for (const std::size_t t : in.periods) {
+        stock.emplace_back(env, 0, IloInfinity, ILOFLOAT, stock_name(i->name, t));
+      }
+    }
   });
   r.measure("constraints", [&] {
     for (std::size_t i = 0; i < in.items.size(); ++i) {
       for (std::size_t t = 0; t < t_count; ++t) {
         IloExpr in_flow(env);
-        for (std::uint32_t k = routes->item_start[i]; k < routes->item_start[i + 1]; ++k)
+        for (std::uint32_t k = routes->item_start[i]; k < routes->item_start[i + 1]; ++k) {
           in_flow += yield[routes->of_item[k] * t_count + t];
-        if (t > 0) in_flow += stock[i * t_count + t - 1];
+        }
+        if (t > 0) { in_flow += stock[i * t_count + t - 1]; }
         model.add(in_flow - in.items[i]->demand[t] == stock[i * t_count + t]);
         in_flow.end();
       }
     }
     for (std::size_t m = 0; m < in.machines.size(); ++m) {
       const std::uint32_t first = routes->machine_start[m], last = routes->machine_start[m + 1];
-      if (first == last) continue;
+      if (first == last) { continue; }
       for (std::size_t t = 0; t < t_count; ++t) {
         IloExpr load(env);
-        for (std::uint32_t q = first; q < last; ++q) load += routes->item[q]->time * yield[q * t_count + t];
+        for (std::uint32_t q = first; q < last; ++q) {
+          load += routes->item[q]->time * yield[q * t_count + t];
+        }
         model.add(load <= in.machines[m]->capacity);
         load.end();
       }
     }
-    for (std::size_t v = 0; v < yield.size(); ++v) model.add(yield[v] <= yield[v].getUB() * setup[v]);
+    for (std::size_t v = 0; v < yield.size(); ++v) {
+      model.add(yield[v] <= yield[v].getUB() * setup[v]);
+    }
     IloExpr cost(env);
-    for (std::size_t i = 0; i < in.items.size(); ++i)
-      for (std::size_t t = 0; t < t_count; ++t) cost += in.items[i]->hold * stock[i * t_count + t];
-    for (std::size_t q = 0; q < routes->item.size(); ++q)
-      for (std::size_t t = 0; t < t_count; ++t) cost += routes->machine[q]->setup * setup[q * t_count + t];
+    for (std::size_t i = 0; i < in.items.size(); ++i) {
+      for (std::size_t t = 0; t < t_count; ++t) {
+        cost += in.items[i]->hold * stock[i * t_count + t];
+      }
+    }
+    for (std::size_t q = 0; q < routes->item.size(); ++q) {
+      for (std::size_t t = 0; t < t_count; ++t) {
+        cost += routes->machine[q]->setup * setup[q * t_count + t];
+      }
+    }
     model.add(IloMinimize(env, cost));
     cost.end();
   });
@@ -277,41 +311,45 @@ int main(int argc, char** argv) {
   std::uint64_t heap_seed = 0;
   for (int i = 1; i + 1 < argc; i += 2) {
     const std::string k = argv[i], v = argv[i + 1];
-    if (k == "--impl")
+    if (k == "--impl") {
       impl = v;
-    else if (k == "--items")
+    } else if (k == "--items") {
       items = std::strtoull(v.c_str(), nullptr, 10);
-    else if (k == "--machines")
+    } else if (k == "--machines") {
       machines = std::strtoull(v.c_str(), nullptr, 10);
-    else if (k == "--periods")
+    } else if (k == "--periods") {
       periods = std::strtoull(v.c_str(), nullptr, 10);
-    else if (k == "--rep")
+    } else if (k == "--rep") {
       rep = static_cast<std::uint32_t>(std::stoul(v));
-    else if (k == "--seed")
+    } else if (k == "--seed") {
       seed = static_cast<std::uint32_t>(std::stoul(v));
-    else if (k == "--heap-seed")
+    } else if (k == "--heap-seed") {
       heap_seed = std::strtoull(v.c_str(), nullptr, 10);
-    else if (k == "--pmu")
+    } else if (k == "--pmu") {
       pmu_spec = v;
-    else
+    } else {
       usage("unknown option " + k);
+    }
   }
-  if (impl != "dreamor" && impl != "plain" && impl != "flat") usage("--impl dreamor|plain|flat");
-  if (items == 0 || machines == 0 || periods == 0) usage("--items, --machines and --periods must be positive");
+  if (impl != "dreamor" && impl != "plain" && impl != "flat") { usage("--impl dreamor|plain|flat"); }
+  if (items == 0 || machines == 0 || periods == 0) { usage("--items, --machines and --periods must be positive"); }
 
   Result r;
   std::optional<Instance> in;
   r.setup("heap", [&] { preconditionHeap(heap_seed); });
   r.setup("instance", [&] { in.emplace(Instance::make(machines, items, periods, seed)); });
   std::size_t routes = 0;
-  for (const auto& m : in->machines) routes += m->items.size();
-  if (!pmu_spec.empty()) pmu().open(pmu_spec);
-  if (impl == "dreamor")
+  for (const auto& m : in->machines) {
+    routes += m->items.size();
+  }
+  if (!pmu_spec.empty()) { pmu().open(pmu_spec); }
+  if (impl == "dreamor") {
     runDreamor(*in, r);
-  else if (impl == "plain")
+  } else if (impl == "plain") {
     runPlain(*in, r);
-  else
+  } else {
     runFlat(*in, r);
+  }
   const double main_ms = std::chrono::duration<double, std::milli>(Clk::now() - started).count();
 
   std::printf(

@@ -87,7 +87,9 @@ Order plannedFixed(const Query& q) {
     produces[i] = std::uint64_t{1} << i;
     depends[i]  = q.deps[i];
   }
-  for (std::size_t p = 0; p < q.preds.size(); ++p) preds[p] = q.preds[p].mask;
+  for (std::size_t p = 0; p < q.preds.size(); ++p) {
+    preds[p] = q.preds[p].mask;
+  }
   const auto order = dreamor::internal::planVisitOrder<K, kMaxPreds>(produces, depends, preds);
   return {order.begin(), order.end()};
 }
@@ -105,15 +107,18 @@ Order planned(const Query& q) {
 // selectivities of the predicates it completes.
 std::vector<double> survivors(const Query& q) {
   std::vector<std::vector<const Pred*>> with(q.k);
-  for (const Pred& p : q.preds)
-    for (std::size_t i = 0; i < q.k; ++i)
-      if ((p.mask >> i) & 1U) with[i].push_back(&p);
+  for (const Pred& p : q.preds) {
+    for (std::size_t i = 0; i < q.k; ++i) {
+      if ((p.mask >> i) & 1U) { with[i].push_back(&p); }
+    }
+  }
   std::vector<double> t(std::size_t{1} << q.k, 1.0);
   for (std::uint64_t s = 1; s < t.size(); ++s) {
     const auto low = static_cast<std::size_t>(std::countr_zero(s));
     double v       = t[s & (s - 1)] * q.size[low];
-    for (const Pred* p : with[low])
-      if ((p->mask & ~s) == 0) v *= p->keeps;
+    for (const Pred* p : with[low]) {
+      if ((p->mask & ~s) == 0) { v *= p->keeps; }
+    }
     t[s] = v;
   }
   return t;
@@ -137,7 +142,7 @@ std::pair<double, double> bestAndWorst(const Query& q, const std::vector<double>
   for (std::uint64_t s = 1; s < t.size(); ++s) {
     for (std::size_t i = 0; i < q.k; ++i) {
       const std::uint64_t before = s & ~(std::uint64_t{1} << i);
-      if (before == s || (q.deps[i] & ~before) != 0 || lo[before] == kInf) continue;
+      if (before == s || (q.deps[i] & ~before) != 0 || lo[before] == kInf) { continue; }
       const double step = t[before] * q.size[i];
       lo[s]             = std::min(lo[s], lo[before] + step);
       hi[s]             = std::max(hi[s], hi[before] + step);
@@ -154,7 +159,7 @@ void everyOrder(
     return;
   }
   for (std::size_t s = 0; s < q.k; ++s) {
-    if (((set >> s) & 1U) != 0 || (q.deps[s] & ~set) != 0) continue;
+    if (((set >> s) & 1U) != 0 || (q.deps[s] & ~set) != 0) { continue; }
     everyOrder(q, t, set | (std::uint64_t{1} << s), cost + t[set] * q.size[s], out);
   }
 }
@@ -168,8 +173,9 @@ std::vector<double> orderCosts(const Query& q, const std::vector<double>& t, std
       std::uint64_t set = 0;
       for (std::size_t step = 0; step < q.k; ++step) {
         std::vector<std::size_t> ready;
-        for (std::size_t s = 0; s < q.k; ++s)
-          if (((set >> s) & 1U) == 0 && (q.deps[s] & ~set) == 0) ready.push_back(s);
+        for (std::size_t s = 0; s < q.k; ++s) {
+          if (((set >> s) & 1U) == 0 && (q.deps[s] & ~set) == 0) { ready.push_back(s); }
+        }
         const std::size_t s = ready[std::uniform_int_distribution<std::size_t>(0, ready.size() - 1)(g)];
         order.push_back(s);
         set |= std::uint64_t{1} << s;
@@ -189,8 +195,8 @@ Order bySize(const Query& q, const std::vector<double>& t) {
   for (std::size_t step = 0; step < q.k; ++step) {
     std::size_t best = q.k;
     for (std::size_t s = 0; s < q.k; ++s) {
-      if (((set >> s) & 1U) != 0 || (q.deps[s] & ~set) != 0) continue;
-      if (best == q.k || t[set | (std::uint64_t{1} << s)] < t[set | (std::uint64_t{1} << best)]) best = s;
+      if (((set >> s) & 1U) != 0 || (q.deps[s] & ~set) != 0) { continue; }
+      if (best == q.k || t[set | (std::uint64_t{1} << s)] < t[set | (std::uint64_t{1} << best)]) { best = s; }
     }
     order.push_back(best);
     set |= std::uint64_t{1} << best;
@@ -200,7 +206,9 @@ Order bySize(const Query& q, const std::vector<double>& t) {
 
 // What run time could know: the sizes, not the selectivities - each predicate taken to keep `guess`.
 std::vector<double> survivorsGuessed(Query q, double guess) {
-  for (Pred& p : q.preds) p.keeps = guess;
+  for (Pred& p : q.preds) {
+    p.keeps = guess;
+  }
   return survivors(q);
 }
 
@@ -213,8 +221,8 @@ enum TieRule : unsigned { kTieSize = 1, kTieDependent = 2 };
 Order namesThen(const Query& q, unsigned rules) {
   // a < b when a comes first on the tie rules
   const auto before = [&](std::size_t a, std::size_t b) {
-    if ((rules & kTieDependent) && (q.deps[a] != 0) != (q.deps[b] != 0)) return q.deps[a] != 0;
-    if ((rules & kTieSize) && q.size[a] != q.size[b]) return q.size[a] < q.size[b];
+    if ((rules & kTieDependent) && (q.deps[a] != 0) != (q.deps[b] != 0)) { return q.deps[a] != 0; }
+    if ((rules & kTieSize) && q.size[a] != q.size[b]) { return q.size[a] < q.size[b]; }
     return false;  // declaration order: the one met first stays
   };
   Order order;
@@ -222,7 +230,7 @@ Order namesThen(const Query& q, unsigned rules) {
   for (std::size_t step = 0; step < q.k; ++step) {
     std::size_t best = q.k, best_activated = 0, best_gap = 0;
     for (std::size_t s = 0; s < q.k; ++s) {
-      if (((bound >> s) & 1U) != 0 || (q.deps[s] & ~bound) != 0) continue;
+      if (((bound >> s) & 1U) != 0 || (q.deps[s] & ~bound) != 0) { continue; }
       const std::uint64_t next = bound | (std::uint64_t{1} << s);
       std::size_t activated = 0, gap = ~std::size_t{0};
       for (const Pred& p : q.preds) {
@@ -233,7 +241,7 @@ Order namesThen(const Query& q, unsigned rules) {
           gap = std::min(gap, static_cast<std::size_t>(std::popcount(missing)));
         }
       }
-      if (gap == ~std::size_t{0}) gap = 0;
+      if (gap == ~std::size_t{0}) { gap = 0; }
       const bool better = best == q.k || activated > best_activated ||
                           (activated == best_activated && (gap < best_gap || (gap == best_gap && before(s, best))));
       if (better) {
@@ -267,26 +275,41 @@ Query makeQuery(std::mt19937_64& g, std::size_t k, std::string_view shape, bool 
     return (std::uint64_t{1} << label[a]) | (std::uint64_t{1} << label[b]);
   };
   std::vector<std::uint64_t> masks;
-  if (shape == "chain" || shape == "cycle")
-    for (std::size_t i = 0; i + 1 < k; ++i) masks.push_back(pair(i, i + 1));
-  if (shape == "cycle") masks.push_back(pair(k - 1, 0));
-  if (shape == "star")
-    for (std::size_t i = 1; i < k; ++i) masks.push_back(pair(0, i));
-  if (shape == "clique")
-    for (std::size_t i = 0; i < k; ++i)
-      for (std::size_t j = i + 1; j < k; ++j) masks.push_back(pair(i, j));
+  if (shape == "chain" || shape == "cycle") {
+    for (std::size_t i = 0; i + 1 < k; ++i) {
+      masks.push_back(pair(i, i + 1));
+    }
+  }
+  if (shape == "cycle") { masks.push_back(pair(k - 1, 0)); }
+  if (shape == "star") {
+    for (std::size_t i = 1; i < k; ++i) {
+      masks.push_back(pair(0, i));
+    }
+  }
+  if (shape == "clique") {
+    for (std::size_t i = 0; i < k; ++i) {
+      for (std::size_t j = i + 1; j < k; ++j) {
+        masks.push_back(pair(i, j));
+      }
+    }
+  }
   if (shape == "random") {
     const double p = std::min(0.4, 3.0 / static_cast<double>(k));  // about 1.5 predicates a column at any k
-    for (std::size_t i = 0; i < k; ++i)
-      for (std::size_t j = i + 1; j < k; ++j)
-        if (std::bernoulli_distribution(p)(g)) masks.push_back(pair(i, j));
+    for (std::size_t i = 0; i < k; ++i) {
+      for (std::size_t j = i + 1; j < k; ++j) {
+        if (std::bernoulli_distribution(p)(g)) { masks.push_back(pair(i, j)); }
+      }
+    }
   }
   if (shape == "filters") {
-    for (std::size_t i = 0; i < k; ++i)
-      if (std::bernoulli_distribution(0.6)(g)) masks.push_back(std::uint64_t{1} << i);
+    for (std::size_t i = 0; i < k; ++i) {
+      if (std::bernoulli_distribution(0.6)(g)) { masks.push_back(std::uint64_t{1} << i); }
+    }
     masks.push_back(pair(0, 1));  // one predicate across two columns, so not all is filtering
   }
-  for (const std::uint64_t m : masks) q.preds.push_back({m, logUniform(g, 0.01, 1.0)});
+  for (const std::uint64_t m : masks) {
+    q.preds.push_back({m, logUniform(g, 0.01, 1.0)});
+  }
   // A dependent source reads one column declared before it, as a machine's item list reads the
   // machine; a container's size is its rows, a dependent one's its list per binding.
   for (std::size_t i = 0; i < k; ++i) {
@@ -350,7 +373,9 @@ int table(std::size_t sets, const std::vector<std::size_t>& ks, std::uint64_t se
                                     costOf(q, t, bySize(q, survivorsGuessed(q, 0.1))) / best,
                                     costOf(q, t, namesThen(q, kTieDependent | kTieSize)) / best,
                                     costOf(q, t, bySize(q, t)) / best};
-          for (std::size_t c = 0; c < overall.size(); ++c) r[c].push_back(regrets[c]);
+          for (std::size_t c = 0; c < overall.size(); ++c) {
+            r[c].push_back(regrets[c]);
+          }
           // Ties count as half: the planner's order is one of the orders that cost what it costs.
           const std::vector<double> costs = orderCosts(q, t, g);
           const auto below = std::lower_bound(costs.begin(), costs.end(), mine * (1 - 1e-12)) - costs.begin();
@@ -376,8 +401,9 @@ int table(std::size_t sets, const std::vector<std::size_t>& ks, std::uint64_t se
                     quantile(r[3], 0.5),
                     quantile(r[4], 0.5),
                     quantile(r[5], 0.5));
-        for (std::size_t c = 0; c < overall.size(); ++c)
+        for (std::size_t c = 0; c < overall.size(); ++c) {
           overall[c].all.insert(overall[c].all.end(), r[c].begin(), r[c].end());
+        }
       }
     }
   }
@@ -407,7 +433,7 @@ std::uint64_t loops(const Query& q, const Order& order) {
   std::array<std::uint64_t, kMaxSources> value{};
   std::uint64_t looked                                  = 0;
   std::function<void(std::size_t, std::uint64_t)> visit = [&](std::size_t step, std::uint64_t set) {
-    if (step == q.k) return;
+    if (step == q.k) { return; }
     const std::size_t s = order[step];
     const auto n        = static_cast<std::uint64_t>(q.size[s]);
     for (std::uint64_t v = 0; v < n; ++v) {
@@ -417,13 +443,16 @@ std::uint64_t loops(const Query& q, const Order& order) {
       bool passes              = true;
       for (std::size_t p = 0; p < q.preds.size() && passes; ++p) {
         const Pred& pr = q.preds[p];
-        if ((pr.mask & ~next) != 0 || (pr.mask & ~set) == 0) continue;  // not yet, or ran already
+        if ((pr.mask & ~next) != 0 || (pr.mask & ~set) == 0) {
+          continue;  // not yet, or ran already
+        }
         std::uint64_t h = p * 0x51afd7ed558ccd1ULL;
-        for (std::size_t c = 0; c < q.k; ++c)
-          if ((pr.mask >> c) & 1U) h = mix(h ^ (value[c] * 0x9e3779b97f4a7c15ULL + c));
+        for (std::size_t c = 0; c < q.k; ++c) {
+          if ((pr.mask >> c) & 1U) { h = mix(h ^ (value[c] * 0x9e3779b97f4a7c15ULL + c)); }
+        }
         passes = h % static_cast<std::uint64_t>(std::llround(1 / pr.keeps)) == 0;
       }
-      if (passes) visit(step + 1, next);
+      if (passes) { visit(step + 1, next); }
     }
   };
   visit(0, 0);
@@ -438,8 +467,12 @@ int check(std::uint64_t seed) {
   for (std::size_t n = 0; n < 300; ++n) {
     const std::size_t k = std::uniform_int_distribution<std::size_t>(3, 5)(g);
     Query q             = makeQuery(g, k, kShapes[n % kShapes.size()], n % 2 == 1);
-    for (std::size_t i = 0; i < k; ++i) q.size[i] = std::round(std::min(q.size[i], q.deps[i] ? 12.0 : 40.0));
-    for (Pred& p : q.preds) p.keeps = 1 / std::round(1 / std::max(p.keeps, 0.05));
+    for (std::size_t i = 0; i < k; ++i) {
+      q.size[i] = std::round(std::min(q.size[i], q.deps[i] ? 12.0 : 40.0));
+    }
+    for (Pred& p : q.preds) {
+      p.keeps = 1 / std::round(1 / std::max(p.keeps, 0.05));
+    }
     const std::vector<double> t = survivors(q);
     replica_mismatch += planned(q) != namesThen(q, kTieDependent);  // this file's copy of the rules
     for (const auto& order : {planned(q), bySize(q, t)}) {
@@ -481,7 +514,9 @@ int main(int argc, char** argv) {
     } else if (a == "--ks" && i + 1 < argc) {
       ks.clear();
       std::stringstream list(argv[++i]);
-      for (std::string item; std::getline(list, item, ',');) ks.push_back(std::stoul(item));
+      for (std::string item; std::getline(list, item, ',');) {
+        ks.push_back(std::stoul(item));
+      }
     } else {
       std::fprintf(stderr, "usage: model [--sets N] [--ks 3,4,...] [--seed S] [--long-lists] | model --check\n");
       return 2;

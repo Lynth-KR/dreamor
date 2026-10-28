@@ -24,7 +24,9 @@ int main() try {
     keys.push_back(key);
   }
   bool all_found = true;
-  for (std::size_t i = 0; i < keys.size(); ++i) all_found = all_found && grown.find(keys[i], at) == i;
+  for (std::size_t i = 0; i < keys.size(); ++i) {
+    all_found = all_found && grown.find(keys[i], at) == i;
+  }
   DREAMOR_CHECK(all_found);
   DREAMOR_CHECK(grown.find(Key{50, 0}, at) == Index::kNotFound && grown.find(Key{0, 20}, at) == Index::kNotFound);
 
@@ -45,18 +47,24 @@ int main() try {
   Index batch;
   DREAMOR_CHECK(batch.insertAll(0, keys.size(), at) == std::pair{Index::kNotFound, Index::kNotFound});
   bool batch_found = true;
-  for (std::size_t i = 0; i < keys.size(); ++i) batch_found = batch_found && batch.find(keys[i], at) == i;
+  for (std::size_t i = 0; i < keys.size(); ++i) {
+    batch_found = batch_found && batch.find(keys[i], at) == i;
+  }
   DREAMOR_CHECK(batch_found && batch.find(Key{50, 0}, at) == Index::kNotFound);
   std::vector<Key> more = keys;
   more.reserve(keys.size() + 100);
-  for (std::size_t i = 0; i < 100; ++i) more.emplace_back(i, 100);
+  for (std::size_t i = 0; i < 100; ++i) {
+    more.emplace_back(i, 100);
+  }
   const auto at_more = [&more](std::size_t entry) -> const Key& { return more[entry]; };
   DREAMOR_CHECK(batch.insertAll(keys.size(), more.size(), at_more) == std::pair{Index::kNotFound, Index::kNotFound});
   DREAMOR_CHECK(batch.find(Key{99, 100}, at_more) == more.size() - 1 && batch.find(Key{7, 3}, at_more) == 157);
   for (const std::size_t repeat_at : {1U, 31U, 32U, 33U, 70U}) {
     std::vector<Key> with_repeat;
     with_repeat.reserve(100);
-    for (std::size_t i = 0; i < 100; ++i) with_repeat.emplace_back(i, 7);
+    for (std::size_t i = 0; i < 100; ++i) {
+      with_repeat.emplace_back(i, 7);
+    }
     with_repeat[repeat_at] = with_repeat[repeat_at / 2];
     const auto at_repeat   = [&with_repeat](std::size_t entry) -> const Key& { return with_repeat[entry]; };
     Index stops{with_repeat.size()};
@@ -64,6 +72,4 @@ int main() try {
     DREAMOR_CHECK(stops.find(with_repeat[repeat_at - 1], at_repeat) == repeat_at - 1);
   }
   return report("flat_index");
-} catch (...) {
-  return ::uncaught();
-}
+} catch (...) { return ::uncaught(); }

@@ -10,6 +10,12 @@ PointerAlignment: Left
 
 AllowShortFunctionsOnASingleLine: Inline
 AllowShortCaseLabelsOnASingleLine: true
+
+# Every if, else and loop has braces (no goto fail). A short if stays on one line, braced:
+# `if (!enabled_) { return 0; }`, as Google style shows it. A loop always takes its own lines.
+InsertBraces: true
+AllowShortBlocksOnASingleLine: Always
+AllowShortLoopsOnASingleLine: false
 BinPackArguments: false
 BinPackParameters: OnePerLine
 

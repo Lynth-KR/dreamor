@@ -1354,6 +1354,4 @@ int main() try {
   arity63::check();
   arity64::check();
   return ::report("arity");
-} catch (...) {
-  return ::uncaught();
-}
+} catch (...) { return ::uncaught(); }

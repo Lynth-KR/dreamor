@@ -17,7 +17,9 @@ namespace catalog {
 // The serials of a row of entities, for tags.
 inline std::array<std::uint32_t, kMaxColumns> serialsOf(const std::array<const Ent*, kMaxColumns>& row, std::size_t k) {
   std::array<std::uint32_t, kMaxColumns> s{};
-  for (std::size_t j = 0; j < k; ++j) s[j] = row[j]->serial;
+  for (std::size_t j = 0; j < k; ++j) {
+    s[j] = row[j]->serial;
+  }
   return s;
 }
 
@@ -37,7 +39,9 @@ struct Packer {
   std::size_t k = 0;
   [[nodiscard]] std::uint64_t operator()(const std::array<std::uint32_t, kMaxColumns>& id) const {
     std::uint64_t key = 0;
-    for (std::size_t j = 0; j < k; ++j) key = key * size[j] + id[j];
+    for (std::size_t j = 0; j < k; ++j) {
+      key = key * size[j] + id[j];
+    }
     return key;
   }
   [[nodiscard]] std::array<std::uint32_t, kMaxColumns> unpack(std::uint64_t key) const {
@@ -50,7 +54,9 @@ struct Packer {
   }
   [[nodiscard]] long double span() const {
     long double p = 1;
-    for (std::size_t j = 0; j < k; ++j) p *= static_cast<long double>(size[j]);
+    for (std::size_t j = 0; j < k; ++j) {
+      p *= static_cast<long double>(size[j]);
+    }
     return p;
   }
 };
@@ -73,7 +79,9 @@ inline std::uint64_t consume(IloExpr& e, std::uint64_t key) {
 template <typename Serials>
 inline std::uint64_t keyOf(const Serials& serials, std::size_t count) {
   std::uint64_t h = 0;
-  for (std::size_t j = 0; j < count; ++j) h = mix(h ^ (std::uint64_t{serials[j]} << (8 * j)));
+  for (std::size_t j = 0; j < count; ++j) {
+    h = mix(h ^ (std::uint64_t{serials[j]} << (8 * j)));
+  }
   return h;
 }
 

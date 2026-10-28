@@ -280,9 +280,7 @@ class UnbuiltSum {
     if constexpr (std::tuple_size_v<Splits> == 0) {
       auto total = zero_();
       for (auto&& row : rows_) {
-        if (!keeps(row)) {
-          continue;
-        }
+        if (!keeps(row)) { continue; }
         total += termOf(row);
       }
       return total;
@@ -315,13 +313,9 @@ class UnbuiltSum {
   [[nodiscard]] auto buildSplit(std::index_sequence<Is...> /*unused*/) {
     std::array<decltype(zero_()), sizeof...(Is)> totals{(static_cast<void>(Is), zero_())...};
     for (auto&& row : rows_) {
-      if (!keeps(row)) {
-        continue;
-      }
+      if (!keeps(row)) { continue; }
       const std::array<bool, sizeof...(Is)> hits{static_cast<bool>(callColumnsOf(std::get<Is>(splits_), row))...};
-      if (std::ranges::none_of(hits, std::identity{})) {
-        continue;
-      }
+      if (std::ranges::none_of(hits, std::identity{})) { continue; }
       const auto term_value = termOf(row);
       ((hits[Is] ? static_cast<void>(totals[Is] += term_value) : static_cast<void>(0)), ...);
     }

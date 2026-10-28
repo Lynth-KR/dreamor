@@ -26,9 +26,7 @@ inline std::size_t g_checks   = 0;
     bool thrown_ = false;                                                                                  \
     try {                                                                                                  \
       (void)(__VA_ARGS__);                                                                                 \
-    } catch (const Exception&) {                                                                           \
-      thrown_ = true;                                                                                      \
-    }                                                                                                      \
+    } catch (const Exception&) { thrown_ = true; }                                                         \
     if (!thrown_) {                                                                                        \
       std::fprintf(stderr, "%s:%d: expected %s from: %s\n", __FILE__, __LINE__, #Exception, #__VA_ARGS__); \
       ++g_failures;                                                                                        \
@@ -40,9 +38,7 @@ inline std::size_t g_checks   = 0;
 inline int uncaught() noexcept {
   try {
     throw;
-  } catch (const std::exception& e) {
-    std::fprintf(stderr, "uncaught exception: %s\n", e.what());
-  } catch (...) {
+  } catch (const std::exception& e) { std::fprintf(stderr, "uncaught exception: %s\n", e.what()); } catch (...) {
     std::fprintf(stderr, "uncaught exception, not a std::exception\n");
   }
   return 1;

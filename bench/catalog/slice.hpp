@@ -65,7 +65,9 @@ using Drivers = std::array<Driver, 2>;  // inner, lead
 
 inline std::uint64_t keyCheck(const Key& key, std::size_t m) {
   std::array<std::uint32_t, kMaxColumns> s{};
-  for (std::size_t i = 0; i < m; ++i) s[i] = key[i]->serial;
+  for (std::size_t i = 0; i < m; ++i) {
+    s[i] = key[i]->serial;
+  }
   return keyOf(s, m);
 }
 
@@ -86,30 +88,38 @@ static Driver makeDriver(const Data& d, const std::string& shape, std::uint64_t 
   distinct.reserve(inner ? 0 : d.rows);
   dr.keys.reserve(2 * (inner ? d.rows / 2 : d.rows));
   std::size_t capacity = 16;
-  while (capacity < 2 * d.rows) capacity *= 2;
+  while (capacity < 2 * d.rows) {
+    capacity *= 2;
+  }
   std::vector<std::uint32_t> table(inner ? 0 : capacity, std::numeric_limits<std::uint32_t>::max());
   const auto fresh = [&](const Key& key) {
     std::uint64_t h = 0;
-    for (std::size_t i = 0; i < m; ++i) h = (h ^ key[i]->serial) * 0x9e3779b97f4a7c15ULL;
+    for (std::size_t i = 0; i < m; ++i) {
+      h = (h ^ key[i]->serial) * 0x9e3779b97f4a7c15ULL;
+    }
     for (std::size_t slot = mix(h) & (capacity - 1);; slot = (slot + 1) & (capacity - 1)) {
       if (table[slot] == std::numeric_limits<std::uint32_t>::max()) {
         table[slot] = static_cast<std::uint32_t>(distinct.size());
         distinct.push_back(key);
         return true;
       }
-      if (distinct[table[slot]] == key) return false;
+      if (distinct[table[slot]] == key) { return false; }
     }
   };
   std::mt19937_64 g(seed * 15485863 + 11);
   Key previous{};
   d.forEachRow([&](const std::array<const Ent*, kMaxColumns>& row) {
     Key key{};
-    for (std::size_t i = 0; i < m; ++i) key[i] = row[dr.kept[i]];
-    if (inner ? key == previous : !fresh(key)) return;  // inner keys come as runs
+    for (std::size_t i = 0; i < m; ++i) {
+      key[i] = row[dr.kept[i]];
+    }
+    if (inner ? key == previous : !fresh(key)) {
+      return;  // inner keys come as runs
+    }
     previous      = key;
     Key absent    = key;
     absent[m - 1] = dr.shadows[key[m - 1]->serial].get();
-    if ((g() & 1) != 0) std::swap(key, absent);
+    if ((g() & 1) != 0) { std::swap(key, absent); }
     dr.keys.push_back(key);
     dr.keys.push_back(absent);
   });
@@ -162,7 +172,9 @@ struct Dreamor<std::index_sequence<J...>> {
     std::vector<Row> rows;
     rows.reserve(dr.keys.size());
     [&]<std::size_t... P>(std::index_sequence<P...>) {
-      for (const Key& key : dr.keys) rows.emplace_back(KCol<I>{key[P]}...);
+      for (const Key& key : dr.keys) {
+        rows.emplace_back(KCol<I>{key[P]}...);
+      }
     }(std::make_index_sequence<sizeof...(I)>{});
     const auto sDriver = dreamor::makeSet<>(rows).collect();
     const auto check   = [](const Row& key) {
@@ -180,7 +192,7 @@ struct Dreamor<std::index_sequence<J...>> {
       }
       r.check("slice_" + dr.shape, sum);
     });
-    if (dr.shape != "inner") return;
+    if (dr.shape != "inner") { return; }
     r.measure("split", [&] {
       std::uint64_t sum = 0;
       for (const auto& key : sDriver) {
@@ -226,7 +238,7 @@ static void runHand(Way way, const Data& d, const Drivers& drivers, Result& r) {
   std::vector<std::uint32_t> period;  // each row's period serial
   r.measure("build", [&] {
     ids.reserve(d.rows * k);
-    if (way == Way::kMap) ents.reserve(d.rows * k);
+    if (way == Way::kMap) { ents.reserve(d.rows * k); }
     x.reserve(d.rows);
     period.reserve(d.rows);
     d.forEachRow([&](const std::array<const Ent*, kMaxColumns>& row) {
@@ -234,7 +246,7 @@ static void runHand(Way way, const Data& d, const Drivers& drivers, Result& r) {
       for (std::size_t j = 0; j < k; ++j) {
         ids.push_back(row[j]->id);
         serial[j] = row[j]->serial;
-        if (way == Way::kMap) ents.push_back(row[j]);
+        if (way == Way::kMap) { ents.push_back(row[j]); }
       }
       x.emplace_back(env, 0, tagOf(serial, k, 0), ILOFLOAT);
       period.push_back(serial[last]);
@@ -248,12 +260,16 @@ static void runHand(Way way, const Data& d, const Drivers& drivers, Result& r) {
     const Packer& pack                   = packs[s];
     const auto packedRow                 = [&](std::size_t row) {
       std::array<std::uint32_t, kMaxColumns> id{};
-      for (std::size_t i = 0; i < m; ++i) id[i] = ids[row * k + kept[i]];
+      for (std::size_t i = 0; i < m; ++i) {
+        id[i] = ids[row * k + kept[i]];
+      }
       return pack(id);
     };
     const auto packedKey = [&](const Key& key) {
       std::array<std::uint32_t, kMaxColumns> id{};
-      for (std::size_t i = 0; i < m; ++i) id[i] = key[i]->id;
+      for (std::size_t i = 0; i < m; ++i) {
+        id[i] = key[i]->id;
+      }
       return pack(id);
     };
 
@@ -264,24 +280,26 @@ static void runHand(Way way, const Data& d, const Drivers& drivers, Result& r) {
     std::vector<std::pair<std::uint64_t, std::uint32_t>> by_sorted;
     std::map<Key, std::vector<std::uint32_t>> by_map;
     const auto addGroup = [&](std::uint64_t key, std::uint32_t group) {
-      if (way == Way::kIdentity) by_identity.emplace(key, group);
-      if (way == Way::kMixed) by_mixed.emplace(key, group);
-      if (way == Way::kSort) by_sorted.emplace_back(key, group);
+      if (way == Way::kIdentity) { by_identity.emplace(key, group); }
+      if (way == Way::kMixed) { by_mixed.emplace(key, group); }
+      if (way == Way::kSort) { by_sorted.emplace_back(key, group); }
     };
     r.measure("prep_" + dr.shape, [&] {
       const std::size_t n = x.size();
       if (way == Way::kMap) {
         for (std::uint32_t i = 0; i < n; ++i) {
           Key key{};
-          for (std::size_t c = 0; c < m; ++c) key[c] = ents[i * k + kept[c]];
+          for (std::size_t c = 0; c < m; ++c) {
+            key[c] = ents[i * k + kept[c]];
+          }
           by_map[key].push_back(i);
         }
         return;
       }
       if (dr.shape == "inner") {
         // The period is innermost, so a group's rows come one after another.
-        if (way == Way::kIdentity) by_identity.reserve(n);
-        if (way == Way::kMixed) by_mixed.reserve(n);
+        if (way == Way::kIdentity) { by_identity.reserve(n); }
+        if (way == Way::kMixed) { by_mixed.reserve(n); }
         std::uint64_t previous = 0;
         for (std::size_t i = 0; i < n; ++i) {
           const std::uint64_t key = packedRow(i);
@@ -292,11 +310,15 @@ static void runHand(Way way, const Data& d, const Drivers& drivers, Result& r) {
           }
         }
         rows.resize(n);
-        for (std::uint32_t i = 0; i < n; ++i) rows[i] = i;
-        if (way == Way::kSort) std::sort(by_sorted.begin(), by_sorted.end());
+        for (std::uint32_t i = 0; i < n; ++i) {
+          rows[i] = i;
+        }
+        if (way == Way::kSort) { std::sort(by_sorted.begin(), by_sorted.end()); }
       } else if (way == Way::kSort) {
         std::vector<std::pair<std::uint64_t, std::uint32_t>> order(n);
-        for (std::uint32_t i = 0; i < n; ++i) order[i] = {packedRow(i), i};
+        for (std::uint32_t i = 0; i < n; ++i) {
+          order[i] = {packedRow(i), i};
+        }
         std::sort(order.begin(), order.end());  // by key, then by row: rows keep their order
         rows.resize(n);
         for (std::size_t i = 0; i < n; ++i) {
@@ -312,16 +334,20 @@ static void runHand(Way way, const Data& d, const Drivers& drivers, Result& r) {
           index.reserve(n);
           for (std::size_t i = 0; i < n; ++i) {
             const auto [it, fresh] = index.try_emplace(packedRow(i), static_cast<std::uint32_t>(count.size()));
-            if (fresh) count.push_back(0);
+            if (fresh) { count.push_back(0); }
             group_of[i] = it->second;
             ++count[it->second];
           }
           start.resize(count.size());
           std::uint32_t running = 0;
-          for (std::size_t c = 0; c < count.size(); ++c) start[c] = std::exchange(running, running + count[c]);
+          for (std::size_t c = 0; c < count.size(); ++c) {
+            start[c] = std::exchange(running, running + count[c]);
+          }
           rows.resize(n);
           std::vector<std::uint32_t> next(start);
-          for (std::uint32_t i = 0; i < n; ++i) rows[next[group_of[i]]++] = i;
+          for (std::uint32_t i = 0; i < n; ++i) {
+            rows[next[group_of[i]]++] = i;
+          }
         };
         if (way == Way::kIdentity) {
           csr(by_identity);
@@ -336,26 +362,31 @@ static void runHand(Way way, const Data& d, const Drivers& drivers, Result& r) {
     const auto forRows = [&](const Key& key, auto&& f) {
       if (way == Way::kMap) {
         const auto it = by_map.find(key);
-        if (it != by_map.end())
-          for (const std::uint32_t i : it->second) f(i);
+        if (it != by_map.end()) {
+          for (const std::uint32_t i : it->second) {
+            f(i);
+          }
+        }
         return;
       }
       std::uint32_t group        = 0;
       const std::uint64_t packed = packedKey(key);
       if (way == Way::kSort) {
         const auto it = std::lower_bound(by_sorted.begin(), by_sorted.end(), std::pair{packed, std::uint32_t{0}});
-        if (it == by_sorted.end() || it->first != packed) return;
+        if (it == by_sorted.end() || it->first != packed) { return; }
         group = it->second;
       } else if (way == Way::kIdentity) {
         const auto it = by_identity.find(packed);
-        if (it == by_identity.end()) return;
+        if (it == by_identity.end()) { return; }
         group = it->second;
       } else {
         const auto it = by_mixed.find(packed);
-        if (it == by_mixed.end()) return;
+        if (it == by_mixed.end()) { return; }
         group = it->second;
       }
-      for (std::uint32_t p = start[group]; p < start[group + 1]; ++p) f(rows[p]);
+      for (std::uint32_t p = start[group]; p < start[group + 1]; ++p) {
+        f(rows[p]);
+      }
     };
 
     r.measure("slice_" + dr.shape, [&] {
@@ -367,7 +398,7 @@ static void runHand(Way way, const Data& d, const Drivers& drivers, Result& r) {
       }
       r.check("slice_" + dr.shape, sum);
     });
-    if (dr.shape != "inner") continue;
+    if (dr.shape != "inner") { continue; }
     r.measure("split", [&] {
       std::uint64_t sum = 0;
       for (const Key& key : dr.keys) {

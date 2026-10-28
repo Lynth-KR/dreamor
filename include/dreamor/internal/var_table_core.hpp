@@ -95,9 +95,7 @@ namespace internal {
 // A bound is a number, or a callable over the row's columns.
 template <typename Bound, typename Row>
 consteval void checkBound() {
-  if constexpr (!std::is_arithmetic_v<Bound>) {
-    checkColumnCallable<Bound, Row>();
-  }
+  if constexpr (!std::is_arithmetic_v<Bound>) { checkColumnCallable<Bound, Row>(); }
 }
 template <typename Bound, typename Row>
 [[nodiscard]] double boundOf(const Bound& bound, const Row& row) {
@@ -184,9 +182,7 @@ class VarTableCore {
   template <typename... Args>
   [[nodiscard]] std::size_t rowOf(const Args&... key) const {
     const std::size_t at = index_->find(rows(), key...);
-    if (at == RowIndex<Key>::kNotFound) {
-      throw std::out_of_range("VarTable: this tuple is not in the table's set.");
-    }
+    if (at == RowIndex<Key>::kNotFound) { throw std::out_of_range("VarTable: this tuple is not in the table's set."); }
     return at;
   }
 

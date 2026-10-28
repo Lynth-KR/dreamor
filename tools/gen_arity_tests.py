@@ -95,7 +95,7 @@ def test_arity() -> str:
         + "\n"
         + arity_block(64)
         + '\nint main() try {\n  arity63::check();\n  arity64::check();\n  return ::report("arity");\n'
-        + "} catch (...) {\n  return ::uncaught();\n}\n"
+        + "} catch (...) { return ::uncaught(); }\n"
     )
 
 

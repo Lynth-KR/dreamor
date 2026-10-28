@@ -141,9 +141,7 @@ template <std::size_t SourceCount, std::size_t PredCount>
     std::size_t best_gap       = 0;
 
     for (std::size_t source = 0; source < SourceCount; ++source) {
-      if (placed[source] || (depends[source] & ~bound) != 0) {
-        continue;
-      }
+      if (placed[source] || (depends[source] & ~bound) != 0) { continue; }
       const std::uint64_t next = bound | produces[source];
 
       std::size_t activated = 0;
@@ -152,9 +150,7 @@ template <std::size_t SourceCount, std::size_t PredCount>
         const std::uint64_t missing_now = predicates[p] & ~next;
         if (missing_now == 0) {
           // Ran already, or runs on this source; only the latter counts as progress.
-          if ((predicates[p] & ~bound) != 0) {
-            ++activated;
-          }
+          if ((predicates[p] & ~bound) != 0) { ++activated; }
         } else {
           gap = std::min(gap, static_cast<std::size_t>(std::popcount(missing_now)));
         }

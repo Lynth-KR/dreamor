@@ -49,8 +49,9 @@ inline constexpr std::ptrdiff_t kWindow = 4;
 // Every period a list can hold, in order: the last column's entities but the absent one.
 inline std::vector<const Ent*> periodsOf(const Data& d) {
   std::vector<const Ent*> periods;
-  for (const auto& e : d.ents[d.last()])
-    if (e.get() != d.absent) periods.push_back(e.get());
+  for (const auto& e : d.ents[d.last()]) {
+    if (e.get() != d.absent) { periods.push_back(e.get()); }
+  }
   return periods;
 }
 
@@ -95,14 +96,14 @@ struct Dreamor<std::index_sequence<J...>> {
     // x at row's columns with the period p, if that row exists.
     const auto at = [&](const auto& row, const Ent* p) -> std::uint64_t {
       const auto key = std::tuple{replaced<J>(row, p)...};
-      if (!std::apply([&](auto... c) { return vX->contains(c...); }, key)) return 0;
+      if (!std::apply([&](auto... c) { return vX->contains(c...); }, key)) { return 0; }
       return ubOf(std::apply([&](auto... c) { return (*vX)(c...); }, key));
     };
     r.measure("step", [&] {
       std::uint64_t sum = 0;
       for (const auto& row : sX) {
         const auto* p = ordered->prev(std::get<KCol<kLast>>(row));
-        if (p != nullptr) sum += std::get<0>(*p)->serial + 1;
+        if (p != nullptr) { sum += std::get<0>(*p)->serial + 1; }
       }
       r.check("step", sum);
     });
@@ -110,7 +111,7 @@ struct Dreamor<std::index_sequence<J...>> {
       std::uint64_t sum = 0;
       for (const auto& row : sX) {
         const auto* p = ordered->prev(std::get<KCol<kLast>>(row), kLag);
-        if (p != nullptr) sum += at(row, std::get<0>(*p).get());
+        if (p != nullptr) { sum += at(row, std::get<0>(*p).get()); }
       }
       r.check("lag", sum);
     });
@@ -119,7 +120,7 @@ struct Dreamor<std::index_sequence<J...>> {
       for (const auto& row : sX) {
         for (std::ptrdiff_t l = 0; l < kWindow; ++l) {
           const auto* p = ordered->prev(std::get<KCol<kLast>>(row), l);
-          if (p == nullptr) break;
+          if (p == nullptr) { break; }
           sum += at(row, std::get<0>(*p).get());
         }
       }
@@ -136,7 +137,9 @@ static void runHand(const Data& d, Result& r) {
   IloEnv env;
   Packer px;
   px.k = k;
-  for (std::size_t j = 0; j < k; ++j) px.size[j] = d.ents[j].size();
+  for (std::size_t j = 0; j < k; ++j) {
+    px.size[j] = d.ents[j].size();
+  }
   if constexpr (std::is_same_v<Index, lookup::ArrayIndex>) {
     if (px.span() > lookup::kArraySlotsPerRow * static_cast<long double>(d.rows)) {
       r.skip("the ids' product exceeds " + std::to_string(static_cast<int>(lookup::kArraySlotsPerRow)) +
@@ -161,12 +164,14 @@ static void runHand(const Data& d, Result& r) {
   std::vector<std::uint32_t> ids;  // k a row
   std::vector<IloNumVar> x;
   Index ix;
-  if constexpr (std::is_same_v<Index, lookup::ArrayIndex>) ix.span = static_cast<std::size_t>(px.span());
+  if constexpr (std::is_same_v<Index, lookup::ArrayIndex>) { ix.span = static_cast<std::size_t>(px.span()); }
   r.measure("build", [&] {
     ids.reserve(d.rows * k);
     x.reserve(d.rows);
     d.forEachRow([&](const std::array<const Ent*, kMaxColumns>& row) {
-      for (std::size_t j = 0; j < k; ++j) ids.push_back(row[j]->id);
+      for (std::size_t j = 0; j < k; ++j) {
+        ids.push_back(row[j]->id);
+      }
       x.emplace_back(env, 0, tagOf(serialsOf(row, k), k, 0), ILOFLOAT);
     });
   });
@@ -174,13 +179,17 @@ static void runHand(const Data& d, Result& r) {
     ix.reserve(d.rows);
     for (std::uint32_t i = 0; i < d.rows; ++i) {
       std::array<std::uint32_t, kMaxColumns> id{};
-      for (std::size_t j = 0; j < k; ++j) id[j] = ids[i * k + j];
+      for (std::size_t j = 0; j < k; ++j) {
+        id[j] = ids[i * k + j];
+      }
       ix.add(px(id), i);
     }
   });
   const auto rowIds = [&](std::size_t i) {
     std::array<std::uint32_t, kMaxColumns> id{};
-    for (std::size_t j = 0; j < k; ++j) id[j] = ids[i * k + j];
+    for (std::size_t j = 0; j < k; ++j) {
+      id[j] = ids[i * k + j];
+    }
     return id;
   };
   // x at row i's ids with the period `back` positions before its own, if that row exists.
@@ -193,7 +202,7 @@ static void runHand(const Data& d, Result& r) {
     std::uint64_t sum = 0;
     for (std::size_t i = 0; i < d.rows; ++i) {
       const std::uint32_t p = position[ids[i * k + last]];
-      if (p > 0) sum += periods[p - 1]->serial + 1;
+      if (p > 0) { sum += periods[p - 1]->serial + 1; }
     }
     r.check("step", sum);
   });
@@ -201,7 +210,7 @@ static void runHand(const Data& d, Result& r) {
     std::uint64_t sum = 0;
     for (std::size_t i = 0; i < d.rows; ++i) {
       const auto id = rowIds(i);
-      if (position[id[last]] >= kLag) sum += at(id, kLag);
+      if (position[id[last]] >= kLag) { sum += at(id, kLag); }
     }
     r.check("lag", sum);
   });
@@ -209,7 +218,9 @@ static void runHand(const Data& d, Result& r) {
     std::uint64_t sum = 0;
     for (std::size_t i = 0; i < d.rows; ++i) {
       const auto id = rowIds(i);
-      for (std::uint32_t l = 0; l < kWindow && l <= position[id[last]]; ++l) sum += at(id, l);
+      for (std::uint32_t l = 0; l < kWindow && l <= position[id[last]]; ++l) {
+        sum += at(id, l);
+      }
     }
     r.check("window", sum);
   });
@@ -243,20 +254,24 @@ static void runMap(const Data& d, Result& r) {
     std::uint64_t sum = 0;
     for (const Key& key : rows) {
       const std::uint32_t p = key[last]->serial;
-      if (p > 0) sum += periods[p - 1]->serial + 1;
+      if (p > 0) { sum += periods[p - 1]->serial + 1; }
     }
     r.check("step", sum);
   });
   r.measure("lag", [&] {
     std::uint64_t sum = 0;
-    for (const Key& key : rows)
-      if (key[last]->serial >= kLag) sum += at(key, kLag);
+    for (const Key& key : rows) {
+      if (key[last]->serial >= kLag) { sum += at(key, kLag); }
+    }
     r.check("lag", sum);
   });
   r.measure("window", [&] {
     std::uint64_t sum = 0;
-    for (const Key& key : rows)
-      for (std::uint32_t l = 0; l < kWindow && l <= key[last]->serial; ++l) sum += at(key, l);
+    for (const Key& key : rows) {
+      for (std::uint32_t l = 0; l < kWindow && l <= key[last]->serial; ++l) {
+        sum += at(key, l);
+      }
+    }
     r.check("window", sum);
   });
   env.end();

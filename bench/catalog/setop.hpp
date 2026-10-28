@@ -63,7 +63,9 @@ inline std::vector<std::vector<const Ent*>> movedPeriods(const Data& d) {
   for (const auto& l : d.lists[d.last()]) {
     std::vector<const Ent*> m;
     m.reserve(l.size());
-    for (const Ent* t : l) m.push_back(d.ents[d.last()][(t->serial + 1) % pool].get());
+    for (const Ent* t : l) {
+      m.push_back(d.ents[d.last()][(t->serial + 1) % pool].get());
+    }
     moved.push_back(std::move(m));
   }
   return moved;
@@ -166,8 +168,12 @@ static void runHand(Way way, const Data& d, Result& r) {
   Packer full, lead;
   full.k = k;
   lead.k = k - 1;
-  for (std::size_t j = 0; j < k; ++j) full.size[j] = d.ents[j].size();
-  for (std::size_t j = 1; j < k; ++j) lead.size[j - 1] = d.ents[j].size();
+  for (std::size_t j = 0; j < k; ++j) {
+    full.size[j] = d.ents[j].size();
+  }
+  for (std::size_t j = 1; j < k; ++j) {
+    lead.size[j - 1] = d.ents[j].size();
+  }
   if (way != Way::kSet && full.span() >= static_cast<long double>(std::numeric_limits<std::uint64_t>::max())) {
     r.skip("the ids do not pack into 64 bits");
     return;
@@ -175,18 +181,24 @@ static void runHand(Way way, const Data& d, Result& r) {
   std::array<std::vector<std::uint32_t>, kMaxColumns> serial_of;  // by id
   for (std::size_t j = 0; j < k; ++j) {
     serial_of[j].resize(d.ents[j].size());
-    for (const auto& e : d.ents[j]) serial_of[j][e->id] = e->serial;
+    for (const auto& e : d.ents[j]) {
+      serial_of[j][e->id] = e->serial;
+    }
   }
   using Ids        = std::array<std::uint32_t, kMaxColumns>;
   using Ents       = std::array<const Ent*, kMaxColumns>;
   const auto idsOf = [k](const Ents& row) {
     Ids id{};
-    for (std::size_t j = 0; j < k; ++j) id[j] = row[j]->id;
+    for (std::size_t j = 0; j < k; ++j) {
+      id[j] = row[j]->id;
+    }
     return id;
   };
   const auto hashOf = [&](const Ids& id, std::size_t from, std::size_t count) {
     Ids s{};
-    for (std::size_t c = 0; c < count; ++c) s[c] = serial_of[from + c][id[c]];
+    for (std::size_t c = 0; c < count; ++c) {
+      s[c] = serial_of[from + c][id[c]];
+    }
     return keyOf(s, count);
   };
   const auto rowHash  = [&](const Ids& id) { return hashOf(id, 0, k); };
@@ -199,13 +211,16 @@ static void runHand(Way way, const Data& d, Result& r) {
     d.forEachRow([&](const Ents& row) { rows.push_back(row); });
     if (way != Way::kSet) {
       keys.reserve(rows.size());
-      for (const Ents& row : rows) keys.push_back(full(idsOf(row)));
+      for (const Ents& row : rows) {
+        keys.push_back(full(idsOf(row)));
+      }
     }
   });
   // A and B, not measured.
   std::vector<Ents> a_rows, b_rows;
-  for (const Ents& row : rows)
-    if (inA(row[0]->serial, row[last]->serial)) a_rows.push_back(row);
+  for (const Ents& row : rows) {
+    if (inA(row[0]->serial, row[last]->serial)) { a_rows.push_back(row); }
+  }
   {
     const auto moved = movedPeriods(d);
     std::array<std::uint32_t, kMaxColumns> serials{};
@@ -231,26 +246,36 @@ static void runHand(Way way, const Data& d, Result& r) {
   }
   const auto checkKeys = [&](const std::vector<std::uint64_t>& out, const Packer& p, bool projected) {
     std::uint64_t h = 0;
-    for (const std::uint64_t key : out) h += projected ? leadHash(p.unpack(key)) : rowHash(p.unpack(key));
+    for (const std::uint64_t key : out) {
+      h += projected ? leadHash(p.unpack(key)) : rowHash(p.unpack(key));
+    }
     return h + out.size() * kCountWeight;
   };
   const auto checkEnts = [&](const auto& out, std::size_t from, std::size_t count) {
     std::uint64_t h = 0;
     for (const Ents& row : out) {
       Ids s{};
-      for (std::size_t c = 0; c < count; ++c) s[c] = row[from + c]->serial;
+      for (std::size_t c = 0; c < count; ++c) {
+        s[c] = row[from + c]->serial;
+      }
       h += keyOf(s, count);
     }
     return h + out.size() * kCountWeight;
   };
   const auto leadKey = [&](const Ents& row) {
     Ids id{};
-    for (std::size_t j = 1; j < k; ++j) id[j - 1] = row[j]->id;
+    for (std::size_t j = 1; j < k; ++j) {
+      id[j - 1] = row[j]->id;
+    }
     return lead(id);
   };
   std::vector<std::uint64_t> a_keys, b_keys;
-  for (const Ents& row : a_rows) a_keys.push_back(full(idsOf(row)));
-  for (const Ents& row : b_rows) b_keys.push_back(full(idsOf(row)));
+  for (const Ents& row : a_rows) {
+    a_keys.push_back(full(idsOf(row)));
+  }
+  for (const Ents& row : b_rows) {
+    b_keys.push_back(full(idsOf(row)));
+  }
 
   if (way == Way::kIdentity || way == Way::kMixed) {
     const auto hashed = [&]<typename Hash>(Hash) {
@@ -262,7 +287,7 @@ static void runHand(Way way, const Data& d, Result& r) {
           seen.reserve(rows.size());
           for (const Ents& row : rows) {
             const std::uint64_t key = leadKey(row);
-            if (seen.insert(key).second) out.push_back(key);
+            if (seen.insert(key).second) { out.push_back(key); }
           }
         });
         r.check("select", checkKeys(out, lead, true));
@@ -272,9 +297,11 @@ static void runHand(Way way, const Data& d, Result& r) {
         r.measure("unite", [&] {
           HashSet seen;
           seen.reserve(a_keys.size() + b_keys.size());
-          for (const auto* part : {&a_keys, &b_keys})
-            for (const std::uint64_t key : *part)
-              if (seen.insert(key).second) out.push_back(key);
+          for (const auto* part : {&a_keys, &b_keys}) {
+            for (const std::uint64_t key : *part) {
+              if (seen.insert(key).second) { out.push_back(key); }
+            }
+          }
         });
         r.check("unite", checkKeys(out, full, false));
       }
@@ -282,8 +309,9 @@ static void runHand(Way way, const Data& d, Result& r) {
         std::vector<std::uint64_t> out;
         r.measure(phase, [&] {
           const HashSet in_b(b_keys.begin(), b_keys.end());
-          for (const std::uint64_t key : from)
-            if (in_b.contains(key) == keep_in_b) out.push_back(key);
+          for (const std::uint64_t key : from) {
+            if (in_b.contains(key) == keep_in_b) { out.push_back(key); }
+          }
         });
         r.check(phase, checkKeys(out, full, false));
       };
@@ -305,7 +333,9 @@ static void runHand(Way way, const Data& d, Result& r) {
       std::vector<std::uint64_t> out;
       r.measure("select", [&] {
         out.reserve(rows.size());
-        for (const Ents& row : rows) out.push_back(leadKey(row));
+        for (const Ents& row : rows) {
+          out.push_back(leadKey(row));
+        }
         std::sort(out.begin(), out.end());
         out.erase(std::unique(out.begin(), out.end()), out.end());
       });
@@ -326,8 +356,9 @@ static void runHand(Way way, const Data& d, Result& r) {
       std::vector<std::uint64_t> out;
       r.measure("member", [&] {
         const auto b = sorted(b_keys);
-        for (const std::uint64_t key : keys)
-          if (std::binary_search(b.begin(), b.end(), key)) out.push_back(key);
+        for (const std::uint64_t key : keys) {
+          if (std::binary_search(b.begin(), b.end(), key)) { out.push_back(key); }
+        }
       });
       r.check("member", checkKeys(out, full, false));
     }
@@ -355,8 +386,9 @@ static void runHand(Way way, const Data& d, Result& r) {
       std::vector<Ents> out;
       r.measure(phase, [&] {
         const std::set<Ents> in_b(b_rows.begin(), b_rows.end());
-        for (const Ents& row : from)
-          if (in_b.contains(row) == keep_in_b) out.push_back(row);
+        for (const Ents& row : from) {
+          if (in_b.contains(row) == keep_in_b) { out.push_back(row); }
+        }
       });
       r.check(phase, checkEnts(out, 0, k));
     };

@@ -230,9 +230,7 @@ class Grouped {
           group_of = groupsOfRuns(rows.size());  // The rows so far, group by group.
         }
       }
-      if (!runs) {
-        group_of[i] = static_cast<std::uint32_t>(previous);
-      }
+      if (!runs) { group_of[i] = static_cast<std::uint32_t>(previous); }
       ++offsets_[previous];
     }
     offsets_.push_back(0);  // Sentinel: offsets_ ends up size K + 1.
@@ -282,9 +280,7 @@ class Grouped {
   // Checked: for an empty set offsets_ is just {0}, so an unchecked at(0) would read
   // offsets_[1] out of bounds.
   [[nodiscard]] RowSlice<Tup> at(std::size_t group) const& {
-    if (group >= keys_.size()) {
-      throw std::out_of_range("Grouped::at: group index out of range.");
-    }
+    if (group >= keys_.size()) { throw std::out_of_range("Grouped::at: group index out of range."); }
     return sliceOf(group);
   }
   template <typename Unused = void>

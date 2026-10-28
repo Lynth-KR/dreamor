@@ -89,9 +89,7 @@ class NameBuilder {
 
   explicit NameBuilder(const char* root) noexcept(Policy == OnFormatOverflow::kLogAndClear)
       : enabled_{root != nullptr} {
-    if (!enabled_) {
-      return;
-    }
+    if (!enabled_) { return; }
     // A plain copy: formatting a C string would add nothing but a way to throw.
     const std::string_view text{root};
     const std::size_t copied = text.copy(buffer_.data(), kMaxLength);
@@ -122,9 +120,7 @@ class NameBuilder {
       std::size_t length,
       const Token& token,
       std::string_view separator = "_") noexcept(Policy == OnFormatOverflow::kLogAndClear) {
-    if (!enabled_) {
-      return 0;
-    }
+    if (!enabled_) { return 0; }
     if (length + separator.size() > kMaxLength) {
       return clamp(kMaxLength);  // No room even for the separator.
     }
@@ -182,9 +178,7 @@ class NameBuilder {
 
  private:
   [[nodiscard]] std::size_t clamp(std::size_t length) noexcept(Policy == OnFormatOverflow::kLogAndClear) {
-    if (length < kMaxLength) {
-      return length;
-    }
+    if (length < kMaxLength) { return length; }
     if constexpr (Policy == OnFormatOverflow::kThrow) {
       throw std::runtime_error("Name buffer overflow in NameBuilder::append().");
     } else {

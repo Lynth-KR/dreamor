@@ -94,7 +94,7 @@ struct Dreamor<std::index_sequence<J...>> {
       std::uint64_t sum = 0;
       for (const auto& row : sX) {
         const Ent* p = d.prev(std::get<KCol<kLast>>(row).get());
-        if (p == nullptr) continue;
+        if (p == nullptr) { continue; }
         const auto key = std::tuple{replaced<J>(row, p)...};
         if (std::apply([&](auto... c) { return vX->contains(c...); }, key)) {
           sum += ubOf(std::apply([&](auto... c) { return (*vX)(c...); }, key));
@@ -104,23 +104,29 @@ struct Dreamor<std::index_sequence<J...>> {
     });
     r.measure("project", [&] {
       std::uint64_t sum = 0;
-      for (const auto& row : sX) sum += ubOf((*vY)(std::get<KCol<0>>(row), std::get<KCol<kLast>>(row)));
+      for (const auto& row : sX) {
+        sum += ubOf((*vY)(std::get<KCol<0>>(row), std::get<KCol<kLast>>(row)));
+      }
       r.check("project", sum);
     });
     r.measure("hit", [&] {
       std::uint64_t sum = 0;
-      for (const auto& key : s.hit) sum += ubOf((*vX)(KCol<J>{key[J]}...));
+      for (const auto& key : s.hit) {
+        sum += ubOf((*vX)(KCol<J>{key[J]}...));
+      }
       r.check("hit", sum);
     });
     r.measure("miss", [&] {
       std::uint64_t found = 0;
-      for (const auto& key : s.miss) found += vX->contains(KCol<J>{key[J]}...);
+      for (const auto& key : s.miss) {
+        found += vX->contains(KCol<J>{key[J]}...);
+      }
       r.check("miss", found);
     });
     r.measure("half", [&] {
       std::uint64_t sum = 0;
       for (const auto& key : s.half) {
-        if (vX->contains(KCol<J>{key[J]}...)) sum += ubOf((*vX)(KCol<J>{key[J]}...));
+        if (vX->contains(KCol<J>{key[J]}...)) { sum += ubOf((*vX)(KCol<J>{key[J]}...)); }
       }
       r.check("half", sum);
     });
@@ -169,7 +175,9 @@ static void runHand(const Data& d, const Samples& s, Result& r) {
   IloEnv env;
   Packer px, py;
   px.k = k;
-  for (std::size_t j = 0; j < k; ++j) px.size[j] = d.ents[j].size();
+  for (std::size_t j = 0; j < k; ++j) {
+    px.size[j] = d.ents[j].size();
+  }
   py.k       = 2;
   py.size[0] = d.ents[0].size();
   py.size[1] = d.ents[last].size();
@@ -201,20 +209,26 @@ static void runHand(const Data& d, const Samples& s, Result& r) {
   r.measure("build", [&] {
     ids.reserve(d.rows * k);
     d.forEachRow([&](const std::array<const Ent*, kMaxColumns>& row) {
-      for (std::size_t j = 0; j < k; ++j) ids.push_back(row[j]->id);
+      for (std::size_t j = 0; j < k; ++j) {
+        ids.push_back(row[j]->id);
+      }
     });
     x.reserve(d.rows);
     // Tags need serials; ids map back to them through a table per column.
     std::array<std::vector<std::uint32_t>, kMaxColumns> serial_of;
     for (std::size_t j = 0; j < k; ++j) {
       serial_of[j].resize(d.ents[j].size());
-      for (const auto& e : d.ents[j]) serial_of[j][e->id] = e->serial;
+      for (const auto& e : d.ents[j]) {
+        serial_of[j][e->id] = e->serial;
+      }
     }
     std::unordered_map<std::uint64_t, std::uint32_t, MixedHash> seen;  // pairs in first-appearance order
     for (std::size_t i = 0; i < d.rows; ++i) {
       const std::uint32_t* row = &ids[i * k];
       std::array<std::uint32_t, kMaxColumns> serial{};
-      for (std::size_t j = 0; j < k; ++j) serial[j] = serial_of[j][row[j]];
+      for (std::size_t j = 0; j < k; ++j) {
+        serial[j] = serial_of[j][row[j]];
+      }
       x.emplace_back(env, 0, tagOf(serial, k, 0), ILOFLOAT);
       if (seen.emplace(pairOf(row), static_cast<std::uint32_t>(pair_keys.size())).second) {
         pair_keys.push_back(pairOf(row));
@@ -226,11 +240,15 @@ static void runHand(const Data& d, const Samples& s, Result& r) {
     ix.reserve(d.rows);
     for (std::uint32_t i = 0; i < d.rows; ++i) {
       std::array<std::uint32_t, kMaxColumns> id{};
-      for (std::size_t j = 0; j < k; ++j) id[j] = ids[i * k + j];
+      for (std::size_t j = 0; j < k; ++j) {
+        id[j] = ids[i * k + j];
+      }
       ix.add(px(id), i);
     }
     iy.reserve(pair_keys.size());
-    for (std::uint32_t i = 0; i < pair_keys.size(); ++i) iy.add(pair_keys[i], i);
+    for (std::uint32_t i = 0; i < pair_keys.size(); ++i) {
+      iy.add(pair_keys[i], i);
+    }
   });
   // The period before, by id: what a hand-coder keeps beside the entities.
   std::vector<std::uint32_t> prev_id(d.ents[last].size(), Index::kNone);
@@ -242,40 +260,50 @@ static void runHand(const Data& d, const Samples& s, Result& r) {
     std::uint64_t sum = 0;
     for (std::size_t i = 0; i < d.rows; ++i) {
       std::array<std::uint32_t, kMaxColumns> id{};
-      for (std::size_t j = 0; j < k; ++j) id[j] = ids[i * k + j];
+      for (std::size_t j = 0; j < k; ++j) {
+        id[j] = ids[i * k + j];
+      }
       const std::uint32_t p = prev_id[id[last]];
-      if (p == Index::kNone) continue;
+      if (p == Index::kNone) { continue; }
       id[last]              = p;
       const std::uint32_t e = ix.find(px(id));
-      if (e != Index::kNone) sum += ubOf(x[e]);
+      if (e != Index::kNone) { sum += ubOf(x[e]); }
     }
     r.check("neighbor", sum);
   });
   r.measure("project", [&] {
     std::uint64_t sum = 0;
-    for (std::size_t i = 0; i < d.rows; ++i) sum += ubOf(y[iy.find(pairOf(&ids[i * k]))]);
+    for (std::size_t i = 0; i < d.rows; ++i) {
+      sum += ubOf(y[iy.find(pairOf(&ids[i * k]))]);
+    }
     r.check("project", sum);
   });
   const auto idsOf = [k](const std::array<const Ent*, kMaxColumns>& key) {
     std::array<std::uint32_t, kMaxColumns> id{};
-    for (std::size_t j = 0; j < k; ++j) id[j] = key[j]->id;
+    for (std::size_t j = 0; j < k; ++j) {
+      id[j] = key[j]->id;
+    }
     return id;
   };
   r.measure("hit", [&] {
     std::uint64_t sum = 0;
-    for (const auto& key : s.hit) sum += ubOf(x[ix.find(px(idsOf(key)))]);
+    for (const auto& key : s.hit) {
+      sum += ubOf(x[ix.find(px(idsOf(key)))]);
+    }
     r.check("hit", sum);
   });
   r.measure("miss", [&] {
     std::uint64_t found = 0;
-    for (const auto& key : s.miss) found += ix.find(px(idsOf(key))) != Index::kNone;
+    for (const auto& key : s.miss) {
+      found += ix.find(px(idsOf(key))) != Index::kNone;
+    }
     r.check("miss", found);
   });
   r.measure("half", [&] {
     std::uint64_t sum = 0;
     for (const auto& key : s.half) {
       const std::uint32_t e = ix.find(px(idsOf(key)));
-      if (e != Index::kNone) sum += ubOf(x[e]);
+      if (e != Index::kNone) { sum += ubOf(x[e]); }
     }
     r.check("half", sum);
   });
@@ -310,15 +338,17 @@ static void runMap(const Data& d, const Samples& s, Result& r) {
     std::uint64_t sum = 0;
     for (Key key : rows) {
       const Ent* p = d.prev(key[last]);
-      if (p == nullptr) continue;
+      if (p == nullptr) { continue; }
       key[last] = p;
-      if (const auto it = x.find(key); it != x.end()) sum += ubOf(it->second);
+      if (const auto it = x.find(key); it != x.end()) { sum += ubOf(it->second); }
     }
     r.check("neighbor", sum);
   });
   r.measure("project", [&] {
     std::uint64_t sum = 0;
-    for (const Key& key : rows) sum += ubOf(y.at({key[0], key[last]}));
+    for (const Key& key : rows) {
+      sum += ubOf(y.at({key[0], key[last]}));
+    }
     r.check("project", sum);
   });
   const auto keyOf = [k](const Key& sample) {
@@ -328,18 +358,22 @@ static void runMap(const Data& d, const Samples& s, Result& r) {
   };
   r.measure("hit", [&] {
     std::uint64_t sum = 0;
-    for (const auto& sample : s.hit) sum += ubOf(x.at(keyOf(sample)));
+    for (const auto& sample : s.hit) {
+      sum += ubOf(x.at(keyOf(sample)));
+    }
     r.check("hit", sum);
   });
   r.measure("miss", [&] {
     std::uint64_t found = 0;
-    for (const auto& sample : s.miss) found += x.contains(keyOf(sample));
+    for (const auto& sample : s.miss) {
+      found += x.contains(keyOf(sample));
+    }
     r.check("miss", found);
   });
   r.measure("half", [&] {
     std::uint64_t sum = 0;
     for (const auto& sample : s.half) {
-      if (const auto it = x.find(keyOf(sample)); it != x.end()) sum += ubOf(it->second);
+      if (const auto it = x.find(keyOf(sample)); it != x.end()) { sum += ubOf(it->second); }
     }
     r.check("half", sum);
   });

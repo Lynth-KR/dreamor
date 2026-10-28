@@ -63,7 +63,9 @@ struct Solver {
   IloEnv env;
   [[nodiscard]] IloEnv getEnv() const { return env; }
   void getValues(IloNumArray values, const IloNumVarArray vars) const {
-    for (IloInt i = 0; i < vars.getSize(); ++i) values.add(vars[i].getUB());
+    for (IloInt i = 0; i < vars.getSize(); ++i) {
+      values.add(vars[i].getUB());
+    }
   }
   [[nodiscard]] IloNum getValue(const IloNumVar& var) const { return var.getUB(); }
 };
@@ -99,7 +101,7 @@ Keys<K> makeKeys(std::size_t n, bool random_order, std::uint64_t seed) {
   }
   keys.order.resize(n);
   std::iota(keys.order.begin(), keys.order.end(), 0U);
-  if (random_order) std::shuffle(keys.order.begin(), keys.order.end(), g);
+  if (random_order) { std::shuffle(keys.order.begin(), keys.order.end(), g); }
   return keys;
 }
 
@@ -114,20 +116,28 @@ static void runDreamor(const Keys<K>& keys, Result& r) {
   const Solver solver{env};
   dreamor::EntityVector<Item<K>> items;
   r.measure("load", [&] {
-    for (std::size_t i = 0; i < keys.present.size(); ++i) items.emplace(keys.present[i], static_cast<std::uint32_t>(i));
+    for (std::size_t i = 0; i < keys.present.size(); ++i) {
+      items.emplace(keys.present[i], static_cast<std::uint32_t>(i));
+    }
   });
   r.measure("find_hit", [&] {
     std::uint64_t sum = 0;
-    for (const std::uint32_t i : keys.order) sum += items.find(keys.present[i])->serial + 1;
+    for (const std::uint32_t i : keys.order) {
+      sum += items.find(keys.present[i])->serial + 1;
+    }
     r.check("find_hit", sum);
   });
   r.measure("find_miss", [&] {
     std::uint64_t found = 0;
-    for (const std::uint32_t i : keys.order) found += items.find(keys.absent[i]) != items.end();
+    for (const std::uint32_t i : keys.order) {
+      found += items.find(keys.absent[i]) != items.end();
+    }
     r.check("find_miss", found);
   });
   std::vector<const Item<K>*> by_place;  // the entities in load order, for the lookups below
-  for (const Item<K>& item : items) by_place.push_back(&item);
+  for (const Item<K>& item : items) {
+    by_place.push_back(&item);
+  }
   dreamor::SetOf<Col> sITEMS;
   std::optional<dreamor::concert::VarTable<Col>> vX;
   r.measure("build", [&] {
@@ -139,12 +149,16 @@ static void runDreamor(const Keys<K>& keys, Result& r) {
   r.measure("solution", [&] { plan.emplace(vX->solution(solver)); });
   {
     std::uint64_t sum = 0;
-    for (const auto& [row, value] : *plan) sum += static_cast<std::uint64_t>(value);
+    for (const auto& [row, value] : *plan) {
+      sum += static_cast<std::uint64_t>(value);
+    }
     r.check("solution", sum);
   }
   r.measure("value", [&] {
     std::uint64_t sum = 0;
-    for (const std::uint32_t i : keys.order) sum += static_cast<std::uint64_t>((*plan)(Col{by_place[i]}));
+    for (const std::uint32_t i : keys.order) {
+      sum += static_cast<std::uint64_t>((*plan)(Col{by_place[i]}));
+    }
     r.check("value", sum);
   });
   env.end();
@@ -166,28 +180,38 @@ static void runUmap(const Keys<K>& keys, Result& r) {
   });
   r.measure("find_hit", [&] {
     std::uint64_t sum = 0;
-    for (const std::uint32_t i : keys.order) sum += items[place.find(keys.present[i])->second].serial + 1;
+    for (const std::uint32_t i : keys.order) {
+      sum += items[place.find(keys.present[i])->second].serial + 1;
+    }
     r.check("find_hit", sum);
   });
   r.measure("find_miss", [&] {
     std::uint64_t found = 0;
-    for (const std::uint32_t i : keys.order) found += place.find(keys.absent[i]) != place.end();
+    for (const std::uint32_t i : keys.order) {
+      found += place.find(keys.absent[i]) != place.end();
+    }
     r.check("find_miss", found);
   });
   IloNumVarArray x(env);
   r.measure("build", [&] {
-    for (const Item<K>& item : items) x.add(IloNumVar(env, 0, tagOf(item.serial), ILOFLOAT));
+    for (const Item<K>& item : items) {
+      x.add(IloNumVar(env, 0, tagOf(item.serial), ILOFLOAT));
+    }
   });
   IloNumArray values(env);
   r.measure("solution", [&] { solver.getValues(values, x); });
   {
     std::uint64_t sum = 0;
-    for (IloInt i = 0; i < values.getSize(); ++i) sum += static_cast<std::uint64_t>(values[i]);
+    for (IloInt i = 0; i < values.getSize(); ++i) {
+      sum += static_cast<std::uint64_t>(values[i]);
+    }
     r.check("solution", sum);
   }
   r.measure("value", [&] {
     std::uint64_t sum = 0;
-    for (const std::uint32_t i : keys.order) sum += static_cast<std::uint64_t>(values[static_cast<IloInt>(i)]);
+    for (const std::uint32_t i : keys.order) {
+      sum += static_cast<std::uint64_t>(values[static_cast<IloInt>(i)]);
+    }
     r.check("value", sum);
   });
   env.end();
@@ -206,30 +230,42 @@ static void runMap(const Keys<K>& keys, Result& r) {
   });
   r.measure("find_hit", [&] {
     std::uint64_t sum = 0;
-    for (const std::uint32_t i : keys.order) sum += items.find(keys.present[i])->second.serial + 1;
+    for (const std::uint32_t i : keys.order) {
+      sum += items.find(keys.present[i])->second.serial + 1;
+    }
     r.check("find_hit", sum);
   });
   r.measure("find_miss", [&] {
     std::uint64_t found = 0;
-    for (const std::uint32_t i : keys.order) found += items.contains(keys.absent[i]);
+    for (const std::uint32_t i : keys.order) {
+      found += items.contains(keys.absent[i]);
+    }
     r.check("find_miss", found);
   });
   std::map<K, IloNumVar> x;
   r.measure("build", [&] {
-    for (const auto& [code, item] : items) x.emplace(code, IloNumVar(env, 0, tagOf(item.serial), ILOFLOAT));
+    for (const auto& [code, item] : items) {
+      x.emplace(code, IloNumVar(env, 0, tagOf(item.serial), ILOFLOAT));
+    }
   });
   std::map<K, double> values;
   r.measure("solution", [&] {
-    for (const auto& [code, var] : x) values.emplace(code, solver.getValue(var));
+    for (const auto& [code, var] : x) {
+      values.emplace(code, solver.getValue(var));
+    }
   });
   {
     std::uint64_t sum = 0;
-    for (const auto& [code, value] : values) sum += static_cast<std::uint64_t>(value);
+    for (const auto& [code, value] : values) {
+      sum += static_cast<std::uint64_t>(value);
+    }
     r.check("solution", sum);
   }
   r.measure("value", [&] {
     std::uint64_t sum = 0;
-    for (const std::uint32_t i : keys.order) sum += static_cast<std::uint64_t>(values.at(keys.present[i]));
+    for (const std::uint32_t i : keys.order) {
+      sum += static_cast<std::uint64_t>(values.at(keys.present[i]));
+    }
     r.check("value", sum);
   });
   env.end();

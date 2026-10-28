@@ -30,7 +30,9 @@ struct Model : Sets {
     const auto producedByItemPeriod = sPRODUCE.groupBy<ItemCol, PeriodCol>();
     for (const auto& [i, t] : sSTOCK) {
       IloExpr totalInFlow = dreamor::concert::sumOf(env, producedByItemPeriod.slice(i, t), vYield).build();
-      if (const auto* prevPeriod = orderedPeriods.prev(t)) totalInFlow += vStock(i, std::get<PeriodCol>(*prevPeriod));
+      if (const auto* prevPeriod = orderedPeriods.prev(t)) {
+        totalInFlow += vStock(i, std::get<PeriodCol>(*prevPeriod));
+      }
       const double currentDemand = i->demand[t.get()];
       const auto endingStock     = vStock(i, t);
       model.add(totalInFlow - currentDemand == endingStock);
@@ -46,7 +48,9 @@ struct Model : Sets {
     }
 
     // no production without a setup
-    for (const auto& [row, yieldVar] : vYield) model.add(yieldVar <= yieldVar.getUB() * vSetup(row));
+    for (const auto& [row, yieldVar] : vYield) {
+      model.add(yieldVar <= yieldVar.getUB() * vSetup(row));
+    }
 
     IloExpr holdingCost =
         dreamor::concert::sumOf(env, sSTOCK, [&](ItemCol i, PeriodCol t) { return i->hold * vStock(i, t); }).build();

@@ -53,8 +53,9 @@ struct Args {
 }
 
 std::string level(const std::string& key, const std::string& value, std::initializer_list<const char*> levels) {
-  for (const char* l : levels)
-    if (value == l) return value;
+  for (const char* l : levels) {
+    if (value == l) { return value; }
+  }
   usage(key + ": no level " + value);
 }
 
@@ -62,46 +63,47 @@ Args parse(int argc, char** argv) {
   Args a;
   for (int i = 1; i + 1 < argc; i += 2) {
     const std::string k = argv[i], v = argv[i + 1];
-    if (k == "--family")
+    if (k == "--family") {
       a.family = level(k, v, {"lookup", "group", "setop", "slice", "make", "order", "data"});
-    else if (k == "--impl")
+    } else if (k == "--impl") {
       a.impl = v;
-    else if (k == "--k")
+    } else if (k == "--k") {
       a.cell.k = std::stoul(level(k, v, {"2", "3", "5"}));
-    else if (k == "--N")
+    } else if (k == "--N") {
       a.cell.n_target = std::strtoull(v.c_str(), nullptr, 10);
-    else if (k == "--O")
+    } else if (k == "--O") {
       a.O = level(k, v, {"shared", "owned"});
-    else if (k == "--D")
+    } else if (k == "--D") {
       a.D = level(k, v, {"dense", "sparse"});
-    else if (k == "--S")
+    } else if (k == "--S") {
       a.S = level(k, v, {"uniform", "skewed"});
-    else if (k == "--G")
+    } else if (k == "--G") {
       a.G = level(k, v, {"large", "small"});
-    else if (k == "--L")
+    } else if (k == "--L") {
       a.L = level(k, v, {"ordered", "shuffled"});
-    else if (k == "--I")
+    } else if (k == "--I") {
       a.I = level(k, v, {"aligned", "permuted"});
-    else if (k == "--key")
+    } else if (k == "--key") {
       a.key = level(k, v, {"int", "string"});
-    else if (k == "--access")
+    } else if (k == "--access") {
       a.access = level(k, v, {"inserted", "random"});
-    else if (k == "--rep")
+    } else if (k == "--rep") {
       a.rep = static_cast<std::uint32_t>(std::stoul(v));
-    else if (k == "--seed")
+    } else if (k == "--seed") {
       a.cell.seed = std::strtoull(v.c_str(), nullptr, 10);
-    else if (k == "--lookups")
+    } else if (k == "--lookups") {
       a.lookups = std::strtoull(v.c_str(), nullptr, 10);
-    else if (k == "--pmu")
+    } else if (k == "--pmu") {
       a.pmu = v;
-    else if (k == "--heap-seed")
+    } else if (k == "--heap-seed") {
       a.heap_seed = std::strtoull(v.c_str(), nullptr, 10);
-    else if (k == "--phases")
+    } else if (k == "--phases") {
       a.phases = v;
-    else
+    } else {
       usage("unknown option " + k);
+    }
   }
-  if (a.family.empty() || a.impl.empty()) usage("--family and --impl are required");
+  if (a.family.empty() || a.impl.empty()) { usage("--family and --impl are required"); }
   a.cell.owned    = a.O == "owned";
   a.cell.sparse   = a.D == "sparse";
   a.cell.skewed   = a.S == "skewed";
@@ -130,24 +132,29 @@ int main(int argc, char** argv) {
   Samples s;
   r.setup("heap", [&] { preconditionHeap(a.heap_seed); });
   // The data family has entities of its own, not rows.
-  if (a.family != "data") r.setup("data", [&] { d = makeData(a.cell); });
+  if (a.family != "data") {
+    r.setup("data", [&] { d = makeData(a.cell); });
+  }
   // Only the lookup family looks keys up: the others skip drawing them.
-  if (a.family == "lookup") r.setup("samples", [&] { s = makeSamples(d, a.lookups, a.cell.seed); });
-  if (!a.pmu.empty()) pmu().open(a.pmu);
-  if (a.family == "lookup")
+  if (a.family == "lookup") {
+    r.setup("samples", [&] { s = makeSamples(d, a.lookups, a.cell.seed); });
+  }
+  if (!a.pmu.empty()) { pmu().open(a.pmu); }
+  if (a.family == "lookup") {
     lookup::run(a.impl, d, s, r);
-  else if (a.family == "group")
+  } else if (a.family == "group") {
     group::run(a.impl, d, s, r);
-  else if (a.family == "setop")
+  } else if (a.family == "setop") {
     setop::run(a.impl, d, s, r);
-  else if (a.family == "slice")
+  } else if (a.family == "slice") {
     slice::run(a.impl, d, a.cell.seed, r);
-  else if (a.family == "make")
+  } else if (a.family == "make") {
     make::run(a.impl, d, s, r);
-  else if (a.family == "order")
+  } else if (a.family == "order") {
     order::run(a.impl, d, s, r);
-  else
+  } else {
     entities::run(a.impl, a.key, a.access, a.cell.n_target, a.cell.seed, r);
+  }
 
   std::printf(
       "{\"family\": \"%s\", \"impl\": \"%s\", \"k\": %zu, \"N_target\": %zu, \"O\": \"%s\", \"D\": \"%s\", "

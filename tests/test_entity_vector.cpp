@@ -59,10 +59,14 @@ int main() try {
 
   // elements never move: a pointer taken early still points at its entity after many more
   const Machine* first = &machines.front();
-  for (std::size_t i = 3; i < 2000; ++i) machines.emplace("M" + std::to_string(i), 1.0);
+  for (std::size_t i = 3; i < 2000; ++i) {
+    machines.emplace("M" + std::to_string(i), 1.0);
+  }
   DREAMOR_CHECK(&machines.front() == first && first->code == "M1" && machines.size() == 1999);
   bool all_found = true;
-  for (const auto& m : machines) all_found = all_found && &*machines.find(m.code) == &m;
+  for (const auto& m : machines) {
+    all_found = all_found && &*machines.find(m.code) == &m;
+  }
   DREAMOR_CHECK(all_found);
 
   // modify: the one way to change an element; the address stays
@@ -92,6 +96,4 @@ int main() try {
   DREAMOR_CHECK(std::string{vRun(MachineCol{&two.back()}, PeriodCol{3}).getName()} == "run_B_3");
   env.end();
   return report("entity_vector");
-} catch (...) {
-  return ::uncaught();
-}
+} catch (...) { return ::uncaught(); }

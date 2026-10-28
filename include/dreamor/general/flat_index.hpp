@@ -68,9 +68,7 @@ bool hashedBlocks(
       (indexes.prefetch(hashes[i - block]), ...);
     }
     for (std::size_t i = block; i < end; ++i) {
-      if (!step(i, hashes[i - block])) {
-        return false;
-      }
+      if (!step(i, hashes[i - block])) { return false; }
     }
   }
   return true;
@@ -88,9 +86,7 @@ class FlatIndex {
 
   // Starts loading the slot a key with this hash - TupleHash's - starts its probe at.
   void prefetch(std::size_t hash) const noexcept {
-    if (!slots_.empty()) {
-      prefetchForWrite(slots_.data() + (hash & mask_));
-    }
+    if (!slots_.empty()) { prefetchForWrite(slots_.data() + (hash & mask_)); }
   }
 
   template <typename KeyAt>
@@ -100,9 +96,7 @@ class FlatIndex {
   // find() with the key's hash already known (hashedBlocks()).
   template <typename KeyAt>
   [[nodiscard]] std::size_t find(const Key& key, std::size_t hash, const KeyAt& key_at) const {
-    if (slots_.empty()) {
-      return kNotFound;
-    }
+    if (slots_.empty()) { return kNotFound; }
     return probe(key, hash, key_at);
   }
 
@@ -115,12 +109,8 @@ class FlatIndex {
   // insert() with the key's hash already known (hashedBlocks()).
   template <typename KeyAt>
   std::size_t insert(const Key& key, std::size_t hash, std::size_t entry, const KeyAt& key_at) {
-    if (entry >= kEmpty) {
-      throw std::length_error("dreamor: more than 2^32 - 2 rows to index.");
-    }
-    if ((size_ + 1) * 2 > slots_.size()) {
-      grow(key_at);
-    }
+    if (entry >= kEmpty) { throw std::length_error("dreamor: more than 2^32 - 2 rows to index."); }
+    if ((size_ + 1) * 2 > slots_.size()) { grow(key_at); }
     checkEntry(entry);
     return place(key, hash, entry, key_at);
   }
@@ -130,15 +120,11 @@ class FlatIndex {
   // it}, or {kNotFound, kNotFound} once all are in. A block of hashes ahead (hashedBlocks()).
   template <typename KeyAt>
   std::pair<std::size_t, std::size_t> insertAll(std::size_t first, std::size_t last, const KeyAt& key_at) {
-    if (last > kEmpty) {
-      throw std::length_error("dreamor: more than 2^32 - 2 rows to index.");
-    }
+    if (last > kEmpty) { throw std::length_error("dreamor: more than 2^32 - 2 rows to index."); }
     while ((size_ + last - first) * 2 > slots_.size()) {
       grow(key_at);  // all at once, so that no prefetch is for a table about to be replaced
     }
-    if (last > first) {
-      checkEntry(last - 1);
-    }
+    if (last > first) { checkEntry(last - 1); }
     std::pair<std::size_t, std::size_t> repeat{kNotFound, kNotFound};
     hashedBlocks(
         first,
@@ -146,9 +132,7 @@ class FlatIndex {
         key_at,
         [&](std::size_t entry, std::size_t hash) {
           const std::size_t held = place(key_at(entry), hash, entry, key_at);
-          if (held != kNotFound) {
-            repeat = {held, entry};
-          }
+          if (held != kNotFound) { repeat = {held, entry}; }
           return held == kNotFound;
         },
         *this);
@@ -178,12 +162,8 @@ class FlatIndex {
     const std::uint32_t tag = tagOf(hash);
     for (std::size_t slot = hash & mask_;; slot = (slot + 1) & mask_) {
       const std::uint32_t held = slots_[slot];
-      if (held == kEmpty) {
-        return {slot, false};
-      }
-      if ((held & ~entry_mask_) == tag && key_at(held & entry_mask_) == key) {
-        return {slot, true};
-      }
+      if (held == kEmpty) { return {slot, false}; }
+      if ((held & ~entry_mask_) == tag && key_at(held & entry_mask_) == key) { return {slot, true}; }
     }
   }
 
@@ -198,9 +178,7 @@ class FlatIndex {
   // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): the hash and the entry, in insert()'s order
   std::size_t place(const Key& key, std::size_t hash, std::size_t entry, const KeyAt& key_at) {
     const auto [slot, found] = seek(key, hash, key_at);
-    if (found) {
-      return slots_[slot] & entry_mask_;
-    }
+    if (found) { return slots_[slot] & entry_mask_; }
     slots_[slot] = tagOf(hash) | static_cast<std::uint32_t>(entry);
     ++size_;
     return kNotFound;
@@ -219,9 +197,7 @@ class FlatIndex {
   // half the capacity; a debug build checks.
   void checkEntry([[maybe_unused]] std::size_t entry) const {
 #ifndef NDEBUG
-    if (entry + 1 >= slots_.size()) {
-      throw std::logic_error("dreamor: FlatIndex entry number past its capacity.");
-    }
+    if (entry + 1 >= slots_.size()) { throw std::logic_error("dreamor: FlatIndex entry number past its capacity."); }
 #endif
   }
 
@@ -249,9 +225,7 @@ class FlatIndex {
     const std::uint32_t old_mask         = entry_mask_;
     resize(old.empty() ? kMinCapacity : old.size() * 2);
     for (const std::uint32_t held : old) {
-      if (held == kEmpty) {
-        continue;
-      }
+      if (held == kEmpty) { continue; }
       const std::uint32_t entry = held & old_mask;
       const std::size_t hash    = TupleHash{}(key_at(entry));
       std::size_t slot          = hash & mask_;

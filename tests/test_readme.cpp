@@ -72,7 +72,9 @@ struct FakeCplex {  // stand-in for solution(): every variable "solves" to its u
   IloEnv env;
   [[nodiscard]] IloEnv getEnv() const { return env; }
   static void getValues(IloNumArray out, const IloNumVarArray vars) {
-    for (IloInt i = 0; i < vars.getSize(); ++i) out.add(std::min(vars[i].getUB(), 7.0));
+    for (IloInt i = 0; i < vars.getSize(); ++i) {
+      out.add(std::min(vars[i].getUB(), 7.0));
+    }
   }
 };
 
@@ -99,8 +101,9 @@ int main() try {
         env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};
     const auto machine_usage = [&](MachineCol m, ItemCol i, PeriodCol t) { return i->time * vYield(m, i, t); };
     const auto producedByMachinePeriod = sPRODUCE.groupBy<MachineCol, PeriodCol>();
-    for (const auto& [machine, period, rows] : producedByMachinePeriod)
+    for (const auto& [machine, period, rows] : producedByMachinePeriod) {
       model.add(dreamor::concert::sumOf(env, rows, machine_usage).build() <= machine->capacity);
+    }
     DREAMOR_CHECK(sPRODUCE.size() == 9 && model.cs_->size() == 6);
     model.cs_->clear();
   }
@@ -121,7 +124,7 @@ int main() try {
   const auto producedByItemPeriod = sPRODUCE.groupBy<ItemCol, PeriodCol>();
   for (const auto& [i, t] : sSTOCK) {
     IloExpr totalInFlow = dreamor::concert::sumOf(env, producedByItemPeriod.slice(i, t), vYield).build();
-    if (const auto* prevPeriod = orderedPeriods.prev(t)) totalInFlow += vStock(i, std::get<PeriodCol>(*prevPeriod));
+    if (const auto* prevPeriod = orderedPeriods.prev(t)) { totalInFlow += vStock(i, std::get<PeriodCol>(*prevPeriod)); }
     const double currentDemand = i->demand[t.get()];
     const auto endingStock     = vStock(i, t);
     model.add(totalInFlow - currentDemand == endingStock);
@@ -133,7 +136,9 @@ int main() try {
     model.add(totalLoad <= machine->capacity);
     totalLoad.end();
   }
-  for (const auto& [row, yieldVar] : vYield) model.add(yieldVar <= yieldVar.getUB() * vSetup(row));
+  for (const auto& [row, yieldVar] : vYield) {
+    model.add(yieldVar <= yieldVar.getUB() * vSetup(row));
+  }
   IloExpr holdingCost =
       dreamor::concert::sumOf(env, sSTOCK, [&](ItemCol i, PeriodCol t) { return i->hold * vStock(i, t); }).build();
   IloExpr setupCost = dreamor::concert::sumOf(env, sPRODUCE, [&](MachineCol m, ItemCol i, PeriodCol t) {
@@ -151,8 +156,9 @@ int main() try {
   const auto yieldPlan = vYield.solution(FakeCplex{env});
 
   std::size_t printed = 0;
-  for (const auto& [row, qty] : yieldPlan)
-    if (qty > 1e-6) ++printed;
+  for (const auto& [row, qty] : yieldPlan) {
+    if (qty > 1e-6) { ++printed; }
+  }
   DREAMOR_CHECK(printed == 9);
 
   // --- EntityVector
@@ -202,7 +208,7 @@ int main() try {
                 in_routes(*sROUTES.begin()));
   {  // a scope of its own: the README's t, apart from the lambdas' t in the sections below
     const PeriodCol t{1};
-    if (const auto* prevPeriod = orderedPeriods.prev(t)) DREAMOR_CHECK(std::get<PeriodCol>(*prevPeriod).get() == 0);
+    if (const auto* prevPeriod = orderedPeriods.prev(t)) { DREAMOR_CHECK(std::get<PeriodCol>(*prevPeriod).get() == 0); }
     const auto* wrapped = orderedPeriods.nextCyclic(PeriodCol{2});
     DREAMOR_CHECK(std::get<PeriodCol>(orderedPeriods.first()).get() == 0 && orderedPeriods.isLast(PeriodCol{2}) &&
                   wrapped != nullptr && std::get<PeriodCol>(*wrapped).get() == 0);
@@ -225,7 +231,9 @@ int main() try {
   // --- Grouping
   const auto producingRows = producedByItemPeriod.slice(ItemCol{&i1}, PeriodCol{1});
   std::size_t walked       = 0;
-  for (const auto& [item, period, rows] : sPRODUCE.groupBy<ItemCol, PeriodCol>()) walked += rows.size();
+  for (const auto& [item, period, rows] : sPRODUCE.groupBy<ItemCol, PeriodCol>()) {
+    walked += rows.size();
+  }
   DREAMOR_CHECK(walked == sPRODUCE.size());
   DREAMOR_CHECK(producingRows.size() == 2 && producedByItemPeriod.slice(ItemCol{&i2}, PeriodCol{0}).empty());
   DREAMOR_CHECK(producedByItemPeriod.contains(ItemCol{&i0}, PeriodCol{0}) &&
@@ -235,7 +243,9 @@ int main() try {
 
   // --- VarTable: tightening bounds later, semi-continuous
   const auto in_maintenance = [](MachineCol m, PeriodCol t) { return m->name == "M0" && t.get() == 2; };
-  for (const auto& row : vYield.keys().where(in_maintenance)) vYield(row).setUB(0);
+  for (const auto& row : vYield.keys().where(in_maintenance)) {
+    vYield(row).setUB(0);
+  }
   DREAMOR_CHECK(exactlyEqual(vYield(MachineCol{&m0}, ItemCol{&i0}, PeriodCol{2}).getUB(), 0));
   const auto& sBATCH = sPRODUCE;
   const dreamor::concert::VarTable<MachineCol, ItemCol, PeriodCol> vBatch{
@@ -262,6 +272,4 @@ int main() try {
   std::unordered_map<MachineCol, std::size_t> perMachine{{MachineCol{&m0}, 1}};
   DREAMOR_CHECK(perMachine.at(MachineCol{&m0}) == 1 && MachineCol{} == MachineCol{nullptr});
   return ::report("readme");
-} catch (...) {
-  return ::uncaught();
-}
+} catch (...) { return ::uncaught(); }

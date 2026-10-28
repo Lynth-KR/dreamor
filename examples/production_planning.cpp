@@ -30,19 +30,21 @@ int main() try {
     const auto stockPlan = lotSizing.vStock.solution(cplex);
     for (const auto& [period] : lotSizing.sPERIODS) {
       std::printf("period %zu\n", period.get());
-      for (const auto& [row, qty] : yieldPlan)
-        if (std::get<PeriodCol>(row) == period && qty > 1e-6)
+      for (const auto& [row, qty] : yieldPlan) {
+        if (std::get<PeriodCol>(row) == period && qty > 1e-6) {
           std::printf("  %s makes %6.1f of %s\n",
                       std::get<MachineCol>(row)->name.c_str(),
                       qty,
                       std::get<ItemCol>(row)->name.c_str());
-      for (const auto& [row, qty] : stockPlan)
-        if (std::get<PeriodCol>(row) == period && qty > 1e-6)
+        }
+      }
+      for (const auto& [row, qty] : stockPlan) {
+        if (std::get<PeriodCol>(row) == period && qty > 1e-6) {
           std::printf("  %s: %6.1f in stock\n", std::get<ItemCol>(row)->name.c_str(), qty);
+        }
+      }
     }
-  } catch (const IloException& e) {
-    std::fprintf(stderr, "%s\n", e.getMessage());
-  }
+  } catch (const IloException& e) { std::fprintf(stderr, "%s\n", e.getMessage()); }
   env.end();
   return 0;
 } catch (const std::exception& e) {

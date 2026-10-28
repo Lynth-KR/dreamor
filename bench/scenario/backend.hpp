@@ -33,7 +33,9 @@ inline void solve(math_opt::Model& model, Result& r) {
   args.parameters.time_limit = absl::ZeroDuration();
   r.measure("solve0", [&] { r.sink += solver->Solve(args).ok(); });
   std::uint64_t nonzeros = 0;
-  for (const math_opt::LinearConstraint& c : model.LinearConstraints()) nonzeros += model.RowNonzeros(c).size();
+  for (const math_opt::LinearConstraint& c : model.LinearConstraints()) {
+    nonzeros += model.RowNonzeros(c).size();
+  }
   r.check("rows", model.num_linear_constraints());
   r.check("cols", model.num_variables());
   r.check("nonzeros", nonzeros);
@@ -45,10 +47,12 @@ inline constexpr const char* kBackend = "stub";
 // coefficients and the constraints' finite bounds, each summed.
 inline void solve(IloEnv /*env*/, const IloModel& model, Result& r) {
   double coefficients = 0, bounds = 0;
-  for (const double coef : model.objective()->coefs) coefficients += coef;
+  for (const double coef : model.objective()->coefs) {
+    coefficients += coef;
+  }
   for (const IloConstraintI* c : model.constraints()) {
-    if (c->lb > -IloInfinity) bounds += c->lb;
-    if (c->ub < IloInfinity) bounds += c->ub;
+    if (c->lb > -IloInfinity) { bounds += c->lb; }
+    if (c->ub < IloInfinity) { bounds += c->ub; }
   }
   r.check("rows", model.rows());
   r.check("nonzeros", model.nonzeros());

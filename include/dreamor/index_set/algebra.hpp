@@ -74,9 +74,7 @@ template <typename Tup>
 // Appends tuple, whose hash this is, unless out has it already; seen indexes out.
 template <typename Tup>
 void appendNew(std::vector<Tup>& out, TupleIndex<Tup>& seen, const Tup& tuple, std::size_t hash) {
-  if (seen.insert(tuple, hash, out.size(), rowsAt(out)) == TupleIndex<Tup>::kNotFound) {
-    out.push_back(tuple);
-  }
+  if (seen.insert(tuple, hash, out.size(), rowsAt(out)) == TupleIndex<Tup>::kNotFound) { out.push_back(tuple); }
 }
 
 // Appends the first occurrence of each of rows that out does not have yet, front to back.

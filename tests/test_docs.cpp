@@ -55,7 +55,9 @@ struct FakeCplex {
   IloEnv env;
   [[nodiscard]] IloEnv getEnv() const { return env; }
   static void getValues(IloNumArray out, const IloNumVarArray vars) {
-    for (IloInt i = 0; i < vars.getSize(); ++i) out.add(vars[i].getUB());
+    for (IloInt i = 0; i < vars.getSize(); ++i) {
+      out.add(vars[i].getUB());
+    }
   }
 };
 
@@ -112,7 +114,9 @@ int main() try {
   const VarTable<OrderCol> vQty{env, makeSet<OrderCol>(orders).collect(), 0, [](OrderCol o) { return o->quantity(); }};
   DREAMOR_CHECK(vUse.size() == 6 && std::string{vUse(FromCol{Nodes[0]}, ToCol{Nodes[1]}).getName()} == "Use_1_2");
   DREAMOR_CHECK(exactlyEqual(vQty(OrderCol{orders[0]}).getUB(), 5));
-  for (const auto& [row, useVar] : vUse) DREAMOR_CHECK(useVar.getImpl() != nullptr && vUse.contains(row));
+  for (const auto& [row, useVar] : vUse) {
+    DREAMOR_CHECK(useVar.getImpl() != nullptr && vUse.contains(row));
+  }
   const auto flowPlan = vFlow.solution(FakeCplex{env});
   DREAMOR_CHECK(exactlyEqual(flowPlan(FromCol{Nodes[0]}, ToCol{Nodes[2]}), 4));
   const auto outArcs = sARCS.groupBy<FromCol>();
@@ -120,8 +124,8 @@ int main() try {
 
   // concert.hpp (sumOf)
   const auto use_of = [&vUse](FromCol i, ToCol j) { return vUse(i, j); };
-  for (const auto& [node, arcs] : outArcs) DREAMOR_CHECK(sumOf(env, arcs, use_of).build().expr_->terms.size() == 2);
+  for (const auto& [node, arcs] : outArcs) {
+    DREAMOR_CHECK(sumOf(env, arcs, use_of).build().expr_->terms.size() == 2);
+  }
   return report("docs");
-} catch (...) {
-  return ::uncaught();
-}
+} catch (...) { return ::uncaught(); }

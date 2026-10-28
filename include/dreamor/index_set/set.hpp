@@ -58,9 +58,7 @@ template <typename Key>
 [[nodiscard]] std::optional<std::pair<std::size_t, std::size_t>> firstRepeat(const std::vector<Key>& keys) {
   ::dreamor::general::FlatIndex<Key> index{keys.size()};
   const auto repeat = index.insertAll(0, keys.size(), [&keys](std::size_t at) -> const Key& { return keys[at]; });
-  if (repeat.first == ::dreamor::general::FlatIndex<Key>::kNotFound) {
-    return std::nullopt;
-  }
+  if (repeat.first == ::dreamor::general::FlatIndex<Key>::kNotFound) { return std::nullopt; }
   return repeat;
 }
 
@@ -138,9 +136,7 @@ class SourceChecks {
   template <typename Column, typename Range>
   [[nodiscard]] static std::vector<std::tuple<KeyOf<Column>>> keysOf(Range& range) {
     std::vector<std::tuple<KeyOf<Column>>> keys;
-    if constexpr (std::ranges::sized_range<Range>) {
-      keys.reserve(std::ranges::size(range));
-    }
+    if constexpr (std::ranges::sized_range<Range>) { keys.reserve(std::ranges::size(range)); }
     for (auto&& element : range) {
       keys.emplace_back(toColumn<Column>(element).get());
     }
@@ -302,9 +298,7 @@ class Set {
     std::array<std::size_t, kSourceCount> own{};
     std::size_t next = 0;
     for (std::size_t source = 0; source < kSourceCount; ++source) {
-      if (is_spread[source]) {
-        continue;
-      }
+      if (is_spread[source]) { continue; }
       while (next < kArity && spread[next]) {
         ++next;
       }
@@ -586,9 +580,7 @@ class Set {
       } else {
         using Next        = internal::AppendColumn<BoundCols, kCol>::type;
         const auto& value = std::get<I>(tuple);
-        if (!passes<kCol, Next>(bound..., value)) {
-          return;
-        }
+        if (!passes<kCol, Next>(bound..., value)) { return; }
         spread<Step, Source, I + 1, Next>(out, tuple, bound..., value);
       }
     }

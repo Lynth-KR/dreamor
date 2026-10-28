@@ -17,7 +17,9 @@ static std::size_t terms(const IloExpr& e) {
 static std::vector<const IloNumVarI*> varsOf(const IloExpr& e) {
   std::vector<const IloNumVarI*> out;
   out.reserve(e.expr_->terms.size());
-  for (const auto& [v, c] : e.expr_->terms) out.push_back(v);
+  for (const auto& [v, c] : e.expr_->terms) {
+    out.push_back(v);
+  }
   return out;
 }
 
@@ -34,14 +36,18 @@ int main() try {
   DREAMOR_CHECK(terms(dreamor::concert::sumOf(env, IJ, var).where([](ICol i) { return i.get() > 1; }).build()) == 4);
 
   const auto byJ = IJ.groupBy<JCol>();
-  for (const auto& [j, rows] : byJ) DREAMOR_CHECK(terms(dreamor::concert::sumOf(env, rows, var).build()) == 3);
+  for (const auto& [j, rows] : byJ) {
+    DREAMOR_CHECK(terms(dreamor::concert::sumOf(env, rows, var).build()) == 3);
+  }
 
   const auto sums = dreamor::concert::sumOf(env, IJ, weighted)
                         .split([](JCol j) { return j.get() == 10; }, [](JCol) { return true; })
                         .build();
   DREAMOR_CHECK(terms(sums[0]) == 3 && terms(sums[1]) == 6);
   double coef = 0;
-  for (auto [v, c] : sums[0].expr_->terms) coef += c;
+  for (auto [v, c] : sums[0].expr_->terms) {
+    coef += c;
+  }
   DREAMOR_CHECK(exactlyEqual(coef, 1 + 2 + 3));
 
   // a plain container as a one-column set
@@ -50,7 +56,9 @@ int main() try {
   // a table is itself a term: its variables, summed over the rows
   DREAMOR_CHECK(terms(dreamor::concert::sumOf(env, IJ, x).build()) == 6);
   DREAMOR_CHECK(terms(dreamor::concert::sumOf(env, IJ, x).where([](ICol i) { return i.get() > 1; }).build()) == 4);
-  for (const auto& [j, rows] : byJ) DREAMOR_CHECK(terms(dreamor::concert::sumOf(env, rows, x).build()) == 3);
+  for (const auto& [j, rows] : byJ) {
+    DREAMOR_CHECK(terms(dreamor::concert::sumOf(env, rows, x).build()) == 3);
+  }
   const auto tableSums = dreamor::concert::sumOf(env, IJ, x)
                              .split([](JCol j) { return j.get() == 10; }, [](JCol) { return true; })
                              .build();
@@ -70,7 +78,9 @@ int main() try {
   const auto other = [&x](ICol i, JCol j) { return x(i, JCol{j.get() == 10 ? 20U : 10U}); };
   std::vector<const IloNumVarI*> swapped;
   swapped.reserve(IJ.size());
-  for (const auto& [i, j] : IJ) swapped.push_back(x(i, JCol{j.get() == 10 ? 20U : 10U}).getImpl());
+  for (const auto& [i, j] : IJ) {
+    swapped.push_back(x(i, JCol{j.get() == 10 ? 20U : 10U}).getImpl());
+  }
   DREAMOR_CHECK(varsOf(dreamor::concert::sumOf(env, IJ, other).build()) == swapped);
   const auto nested = [&](ICol i, JCol j) {
     DREAMOR_CHECK(terms(dreamor::concert::sumOf(env, byJ.slice(JCol{20}), var).build()) == 3);
@@ -79,6 +89,4 @@ int main() try {
   DREAMOR_CHECK(varsOf(dreamor::concert::sumOf(env, IJ, nested).build()) == direct);
   DREAMOR_CHECK(dreamor::internal::currentRow() == nullptr);
   return report("sum");
-} catch (...) {
-  return ::uncaught();
-}
+} catch (...) { return ::uncaught(); }

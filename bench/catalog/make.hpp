@@ -83,13 +83,17 @@ struct Dreamor<std::index_sequence<J...>> {
     r.measure("vars", [&] { vX.emplace(env, sX, 0, typename G::Tag{}, ILOFLOAT); });
     if (vX) {
       std::uint64_t sum = 0;
-      for (const auto& [row, x] : *vX) sum += ubOf(x);
+      for (const auto& [row, x] : *vX) {
+        sum += ubOf(x);
+      }
       r.check("vars", sum);
     }
     r.measure("vars_named", [&] { vNamed.emplace(env, sX, 0, typename G::Tag{}, ILOFLOAT, "x"); });
     if (vNamed) {
       std::uint64_t sum = 0;
-      for (const auto& [row, x] : *vNamed) sum += ubOf(x);
+      for (const auto& [row, x] : *vNamed) {
+        sum += ubOf(x);
+      }
       r.check("vars_named", sum);
     }
     std::optional<Set> sJoined;
@@ -97,7 +101,7 @@ struct Dreamor<std::index_sequence<J...>> {
       sJoined.emplace(d.sparse ? dreamor::makeSet<>(sA, sB).where(typename G::Keep{&d}).collect()
                                : dreamor::makeSet<>(sA, sB).collect());
     });
-    if (sJoined) r.check("join", check(*sJoined));
+    if (sJoined) { r.check("join", check(*sJoined)); }
     env.end();
   }
 };
@@ -125,7 +129,9 @@ static void runHand(Way way, const Data& d, Result& r) {
     for (const Ent* a : d.k1s) {
       row[0] = a;
       walk(walk, 1);
-      for (const Ent* t : d.lists[last][a->serial]) b_rows.emplace_back(a, t);
+      for (const Ent* t : d.lists[last][a->serial]) {
+        b_rows.emplace_back(a, t);
+      }
     }
   }
 
@@ -139,12 +145,16 @@ static void runHand(Way way, const Data& d, Result& r) {
   const std::size_t n  = rows.size() / k;
   const auto serialsAt = [&](const std::vector<const Ent*>& from, std::size_t i) {
     std::array<std::uint32_t, kMaxColumns> s{};
-    for (std::size_t j = 0; j < k; ++j) s[j] = from[i * k + j]->serial;
+    for (std::size_t j = 0; j < k; ++j) {
+      s[j] = from[i * k + j]->serial;
+    }
     return s;
   };
   const auto setCheck = [&](const std::vector<const Ent*>& from) {
     std::uint64_t sum = 0;
-    for (std::size_t i = 0; i < from.size() / k; ++i) sum += rowCheck(serialsAt(from, i), k);
+    for (std::size_t i = 0; i < from.size() / k; ++i) {
+      sum += rowCheck(serialsAt(from, i), k);
+    }
     return sum;
   };
   r.check("collect", setCheck(rows));
@@ -152,11 +162,15 @@ static void runHand(Way way, const Data& d, Result& r) {
   std::vector<IloNumVar> x, named;
   r.measure("vars", [&] {
     x.reserve(n);
-    for (std::size_t i = 0; i < n; ++i) x.emplace_back(env, 0, tagOf(serialsAt(rows, i), k, 0), ILOFLOAT);
+    for (std::size_t i = 0; i < n; ++i) {
+      x.emplace_back(env, 0, tagOf(serialsAt(rows, i), k, 0), ILOFLOAT);
+    }
   });
   {
     std::uint64_t sum = 0;
-    for (const IloNumVar& v : x) sum += ubOf(v);
+    for (const IloNumVar& v : x) {
+      sum += ubOf(v);
+    }
     r.check("vars", sum);
   }
   r.measure("vars_named", [&] {
@@ -175,7 +189,9 @@ static void runHand(Way way, const Data& d, Result& r) {
   });
   {
     std::uint64_t sum = 0;
-    for (const IloNumVar& v : named) sum += ubOf(v);
+    for (const IloNumVar& v : named) {
+      sum += ubOf(v);
+    }
     r.check("vars_named", sum);
   }
 
@@ -193,7 +209,7 @@ static void runHand(Way way, const Data& d, Result& r) {
       for (auto it = first; it != end; ++it) {
         row[last]     = period_of(*it);
         serials[last] = row[last]->serial;
-        if (d.keep(serials)) joined.insert(joined.end(), row.begin(), row.begin() + static_cast<std::ptrdiff_t>(k));
+        if (d.keep(serials)) { joined.insert(joined.end(), row.begin(), row.begin() + static_cast<std::ptrdiff_t>(k)); }
       }
     };
     const std::size_t a_count = a_rows.size() / a_width;
@@ -206,17 +222,21 @@ static void runHand(Way way, const Data& d, Result& r) {
         group_of.reserve(b_rows.size());
         for (std::size_t i = 0; i < b_rows.size(); ++i) {
           const auto [it, fresh] = group_of.try_emplace(b_rows[i].first->id, static_cast<std::uint32_t>(count.size()));
-          if (fresh) count.push_back(0);
+          if (fresh) { count.push_back(0); }
           group[i] = it->second;
           ++count[it->second];
         }
         start.resize(count.size() + 1);
-        for (std::size_t c = 0; c < count.size(); ++c) start[c + 1] = start[c] + count[c];
+        for (std::size_t c = 0; c < count.size(); ++c) {
+          start[c + 1] = start[c] + count[c];
+        }
         std::vector<std::uint32_t> next(start.begin(), start.end() - 1);
-        for (std::size_t i = 0; i < b_rows.size(); ++i) periods[next[group[i]]++] = b_rows[i].second;
+        for (std::size_t i = 0; i < b_rows.size(); ++i) {
+          periods[next[group[i]]++] = b_rows[i].second;
+        }
         for (std::size_t i = 0; i < a_count; ++i) {
           const auto it = group_of.find(a_rows[i * a_width]->id);
-          if (it == group_of.end()) continue;
+          if (it == group_of.end()) { continue; }
           emit(i, periods.begin() + start[it->second], periods.begin() + start[it->second + 1], [](const Ent* t) {
             return t;
           });
@@ -231,7 +251,9 @@ static void runHand(Way way, const Data& d, Result& r) {
       }
     } else if (way == Way::kSort) {
       std::vector<std::pair<std::uint32_t, const Ent*>> sorted(b_rows.size());
-      for (std::size_t i = 0; i < b_rows.size(); ++i) sorted[i] = {b_rows[i].first->id, b_rows[i].second};
+      for (std::size_t i = 0; i < b_rows.size(); ++i) {
+        sorted[i] = {b_rows[i].first->id, b_rows[i].second};
+      }
       std::stable_sort(sorted.begin(), sorted.end(), [](const auto& p, const auto& q) { return p.first < q.first; });
       for (std::size_t i = 0; i < a_count; ++i) {
         const std::uint32_t id  = a_rows[i * a_width]->id;
@@ -243,10 +265,12 @@ static void runHand(Way way, const Data& d, Result& r) {
       }
     } else {
       std::map<const Ent*, std::vector<const Ent*>> periods_of;
-      for (const auto& [a, t] : b_rows) periods_of[a].push_back(t);
+      for (const auto& [a, t] : b_rows) {
+        periods_of[a].push_back(t);
+      }
       for (std::size_t i = 0; i < a_count; ++i) {
         const auto it = periods_of.find(a_rows[i * a_width]);
-        if (it == periods_of.end()) continue;
+        if (it == periods_of.end()) { continue; }
         emit(i, it->second.begin(), it->second.end(), [](const Ent* t) { return t; });
       }
     }

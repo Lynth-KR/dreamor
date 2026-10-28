@@ -230,7 +230,9 @@ Concert; for MathOpt, `model.set_upper_bound(vYield(row), 0)`).
 
 ```cpp
 const auto in_maintenance = [](MachineCol m, PeriodCol t) { return m->name == "M0" && t.get() == 2; };
-for (const auto& row : vYield.keys().where(in_maintenance)) vYield(row).setUB(0);
+for (const auto& row : vYield.keys().where(in_maintenance)) {
+  vYield(row).setUB(0);
+}
 ```
 
 Doing this before extraction (`IloCplex cplex(model)`) avoids change-notification costs.
@@ -279,8 +281,9 @@ library has no constraint tables (for why, see [What dreamor does not do](philos
 
 ```cpp
 // A constraint family over a set: one per group
-for (const auto& [machine, period, rows] : producedByMachinePeriod)
+for (const auto& [machine, period, rows] : producedByMachinePeriod) {
   model.add(dreamor::concert::sumOf(env, rows, machine_usage).build() <= machine->capacity);
+}
 
 // A single global constraint: setName if it needs a name
 IloRange setupBudget = (dreamor::concert::sumOf(env, sPRODUCE, setup_cost).build() <= B);

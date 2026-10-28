@@ -154,6 +154,4 @@ int main() try {
   const auto JK_ten = JK.where([](JCol j) { return j.get() == 10; });
   DREAMOR_CHECK(dreamor::makeSet<>(IJ_big, JK_ten).collect().size() == 0);
   return report("index_set");
-} catch (...) {
-  return ::uncaught();
-}
+} catch (...) { return ::uncaught(); }

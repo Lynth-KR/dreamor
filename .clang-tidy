@@ -6,7 +6,6 @@
 #   misc-include-cleaner                 umbrella headers include on purpose (as in .clangd)
 #   cppcoreguidelines-pro-bounds-*       indices are checked once, then used; the tests run
 #                                        under sanitizers and against a reference instead
-#   readability-braces-around-statements one-line ifs are Google style, and clang-format's
 #   misc-use-anonymous-namespace         misc-use-internal-linkage asks for the opposite; static wins
 # An exception to a check that stays on is a NOLINT(check) with the reason beside it.
 Checks: >
@@ -25,7 +24,6 @@ Checks: >
   -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access,
   -cppcoreguidelines-pro-bounds-constant-array-index,
   -cppcoreguidelines-pro-bounds-pointer-arithmetic,
-  -readability-braces-around-statements,
   -misc-use-anonymous-namespace
 WarningsAsErrors: "*"
 HeaderFilterRegex: "/include/dreamor/"

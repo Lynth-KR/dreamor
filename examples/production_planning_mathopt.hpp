@@ -33,7 +33,9 @@ struct MathOptModel : Sets {
     const auto producedByItemPeriod = sPRODUCE.groupBy<ItemCol, PeriodCol>();
     for (const auto& [i, t] : sSTOCK) {
       LinearExpression totalInFlow = dreamor::mathopt::sumOf(producedByItemPeriod.slice(i, t), vYield).build();
-      if (const auto* prevPeriod = orderedPeriods.prev(t)) totalInFlow += vStock(i, std::get<PeriodCol>(*prevPeriod));
+      if (const auto* prevPeriod = orderedPeriods.prev(t)) {
+        totalInFlow += vStock(i, std::get<PeriodCol>(*prevPeriod));
+      }
       const double currentDemand = i->demand[t.get()];
       const auto endingStock     = vStock(i, t);
       model.AddLinearConstraint(totalInFlow - currentDemand == endingStock);
@@ -47,8 +49,9 @@ struct MathOptModel : Sets {
     }
 
     // no production without a setup
-    for (const auto& [row, yieldVar] : vYield)
+    for (const auto& [row, yieldVar] : vYield) {
       model.AddLinearConstraint(yieldVar <= yieldVar.upper_bound() * vSetup(row));
+    }
 
     const LinearExpression holdingCost =
         dreamor::mathopt::sumOf(sSTOCK, [&](ItemCol i, PeriodCol t) { return i->hold * vStock(i, t); }).build();

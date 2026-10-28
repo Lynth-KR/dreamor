@@ -20,10 +20,13 @@ static std::multiset<std::string> constraints(const IloModel& model) {
   std::multiset<std::string> out;
   for (const auto* c : *model.cs_) {
     std::map<std::string, double> terms;
-    for (auto [v, k] : c->terms) terms[v->name] += k;
+    for (auto [v, k] : c->terms) {
+      terms[v->name] += k;
+    }
     std::string s = std::to_string(c->sense) + "|" + std::to_string(c->rhs) + "|";
-    for (auto& [n, k] : terms)
-      if (!isExactlyZero(k)) s += n + "*" + std::to_string(k) + ";";
+    for (auto& [n, k] : terms) {
+      if (!isExactlyZero(k)) { s += n + "*" + std::to_string(k) + ";"; }
+    }
     out.insert(s);
   }
   return out;
@@ -36,10 +39,12 @@ static void showDiff(const std::multiset<std::string>& lib, const std::multiset<
   std::vector<std::string> onlyPlain;
   std::ranges::set_difference(lib, plain, std::back_inserter(onlyLib));
   std::ranges::set_difference(plain, lib, std::back_inserter(onlyPlain));
-  for (std::size_t k = 0; k < onlyLib.size() && k < 5; ++k)
+  for (std::size_t k = 0; k < onlyLib.size() && k < 5; ++k) {
     std::fprintf(stderr, "  only in library: %s\n", onlyLib[k].c_str());
-  for (std::size_t k = 0; k < onlyPlain.size() && k < 5; ++k)
+  }
+  for (std::size_t k = 0; k < onlyPlain.size() && k < 5; ++k) {
     std::fprintf(stderr, "  only in plain:   %s\n", onlyPlain[k].c_str());
+  }
 }
 
 int main() try {
@@ -61,10 +66,8 @@ int main() try {
     const auto b = constraints(plain);
     DREAMOR_CHECK(!a.empty() && a.size() == b.size());
     DREAMOR_CHECK(a == b);
-    if (a != b) showDiff(a, b);
+    if (a != b) { showDiff(a, b); }
     DREAMOR_CHECK(m.vYield.size() == p.yieldVars.size() && m.vStock.size() == p.stockVars.size());
   }
   return report("example");
-} catch (...) {
-  return ::uncaught();
-}
+} catch (...) { return ::uncaught(); }

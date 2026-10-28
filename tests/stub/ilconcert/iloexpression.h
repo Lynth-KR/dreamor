@@ -70,9 +70,11 @@ class IloNumExprArg {
   IloNumVarI* var_ = nullptr;
   IloExprI* expr_  = nullptr;
   void appendTo(IloExprI& out, double k) const {
-    if (var_) out.terms.push_back({var_, k});
+    if (var_) { out.terms.push_back({var_, k}); }
     if (expr_) {
-      for (auto [v, c] : expr_->terms) out.terms.push_back({v, c * k});
+      for (auto [v, c] : expr_->terms) {
+        out.terms.push_back({v, c * k});
+      }
       out.constant += expr_->constant * k;
     }
   }
@@ -190,7 +192,9 @@ inline IloExpr operator-(const IloNumExprArg& a, IloNum b) {
 }
 inline IloExpr IloSum(const IloNumVarArray& a) {
   IloExpr e(IloEnv{});
-  for (IloInt i = 0; i < a.getSize(); ++i) e += a[i];
+  for (IloInt i = 0; i < a.getSize(); ++i) {
+    e += a[i];
+  }
   return e;
 }
 

@@ -92,9 +92,11 @@ struct Data {
   // A candidate row - its entities' serials - is a row when the predicate keeps it.
   template <typename Serials>
   [[nodiscard]] bool keep(const Serials& serials) const {
-    if (!sparse) return true;
+    if (!sparse) { return true; }
     std::uint64_t h = 0;
-    for (std::size_t j = 0; j < k; ++j) h = mix(h ^ (std::uint64_t{serials[j]} << (8 * j)));
+    for (std::size_t j = 0; j < k; ++j) {
+      h = mix(h ^ (std::uint64_t{serials[j]} << (8 * j)));
+    }
     return h % 10 == 0;
   }
   // The period before: one serial earlier, as orderedPeriods.prev(t) would give it.
@@ -121,7 +123,9 @@ struct Data {
             std::array<const Ent*, kMaxColumns>& row,
             std::array<std::uint32_t, kMaxColumns>& serials,
             F& f) const {
-    if (j >= kMaxColumns) return;  // k <= kMaxColumns: never taken, but the compiler cannot tell
+    if (j >= kMaxColumns) {
+      return;  // k <= kMaxColumns: never taken, but the compiler cannot tell
+    }
     for (const Ent* e : lists[j][k1]) {
       row[j]     = e;
       serials[j] = e->serial;
@@ -142,7 +146,7 @@ static Data makeData(const Cell& c) {
   std::uniform_real_distribution<double> u(0.0, 1.0);
   // Pareto (alpha = 1.5) weights with mean 1: a few k1s get long lists.
   auto weight = [&]() {
-    if (!c.skewed) return 1.0;
+    if (!c.skewed) { return 1.0; }
     const double alpha = 1.5, xm = (alpha - 1.0) / alpha;
     return std::min(xm / std::pow(1.0 - u(g), 1.0 / alpha), 50.0);
   };
@@ -156,16 +160,22 @@ static Data makeData(const Cell& c) {
     return d.ents[j].back().get();
   };
   const auto pool_last = static_cast<std::size_t>(periods) * 4;  // one pool of periods
-  for (std::size_t i = 0; i <= pool_last; ++i) add(last);
+  for (std::size_t i = 0; i <= pool_last; ++i) {
+    add(last);
+  }
   d.absent = d.ents[last].back().get();
   std::array<std::vector<const Ent*>, kMaxColumns> shared;
   if (!c.owned) {
     for (std::size_t j = 1; j < last; ++j) {
       const auto pool = static_cast<std::size_t>(std::lround(middle * 50));
-      for (std::size_t i = 0; i < pool; ++i) shared[j].push_back(add(j));
+      for (std::size_t i = 0; i < pool; ++i) {
+        shared[j].push_back(add(j));
+      }
     }
   }
-  for (std::size_t j = 1; j < c.k; ++j) d.lists[j].clear();
+  for (std::size_t j = 1; j < c.k; ++j) {
+    d.lists[j].clear();
+  }
 
   std::size_t rows = 0;
   std::array<std::uint32_t, kMaxColumns> serials{};
@@ -179,13 +189,19 @@ static Data makeData(const Cell& c) {
       if (j == last) {
         n                       = std::min(n, pool_last);
         const std::size_t start = mix(k1->serial) % pool_last;
-        for (std::size_t i = 0; i < n; ++i) list.push_back(d.ents[last][(start + i) % pool_last].get());
+        for (std::size_t i = 0; i < n; ++i) {
+          list.push_back(d.ents[last][(start + i) % pool_last].get());
+        }
       } else if (c.owned) {
-        for (std::size_t i = 0; i < n; ++i) list.push_back(add(j));
+        for (std::size_t i = 0; i < n; ++i) {
+          list.push_back(add(j));
+        }
       } else {
         n                       = std::min(n, shared[j].size());
         const std::size_t start = (std::size_t{k1->serial} * 7) % shared[j].size();
-        for (std::size_t i = 0; i < n; ++i) list.push_back(shared[j][(start + i) % shared[j].size()]);
+        for (std::size_t i = 0; i < n; ++i) {
+          list.push_back(shared[j][(start + i) % shared[j].size()]);
+        }
       }
       d.lists[j].push_back(std::move(list));
     }
@@ -193,11 +209,15 @@ static Data makeData(const Cell& c) {
     serials[0] = k1->serial;
     std::array<std::size_t, kMaxColumns> at{};
     for (;;) {
-      for (std::size_t j = 1; j < c.k; ++j) serials[j] = d.lists[j][k1->serial][at[j]]->serial;
+      for (std::size_t j = 1; j < c.k; ++j) {
+        serials[j] = d.lists[j][k1->serial][at[j]]->serial;
+      }
       rows += d.keep(serials);
       std::size_t j = c.k - 1;
-      while (j >= 1 && ++at[j] == d.lists[j][k1->serial].size()) at[j--] = 0;
-      if (j == 0) break;
+      while (j >= 1 && ++at[j] == d.lists[j][k1->serial].size()) {
+        at[j--] = 0;
+      }
+      if (j == 0) { break; }
     }
   }
   d.rows = rows;
@@ -205,8 +225,11 @@ static Data makeData(const Cell& c) {
   // L and I, from a stream of their own so that the rows above do not depend on them.
   std::mt19937_64 h(c.seed * 6151 + 29);
   if (c.shuffled) {
-    for (std::size_t j = 1; j < c.k; ++j)
-      for (auto& l : d.lists[j]) std::shuffle(l.begin(), l.end(), h);
+    for (std::size_t j = 1; j < c.k; ++j) {
+      for (auto& l : d.lists[j]) {
+        std::shuffle(l.begin(), l.end(), h);
+      }
+    }
   }
   if (c.permuted) {
     for (std::size_t j = 0; j < c.k; ++j) {
@@ -214,7 +237,9 @@ static Data makeData(const Cell& c) {
       std::vector<std::uint32_t> ids(count);
       std::iota(ids.begin(), ids.end(), 0U);
       std::shuffle(ids.begin(), ids.end(), h);
-      for (std::size_t i = 0; i < count; ++i) d.ents[j][i]->id = ids[i];
+      for (std::size_t i = 0; i < count; ++i) {
+        d.ents[j][i]->id = ids[i];
+      }
     }
   }
   return d;
@@ -225,7 +250,9 @@ static Data makeData(const Cell& c) {
 template <typename Serials>
 static double tagOf(const Serials& serials, std::size_t count, std::uint64_t family) {
   std::uint64_t h = family * 0x51afd7ed558ccd1ULL;
-  for (std::size_t j = 0; j < count; ++j) h = mix(h ^ (std::uint64_t{serials[j]} << (8 * j)));
+  for (std::size_t j = 0; j < count; ++j) {
+    h = mix(h ^ (std::uint64_t{serials[j]} << (8 * j)));
+  }
   return static_cast<double>(h % 1000003);
 }
 
@@ -248,10 +275,10 @@ static Samples makeSamples(const Data& d, std::size_t lookups, std::uint64_t see
   s.half.reserve(s.hit.size());
   for (auto row : s.hit) {
     const bool present = (g() & 1) != 0;
-    if (present) s.half.push_back(row);
+    if (present) { s.half.push_back(row); }
     row[d.last()] = d.absent;
     s.miss.push_back(row);
-    if (!present) s.half.push_back(row);
+    if (!present) { s.half.push_back(row); }
   }
   return s;
 }

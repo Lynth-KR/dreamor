@@ -47,7 +47,7 @@ inline std::vector<std::size_t> keptBy(const std::string& shape, std::size_t k) 
   std::vector<std::size_t> kept;
   for (std::size_t j = 0; j < k; ++j) {
     const bool dropped = (shape == "inner" && j == k - 1) || (shape == "lead" && j == 0) || (shape == "mid" && j == 1);
-    if (!dropped) kept.push_back(j);
+    if (!dropped) { kept.push_back(j); }
   }
   return kept;
 }
@@ -88,8 +88,9 @@ struct Dreamor<std::index_sequence<J...>> {
     });
     shape("inner", std::make_index_sequence<kK - 1>{}, sX, *vX, env, r, true);
     shape("lead", decltype(shifted<1>(std::make_index_sequence<kK - 1>{})){}, sX, *vX, env, r, false);
-    if constexpr (kK >= 3)
+    if constexpr (kK >= 3) {
       shape("mid", decltype(skipSecond(std::make_index_sequence<kK - 2>{})){}, sX, *vX, env, r, false);
+    }
     env.end();
   }
 
@@ -141,7 +142,9 @@ static void runHand(Way way, const Data& d, Result& r) {
   IloEnv env;
   Packer full;
   full.k = k;
-  for (std::size_t j = 0; j < k; ++j) full.size[j] = d.ents[j].size();
+  for (std::size_t j = 0; j < k; ++j) {
+    full.size[j] = d.ents[j].size();
+  }
   if (way != Way::kMap && full.span() >= static_cast<long double>(std::numeric_limits<std::uint64_t>::max())) {
     r.skip("the ids do not pack into 64 bits");
     env.end();
@@ -153,25 +156,29 @@ static void runHand(Way way, const Data& d, Result& r) {
   std::array<std::vector<std::uint32_t>, kMaxColumns> serial_of;  // by id
   for (std::size_t j = 0; j < k; ++j) {
     serial_of[j].resize(d.ents[j].size());
-    for (const auto& e : d.ents[j]) serial_of[j][e->id] = e->serial;
+    for (const auto& e : d.ents[j]) {
+      serial_of[j][e->id] = e->serial;
+    }
   }
   r.measure("build", [&] {
     ids.reserve(d.rows * k);
-    if (way == Way::kMap) ents.reserve(d.rows * k);
+    if (way == Way::kMap) { ents.reserve(d.rows * k); }
     x.reserve(d.rows);
     d.forEachRow([&](const std::array<const Ent*, kMaxColumns>& row) {
       std::array<std::uint32_t, kMaxColumns> serial{};
       for (std::size_t j = 0; j < k; ++j) {
         ids.push_back(row[j]->id);
         serial[j] = row[j]->serial;
-        if (way == Way::kMap) ents.push_back(row[j]);
+        if (way == Way::kMap) { ents.push_back(row[j]); }
       }
       x.emplace_back(env, 0, tagOf(serial, k, 0), ILOFLOAT);
     });
   });
   const auto groupKey = [&](std::size_t row, const std::vector<std::size_t>& kept) {
     std::array<std::uint32_t, kMaxColumns> s{};
-    for (std::size_t i = 0; i < kept.size(); ++i) s[i] = serial_of[kept[i]][ids[row * k + kept[i]]];
+    for (std::size_t i = 0; i < kept.size(); ++i) {
+      s[i] = serial_of[kept[i]][ids[row * k + kept[i]]];
+    }
     return keyOf(s, kept.size());
   };
 
@@ -179,10 +186,14 @@ static void runHand(Way way, const Data& d, Result& r) {
     const std::vector<std::size_t> kept = keptBy(shape, k);
     Packer pack;
     pack.k = kept.size();
-    for (std::size_t i = 0; i < kept.size(); ++i) pack.size[i] = d.ents[kept[i]].size();
+    for (std::size_t i = 0; i < kept.size(); ++i) {
+      pack.size[i] = d.ents[kept[i]].size();
+    }
     const auto packed = [&](std::size_t row) {
       std::array<std::uint32_t, kMaxColumns> id{};
-      for (std::size_t i = 0; i < kept.size(); ++i) id[i] = ids[row * k + kept[i]];
+      for (std::size_t i = 0; i < kept.size(); ++i) {
+        id[i] = ids[row * k + kept[i]];
+      }
       return pack(id);
     };
     Groups g;
@@ -191,28 +202,32 @@ static void runHand(Way way, const Data& d, Result& r) {
       if (shape == "inner" && way != Way::kMap) {
         // The period is innermost, so a group's rows come one after another.
         for (std::size_t i = 0; i < n; ++i) {
-          if (i == 0 || packed(i) != packed(i - 1)) {
-            g.start.push_back(static_cast<std::uint32_t>(i));
-          }
+          if (i == 0 || packed(i) != packed(i - 1)) { g.start.push_back(static_cast<std::uint32_t>(i)); }
         }
         g.rows.resize(n);
-        for (std::uint32_t i = 0; i < n; ++i) g.rows[i] = i;
+        for (std::uint32_t i = 0; i < n; ++i) {
+          g.rows[i] = i;
+        }
       } else if (way == Way::kIdentity || way == Way::kMixed) {
         const auto csr = [&](auto& index) {
           std::vector<std::uint32_t> group_of(n), count;
           index.reserve(n);
           for (std::size_t i = 0; i < n; ++i) {
             const auto [it, fresh] = index.try_emplace(packed(i), static_cast<std::uint32_t>(count.size()));
-            if (fresh) count.push_back(0);
+            if (fresh) { count.push_back(0); }
             group_of[i] = it->second;
             ++count[it->second];
           }
           g.start.resize(count.size());
           std::uint32_t running = 0;
-          for (std::size_t c = 0; c < count.size(); ++c) g.start[c] = std::exchange(running, running + count[c]);
+          for (std::size_t c = 0; c < count.size(); ++c) {
+            g.start[c] = std::exchange(running, running + count[c]);
+          }
           g.rows.resize(n);
           std::vector<std::uint32_t> next(g.start);
-          for (std::uint32_t i = 0; i < n; ++i) g.rows[next[group_of[i]]++] = i;
+          for (std::uint32_t i = 0; i < n; ++i) {
+            g.rows[next[group_of[i]]++] = i;
+          }
         };
         if (way == Way::kIdentity) {
           std::unordered_map<std::uint64_t, std::uint32_t> index;
@@ -223,20 +238,22 @@ static void runHand(Way way, const Data& d, Result& r) {
         }
       } else if (way == Way::kSort) {
         std::vector<std::pair<std::uint64_t, std::uint32_t>> order(n);
-        for (std::uint32_t i = 0; i < n; ++i) order[i] = {packed(i), i};
+        for (std::uint32_t i = 0; i < n; ++i) {
+          order[i] = {packed(i), i};
+        }
         std::sort(order.begin(), order.end());  // by key, then by row: rows keep their order
         g.rows.resize(n);
         for (std::size_t i = 0; i < n; ++i) {
           g.rows[i] = order[i].second;
-          if (i == 0 || order[i].first != order[i - 1].first) {
-            g.start.push_back(static_cast<std::uint32_t>(i));
-          }
+          if (i == 0 || order[i].first != order[i - 1].first) { g.start.push_back(static_cast<std::uint32_t>(i)); }
         }
       } else {
         std::map<std::array<const Ent*, kMaxColumns>, std::vector<std::uint32_t>> groups;
         for (std::uint32_t i = 0; i < n; ++i) {
           std::array<const Ent*, kMaxColumns> key{};
-          for (std::size_t c = 0; c < kept.size(); ++c) key[c] = ents[i * k + kept[c]];
+          for (std::size_t c = 0; c < kept.size(); ++c) {
+            key[c] = ents[i * k + kept[c]];
+          }
           groups[key].push_back(i);
         }
         for (const auto& [key, rows] : groups) {
@@ -253,7 +270,7 @@ static void runHand(Way way, const Data& d, Result& r) {
           IloExpr e(env);
           for (std::uint32_t p = g.start[c]; p < g.start[c + 1]; ++p) {
             const std::uint32_t i = g.rows[p];
-            if (even_only && serial_of[last][ids[i * k + last]] % 2 != 0) continue;
+            if (even_only && serial_of[last][ids[i * k + last]] % 2 != 0) { continue; }
             e += x[i];
           }
           // The group's key, from its first row, as dreamor's arm reads it from the group.
@@ -263,7 +280,7 @@ static void runHand(Way way, const Data& d, Result& r) {
       });
     };
     sum("sum_" + shape, false);
-    if (shape == "inner") sum("sum_where", true);
+    if (shape == "inner") { sum("sum_where", true); }
   }
   env.end();
 }

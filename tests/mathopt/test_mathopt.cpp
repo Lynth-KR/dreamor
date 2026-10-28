@@ -76,7 +76,9 @@ static void varTable() {
 
   // bounds tightened afterwards, through the model as usual
   const auto atTwo = [](ICol i) { return i.get() == 2; };
-  for (const auto& row : x.keys().where(atTwo)) model.set_upper_bound(x(row), 0);
+  for (const auto& row : x.keys().where(atTwo)) {
+    model.set_upper_bound(x(row), 0);
+  }
   DREAMOR_CHECK(exactlyEqual(x(ICol{2}, JCol{10}).upper_bound(), 0) &&
                 exactlyEqual(x(ICol{3}, JCol{10}).upper_bound(), 1));
 
@@ -105,14 +107,18 @@ static void sum() {
   DREAMOR_CHECK(terms(dreamor::mathopt::sumOf(IJ, var).where([](ICol i) { return i.get() > 1; }).build()) == 4);
 
   const auto byJ = IJ.groupBy<JCol>();
-  for (const auto& [j, rows] : byJ) DREAMOR_CHECK(terms(dreamor::mathopt::sumOf(rows, var).build()) == 3);
+  for (const auto& [j, rows] : byJ) {
+    DREAMOR_CHECK(terms(dreamor::mathopt::sumOf(rows, var).build()) == 3);
+  }
 
   const auto sums = dreamor::mathopt::sumOf(IJ, weighted)
                         .split([](JCol j) { return j.get() == 10; }, [](JCol) { return true; })
                         .build();
   DREAMOR_CHECK(terms(sums[0]) == 3 && terms(sums[1]) == 6);
   double coef = 0;
-  for (const auto& [v, c] : sums[0].terms()) coef += c;
+  for (const auto& [v, c] : sums[0].terms()) {
+    coef += c;
+  }
   DREAMOR_CHECK(exactlyEqual(coef, 1 + 2 + 3));
 
   // a table is itself a term
@@ -138,7 +144,7 @@ static void solution() {
       dreamor::mathopt::sumOf(sI, [&vPick](ICol i) { return static_cast<double>(i.get()) * vPick(i); }).build());
   const auto result = math_opt::Solve(model, math_opt::SolverType::kHighs);
   DREAMOR_CHECK(result.ok());
-  if (!result.ok()) return;
+  if (!result.ok()) { return; }
   const auto pickPlan = vPick.solution(*result);
   DREAMOR_CHECK(pickPlan.size() == 3 && std::abs(pickPlan(ICol{1})) < 1e-6 && std::abs(pickPlan(ICol{3}) - 1) < 1e-6);
   DREAMOR_CHECK_THROWS(std::out_of_range, pickPlan(ICol{9}));
@@ -147,7 +153,7 @@ static void solution() {
   model.AddLinearConstraint(vPick(ICol{1}) >= 2);
   const auto infeasible = math_opt::Solve(model, math_opt::SolverType::kHighs);
   DREAMOR_CHECK(infeasible.ok() && !infeasible->has_primal_feasible_solution());
-  if (infeasible.ok()) DREAMOR_CHECK_THROWS(std::logic_error, vPick.solution(*infeasible));
+  if (infeasible.ok()) { DREAMOR_CHECK_THROWS(std::logic_error, vPick.solution(*infeasible)); }
 }
 
 static void example() {
@@ -163,14 +169,16 @@ static void example() {
 
     const auto result = math_opt::Solve(model, math_opt::SolverType::kHighs);
     DREAMOR_CHECK(result.ok() && result->termination.reason == math_opt::TerminationReason::kOptimal);
-    if (!result.ok() || !result->has_primal_feasible_solution()) continue;
+    if (!result.ok() || !result->has_primal_feasible_solution()) { continue; }
     const auto yieldPlan = lotSizing.vYield.solution(*result);
     const auto stockPlan = lotSizing.vStock.solution(*result);
 
     const auto producedByItemPeriod = lotSizing.sPRODUCE.groupBy<ItemCol, PeriodCol>();
     for (const auto& [i, t] : lotSizing.sSTOCK) {
       double netFlow = (t.get() > 0 ? stockPlan(i, PeriodCol{t.get() - 1}) : 0.0) - i->demand[t.get()];
-      for (const auto& row : producedByItemPeriod.slice(i, t)) netFlow += yieldPlan(row);
+      for (const auto& row : producedByItemPeriod.slice(i, t)) {
+        netFlow += yieldPlan(row);
+      }
       DREAMOR_CHECK(std::abs(netFlow - stockPlan(i, t)) < 1e-6);
     }
   }
@@ -182,6 +190,4 @@ int main() try {
   solution();
   example();
   return report("mathopt");
-} catch (...) {
-  return ::uncaught();
-}
+} catch (...) { return ::uncaught(); }

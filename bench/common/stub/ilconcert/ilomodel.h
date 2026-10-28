@@ -16,7 +16,9 @@ class IloModel {
   std::size_t rows() const { return impl_->constraints.size(); }
   std::size_t nonzeros() const {
     std::size_t n = 0;
-    for (const IloConstraintI* c : impl_->constraints) n += c->terms.vars.size();
+    for (const IloConstraintI* c : impl_->constraints) {
+      n += c->terms.vars.size();
+    }
     return n;
   }
   const IloExprI* objective() const { return impl_->objective; }

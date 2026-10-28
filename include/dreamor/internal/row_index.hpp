@@ -108,9 +108,7 @@ class RowIndex {
       return at != kNotFound ? at : built(rows).find(key..., rowsAt(rows));
     } else {
       const std::size_t at = positionOf(rows, currentRow());
-      if (at != kNotFound && holds(rows[at], key...)) {
-        return at;
-      }
+      if (at != kNotFound && holds(rows[at], key...)) { return at; }
       return findByColumns(rows, key...);
     }
   }
@@ -122,9 +120,7 @@ class RowIndex {
   [[nodiscard]] static std::size_t positionOf(const std::vector<Key>& rows, const void* row) {
     const Key* const first = rows.data();
     const std::less<> before;
-    if (row == nullptr || before(row, first) || !before(row, first + rows.size())) {
-      return kNotFound;
-    }
+    if (row == nullptr || before(row, first) || !before(row, first + rows.size())) { return kNotFound; }
     return static_cast<std::size_t>(static_cast<const Key*>(row) - first);
   }
 
@@ -171,7 +167,7 @@ class RowIndex {
     }
     const std::size_t found = built(rows).find(Key{key...}, rowsAt(rows));
     if (found != kNotFound) {
-      if (last == kNotFound) std::move_backward(hints.begin(), hints.end() - 1, hints.end());
+      if (last == kNotFound) { std::move_backward(hints.begin(), hints.end() - 1, hints.end()); }
       hint.walking = last != kNotFound && found == last + 1;
       hint.row     = rows.data() + found;
     }

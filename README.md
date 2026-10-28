@@ -39,8 +39,9 @@ const dreamor::concert::VarTable<MachineCol, ItemCol, PeriodCol> vYield{env, sPR
 // subject to Capacity {m in MACHINES, t in PERIODS}: sum {i: (m,i,t) in PRODUCE} time[i] * Yield[m,i,t] <= cap[m];
 const auto machine_usage = [&](MachineCol m, ItemCol i, PeriodCol t) { return i->time * vYield(m, i, t); };
 const auto producedByMachinePeriod = sPRODUCE.groupBy<MachineCol, PeriodCol>();
-for (const auto& [machine, period, rows] : producedByMachinePeriod)
+for (const auto& [machine, period, rows] : producedByMachinePeriod) {
   model.add(dreamor::concert::sumOf(env, rows, machine_usage).build() <= machine->capacity);
+}
 ```
 
 To see how real model code changes, look at [three of OR-Tools' own MathOpt samples ported to
@@ -169,7 +170,7 @@ const auto orderedPeriods = sPERIODS.ordered();
 const auto producedByItemPeriod = sPRODUCE.groupBy<ItemCol, PeriodCol>();
 for (const auto& [i, t] : sSTOCK) {
   IloExpr totalInFlow = dreamor::concert::sumOf(env, producedByItemPeriod.slice(i, t), vYield).build();
-  if (const auto* prevPeriod = orderedPeriods.prev(t)) totalInFlow += vStock(i, std::get<PeriodCol>(*prevPeriod));
+  if (const auto* prevPeriod = orderedPeriods.prev(t)) { totalInFlow += vStock(i, std::get<PeriodCol>(*prevPeriod)); }
   const double currentDemand = i->demand[t.get()];
   const auto endingStock = vStock(i, t);
   model.add(totalInFlow - currentDemand == endingStock);
@@ -183,7 +184,9 @@ for (const auto& [machine, period, rows] : producedByMachinePeriod) {
   totalLoad.end();
 }
 //    No production without setup
-for (const auto& [row, yieldVar] : vYield) model.add(yieldVar <= yieldVar.getUB() * vSetup(row));
+for (const auto& [row, yieldVar] : vYield) {
+  model.add(yieldVar <= yieldVar.getUB() * vSetup(row));
+}
 
 // 6) Objective
 IloExpr holdingCost = dreamor::concert::sumOf(env, sSTOCK, [&](ItemCol i, PeriodCol t) { return i->hold * vStock(i, t); }).build();
@@ -198,8 +201,9 @@ totalCost.end();
 IloCplex cplex(model);
 cplex.solve();
 const auto yieldPlan = vYield.solution(cplex);
-for (const auto& [row, qty] : yieldPlan)
-  if (qty > 1e-6) print(std::get<MachineCol>(row), std::get<ItemCol>(row), std::get<PeriodCol>(row), qty);
+for (const auto& [row, qty] : yieldPlan) {
+  if (qty > 1e-6) { print(std::get<MachineCol>(row), std::get<ItemCol>(row), std::get<PeriodCol>(row), qty); }
+}
 ```
 
 The full example lives in `examples/`. Data, columns, and sets are in a single solver-independent file,

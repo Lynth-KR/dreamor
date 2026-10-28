@@ -93,7 +93,9 @@ using Set = dreamor::SetOf<ACol, BCol, CCol>;
 template <typename Builder>
 static Set withPredicates(std::string_view shape, const Dens& d, Builder b, bool late) {
   if (shape == "pair") {
-    if (late) return b.where([p = pBC(d.d1)](ACol, BCol bb, CCol c) { return p(bb, c); }).collect();
+    if (late) {
+      return b.where([p = pBC(d.d1)](ACol, BCol bb, CCol c) { return p(bb, c); }).collect();
+    }
     return b.where(pBC(d.d1)).collect();
   }
   if (shape == "filters") {
@@ -123,12 +125,14 @@ template <typename Builder>
 static std::string plannedOrder(std::string_view shape, const Dens& d, const Builder& b) {
   auto name = [](const auto& order) {
     std::string s;
-    for (const std::size_t source : order) s += static_cast<char>('A' + source);
+    for (const std::size_t source : order) {
+      s += static_cast<char>('A' + source);
+    }
     return s;
   };
-  if (shape == "pair") return name(decltype(b.where(pBC(d.d1)))::kVisitOrder);
-  if (shape == "filters") return name(decltype(b.where(qA(d.d1)).where(qC(d.d2)))::kVisitOrder);
-  if (shape == "chain") return name(decltype(b.where(pAB(d.d1)).where(pBC(d.d2)))::kVisitOrder);
+  if (shape == "pair") { return name(decltype(b.where(pBC(d.d1)))::kVisitOrder); }
+  if (shape == "filters") { return name(decltype(b.where(qA(d.d1)).where(qC(d.d2)))::kVisitOrder); }
+  if (shape == "chain") { return name(decltype(b.where(pAB(d.d1)).where(pBC(d.d2)))::kVisitOrder); }
   return name(decltype(b.where(pAB(d.d1)).where(pBC(d.d2)).where(pAC(d.d3)))::kVisitOrder);
 }
 
@@ -198,8 +202,12 @@ int main(int argc, char** argv) {
   std::array<Ptrs, 3> ptrs;
   for (std::size_t s = 0; s < 3; ++s) {
     entities[s].resize(n[s]);
-    for (std::uint32_t i = 0; i < n[s]; ++i) entities[s][i].id = i;
-    for (const E& e : entities[s]) ptrs[s].push_back(&e);
+    for (std::uint32_t i = 0; i < n[s]; ++i) {
+      entities[s][i].id = i;
+    }
+    for (const E& e : entities[s]) {
+      ptrs[s].push_back(&e);
+    }
   }
 
   // Times build() alone; the checksum reads the columns by type, so a set whose columns come in
@@ -223,8 +231,12 @@ int main(int argc, char** argv) {
   if (shape == "join") {
     const auto S = dreamor::makeSet<ACol, BCol>(ptrs[0], ptrs[1]).where(pAB(d.d1)).collect();
     const auto U = dreamor::makeSet<BCol, CCol>(ptrs[1], ptrs[2]).where(pBC(d.d2)).collect();
-    if (variant == "SU") time([&] { return dreamor::makeSet<>(S, U).collect(); });
-    if (variant == "US") time([&] { return dreamor::makeSet<>(U, S).collect(); });
+    if (variant == "SU") {
+      time([&] { return dreamor::makeSet<>(S, U).collect(); });
+    }
+    if (variant == "US") {
+      time([&] { return dreamor::makeSet<>(U, S).collect(); });
+    }
     planned = variant;  // a join is visited in declaration order
   } else {
     const auto free_builder = dreamor::makeSet<ACol, BCol, CCol>(ptrs[0], ptrs[1], ptrs[2]);
@@ -233,7 +245,9 @@ int main(int argc, char** argv) {
       time([&] { return withPredicates(shape, d, free_builder, variant == "late"); });
     }
     for (const auto& [name, run] : kOrders) {
-      if (variant == name) time([&] { return run(shape, d, ptrs); });
+      if (variant == name) {
+        time([&] { return run(shape, d, ptrs); });
+      }
     }
   }
   if (!ran) {

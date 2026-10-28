@@ -50,7 +50,9 @@ Row plain(const Tup& row) {
 template <typename Set>
 std::vector<Row> rowsOf(const Set& set) {
   std::vector<Row> out;
-  for (const auto& row : set) out.push_back(plain(row));
+  for (const auto& row : set) {
+    out.push_back(plain(row));
+  }
   return out;
 }
 
@@ -58,8 +60,9 @@ template <typename T>
 std::vector<T> firstOccurrences(const std::vector<T>& rows) {
   std::set<T> seen;
   std::vector<T> out;
-  for (const auto& row : rows)
-    if (seen.insert(row).second) out.push_back(row);
+  for (const auto& row : rows) {
+    if (seen.insert(row).second) { out.push_back(row); }
+  }
   return out;
 }
 
@@ -75,7 +78,7 @@ std::vector<std::size_t> randomList(std::mt19937& g) {
   std::uniform_int_distribution<std::size_t> longer(2, kValues);
   const std::size_t pick = shape(g);
   std::size_t size       = pick;  // 0 and 1 as they come
-  if (pick >= 2) size = longer(g);
+  if (pick >= 2) { size = longer(g); }
   std::vector<std::size_t> out(kValues);
   std::iota(out.begin(), out.end(), std::size_t{0});
   std::shuffle(out.begin(), out.end(), g);
@@ -103,17 +106,22 @@ struct Data {
 };
 Data randomData(std::mt19937& g) {
   Data d{randomList(g), randomList(g), {}, randomRule(g), randomRule(g)};
-  for (std::size_t a = 0; a < kValues; ++a) d.cs_of.push_back(randomList(g));
+  for (std::size_t a = 0; a < kValues; ++a) {
+    d.cs_of.push_back(randomList(g));
+  }
   return d;
 }
 
 // The reference makeSet: nested loops in declaration order, predicates applied to full rows.
 std::vector<Row> referenceRows(const Data& d) {
   std::vector<Row> out;
-  for (const std::size_t a : d.as)
-    for (const std::size_t b : d.bs)
-      for (const std::size_t c : d.cs_of[a])
-        if (d.ac.keeps(a, c) && d.b_only.keeps(b, 0)) out.emplace_back(a, b, c);
+  for (const std::size_t a : d.as) {
+    for (const std::size_t b : d.bs) {
+      for (const std::size_t c : d.cs_of[a]) {
+        if (d.ac.keeps(a, c) && d.b_only.keeps(b, 0)) { out.emplace_back(a, b, c); }
+      }
+    }
+  }
   return out;
 }
 
@@ -144,26 +152,33 @@ void checkCase(std::mt19937& g, IloEnv env) {
   // where() on a finished set keeps the order.
   const Rule rule = randomRule(g);
   std::vector<Row> filtered;
-  for (const Row& r : s)
-    if (rule.keeps(std::get<1>(r), std::get<2>(r))) filtered.push_back(r);
+  for (const Row& r : s) {
+    if (rule.keeps(std::get<1>(r), std::get<2>(r))) { filtered.push_back(r); }
+  }
   DREAMOR_CHECK(rowsOf(S.where([&rule](BCol b, CCol c) { return rule.keeps(b.get(), c.get()); })) == filtered);
 
   // select(): projection, first occurrences.
   std::vector<std::pair<std::size_t, std::size_t>> ac;
   ac.reserve(s.size());
-  for (const Row& r : s) ac.emplace_back(std::get<0>(r), std::get<2>(r));
+  for (const Row& r : s) {
+    ac.emplace_back(std::get<0>(r), std::get<2>(r));
+  }
   std::vector<std::pair<std::size_t, std::size_t>> selected;
-  for (const auto& row : S.select<ACol, CCol>())
+  for (const auto& row : S.select<ACol, CCol>()) {
     selected.emplace_back(std::get<ACol>(row).get(), std::get<CCol>(row).get());
+  }
   DREAMOR_CHECK(selected == firstOccurrences(ac));
 
   // select(expr): each row as the expression makes it - here a and c trading columns.
   std::vector<std::pair<std::size_t, std::size_t>> ca;
   ca.reserve(ac.size());
-  for (const auto& [a, c] : ac) ca.emplace_back(c, a);
+  for (const auto& [a, c] : ac) {
+    ca.emplace_back(c, a);
+  }
   std::vector<std::pair<std::size_t, std::size_t>> traded;
-  for (const auto& row : S.select([](ACol a, CCol c) { return std::tuple<ACol, CCol>{c, a}; }))
+  for (const auto& row : S.select([](ACol a, CCol c) { return std::tuple<ACol, CCol>{c, a}; })) {
     traded.emplace_back(std::get<ACol>(row).get(), std::get<CCol>(row).get());
+  }
   DREAMOR_CHECK(traded == firstOccurrences(ca));
 
   // The algebra, in order.
@@ -173,7 +188,9 @@ void checkCase(std::mt19937& g, IloEnv env) {
   const std::set<Row> t_set(t.begin(), t.end());
   std::vector<Row> in_both;
   std::vector<Row> only_s;
-  for (const Row& r : s) (t_set.contains(r) ? in_both : only_s).push_back(r);
+  for (const Row& r : s) {
+    (t_set.contains(r) ? in_both : only_s).push_back(r);
+  }
   DREAMOR_CHECK(rowsOf(dreamor::unite(S, T)) == firstOccurrences(both));
   DREAMOR_CHECK(rowsOf(dreamor::intersect(S, T)) == in_both);
   DREAMOR_CHECK(rowsOf(dreamor::difference(S, T)) == only_s);
@@ -190,15 +207,19 @@ void checkCase(std::mt19937& g, IloEnv env) {
   const auto keep_ad                  = [&ad](ACol a, DCol dv) { return ad.keeps(a.get(), dv.get()); };
   using JoinRow                       = std::tuple<std::size_t, std::size_t, std::size_t, std::size_t>;
   std::vector<JoinRow> join_reference;
-  for (const Row& r : s)
-    for (const auto& u : U)
-      if (std::get<CCol>(u).get() == std::get<2>(r) && ad.keeps(std::get<0>(r), std::get<DCol>(u).get()))
+  for (const Row& r : s) {
+    for (const auto& u : U) {
+      if (std::get<CCol>(u).get() == std::get<2>(r) && ad.keeps(std::get<0>(r), std::get<DCol>(u).get())) {
         join_reference.emplace_back(std::get<0>(r), std::get<1>(r), std::get<2>(r), std::get<DCol>(u).get());
+      }
+    }
+  }
   const auto joinRows = [](const auto& set) {
     std::vector<JoinRow> out;
-    for (const auto& row : set)
+    for (const auto& row : set) {
       out.emplace_back(
           std::get<ACol>(row).get(), std::get<BCol>(row).get(), std::get<CCol>(row).get(), std::get<DCol>(row).get());
+    }
     std::ranges::sort(out);
     return out;
   };
@@ -208,16 +229,19 @@ void checkCase(std::mt19937& g, IloEnv env) {
 
   // membership() over every possible row.
   const auto inS = S.membership();
-  for (std::size_t a = 0; a < kValues; ++a)
-    for (std::size_t b = 0; b < kValues; ++b)
-      for (std::size_t c = 0; c < kValues; ++c)
+  for (std::size_t a = 0; a < kValues; ++a) {
+    for (std::size_t b = 0; b < kValues; ++b) {
+      for (std::size_t c = 0; c < kValues; ++c) {
         DREAMOR_CHECK(inS(ACol{a}, BCol{b}, CCol{c}) == s_set.contains(Row{a, b, c}));
+      }
+    }
+  }
 
   // groupBy(): groups by first appearance, rows in set order; slice() for every key, present or not.
   std::vector<std::size_t> key_order;
   std::map<std::size_t, std::vector<Row>> groups;
   for (const Row& r : s) {
-    if (!groups.contains(std::get<0>(r))) key_order.push_back(std::get<0>(r));
+    if (!groups.contains(std::get<0>(r))) { key_order.push_back(std::get<0>(r)); }
     groups[std::get<0>(r)].push_back(r);
   }
   const auto byA = S.groupBy<ACol>();
@@ -232,10 +256,14 @@ void checkCase(std::mt19937& g, IloEnv env) {
     DREAMOR_CHECK(byA.contains(ACol{a}) == groups.contains(a) && byA.sliceSize(ACol{a}) == expected.size());
   }
   std::map<std::pair<std::size_t, std::size_t>, std::vector<Row>> by_bc;
-  for (const Row& r : s) by_bc[{std::get<1>(r), std::get<2>(r)}].push_back(r);
+  for (const Row& r : s) {
+    by_bc[{std::get<1>(r), std::get<2>(r)}].push_back(r);
+  }
   const auto byBC = S.groupBy<BCol, CCol>();
   DREAMOR_CHECK(byBC.size() == by_bc.size());
-  for (const auto& [bc, rows] : by_bc) DREAMOR_CHECK(rowsOf(byBC.slice(BCol{bc.first}, CCol{bc.second})) == rows);
+  for (const auto& [bc, rows] : by_bc) {
+    DREAMOR_CHECK(rowsOf(byBC.slice(BCol{bc.first}, CCol{bc.second})) == rows);
+  }
 
   // ordered(): the set order; next / prev / cyclic with steps, nullptr off the ends and for a
   // non-member.
@@ -245,10 +273,10 @@ void checkCase(std::mt19937& g, IloEnv env) {
   const auto count    = static_cast<std::ptrdiff_t>(members.size());
   const auto expected = [&](const Row& r, std::ptrdiff_t steps, bool cyclic) -> std::optional<Row> {
     const auto at = std::ranges::find(members, r);
-    if (at == members.end()) return std::nullopt;
+    if (at == members.end()) { return std::nullopt; }
     std::ptrdiff_t target = (at - members.begin()) + steps;
-    if (cyclic) target = ((target % count) + count) % count;
-    if (target < 0 || target >= count) return std::nullopt;
+    if (cyclic) { target = ((target % count) + count) % count; }
+    if (target < 0 || target >= count) { return std::nullopt; }
     return members[static_cast<std::size_t>(target)];
   };
   const auto same = [](const auto* got, const std::optional<Row>& want) {
@@ -278,10 +306,10 @@ void checkCase(std::mt19937& g, IloEnv env) {
   std::size_t in_first  = 0;
   std::size_t in_second = 0;
   for (const Row& r : s) {
-    if (!keep.keeps(std::get<0>(r), std::get<1>(r))) continue;
+    if (!keep.keeps(std::get<0>(r), std::get<1>(r))) { continue; }
     ++kept;
-    if (first.keeps(std::get<1>(r), std::get<2>(r))) ++in_first;
-    if (second.keeps(std::get<0>(r), std::get<2>(r))) ++in_second;
+    if (first.keeps(std::get<1>(r), std::get<2>(r))) { ++in_first; }
+    if (second.keeps(std::get<0>(r), std::get<2>(r))) { ++in_second; }
   }
   IloExpr all = dreamor::concert::sumOf(env, S, x).build();
   DREAMOR_CHECK(terms(all) == s.size());
@@ -292,7 +320,9 @@ void checkCase(std::mt19937& g, IloEnv env) {
                           [&second](ACol a, CCol c) { return second.keeps(a.get(), c.get()); })
                    .build();
   DREAMOR_CHECK(terms(split[0]) == in_first && terms(split[1]) == in_second && in_first <= kept);
-  for (auto& sum : split) sum.end();
+  for (auto& sum : split) {
+    sum.end();
+  }
 
   // Lookups against each row's position in S, for x and a second table y on S - the two share
   // S's row index - with a table z on another set's rows in between, leaving its own rows as the
@@ -303,11 +333,17 @@ void checkCase(std::mt19937& g, IloEnv env) {
   const dreamor::concert::VarTable<ACol, BCol, CCol> y{env, S, 0, 1, ILOFLOAT, "y"};
   const dreamor::concert::VarTable<ACol, BCol, CCol> z{env, T, 0, 1, ILOFLOAT, "z"};
   std::map<Row, std::size_t> position;
-  for (std::size_t i = 0; i < s.size(); ++i) position.emplace(s[i], i);
+  for (std::size_t i = 0; i < s.size(); ++i) {
+    position.emplace(s[i], i);
+  }
   std::vector<const IloNumVarI*> x_vars;
   std::vector<const IloNumVarI*> y_vars;
-  for (const auto& [row, var] : x) x_vars.push_back(var.getImpl());
-  for (const auto& [row, var] : y) y_vars.push_back(var.getImpl());
+  for (const auto& [row, var] : x) {
+    x_vars.push_back(var.getImpl());
+  }
+  for (const auto& [row, var] : y) {
+    y_vars.push_back(var.getImpl());
+  }
   const auto finds = [&](const Row& r) {
     const ACol a{std::get<0>(r)};
     const BCol b{std::get<1>(r)};
@@ -315,18 +351,22 @@ void checkCase(std::mt19937& g, IloEnv env) {
     const auto at = position.find(r);
     const bool in = at != position.end();
     bool ok       = x.contains(a, b, c) == in && y.contains(a, b, c) == in;
-    if (in) ok = ok && x(a, b, c).getImpl() == x_vars[at->second] && y(a, b, c).getImpl() == y_vars[at->second];
+    if (in) { ok = ok && x(a, b, c).getImpl() == x_vars[at->second] && y(a, b, c).getImpl() == y_vars[at->second]; }
     return ok && z.contains(a, b, c) == t_set.contains(r);
   };
   bool lookups = x_vars.size() == s.size() && y_vars.size() == s.size();
   for (std::size_t i = 0; i < s.size(); ++i) {
     lookups = lookups && finds(s[i]);
-    if (i + 1 < s.size()) lookups = lookups && finds(s[i + 1]);
-    if (i > 0) lookups = lookups && finds(s[i - 1]);
+    if (i + 1 < s.size()) { lookups = lookups && finds(s[i + 1]); }
+    if (i > 0) { lookups = lookups && finds(s[i - 1]); }
   }
-  for (std::size_t a = 0; a <= kValues; ++a)  // a == kValues: never in a set
-    for (std::size_t b = 0; b < kValues; ++b)
-      for (std::size_t c = 0; c < kValues; ++c) lookups = lookups && finds(Row{a, b, c});
+  for (std::size_t a = 0; a <= kValues; ++a) {  // a == kValues: never in a set
+    for (std::size_t b = 0; b < kValues; ++b) {
+      for (std::size_t c = 0; c < kValues; ++c) {
+        lookups = lookups && finds(Row{a, b, c});
+      }
+    }
+  }
   for (std::size_t i = 0; i < s.size(); ++i) {
     const auto& row = *(S.begin() + static_cast<std::ptrdiff_t>(i));
     lookups         = lookups && x(row).getImpl() == x_vars[i] && y(row).getImpl() == y_vars[i];
@@ -349,11 +389,9 @@ int main() try {
   for (std::size_t i = 0; i < kCases; ++i) {
     const std::size_t failures_before = g_failures;
     checkCase(g, env);
-    if (g_failures != failures_before) std::printf("  differential: case %zu of seed %u failed\n", i, kSeed);
+    if (g_failures != failures_before) { std::printf("  differential: case %zu of seed %u failed\n", i, kSeed); }
   }
   std::printf("differential: seed %u, %zu cases\n", kSeed, kCases);
   env.end();
   return ::report("differential");
-} catch (...) {
-  return ::uncaught();
-}
+} catch (...) { return ::uncaught(); }

@@ -165,9 +165,7 @@ template <typename Tup, std::size_t... Is>
     const std::array<std::string_view, sizeof...(Is)> names{std::tuple_element_t<Is, Tup>::kName...};
     for (std::size_t i = 0; i < names.size(); ++i) {
       for (std::size_t j = i + 1; j < names.size(); ++j) {
-        if (names[i] == names[j]) {
-          return false;
-        }
+        if (names[i] == names[j]) { return false; }
       }
     }
     return true;

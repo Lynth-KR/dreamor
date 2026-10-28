@@ -23,9 +23,9 @@ class Result {
   void measure(const std::string& phase, F&& f) {
     const bool prerequisite =
         phase == "build" || phase == "collect" || phase == "load" || phase == "index" || phase.starts_with("prep_");
-    if (!chosen(phase) && !prerequisite) return;
+    if (!chosen(phase) && !prerequisite) { return; }
     Phase p = ::measure(std::forward<F>(f));
-    if (chosen(phase)) phases_.emplace_back(phase, p);
+    if (chosen(phase)) { phases_.emplace_back(phase, p); }
   }
   // A setup stage before the phases: timed, never part of a ratio.
   template <typename F>
@@ -34,7 +34,7 @@ class Result {
   }
   // What the phase handed out, folded into one number that every arm must agree on.
   void check(const std::string& phase, std::uint64_t value) {
-    if (chosen(phase)) checks_.emplace_back(phase, value);
+    if (chosen(phase)) { checks_.emplace_back(phase, value); }
   }
   // The arm cannot run this cell (an array that does not fit, say): no phase is reported.
   void skip(std::string reason) { skipped_ = std::move(reason); }

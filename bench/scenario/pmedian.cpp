@@ -74,9 +74,13 @@ Instance makeInstance(std::size_t l, std::size_t c, std::size_t p, std::uint64_t
   Instance in;
   in.p = p;
   in.locations.reserve(l);
-  for (std::uint32_t i = 0; i < l; ++i) in.locations.push_back({i});
+  for (std::uint32_t i = 0; i < l; ++i) {
+    in.locations.push_back({i});
+  }
   in.customers.reserve(c);
-  for (std::uint32_t i = 0; i < c; ++i) in.customers.push_back({i, static_cast<std::uint32_t>(g() % l)});
+  for (std::uint32_t i = 0; i < c; ++i) {
+    in.customers.push_back({i, static_cast<std::uint32_t>(g() % l)});
+  }
   return in;
 }
 
@@ -105,12 +109,14 @@ void runDreamor(const Instance& in, Result& r) {
   });
   r.measure("assign", [&] {
     const auto assignedTo = sASSIGN.groupBy<CustomerCol>();
-    for (const auto& [customer] : sCUSTOMERS)
+    for (const auto& [customer] : sCUSTOMERS) {
       model.AddLinearConstraint(sumOf(assignedTo.slice(customer), *vX).build() == 1.0);
+    }
   });
   r.measure("link", [&] {
-    for (const auto& [location, customer] : sASSIGN)
+    for (const auto& [location, customer] : sASSIGN) {
       model.AddLinearConstraint((*vX)(location, customer) <= (*vY)(location));
+    }
   });
   r.measure("budget", [&] { model.AddLinearConstraint(sumOf(sLOCATIONS, *vY).build() == static_cast<double>(in.p)); });
   solve(model, r);
@@ -123,32 +129,46 @@ void runHand(const Instance& in, Result& r) {
   r.measure("sets", [] {});
   r.measure("vars", [&] {
     y.reserve(l_count);
-    for (std::size_t l = 0; l < l_count; ++l) y.push_back(model.AddBinaryVariable());
+    for (std::size_t l = 0; l < l_count; ++l) {
+      y.push_back(model.AddBinaryVariable());
+    }
     x.reserve(l_count * c_count);
-    for (std::size_t l = 0; l < l_count; ++l)
-      for (std::size_t c = 0; c < c_count; ++c) x.push_back(model.AddContinuousVariable(0, 1));
+    for (std::size_t l = 0; l < l_count; ++l) {
+      for (std::size_t c = 0; c < c_count; ++c) {
+        x.push_back(model.AddContinuousVariable(0, 1));
+      }
+    }
   });
   r.measure("objective", [&] {
     math_opt::LinearExpression objective;
-    for (std::size_t l = 0; l < l_count; ++l)
-      for (std::size_t c = 0; c < c_count; ++c)
+    for (std::size_t l = 0; l < l_count; ++l) {
+      for (std::size_t c = 0; c < c_count; ++c) {
         objective += distance(static_cast<std::uint32_t>(l), in.customers[c].at) * x[l * c_count + c];
+      }
+    }
     model.Minimize(std::move(objective));
   });
   r.measure("assign", [&] {
     for (std::size_t c = 0; c < c_count; ++c) {
       math_opt::LinearExpression assigned;
-      for (std::size_t l = 0; l < l_count; ++l) assigned += x[l * c_count + c];
+      for (std::size_t l = 0; l < l_count; ++l) {
+        assigned += x[l * c_count + c];
+      }
       model.AddLinearConstraint(std::move(assigned) == 1.0);
     }
   });
   r.measure("link", [&] {
-    for (std::size_t l = 0; l < l_count; ++l)
-      for (std::size_t c = 0; c < c_count; ++c) model.AddLinearConstraint(x[l * c_count + c] <= y[l]);
+    for (std::size_t l = 0; l < l_count; ++l) {
+      for (std::size_t c = 0; c < c_count; ++c) {
+        model.AddLinearConstraint(x[l * c_count + c] <= y[l]);
+      }
+    }
   });
   r.measure("budget", [&] {
     math_opt::LinearExpression opened;
-    for (const math_opt::Variable& v : y) opened += v;
+    for (const math_opt::Variable& v : y) {
+      opened += v;
+    }
     model.AddLinearConstraint(std::move(opened) == static_cast<double>(in.p));
   });
   solve(model, r);
@@ -189,7 +209,9 @@ void runDreamor(const Instance& in, Result& r) {
     }
   });
   r.measure("link", [&] {
-    for (const auto& [location, customer] : sASSIGN) model.add((*vX)(location, customer) <= (*vY)(location));
+    for (const auto& [location, customer] : sASSIGN) {
+      model.add((*vX)(location, customer) <= (*vY)(location));
+    }
   });
   r.measure("budget", [&] {
     IloExpr opened = sumOf(env, sLOCATIONS, *vY).build();
@@ -208,34 +230,48 @@ void runHand(const Instance& in, Result& r) {
   r.measure("sets", [] {});
   r.measure("vars", [&] {
     y.reserve(l_count);
-    for (std::size_t l = 0; l < l_count; ++l) y.emplace_back(env, 0, 1, ILOBOOL);
+    for (std::size_t l = 0; l < l_count; ++l) {
+      y.emplace_back(env, 0, 1, ILOBOOL);
+    }
     x.reserve(l_count * c_count);
-    for (std::size_t l = 0; l < l_count; ++l)
-      for (std::size_t c = 0; c < c_count; ++c) x.emplace_back(env, 0, 1, ILOFLOAT);
+    for (std::size_t l = 0; l < l_count; ++l) {
+      for (std::size_t c = 0; c < c_count; ++c) {
+        x.emplace_back(env, 0, 1, ILOFLOAT);
+      }
+    }
   });
   r.measure("objective", [&] {
     IloExpr objective(env);
-    for (std::size_t l = 0; l < l_count; ++l)
-      for (std::size_t c = 0; c < c_count; ++c)
+    for (std::size_t l = 0; l < l_count; ++l) {
+      for (std::size_t c = 0; c < c_count; ++c) {
         objective += distance(static_cast<std::uint32_t>(l), in.customers[c].at) * x[l * c_count + c];
+      }
+    }
     model.add(IloMinimize(env, objective));
     objective.end();
   });
   r.measure("assign", [&] {
     for (std::size_t c = 0; c < c_count; ++c) {
       IloExpr assigned(env);
-      for (std::size_t l = 0; l < l_count; ++l) assigned += x[l * c_count + c];
+      for (std::size_t l = 0; l < l_count; ++l) {
+        assigned += x[l * c_count + c];
+      }
       model.add(assigned == 1);
       assigned.end();
     }
   });
   r.measure("link", [&] {
-    for (std::size_t l = 0; l < l_count; ++l)
-      for (std::size_t c = 0; c < c_count; ++c) model.add(x[l * c_count + c] <= y[l]);
+    for (std::size_t l = 0; l < l_count; ++l) {
+      for (std::size_t c = 0; c < c_count; ++c) {
+        model.add(x[l * c_count + c] <= y[l]);
+      }
+    }
   });
   r.measure("budget", [&] {
     IloExpr opened(env);
-    for (const IloNumVar& v : y) opened += v;
+    for (const IloNumVar& v : y) {
+      opened += v;
+    }
     model.add(opened == static_cast<IloNum>(in.p));
     opened.end();
   });
@@ -260,37 +296,39 @@ int main(int argc, char** argv) {
   std::uint64_t heap_seed = 0;
   for (int i = 1; i + 1 < argc; i += 2) {
     const std::string k = argv[i], v = argv[i + 1];
-    if (k == "--impl")
+    if (k == "--impl") {
       impl = v;
-    else if (k == "--L")
+    } else if (k == "--L") {
       l = std::strtoull(v.c_str(), nullptr, 10);
-    else if (k == "--C")
+    } else if (k == "--C") {
       c = std::strtoull(v.c_str(), nullptr, 10);
-    else if (k == "--P")
+    } else if (k == "--P") {
       p = std::strtoull(v.c_str(), nullptr, 10);
-    else if (k == "--rep")
+    } else if (k == "--rep") {
       rep = static_cast<std::uint32_t>(std::stoul(v));
-    else if (k == "--seed")
+    } else if (k == "--seed") {
       seed = std::strtoull(v.c_str(), nullptr, 10);
-    else if (k == "--heap-seed")
+    } else if (k == "--heap-seed") {
       heap_seed = std::strtoull(v.c_str(), nullptr, 10);
-    else if (k == "--pmu")
+    } else if (k == "--pmu") {
       pmu_spec = v;
-    else
+    } else {
       usage("unknown option " + k);
+    }
   }
-  if (impl != "dreamor" && impl != "hand") usage("--impl dreamor|hand");
-  if (l == 0 || c == 0 || p > l) usage("--L, --C must be positive and --P at most --L");
+  if (impl != "dreamor" && impl != "hand") { usage("--impl dreamor|hand"); }
+  if (l == 0 || c == 0 || p > l) { usage("--L, --C must be positive and --P at most --L"); }
 
   Result r;
   Instance in;
   r.setup("heap", [&] { preconditionHeap(heap_seed); });
   r.setup("instance", [&] { in = makeInstance(l, c, p, seed); });
-  if (!pmu_spec.empty()) pmu().open(pmu_spec);
-  if (impl == "dreamor")
+  if (!pmu_spec.empty()) { pmu().open(pmu_spec); }
+  if (impl == "dreamor") {
     runDreamor(in, r);
-  else
+  } else {
     runHand(in, r);
+  }
   const double main_ms = std::chrono::duration<double, std::milli>(Clk::now() - started).count();
 
   std::printf(

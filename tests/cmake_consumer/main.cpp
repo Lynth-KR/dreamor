@@ -13,7 +13,9 @@ int main() {
   const std::vector<std::size_t> I{1, 2, 3}, J{10, 20};
   const auto sIJ     = dreamor::makeSet<ICol, JCol>(I, J).where([](ICol i) { return i.get() != 2; }).collect();
   std::size_t walked = 0;
-  for (const auto& [i, rows] : sIJ.groupBy<ICol>()) walked += rows.size();
+  for (const auto& [i, rows] : sIJ.groupBy<ICol>()) {
+    walked += rows.size();
+  }
   const bool ok = sIJ.size() == 4 && walked == 4;
   std::printf("cmake consumer: %s\n", ok ? "ok" : "FAILED");
   return ok ? 0 : 1;

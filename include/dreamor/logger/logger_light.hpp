@@ -180,9 +180,7 @@ inline void log(Level level,
                                reset,
                                kLevelTag[idx],
                                e.what()));
-    } catch (...) {
-      reset_buf();
-    }
+    } catch (...) { reset_buf(); }
   } catch (...) {
     try {
       reset_buf();
@@ -195,9 +193,7 @@ inline void log(Level level,
                                loc.line(),
                                reset,
                                kLevelTag[idx]));
-    } catch (...) {
-      reset_buf();
-    }
+    } catch (...) { reset_buf(); }
   }
   // If truncated, splice a marker into the tail of what we already wrote
   // rather than appending after it - appending isn't possible since cap is
@@ -217,9 +213,7 @@ inline void log(Level level,
   FILE* const target = g_output;  // thread_local: no other thread can touch this
   static_cast<void>(std::fwrite(buf.data(), 1, length, target));
   // kError precedes LOG_FATAL's abort() - flush now so it survives a crash.
-  if (level == Level::kError) {
-    static_cast<void>(std::fflush(target));
-  }
+  if (level == Level::kError) { static_cast<void>(std::fflush(target)); }
 }
 
 template <typename... Args>

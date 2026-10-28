@@ -145,7 +145,7 @@ const auto orderedPeriods = sPERIODS.ordered();
 const auto producedByItemPeriod = sPRODUCE.groupBy<ItemCol, PeriodCol>();
 for (const auto& [i, t] : sSTOCK) {
   IloExpr totalInFlow = dreamor::concert::sumOf(env, producedByItemPeriod.slice(i, t), vYield).build();
-  if (const auto* prevPeriod = orderedPeriods.prev(t)) totalInFlow += vStock(i, std::get<PeriodCol>(*prevPeriod));
+  if (const auto* prevPeriod = orderedPeriods.prev(t)) { totalInFlow += vStock(i, std::get<PeriodCol>(*prevPeriod)); }
   model.add(totalInFlow - i->demand[t.get()] == vStock(i, t));
   totalInFlow.end();
 }
@@ -158,7 +158,9 @@ for (const auto& [machine, period, rows] : sPRODUCE.groupBy<MachineCol, PeriodCo
   totalLoad.end();
 }
 
-for (const auto& [row, yieldVar] : vYield) model.add(yieldVar <= yieldVar.getUB() * vSetup(row));
+for (const auto& [row, yieldVar] : vYield) {
+  model.add(yieldVar <= yieldVar.getUB() * vSetup(row));
+}
 
 IloExpr holdingCost = dreamor::concert::sumOf(env, sSTOCK, [&](ItemCol i, PeriodCol t) { return i->hold * vStock(i, t); }).build();
 IloExpr setupCost = dreamor::concert::sumOf(env, sPRODUCE, [&](MachineCol m, ItemCol i, PeriodCol t) { return m->setup * vSetup(m, i, t); }).build();
@@ -202,7 +204,7 @@ const auto yieldPlan = vYield.solution(*result);   // std::logic_error if no pri
 
 ## Patterns
 
-- **Tighten bounds after construction:** `for (const auto& row : vYield.keys().where(in_maintenance)) vYield(row).setUB(0);`
+- **Tighten bounds after construction:** `for (const auto& row : vYield.keys().where(in_maintenance)) { vYield(row).setUB(0); }`
   In Concert, do this before `IloCplex cplex(model)`.
 - **Constraint for only some keys:** filter the driver set with `where` before the loop.
 - **Lower and upper constraint per key:** add both in the same iteration.

@@ -124,9 +124,15 @@ int main(int argc, char** argv) {
 
   std::vector<E> e1(n1), e2(n2), e3(n3);
   std::vector<const E*> k1s, k2s, k3s;
-  for (std::uint32_t i = 0; i < n1; ++i) k1s.push_back(&(e1[i] = E{i}));
-  for (std::uint32_t i = 0; i < n2; ++i) k2s.push_back(&(e2[i] = E{i}));
-  for (std::uint32_t i = 0; i < n3; ++i) k3s.push_back(&(e3[i] = E{i}));
+  for (std::uint32_t i = 0; i < n1; ++i) {
+    k1s.push_back(&(e1[i] = E{i}));
+  }
+  for (std::uint32_t i = 0; i < n2; ++i) {
+    k2s.push_back(&(e2[i] = E{i}));
+  }
+  for (std::uint32_t i = 0; i < n3; ++i) {
+    k3s.push_back(&(e3[i] = E{i}));
+  }
 
 #if defined(PROBE_MATHOPT)
   const char* backend = "mathopt";
@@ -169,28 +175,37 @@ int main(int argc, char** argv) {
     };
     Clock c;
     std::vector<Row> rows;
-    for (const E* a : k1s)
-      for (const E* b : k2s)
-        for (const E* c3 : k3s) rows.push_back({a->serial, b->serial, c3->serial});
+    for (const E* a : k1s) {
+      for (const E* b : k2s) {
+        for (const E* c3 : k3s) {
+          rows.push_back({a->serial, b->serial, c3->serial});
+        }
+      }
+    }
     keys_ms = c.wallMs();
     std::vector<std::vector<Var>> vars(families);
     for (std::size_t f = 0; f < families; ++f) {
       const Clock cf;
       vars[f].reserve(rows.size());
-      for (const Row& r : rows) vars[f].push_back(newVar(boundOf(r.i1, r.i2, r.i3, f)));
+      for (const Row& r : rows) {
+        vars[f].push_back(newVar(boundOf(r.i1, r.i2, r.i3, f)));
+      }
       family_ms.push_back(cf.wallMs());
     }
     const Clock ci;
     std::unordered_map<std::uint64_t, std::uint32_t> index;
     index.reserve(rows.size());
-    for (std::uint32_t i = 0; i < rows.size(); ++i)
+    for (std::uint32_t i = 0; i < rows.size(); ++i) {
       index.emplace((std::uint64_t{rows[i].i1} << 42) | (std::uint64_t{rows[i].i2} << 21) | rows[i].i3, i);
+    }
     index_ms = ci.wallMs();
   }
   const double total_ms = total.wallMs(), total_user = userMs() - total.user;
 
   std::string fams;
-  for (const double ms : family_ms) fams += (fams.empty() ? "" : ";") + std::to_string(ms);
+  for (const double ms : family_ms) {
+    fams += (fams.empty() ? "" : ";") + std::to_string(ms);
+  }
   std::printf("%s,%s,%s,%zu,%zu,%zu,%.3f,%s,%.3f,%.3f,%.3f\n",
               backend,
               argv[1],
