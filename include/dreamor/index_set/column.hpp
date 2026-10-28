@@ -20,6 +20,8 @@
 #include <type_traits>
 #include <utility>
 
+#include "dreamor/general/tuple_hash.hpp"
+
 namespace dreamor {
 
 // Structural type, so it can be a template argument.
@@ -189,10 +191,11 @@ consteval void checkColumns() {
 
 }  // namespace dreamor
 
-// TupleHash hashes each element with std::hash, so a column needs one.
+// TupleHash hashes a column through std::hash, so a column needs one: its value's, as hashElement
+// takes it.
 template <typename T, dreamor::ColumnName Name>
 struct std::hash<dreamor::Col<T, Name>> {
   [[nodiscard]] std::size_t operator()(dreamor::Col<T, Name> column) const noexcept {
-    return std::hash<T>{}(column.get());
+    return dreamor::general::hashElement(column.get());
   }
 };

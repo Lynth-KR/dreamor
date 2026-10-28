@@ -12,6 +12,7 @@
 // own. Shared by the index-set layer and the variable layer so both hash identically.
 #pragma once
 
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -20,16 +21,28 @@
 
 namespace dreamor::general {
 
-// Element types must be std::hash-able; entity pointers, integers, enums and strings are.
+// One element's hash before TupleHash mixes it in. An integer, an enum or a pointer goes in as its
+// bits - what libstdc++'s std::hash returns for it - and anything else through std::hash. The
+// standard leaves std::hash to each library: the MSVC STL runs FNV-1a over the bytes, eight
+// multiplies for a pointer, before TupleHash mixes again. Taking the bits makes the hash, and the
+// code a key's lookup compiles to, the same on every standard library.
+template <typename T>
+[[nodiscard]] constexpr std::size_t hashElement(const T& element) noexcept {
+  if constexpr (std::is_integral_v<T> || std::is_enum_v<T>) {
+    return static_cast<std::size_t>(element);
+  } else if constexpr (std::is_pointer_v<T>) {
+    return static_cast<std::size_t>(std::bit_cast<std::uintptr_t>(element));
+  } else {
+    return std::hash<T>{}(element);
+  }
+}
+
+// Element types are integers, enums and pointers, or anything std::hash takes (a string, a column).
 struct TupleHash {
   template <typename... Ts>
   [[nodiscard]] std::size_t operator()(const std::tuple<Ts...>& tuple) const noexcept {
     std::size_t seed = kSeed;
-    std::apply(
-        [&seed](const auto&... elements) {
-          ((seed = mix(seed, std::hash<std::remove_cvref_t<decltype(elements)>>{}(elements))), ...);
-        },
-        tuple);
+    std::apply([&seed](const auto&... elements) { ((seed = mix(seed, hashElement(elements))), ...); }, tuple);
     return seed;
   }
 
@@ -49,8 +62,8 @@ struct TupleHash {
   // Folds one element into the state: the 128-bit product of (state + value) and an odd
   // constant, its two halves xored - the folded multiply Abseil's hash and foldhash mix with.
   // The high half carries every input bit into the low bits a table indexes by, which is all
-  // the mixing there is to do: libstdc++'s std::hash is the identity for integers and close
-  // to it for pointers. One multiply per element, so a 3-column key hashes in about two
+  // the mixing there is to do: hashElement hands integers and pointers over as their bits. One
+  // multiply per element, so a 3-column key hashes in about two
   // thirds of the time splitmix64 per element took. Without 128-bit integers, splitmix64 below.
   [[nodiscard]] static std::size_t mix(std::size_t seed, std::size_t value) noexcept {
     const auto state = static_cast<std::uint64_t>(seed) + static_cast<std::uint64_t>(value);

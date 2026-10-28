@@ -25,6 +25,15 @@ and versions follow [Semantic Versioning](https://semver.org/).
   README's quick start is one model class that shows both: its sets declared before its `VarTable`s, and
   `FormatBuffer` naming its rows.
 
+- `TupleHash` takes an integer, an enum or a pointer as its bits (`general::hashElement`), not through `std::hash`,
+  which each standard library defines its own way: the MSVC STL runs FNV-1a over a pointer's eight bytes before
+  `TupleHash` mixes it again. Under libstdc++ the hashes are those `std::hash` gave; under the MSVC STL a key's
+  lookup no longer carries FNV-1a, so it compiles to the code it does on Linux. `std::hash<Col<...>>` hashes its
+  value the same way. Measured with the catalog, the library before against after: no performance regression on
+  either platform. Under Clang 18 the machine code is the same, under GCC 13 no family's total moves (replicated
+  under another seed), and on Windows (clang-cl 19) no family is slower while the ones that hash run in 0.63-0.71 of
+  the time (order, lookup, setop) and 0.89-0.97 (group, slice, make, data).
+
 ### Added
 
 - `CONTRIBUTING.md` (and its Korean version): how to report a bug, propose a feature, build and test, and get a
