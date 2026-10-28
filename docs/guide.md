@@ -211,7 +211,8 @@ const dreamor::concert::VarTable<KeyCols...> vName{env, set, lb, ub, type, "Name
 - Defaults when omitted: `lb = 0`, `ub = IloInfinity`, `ILOFLOAT`, no name.
 - Semi-continuous variables: `dreamor::concert::VarTable<...> vBatch{dreamor::concert::semiContinuous, env, sBATCH, sclb, ub, ILOFLOAT, "Batch"};`
 - Names are `name_key0_key1...` (`Yield_M0_I3_2`). Key tokens come from the `keyName()` hook (or `primaryKey()`).
-  `nullptr` means no name.
+  `nullptr` means no name. A column under `std::format` prints the same token, so a row can be named the way its
+  variables are: `std::format("Cap_{}_{}", m, t)` (or a `FormatBuffer`'s `format`).
 - A VarTable takes its set in its constructor, so when you bundle a model into a struct, put the sets in a base class
   and the VarTables as members of a derived class (the base class is constructed first). The example's `Sets` /
   `Model` has that shape.

@@ -204,6 +204,8 @@ const dreamor::concert::VarTable<키 열...> vName{env, 집합, lb, ub, type, "N
 - 생략하면 `lb = 0`, `ub = IloInfinity`, `ILOFLOAT`, 이름 없음.
 - 반연속 변수: `dreamor::concert::VarTable<...> vBatch{dreamor::concert::semiContinuous, env, sBATCH, sclb, ub, ILOFLOAT, "Batch"};`
 - 이름은 `이름_키0_키1...` (`Yield_M0_I3_2`). 키 토큰은 `keyName()` 훅(없으면 `primaryKey()`)에서 옵니다. `nullptr`이면 이름 없음.
+  열을 `std::format`에 넘기면 같은 토큰이 출력되므로, 행 이름도 변수 이름과 같은 방식으로 지을 수 있습니다:
+  `std::format("Cap_{}_{}", m, t)` (또는 `FormatBuffer`의 `format`).
 - VarTable은 생성자에서 집합을 받으므로, 모델을 구조체로 묶을 때는 집합을 기반 클래스에 두고 VarTable을
   파생 클래스의 멤버로 둡니다(기반 클래스가 먼저 만들어집니다). 예제의 `Sets` / `Model`이 그 모양입니다.
 

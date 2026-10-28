@@ -18,6 +18,7 @@ The headers in `include/dreamor/` are authoritative; the usage examples in their
 | `Col<...>::kName` | The name, `std::string_view` |
 | `ColumnName` | Type of the name template argument (a string literal) |
 | `keyName(Col)` | Name token: the value's `keyName` if one is found (same namespace as the entity), else the entity's `primaryKey`, else the value itself (must be `std::format`-able) |
+| `std::formatter<Col<...>>` | A column prints as its name token: `std::format("Cap_{}_{}", i, j)` names a row the way VarTable names variables. No format spec; a column with no token has none |
 | `std::hash<Col<...>>` | Columns can key `std::unordered_map` |
 | `PredicateColumns<F>` | Specialization point: `template <> struct dreamor::PredicateColumns<F> { using type = std::tuple<Cols...>; };` for a function object with a template `operator()` |
 

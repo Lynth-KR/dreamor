@@ -51,7 +51,8 @@ class Col {
   static constexpr std::string_view kName = Name.view();
 
   Col() = default;
-  Col(T value) noexcept : value_{value} {}  // NOLINT(*-explicit-constructor): a column is its value, under a name
+  // NOLINTNEXTLINE(*-explicit-constructor): a column is its value, under a name
+  Col(T value) noexcept(std::is_nothrow_move_constructible_v<T>) : value_{std::move(value)} {}
 
   operator T() const noexcept {  // NOLINT(*-explicit-constructor): and reads as it, m->capacity
     return value_;
@@ -78,7 +79,7 @@ class Col {
 // Keeps a keyName() written for the unwrapped value working.
 template <typename T, ColumnName Name>
   requires requires(T value) { keyName(value); }
-[[nodiscard]] auto keyName(Col<T, Name> column) {
+[[nodiscard]] auto keyName(const Col<T, Name>& column) {
   return keyName(column.get());
 }
 
@@ -87,7 +88,7 @@ template <typename T, ColumnName Name>
 // so this yields nothing printable and VarTable rejects the key.
 template <typename T, ColumnName Name>
   requires(!requires(T value) { keyName(value); })
-[[nodiscard]] T keyName(Col<T, Name> column) {
+[[nodiscard]] T keyName(const Col<T, Name>& column) {
   return column.get();
 }
 

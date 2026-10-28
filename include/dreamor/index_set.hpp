@@ -68,5 +68,6 @@
 #include "dreamor/index_set/entity_vector.hpp"
 #include "dreamor/index_set/grouped.hpp"
 #include "dreamor/index_set/indexed.hpp"
+#include "dreamor/index_set/name_token.hpp"
 #include "dreamor/index_set/ordered.hpp"
 #include "dreamor/index_set/set.hpp"

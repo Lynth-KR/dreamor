@@ -28,69 +28,12 @@
 #include "dreamor/index_set/call.hpp"
 #include "dreamor/index_set/indexed.hpp"
 #include "dreamor/index_set/key_args.hpp"
+#include "dreamor/index_set/name_token.hpp"
 #include "dreamor/internal/row_index.hpp"
 #include "dreamor/logger/logger_light.hpp"
 #include "dreamor/value_table.hpp"
 
-namespace dreamor {
-
-// Customization point for how a key column appears inside generated variable names.
-//
-// Define a free function `keyName(key)` in the SAME NAMESPACE as the key type; it is picked
-// up by ADL. It must return something std::format can print. Example, next to Equipment:
-//
-//     inline int keyName(const Equipment* e) { return e->eqid; }
-//
-// A column over a value std::format already handles - an int period, a string grade - needs
-// no hook; column.hpp names it by that value. An entity pointer has no formatter, so it
-// does need one. Prefer the hook over specializing std::formatter for the pointer type: a
-// std::formatter specialization is global and would rewrite every unrelated
-// std::format("{}", ptr) that meant to print an address.
-namespace internal {
-
-// std::formatter's primary template is disabled (not default constructible) for types that
-// have no formatter, which is the standard way to detect formattability before C++23's
-// std::formattable.
-template <typename T>
-concept is_formattable = std::is_default_constructible_v<std::formatter<std::remove_cvref_t<T>, char>>;
-
-template <typename Key>
-concept has_key_name = requires(const Key& key) {
-  { keyName(key) } -> is_formattable;  // found via ADL
-};
-
-// An entity pointer column with no keyName() of its own, whose entity has a primary key
-// (EntityVector): the key names it - a name identifies a variable, as the key does the entity.
-template <typename Key>
-concept has_primary_key_name = requires(const Key& key) {
-  requires std::is_pointer_v<typename Key::Value>;
-  { primaryKey(*key.get()) } -> is_formattable;  // found via ADL
-};
-
-template <typename Key>
-concept is_nameable = has_key_name<Key> || has_primary_key_name<Key> || is_formattable<Key>;
-
-// Returns the token to embed in a variable name: the ADL hook if present, else the entity's
-// primary key, else the key. A debug build says once per column when the primary key stands in.
-template <typename Key>
-[[nodiscard]] decltype(auto) toNameToken(const Key& key) {
-  if constexpr (has_key_name<Key>) {
-    return keyName(key);
-  } else if constexpr (has_primary_key_name<Key>) {
-    [[maybe_unused]] static const bool said = [] {
-      DREAMOR_DEBUG_INFO("VarTable: column \"{}\" has no keyName(), so its entities' primaryKey() names the variables.",
-                         Key::kName);
-      return true;
-    }();
-    return primaryKey(*key.get());
-  } else {
-    return key;
-  }
-}
-
-}  // namespace internal
-
-namespace internal {
+namespace dreamor::internal {
 
 // A bound is a number, or a callable over the row's columns.
 template <typename Bound, typename Row>
@@ -227,5 +170,4 @@ class VarTableCore {
   std::shared_ptr<const RowIndex<Key>> index_;  // Shared with ValueTables.
 };
 
-}  // namespace internal
-}  // namespace dreamor
+}  // namespace dreamor::internal

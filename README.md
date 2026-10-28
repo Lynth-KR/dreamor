@@ -133,6 +133,7 @@ Multi-machine, multi-period lot sizing. Each machine can make a different subset
 linked by inventory.
 
 ```cpp
+#include <format>
 #include <ilcplex/ilocplex.h>
 #include "dreamor/index_set.hpp"
 #include "dreamor/concert.hpp"
@@ -176,11 +177,11 @@ for (const auto& [i, t] : sSTOCK) {
   model.add(totalInFlow - currentDemand == endingStock);
   totalInFlow.end();
 }
-//    Machine capacity
+//    Machine capacity, each row named the way the variables are (Capacity_M0_0)
 const auto producedByMachinePeriod = sPRODUCE.groupBy<MachineCol, PeriodCol>();
 for (const auto& [machine, period, rows] : producedByMachinePeriod) {
   IloExpr totalLoad = dreamor::concert::sumOf(env, rows, machine_usage).build();
-  model.add(totalLoad <= machine->capacity);
+  model.add(totalLoad <= machine->capacity).setName(std::format("Capacity_{}_{}", machine, period).c_str());
   totalLoad.end();
 }
 //    No production without setup

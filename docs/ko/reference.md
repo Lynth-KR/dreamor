@@ -11,6 +11,7 @@
 | `Col<...>::kName` | 열 이름 (`std::string_view`) |
 | `ColumnName` | `Col`의 이름 템플릿 인자 타입 (문자열 리터럴) |
 | `keyName(Col)` | 열의 이름 토큰. 값에 `keyName`이 있으면 그것, 없으면 엔티티의 `primaryKey()`, 그것도 없으면 값 자체 |
+| `std::formatter<Col<...>>` | 열을 이름 토큰으로 출력. `std::format("Cap_{}_{}", i, j)`로 VarTable이 변수 이름을 짓듯 행 이름을 지을 수 있음. 서식 지정은 받지 않음. 토큰이 없는 열에는 없음 |
 | `std::hash<Col<...>>` | 열을 `std::unordered_map` 키 등으로 쓸 수 있음 |
 | `PredicateColumns<F>` | 템플릿 `operator()` 함수 객체가 읽는 열을 선언하는 특수화 지점 |
 

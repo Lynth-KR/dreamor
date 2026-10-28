@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <format>
 #include <memory>
 #include <string>
 #include <tuple>
@@ -133,9 +134,10 @@ int main() try {
   const auto producedByMachinePeriod = sPRODUCE.groupBy<MachineCol, PeriodCol>();
   for (const auto& [machine, period, rows] : producedByMachinePeriod) {
     IloExpr totalLoad = dreamor::concert::sumOf(env, rows, machine_usage).build();
-    model.add(totalLoad <= machine->capacity);
+    model.add(totalLoad <= machine->capacity).setName(std::format("Capacity_{}_{}", machine, period).c_str());
     totalLoad.end();
   }
+  DREAMOR_CHECK(std::ranges::any_of(*model.cs_, [](const IloConstraintI* c) { return c->name == "Capacity_M0_0"; }));
   for (const auto& [row, yieldVar] : vYield) {
     model.add(yieldVar <= yieldVar.getUB() * vSetup(row));
   }

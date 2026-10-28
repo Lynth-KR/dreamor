@@ -2,6 +2,7 @@
 // The usage examples in the headers' comments, as written there. If a header's example
 // changes, change it here too.
 #include <cstdint>
+#include <format>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -126,6 +127,15 @@ int main() try {
   const auto use_of = [&vUse](FromCol i, ToCol j) { return vUse(i, j); };
   for (const auto& [node, arcs] : outArcs) {
     DREAMOR_CHECK(sumOf(env, arcs, use_of).build().expr_->terms.size() == 2);
+  }
+
+  // index_set/name_token.hpp (a column under std::format)
+  {
+    const Node& n1 = nodeData[0];
+    const Node& n2 = nodeData[1];
+    const FromCol i{&n1};
+    const ToCol j{&n2};
+    DREAMOR_CHECK(std::format("Cap_{}_{}", i, j) == "Cap_1_2");
   }
   return report("docs");
 } catch (...) { return ::uncaught(); }

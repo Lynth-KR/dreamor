@@ -242,6 +242,9 @@ int main() try {
   const dreamor::concert::VarTable<NamedCol, JCol> vNamed{
       env, dreamor::makeSet<JCol>(sNAMED, seven).collect(), 0, 1, ILOFLOAT, "n"};
   DREAMOR_CHECK(std::string{vNamed(NamedCol{named_things.data()}, JCol{7}).getName()} == "n_M3_7");
+  // a column under std::format prints the token its variable's name has
+  DREAMOR_CHECK(std::format("n_{}_{}", NamedCol{named_things.data()}, JCol{7}) ==
+                vNamed(NamedCol{named_things.data()}, JCol{7}).getName());
   const std::string cut{vNamed(NamedCol{&named_things[1]}, JCol{7}).getName()};
   DREAMOR_CHECK(cut.size() == 255 && cut == "n_" + std::string(253, 'z'));
   return report("vartable");

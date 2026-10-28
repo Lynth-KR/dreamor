@@ -11,6 +11,7 @@ Every public type and function, by header. The [guide](guide.md) explains them i
 | `Col<...>::kName` | Column name (`std::string_view`) |
 | `ColumnName` | Type of `Col`'s name template argument (a string literal) |
 | `keyName(Col)` | The column's name token. The value's `keyName` if it has one, else an entity's `primaryKey()`, otherwise the value itself |
+| `std::formatter<Col<...>>` | A column prints as its name token, so `std::format("Cap_{}_{}", i, j)` names a row the way VarTable names variables. Takes no format spec; a column with no token has none |
 | `std::hash<Col<...>>` | Lets a column be a key of `std::unordered_map` and the like |
 | `PredicateColumns<F>` | Specialization point declaring the columns read by a function object with a template `operator()` |
 

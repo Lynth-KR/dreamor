@@ -202,19 +202,21 @@ struct IloConstraintI {
   std::vector<std::pair<IloNumVarI*, double>> terms;
   double rhs;
   std::int8_t sense;  // -1 <=, 0 ==, 1 >=
+  std::string name;
 };
 class IloConstraint {
  public:
   IloConstraintI* impl_;
-  void setName(const char* name) const { name_ = name ? name : ""; }
-  mutable std::string name_;
+  // The name lives on the constraint, not the handle: setName through any copy names it.
+  void setName(const char* name) const { impl_->name = name != nullptr ? name : ""; }
+  const char* getName() const { return impl_->name.c_str(); }
 };
 using IloRange = IloConstraint;  // Concert's comparison operators give an IloRange
 inline IloConstraint ilostub_make(const IloNumExprArg& a, const IloNumExprArg& b, std::int8_t sense) {
   IloExprI lhs;
   a.appendTo(lhs, 1.0);
   b.appendTo(lhs, -1.0);
-  return IloConstraint{IloStubArena::own(new IloConstraintI{std::move(lhs.terms), -lhs.constant, sense}), {}};
+  return IloConstraint{IloStubArena::own(new IloConstraintI{std::move(lhs.terms), -lhs.constant, sense, {}})};
 }
 inline IloConstraint operator<=(const IloNumExprArg& a, const IloNumExprArg& b) {
   return ilostub_make(a, b, -1);
