@@ -133,10 +133,10 @@ Multi-machine, multi-period lot sizing. Each machine can make a different subset
 linked by inventory.
 
 ```cpp
-#include <format>
 #include <ilcplex/ilocplex.h>
 #include "dreamor/index_set.hpp"
 #include "dreamor/concert.hpp"
+#include "dreamor/general/format_buffer.hpp"
 struct Item { std::string name; double time, hold; std::vector<double> demand; };
 struct Machine { std::string name; double capacity, setup; std::vector<const Item*> items; };
 
@@ -149,59 +149,90 @@ using MachineCol = dreamor::Col<const Machine*, "machine">;
 using ItemCol    = dreamor::Col<const Item*, "item">;
 using PeriodCol  = dreamor::Col<std::size_t, "period">;
 
-// 3) Sets
-const auto items_of = [](MachineCol m) { return m->items; };     // dependent source: returns a range of pointers
-const auto sPERIODS = dreamor::makeSet<PeriodCol>(periods).collect();
-const auto sROUTES  = dreamor::makeSet<MachineCol, ItemCol>(machines, items_of).collect();
-const auto sPRODUCE = dreamor::makeSet<PeriodCol>(sROUTES, periods).collect();     // expand an existing set
-const auto sSTOCK   = dreamor::makeSet<ItemCol, PeriodCol>(items, periods).collect();
+// 3) The model. Its sets come first - members are built in declaration order, and a VarTable takes its set.
+//    FormatBuffer gives it format(), which names rows the way VarTable names variables
+class LotSizing : private dreamor::general::FormatBuffer<256> {
+ public:
+  LotSizing(IloEnv environment, const std::vector<const Machine*>& machines, const std::vector<const Item*>& items,
+            const std::vector<std::size_t>& periods)
+      : env(environment),
+        model(environment),
+        sPERIODS(dreamor::makeSet<PeriodCol>(periods).collect()),
+        sROUTES(dreamor::makeSet<MachineCol, ItemCol>(machines, items_of).collect()),
+        sPRODUCE(dreamor::makeSet<PeriodCol>(sROUTES, periods).collect()),     // expand an existing set
+        sSTOCK(dreamor::makeSet<ItemCol, PeriodCol>(items, periods).collect()) {
+    addInventoryBalance();
+    addCapacity();
+    addSetupLinks();
+    addObjective();
+  }
 
-// 4) Variables
-const auto max_possible_qty = [](MachineCol m, ItemCol i) { return m->capacity / i->time; };
-const dreamor::concert::VarTable<MachineCol, ItemCol, PeriodCol> vYield{env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};
-const dreamor::concert::VarTable<MachineCol, ItemCol, PeriodCol> vSetup{env, sPRODUCE, 0, 1, ILOBOOL, "Setup"};
-const dreamor::concert::VarTable<ItemCol, PeriodCol> vStock{env, sSTOCK, 0, IloInfinity, ILOFLOAT, "Stock"};
+  IloEnv env;
+  IloModel model;
 
-const auto machine_usage = [&](MachineCol m, ItemCol i, PeriodCol t) { return i->time * vYield(m, i, t); };
+  // sets
+  const dreamor::SetOf<PeriodCol> sPERIODS;
+  const dreamor::SetOf<MachineCol, ItemCol> sROUTES;
+  const dreamor::SetOf<MachineCol, ItemCol, PeriodCol> sPRODUCE;
+  const dreamor::SetOf<ItemCol, PeriodCol> sSTOCK;
 
-// 5) Constraints
-//    Inventory balance: for every (item, period). It must hold even when no machine makes the item in that
-//    period, so it iterates sSTOCK
-const auto orderedPeriods = sPERIODS.ordered();
-const auto producedByItemPeriod = sPRODUCE.groupBy<ItemCol, PeriodCol>();
-for (const auto& [i, t] : sSTOCK) {
-  IloExpr totalInFlow = dreamor::concert::sumOf(env, producedByItemPeriod.slice(i, t), vYield).build();
-  if (const auto* prevPeriod = orderedPeriods.prev(t)) { totalInFlow += vStock(i, std::get<PeriodCol>(*prevPeriod)); }
-  const double currentDemand = i->demand[t.get()];
-  const auto endingStock = vStock(i, t);
-  model.add(totalInFlow - currentDemand == endingStock);
-  totalInFlow.end();
-}
-//    Machine capacity, each row named the way the variables are (Capacity_M0_0)
-const auto producedByMachinePeriod = sPRODUCE.groupBy<MachineCol, PeriodCol>();
-for (const auto& [machine, period, rows] : producedByMachinePeriod) {
-  IloExpr totalLoad = dreamor::concert::sumOf(env, rows, machine_usage).build();
-  model.add(totalLoad <= machine->capacity).setName(std::format("Capacity_{}_{}", machine, period).c_str());
-  totalLoad.end();
-}
-//    No production without setup
-for (const auto& [row, yieldVar] : vYield) {
-  model.add(yieldVar <= yieldVar.getUB() * vSetup(row));
-}
+  // 4) Variables, over the sets above
+  const dreamor::concert::VarTable<MachineCol, ItemCol, PeriodCol> vYield{env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};
+  const dreamor::concert::VarTable<MachineCol, ItemCol, PeriodCol> vSetup{env, sPRODUCE, 0, 1, ILOBOOL, "Setup"};
+  const dreamor::concert::VarTable<ItemCol, PeriodCol> vStock{env, sSTOCK, 0, IloInfinity, ILOFLOAT, "Stock"};
 
-// 6) Objective
-IloExpr holdingCost = dreamor::concert::sumOf(env, sSTOCK, [&](ItemCol i, PeriodCol t) { return i->hold * vStock(i, t); }).build();
-IloExpr setupCost = dreamor::concert::sumOf(env, sPRODUCE, [&](MachineCol m, ItemCol i, PeriodCol t) { return m->setup * vSetup(m, i, t); }).build();
-IloExpr totalCost = holdingCost + setupCost;
-model.add(IloMinimize(env, totalCost));
-holdingCost.end();
-setupCost.end();
-totalCost.end();
+ private:
+  static constexpr auto items_of = [](MachineCol m) { return m->items; };     // dependent source: returns a range of pointers
+  static constexpr auto max_possible_qty = [](MachineCol m, ItemCol i) { return m->capacity / i->time; };
 
-// 7) Solve and read the solution
-IloCplex cplex(model);
+  // 5) Constraints
+  //    Inventory balance: for every (item, period). It must hold even when no machine makes the item in that
+  //    period, so it iterates sSTOCK
+  void addInventoryBalance() {
+    const auto orderedPeriods = sPERIODS.ordered();
+    const auto producedByItemPeriod = sPRODUCE.groupBy<ItemCol, PeriodCol>();
+    for (const auto& [i, t] : sSTOCK) {
+      IloExpr totalInFlow = dreamor::concert::sumOf(env, producedByItemPeriod.slice(i, t), vYield).build();
+      if (const auto* prevPeriod = orderedPeriods.prev(t)) { totalInFlow += vStock(i, std::get<PeriodCol>(*prevPeriod)); }
+      const double currentDemand = i->demand[t.get()];
+      const auto endingStock = vStock(i, t);
+      model.add(totalInFlow - currentDemand == endingStock);
+      totalInFlow.end();
+    }
+  }
+  //    Machine capacity, each row named the way the variables are (Capacity_M0_0)
+  void addCapacity() {
+    const auto machine_usage = [this](MachineCol m, ItemCol i, PeriodCol t) { return i->time * vYield(m, i, t); };
+    for (const auto& [machine, period, rows] : sPRODUCE.groupBy<MachineCol, PeriodCol>()) {
+      IloExpr totalLoad = dreamor::concert::sumOf(env, rows, machine_usage).build();
+      model.add(totalLoad <= machine->capacity).setName(format("Capacity_{}_{}", machine, period));
+      totalLoad.end();
+    }
+  }
+  //    No production without setup
+  void addSetupLinks() {
+    for (const auto& [row, yieldVar] : vYield) {
+      model.add(yieldVar <= yieldVar.getUB() * vSetup(row));
+    }
+  }
+
+  // 6) Objective
+  void addObjective() {
+    IloExpr holdingCost = dreamor::concert::sumOf(env, sSTOCK, [this](ItemCol i, PeriodCol t) { return i->hold * vStock(i, t); }).build();
+    IloExpr setupCost = dreamor::concert::sumOf(env, sPRODUCE, [this](MachineCol m, ItemCol i, PeriodCol t) { return m->setup * vSetup(m, i, t); }).build();
+    IloExpr totalCost = holdingCost + setupCost;
+    model.add(IloMinimize(env, totalCost));
+    holdingCost.end();
+    setupCost.end();
+    totalCost.end();
+  }
+};
+
+// 7) Build, solve and read the solution
+const LotSizing lotSizing(env, machines, items, periods);
+IloCplex cplex(lotSizing.model);
 cplex.solve();
-const auto yieldPlan = vYield.solution(cplex);
+const auto yieldPlan = lotSizing.vYield.solution(cplex);
 for (const auto& [row, qty] : yieldPlan) {
   if (qty > 1e-6) { print(std::get<MachineCol>(row), std::get<ItemCol>(row), std::get<PeriodCol>(row), qty); }
 }

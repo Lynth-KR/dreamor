@@ -21,7 +21,9 @@ and versions follow [Semantic Versioning](https://semver.org/).
 - The README introduces the two headers model code can use beside the library: `general/format_buffer.hpp`
   (`FormatBuffer`, names built in a fixed buffer) and `logger/logger_light.hpp` (`DREAMOR_LOG_*`, `FileSink`); the
   reference lists what each offers. The guide states the order a model in a struct needs - its sets before the
-  `VarTable`s that take them, as earlier members or a base class - instead of prescribing the base class.
+  `VarTable`s that take them, as earlier members or a base class - instead of prescribing the base class. The
+  README's quick start is one model class that shows both: its sets declared before its `VarTable`s, and
+  `FormatBuffer` naming its rows.
 
 ### Added
 
@@ -39,8 +41,8 @@ and versions follow [Semantic Versioning](https://semver.org/).
 - A column prints as its name token under `std::format` (`std::formatter<Col<...>>`): the token `VarTable` writes for
   it in a variable name - its `keyName()`, else its entity's `primaryKey()`, else its value. A row is then named the
   way its variables are, as the README's quick start now names its capacity rows:
-  `model.add(load <= cap).setName(std::format("Capacity_{}_{}", machine, period).c_str())`. A column with no token
-  has no formatter, and a column takes no format spec.
+  `model.add(totalLoad <= machine->capacity).setName(format("Capacity_{}_{}", machine, period))`, with `format`
+  from `FormatBuffer`. A column with no token has no formatter, and a column takes no format spec.
 
 ### Development
 

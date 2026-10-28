@@ -57,8 +57,8 @@ class FormatBuffer {
   template <typename... Args>
   [[nodiscard]] const char* format(const std::format_string<Args...> fmt,
                                    Args&&... args) noexcept(Policy == OnFormatOverflow::kLogAndClear) {
-    auto result = std::format_to_n(buffer_.data(), kMaxLength, fmt, std::forward<Args>(args)...);
-    *result.out = '\0';  // Null-terminate the string
+    const auto result = std::format_to_n(buffer_.data(), kMaxLength, fmt, std::forward<Args>(args)...);
+    *result.out       = '\0';  // Null-terminate the string
     if (static_cast<std::size_t>(result.size) >= kMaxLength) {
       if constexpr (Policy == OnFormatOverflow::kThrow) {
         throw std::runtime_error("Formatting error or buffer overflow in format().");
