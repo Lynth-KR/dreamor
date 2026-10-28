@@ -5,7 +5,11 @@
 # stops before running anything if one is missing - a partial run is not a pass.
 #
 #   tools/ci_local.sh         HEAD
-#   tools/ci_local.sh REV     another commit (the pre-push hook passes the one being pushed)
+#   tools/ci_local.sh REV     another commit
+#
+# A pass is recorded by the commit's tree - the content it tested, whatever the message or the
+# signature - in ci-passed/ under the repository's git directory, where tools/hooks/pre-push looks
+# for it before a push to main.
 #
 # ORTOOLS_DIR is the OR-Tools C++ prebuilt CI downloads (v9.15; default /opt/ortools). The jobs
 # run one after another, each on every core; format and tidy first, and nothing else if either
@@ -92,4 +96,7 @@ for cxx in g++-13 clang++-18; do
 done
 
 [ -z "$failed" ] || exit 1
+passed=$(git rev-parse --git-common-dir)/ci-passed
+mkdir -p "$passed"
+echo "$(date '+%F %T') $(uname -n) $(git rev-parse --short "$rev")" > "$passed/$(git rev-parse "$rev^{tree}")"
 echo "ci_local: all passed"

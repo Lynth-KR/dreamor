@@ -1,12 +1,24 @@
 #!/bin/sh
 # SPDX-License-Identifier: Apache-2.0
-# Runs tools/ci_local.sh on each commit pushed to main, and stops the push if it fails.
+# Stops a push to main whose commit has not passed tools/ci_local.sh on this machine: a pass is
+# recorded by the commit's tree (ci_local.sh), so this looks it up rather than running the jobs
+# again, and a commit reworded or signed again after its pass still has it. A push that changes
+# Markdown alone needs none: CI does not run for one either (ci.yml's paths-ignore).
 # Turn it on in a clone with: git config core.hooksPath tools/hooks
-# Skip it once with: git push --no-verify
 set -eu
 zero=0000000000000000000000000000000000000000
+passed=$(git rev-parse --git-common-dir)/ci-passed
+status=0
 # git hands the hook one line per ref: <local ref> <local sha> <remote ref> <remote sha>.
-while read -r _ local_sha remote_ref _; do
+while read -r _ local_sha remote_ref remote_sha; do
   [ "$remote_ref" = refs/heads/main ] && [ "$local_sha" != "$zero" ] || continue
-  tools/ci_local.sh "$local_sha" < /dev/null
+  if [ "$remote_sha" != "$zero" ] && git cat-file -e "$remote_sha^{commit}" 2> /dev/null &&
+    [ -z "$(git diff --name-only "$remote_sha" "$local_sha" -- . ':(exclude,glob)**/*.md')" ]; then
+    continue
+  fi
+  [ -f "$passed/$(git rev-parse "$local_sha^{tree}")" ] && continue
+  short=$(git rev-parse --short "$local_sha")
+  echo "pre-push: $short has not passed the local CI on this machine: tools/ci_local.sh $short" >&2
+  status=1
 done
+exit $status

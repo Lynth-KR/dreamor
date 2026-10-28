@@ -42,7 +42,7 @@ JOBS=4 tests/run_tests.sh            # parallel compiles; default every core (te
 COMPILE_CHECKS=0 tests/run_tests.sh  # skip compile_fail and the syntax checks: they depend on the compiler alone
 tools/format.sh                      # clang-format (C++) and ruff (Python) in place; --check changes nothing
 tools/tidy.sh                        # clang-tidy; needs compile_commands.json (tools/gen_compile_commands.py)
-tools/ci_local.sh [REV]              # what CI runs, on one commit checked out apart; needs every tool CI has
+tools/ci_local.sh [REV]              # what CI runs, on one commit checked out apart; records a pass for the hook
 ```
 
 - **Default mode** runs every `tests/test_*.cpp` against the Concert stub, checks every `tests/compile_fail/*.cpp`,
@@ -76,9 +76,11 @@ tools/ci_local.sh [REV]              # what CI runs, on one commit checked out a
 - **Local CI** (`tools/ci_local.sh`) runs the same jobs on this machine, over a commit checked out in a temporary
   worktree, so it tests what a push publishes and not the working tree. It checks for every tool CI installs first -
   GCC 13, Clang 18 and 23, podman with the `gcc:16` image, cmake, OR-Tools at `$ORTOOLS_DIR`, and uv (for the
-  pinned formatters and clang-tidy) - and runs nothing if one is missing. `tools/hooks/pre-push` runs it on every
-  commit pushed to main; turn it on per clone with `git config core.hooksPath tools/hooks`, skip it once with
-  `--no-verify`.
+  pinned formatters and clang-tidy) - and runs nothing if one is missing. A pass is recorded by the commit's tree
+  (in `ci-passed/` under the git directory), and `tools/hooks/pre-push` stops a push to main whose tree has none -
+  it looks the record up rather than running the jobs, so run `tools/ci_local.sh` before pushing, and a commit
+  reworded or signed again keeps its pass. A push that changes Markdown alone needs no record, as CI does not run
+  for one. Turn the hook on per clone with `git config core.hooksPath tools/hooks`.
 - **Compiler support** is a range tested at both ends, nothing in between: the floor is GCC 13 / Clang 18 (raising
   it is a decision, not a cleanup), the ceiling the newest releases (GCC 16 from the `gcc:16` image, Clang 23 from
   apt.llvm.org). Bump the ceiling at each major release - GCC every spring, LLVM every March and September - in
