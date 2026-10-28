@@ -20,8 +20,6 @@
 #include <string>
 #include <vector>
 
-#include <sched.h>
-
 #include "../common/measure.hpp"
 #include "../common/result.hpp"
 #include "data.hpp"
@@ -117,7 +115,7 @@ Args parse(int argc, char** argv) {
 
 int main(int argc, char** argv) {
   const Args a        = parse(argc, argv);
-  const int cpu_start = sched_getcpu();
+  const int cpu_start = currentCpu();
   Result r;
   if (!a.phases.empty()) {
     std::set<std::string> chosen;
@@ -181,7 +179,7 @@ int main(int argc, char** argv) {
       s.hit.size(),
       static_cast<long long>(peakBytes()),
       cpu_start,
-      sched_getcpu(),
+      currentCpu(),
       r.json().c_str());
   // Nothing is measured from here on: the data goes with the process, not one allocation at a time.
   std::fflush(stdout);

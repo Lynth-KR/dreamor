@@ -2,11 +2,19 @@
 // common/measure.hpp - wall, user and system time, page faults and hardware counters per phase; resident memory
 #pragma once
 
-#include <linux/perf_event.h>
-#include <sys/ioctl.h>
-#include <sys/resource.h>
-#include <sys/syscall.h>
-#include <unistd.h>
+#ifdef _WIN32
+#  define NOMINMAX
+#  define WIN32_LEAN_AND_MEAN
+#  include <psapi.h>
+#  include <windows.h>
+#else
+#  include <linux/perf_event.h>
+#  include <sched.h>
+#  include <sys/ioctl.h>
+#  include <sys/resource.h>
+#  include <sys/syscall.h>
+#  include <unistd.h>
+#endif
 #include <array>
 #include <cerrno>
 #include <chrono>
@@ -39,7 +47,22 @@ struct Phase {
   std::array<std::uint64_t, kMaxCounters> counters{};
 };
 
-// --pmu: one group of user-mode counters on this process, read around every phase.
+// --pmu: one group of user-mode counters on this process, read around every phase. Windows has no
+// perf_event: there --pmu refuses any counter, and run.py's --pmu auto finds none.
+#ifdef _WIN32
+class Pmu {
+ public:
+  std::vector<std::string> names;
+  void open(const std::string& spec) {
+    if (!spec.empty()) {
+      DREAMOR_LOG_ERROR("--pmu: no hardware counters on Windows");
+      std::exit(2);
+    }
+  }
+  [[nodiscard]] bool on() const { return false; }
+  [[nodiscard]] std::array<std::uint64_t, kMaxCounters> read() const { return {}; }
+};
+#else
 class Pmu {
  public:
   std::vector<std::string> names;
@@ -108,48 +131,88 @@ class Pmu {
   }
   int leader_ = -1;
 };
+#endif
 static Pmu& pmu() {
   static Pmu p;
   return p;
 }
-static double msOf(const timeval& t) {
-  return static_cast<double>(t.tv_sec) * 1e3 + static_cast<double>(t.tv_usec) / 1e3;
+// The process's user and system time so far, and its page faults (minor ones on Linux; Windows
+// counts every fault, most of them soft, the same kind).
+struct Usage {
+  double user_ms = 0, sys_ms = 0;
+  std::int64_t faults = 0;
+};
+static Usage usageNow() {
+#ifdef _WIN32
+  FILETIME created, exited, kernel, user;
+  GetProcessTimes(GetCurrentProcess(), &created, &exited, &kernel, &user);
+  const auto ms = [](const FILETIME& t) {  // 100 ns ticks
+    return static_cast<double>((static_cast<std::uint64_t>(t.dwHighDateTime) << 32) | t.dwLowDateTime) / 1e4;
+  };
+  PROCESS_MEMORY_COUNTERS m{};
+  GetProcessMemoryInfo(GetCurrentProcess(), &m, sizeof m);
+  return {ms(user), ms(kernel), static_cast<std::int64_t>(m.PageFaultCount)};
+#else
+  rusage u;
+  getrusage(RUSAGE_SELF, &u);
+  const auto ms = [](const timeval& t) {
+    return static_cast<double>(t.tv_sec) * 1e3 + static_cast<double>(t.tv_usec) / 1e3;
+  };
+  return {ms(u.ru_utime), ms(u.ru_stime), u.ru_minflt};
+#endif
+}
+// The CPU the process runs on now.
+[[maybe_unused]] static int currentCpu() {
+#ifdef _WIN32
+  return static_cast<int>(GetCurrentProcessorNumber());
+#else
+  return sched_getcpu();
+#endif
 }
 template <typename F>
 static Phase measure(F&& f) {
-  rusage before, after;
   std::array<std::uint64_t, kMaxCounters> counted{};
   if (pmu().on()) { counted = pmu().read(); }
-  getrusage(RUSAGE_SELF, &before);
-  const double wall = timeMs(std::forward<F>(f));
-  getrusage(RUSAGE_SELF, &after);
+  const Usage before = usageNow();
+  const double wall  = timeMs(std::forward<F>(f));
+  const Usage after  = usageNow();
   if (pmu().on()) {
     const auto now = pmu().read();
     for (std::size_t i = 0; i < kMaxCounters; ++i) {
       counted[i] = now[i] - counted[i];
     }
   }
-  return {wall,
-          msOf(after.ru_utime) - msOf(before.ru_utime),
-          msOf(after.ru_stime) - msOf(before.ru_stime),
-          after.ru_minflt - before.ru_minflt,
-          true,
-          counted};
+  return {
+      wall, after.user_ms - before.user_ms, after.sys_ms - before.sys_ms, after.faults - before.faults, true, counted};
 }
 
-// Signed: the callers subtract one reading from another.
+// Signed: the callers subtract one reading from another. Resident now and at peak (Windows: the
+// working set and its peak).
 [[maybe_unused]] static std::int64_t residentBytes() {
+#ifdef _WIN32
+  PROCESS_MEMORY_COUNTERS m{};
+  GetProcessMemoryInfo(GetCurrentProcess(), &m, sizeof m);
+  return static_cast<std::int64_t>(m.WorkingSetSize);
+#else
   std::int64_t pages = 0, resident = 0;
   if (FILE* f = std::fopen("/proc/self/statm", "r")) {
     if (std::fscanf(f, "%" SCNd64 " %" SCNd64, &pages, &resident) != 2) { resident = 0; }
     std::fclose(f);
   }
   return resident * static_cast<std::int64_t>(sysconf(_SC_PAGESIZE));
+#endif
 }
+
 [[maybe_unused]] static std::int64_t peakBytes() {
+#ifdef _WIN32
+  PROCESS_MEMORY_COUNTERS m{};
+  GetProcessMemoryInfo(GetCurrentProcess(), &m, sizeof m);
+  return static_cast<std::int64_t>(m.PeakWorkingSetSize);
+#else
   struct rusage u;
   getrusage(RUSAGE_SELF, &u);
   return static_cast<std::int64_t>(u.ru_maxrss) * 1024;
+#endif
 }
 
 // A fresh heap is an allocator's best case (van Kempen & Berger, ISMM '26): blocks of random sizes
