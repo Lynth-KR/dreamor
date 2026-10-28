@@ -5,6 +5,8 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-29
+
 ### Changed
 
 - The documentation is split by what it is for. The README introduces dreamor and maps the rest;
