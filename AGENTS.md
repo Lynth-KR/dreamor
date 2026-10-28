@@ -92,9 +92,10 @@ tools/ci_local.sh [REV]              # what CI runs, on one commit checked out a
   hand. The script also adds the SPDX license line where it is missing.
   CI runs `tools/format.sh --check`. To bump a formatter, change its pin (`CLANG_FORMAT_VERSION` in `tools/format.sh`,
   `required-version` in `ruff.toml`), run `tools/format.sh`, commit only the reformatting, and add that commit to
-  `.git-blame-ignore-revs`. Time to bump: when clangd in the editor gets ahead of the pin and format-on-save starts
-  to disagree with CI. `tools/clang-format` is the pinned clang-format as one executable, for an editor's
-  format-on-save (VS Code: `clang-format.executable`).
+  `.git-blame-ignore-revs`. Time to bump: with CI's clang-latest job, at each LLVM major (March and September) -
+  clang-format and clang-tidy move to that major's newest patch on PyPI, so the newest Clang CI tests and the
+  formatter are one major. `tools/clang-format` is the pinned clang-format as one executable, for an editor's
+  format-on-save (VS Code: `clang-format.executable`, which the repository's `.vscode` sets).
 - **Linting** is `.clang-tidy` (clang-tidy 23.1.3, run through `uvx` as well): broad check families, with
   the few that clash with this codebase turned off and the reason written beside each. tests/ and examples/ relax
   what test and example code does on purpose; tests/stub, the compile_fail cases, the ported samples and bench/ are

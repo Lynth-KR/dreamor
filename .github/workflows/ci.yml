@@ -73,7 +73,8 @@ jobs:
   gcc-latest:
     # The compiler range: the stub job holds the floor (GCC 13, Clang 18), this job and
     # clang-latest the newest releases - bumped by hand at each major release (GCC every
-    # spring, LLVM every March and September). The official image: Ubuntu 24.04 has no GCC 16.
+    # spring, LLVM every March and September; an LLVM bump takes the clang-format and clang-tidy
+    # pins along, AGENTS.md "Formatting"). The official image: Ubuntu 24.04 has no GCC 16.
     needs: lint
     runs-on: ubuntu-24.04
     timeout-minutes: 20
