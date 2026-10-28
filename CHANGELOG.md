@@ -81,6 +81,18 @@ and versions follow [Semantic Versioning](https://semver.org/).
   tool to install, nothing goes on PATH, and the pins live in the scripts and `ruff.toml` alone - CI installs uv
   instead of the three tools. `tools/clang-format` is the pinned clang-format as one executable, for an editor's
   format-on-save.
+- The repository's VS Code settings format C++ on save with that pinned clang-format (the clang-format extension,
+  `clang-format.executable`), not with clangd's built-in formatter, whose version is whatever clangd the editor runs.
+  The pins move with CI's clang-latest job: at each LLVM major, clang-format and clang-tidy go to that major's newest
+  patch.
+- `tools/hooks/pre-push` no longer runs the local CI: `tools/ci_local.sh` records a pass by the tree it tested, and
+  the hook stops a push to main whose tree has none. A push that changes only Markdown needs none, as CI skips it.
+- The contract-failure tests keep the kernel from dumping their core (`PR_SET_DUMPABLE`): each case stops on purpose,
+  and a desktop session's crash reporter announced every one as a crash.
+- The benchmarks' results are the reference run: bare metal, the CPU's frequency fixed, the runner pinned to one
+  core, resolution VI with 5 repetitions, built with GCC 13 and with Clang 18. Against the fastest hand-written arm
+  dreamor is ahead in every catalog family's total on both compilers, and through a solver it builds what
+  hand-optimized code builds within 5%.
 
 ## [0.2.0] - 2026-10-25
 
