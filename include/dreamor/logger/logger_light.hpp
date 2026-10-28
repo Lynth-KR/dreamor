@@ -16,6 +16,7 @@
 
 #ifdef _WIN32
 #  include <io.h>
+#  include <share.h>
 #else
 #  include <unistd.h>
 #endif
@@ -48,6 +49,30 @@ inline bool isTerminal(FILE* stream) noexcept {
 #endif
 }
 
+// Whether the environment variable `name` is set and not empty. The MSVC CRT deprecates getenv.
+inline bool isEnvSet(const char* name) noexcept {
+#ifdef _WIN32
+  char* value      = nullptr;
+  std::size_t size = 0;
+  const bool set   = _dupenv_s(&value, &size, name) == 0 && value != nullptr && value[0] != '\0';
+  std::free(value);
+  return set;
+#else
+  const char* value = std::getenv(name);
+  return value != nullptr && value[0] != '\0';
+#endif
+}
+
+// fopen. The MSVC CRT deprecates it, and its fopen_s opens the file unshared - no other program
+// could read the log while it is open - so Windows takes _fsopen with sharing on.
+inline FILE* openFile(const char* path, const char* mode) noexcept {
+#ifdef _WIN32
+  return _fsopen(path, mode, _SH_DENYNO);
+#else
+  return std::fopen(path, mode);  // NOLINT(cppcoreguidelines-owning-memory): the caller owns the FILE
+#endif
+}
+
 // Per-thread output target (default stderr). thread_local so N threads
 // building N models in parallel each get their own log file with zero
 // cross-talk; a spawned thread always starts at the stderr default.
@@ -63,10 +88,7 @@ inline thread_local bool g_output_is_tty = isTerminal(stderr);
 // instead of on every call. Process-wide on purpose: it's an environment
 // setting, not a per-model preference.
 inline bool noColorRequested() noexcept {
-  static const bool requested = [] {
-    const char* no_color = std::getenv("NO_COLOR");
-    return no_color != nullptr && no_color[0] != '\0';
-  }();
+  static const bool requested = isEnvSet("NO_COLOR");
   return requested;
 }
 
@@ -279,7 +301,7 @@ inline void flush() noexcept {
 class FileSink {
  public:
   explicit FileSink(const char* path, const char* mode = "a") noexcept
-      : file_{std::fopen(path, mode)}, previous_{getOutput()} {
+      : file_{detail::openFile(path, mode)}, previous_{getOutput()} {
     if (file_ != nullptr) {
       setOutput(file_);
     } else {

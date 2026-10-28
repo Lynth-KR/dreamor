@@ -43,6 +43,13 @@ and versions follow [Semantic Versioning](https://semver.org/).
   way its variables are, as the README's quick start now names its capacity rows:
   `model.add(totalLoad <= machine->capacity).setName(format("Capacity_{}_{}", machine, period))`, with `format`
   from `FormatBuffer`. A column with no token has no formatter, and a column takes no format spec.
+- Windows, through clang-cl and the MSVC STL: the library and the stub tests build there under the tests' strict
+  warnings and pass, and the CPLEX tests solve against CPLEX 2212's Windows libraries. Checked by hand, not on CI.
+  MSVC's own compiler (cl.exe) is not supported, and will not be. The platforms are Linux and Windows; where Linux
+  runs - on the machine, under WSL2, in a Docker or Podman container - is the user's to choose. The column formatter
+  no longer takes `std::string_view`'s iterator for a pointer, and the logger reads `NO_COLOR` and opens a
+  `FileSink`'s file through the Windows CRT's own functions (`_dupenv_s`, `_fsopen` - a file another program can still
+  read), so a strict Windows build reports no deprecated `getenv` or `fopen`.
 
 ### Development
 

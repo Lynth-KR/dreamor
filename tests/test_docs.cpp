@@ -146,7 +146,7 @@ int main() try {
     const std::filesystem::path logFile = std::filesystem::temp_directory_path() / "dreamor_test_docs_filesink.log";
     std::filesystem::remove(logFile);
     {
-      const dreamor::logger::FileSink sink(logFile.c_str());  // opens, redirects
+      const dreamor::logger::FileSink sink(logFile.string().c_str());  // opens, redirects
       DREAMOR_CHECK(sink.isOpen());
       DREAMOR_LOG_INFO("started");
     }  // flushed, previous target restored, file closed
@@ -155,6 +155,7 @@ int main() try {
     for (std::string line; std::getline(in, line);) {
       logged = logged || line.find("started") != std::string::npos;
     }
+    in.close();  // Windows does not remove a file that is open
     DREAMOR_CHECK(logged && dreamor::logger::getOutput() == stderr);
     std::filesystem::remove(logFile);
   }

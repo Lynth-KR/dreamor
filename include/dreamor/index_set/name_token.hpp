@@ -84,7 +84,7 @@ template <typename T, dreamor::ColumnName Name>
   requires dreamor::internal::has_name_token<dreamor::Col<T, Name>>
 struct std::formatter<dreamor::Col<T, Name>, char> {
   constexpr auto parse(std::format_parse_context& context) {
-    const auto* it = context.begin();
+    const std::format_parse_context::iterator it = context.begin();
     if (it != context.end() && *it != '}') { throw std::format_error("A column takes no format spec: write {}."); }
     return it;
   }

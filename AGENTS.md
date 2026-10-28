@@ -102,7 +102,41 @@ tools/ci_local.sh [REV]              # what CI runs, on one commit checked out a
   `tools/tidy.sh --fix` writes: applied from several translation units at once, a fix can land twice or garble a
   call, and const goes on the right.
 - **Done means** default mode passes on both compilers, `--mathopt` passes if you touched anything the MathOpt
-  backend or the shared machinery uses, `tools/format.sh --check` passes, and `tools/tidy.sh` reports nothing.
+  backend or the shared machinery uses, the Windows check passes if you touched platform-dependent code (see
+  "Windows"), `tools/format.sh --check` passes, and `tools/tidy.sh` reports nothing.
+
+## Windows
+
+Windows is supported through clang-cl, Clang's MSVC-compatible driver, with the MSVC STL and the UCRT, at the same
+floor as Clang (18; Visual Studio 2022 ships 19). MSVC's own compiler, cl.exe, is not supported: do not add code for
+it, and a construct only cl.exe rejects stays.
+
+- **Platform differences live behind macros, one small helper per difference.** The helper holds the
+  `#ifdef _WIN32` / `#else` / `#endif` and its callers do not branch: `isTerminal()`, `isEnvSet()` and `openFile()`
+  in `logger/logger_light.hpp` are the pattern. No `#ifdef` inside a function's logic, and no second implementation
+  of an algorithm under a macro.
+- **Choose the macro by what differs.**
+  - The operating system or C runtime (POSIX against Win32/UCRT functions, `<unistd.h>` against `<io.h>`): `_WIN32`.
+  - The compiler (builtins, pragmas, attributes): `__clang__` and `__GNUC__`, tested before `_MSC_VER`, because
+    clang-cl defines `_MSC_VER` too (`general/third_party_headers.hpp`, `FlatIndex::prefetchForWrite`).
+  - The standard library: no macro. Write code that holds on every implementation.
+- **Rely on the standard, not on libstdc++'s or libc++'s choices.** What breaks under the MSVC STL:
+  - an iterator assumed to be a pointer: `std::string_view::begin()` returns a class there, so name the type
+    (`std::format_parse_context::iterator`), never `const auto*` - nor bare `auto`, which `readability-qualified-auto`
+    turns back into `const auto*` where the iterator is a pointer;
+  - `std::filesystem::path::c_str()` is `const wchar_t*`; pass `path.string().c_str()` to a `const char*`;
+  - `long` is 32 bits (LLP64), so `long` and `IloInt` (`__int64`) are different types and a `long` times a Concert
+    variable is ambiguous - one more reason for the explicit-size types under "Code style".
+- **The MSVC CRT's deprecation warnings count** (`fopen`, `getenv`, ... under `-Wdeprecated-declarations`): a header
+  that warns there warns in a user's Windows build. Call the CRT's own spelling in the helper's `_WIN32` branch
+  (`_dupenv_s` for `getenv`; `_fsopen` for `fopen`, since `fopen_s` opens the file unshared); never define
+  `_CRT_SECURE_NO_WARNINGS` in a header, where it would reach the user's code.
+- **Checking.** Windows is not on CI. Build the default-mode tests (`tests/test_*.cpp` with `-Itests/stub`) with
+  clang-cl and run them: in Visual Studio 2022 with the "C++ Clang tools for Windows" component, or from WSL with
+  `clang-cl-23 --target=x86_64-pc-windows-msvc -fuse-ld=lld-link /std:c++20 /EHsc`, the MSVC STL and the Windows
+  SDK's `ucrt`, `um` and `shared` headers under `/mnt/c` given with `/imsvc`, their `lib/x64` directories after
+  `/link` with `/libpath:`, and the `.exe` run through WSL interop. The compile_fail and contract_fail cases are not
+  checked on Windows.
 
 ## Design rules
 

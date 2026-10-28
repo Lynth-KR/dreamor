@@ -42,7 +42,9 @@ dreamor는 일부러 작게 만든 라이브러리이고, 쓸모의 상당 부�
 테스트는 프레임워크 없이 `tests/run_tests.sh` 하나로 돕니다. 컴파일러는 `CXX`로 고릅니다(기본 `g++`, C++20).
 
 **컴파일러:** GCC 13 이상, Clang 18 이상. CI는 이 범위의 양 끝인 GCC 13과 16, Clang 18과 23만 검증하고 그 사이는
-검증하지 않습니다. MSVC와 Apple Clang은 검증하지 않습니다. 최신 컴파일러를 로컬에서 돌려 보려면 Clang은
+검증하지 않습니다. 플랫폼은 리눅스와 Windows입니다. Windows에서는 clang-cl과 MSVC STL로 빌드되며, CI가 아니라 손으로
+확인합니다. MSVC 자체 컴파일러(cl.exe)는 지원하지 않고, Apple Clang은 검증하지 않습니다. 리눅스를 어디서 돌릴지(직접 설치,
+WSL2, 컨테이너)는 쓰는 사람이 고르면 됩니다. 최신 컴파일러를 로컬에서 돌려 보려면 Clang은
 [apt.llvm.org](https://apt.llvm.org/)에서 설치하고(`CXX=clang++-23 tests/run_tests.sh`), GCC는 공식 컨테이너 이미지를
 씁니다(`podman run --rm -v "$PWD":/src -w /src docker.io/library/gcc:16 sh -c 'CXX=g++ tests/run_tests.sh'`,
 `docker`도 같은 인자).

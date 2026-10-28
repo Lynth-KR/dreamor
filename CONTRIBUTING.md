@@ -45,7 +45,9 @@ The tests run without a framework, through a single `tests/run_tests.sh`. Choose
 `g++`, C++20).
 
 **Compilers:** GCC 13 or later, Clang 18 or later. CI tests both ends of that range - GCC 13 and 16, Clang 18 and 23 -
-and nothing in between; MSVC and Apple Clang are not tested. To try the newest ones locally: Clang from
+and nothing in between. The platforms are Linux and Windows. On Windows, dreamor builds with clang-cl and the MSVC
+STL, checked by hand, not on CI; MSVC's own compiler (cl.exe) is not supported, and Apple Clang is not tested. Where
+Linux runs - on the machine, under WSL2, in a container - is yours to choose. To try the newest ones locally: Clang from
 [apt.llvm.org](https://apt.llvm.org/) (`CXX=clang++-23 tests/run_tests.sh`), GCC from its official container image
 (`podman run --rm -v "$PWD":/src -w /src docker.io/library/gcc:16 sh -c 'CXX=g++ tests/run_tests.sh'`; `docker` takes
 the same arguments).
