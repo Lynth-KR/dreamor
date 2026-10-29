@@ -198,8 +198,8 @@ const auto yieldPlan = vYield.solution(*result);   // std::logic_error if no pri
 
 - The table takes a `Model&` instead of an env, and `is_integer` instead of a type constant.
 - `sumOf` takes no env.
-- There are no semi-continuous variables, no `end()` calls, and sums are linear: a term returning a
-  `QuadraticExpression` does not compile.
+- There are no semi-continuous variables and no `end()` calls. A sum is a `LinearExpression`, or a
+  `QuadraticExpression` when its term is quadratic.
 - Bounds are tightened with `model.set_upper_bound(vYield(row), 0)`.
 
 ## Patterns

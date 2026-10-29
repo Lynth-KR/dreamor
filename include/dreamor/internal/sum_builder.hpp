@@ -65,6 +65,15 @@ struct dreamor::internal::TakesWholeRow<dreamor::internal::TermRef<T>> : dreamor
 
 namespace dreamor::internal {
 
+// The expression a sum adds its terms into: the backend's zero, unless the terms need a wider
+// one. A backend that keeps expression kinds apart widens it here - MathOpt's sum of quadratic
+// terms is a QuadraticExpression (mathopt.hpp) - so build() returns the narrowest expression
+// that holds every term. Concert's IloExpr holds them all and keeps the default.
+template <typename Zero, typename Term>
+struct SumTotal {
+  using type = Zero;
+};
+
 // A plain container becomes a one-column index set in place: no vector of tuples is built,
 // the column is wrapped as each element is visited.
 template <typename Column, typename Rows>
@@ -78,7 +87,8 @@ template <typename Column, typename Rows>
 // wherever a compiler prints it: "conversion from UnbuiltSum<...> to IloExpr".
 //
 // MakeZero returns the backend's empty expression (IloExpr{env}, a LinearExpression, ...);
-// build() adds term(row) to it with +=, so this never names a solver type itself.
+// build() adds term(row) to it with +=, so this never names a solver type itself. SumTotal
+// may widen that expression to the terms' kind.
 template <typename Rows,
           typename Term,
           typename MakeZero,
@@ -278,7 +288,7 @@ class UnbuiltSum {
   // Non-const: filtered views have no const begin().
   [[nodiscard]] auto build() {
     if constexpr (std::tuple_size_v<Splits> == 0) {
-      auto total = zero_();
+      auto total = zero();
       for (auto&& row : rows_) {
         if (!keeps(row)) { continue; }
         total += termOf(row);
@@ -290,6 +300,13 @@ class UnbuiltSum {
   }
 
  private:
+  // The backend's empty expression, as wide as the terms need (SumTotal).
+  [[nodiscard]] auto zero() const {
+    using Value = std::remove_cvref_t<decltype(termOf(std::declval<const Row&>()))>;
+    using Total = SumTotal<decltype(zero_()), Value>::type;
+    return Total(zero_());
+  }
+
   // The term on one row. A term that takes the row whole - a table - already knows it; any
   // other gets the row published while it runs, for the tables it looks up by columns.
   template <typename R>
@@ -311,7 +328,7 @@ class UnbuiltSum {
 
   template <std::size_t... Is>
   [[nodiscard]] auto buildSplit(std::index_sequence<Is...> /*unused*/) {
-    std::array<decltype(zero_()), sizeof...(Is)> totals{(static_cast<void>(Is), zero_())...};
+    std::array<decltype(zero()), sizeof...(Is)> totals{(static_cast<void>(Is), zero())...};
     for (auto&& row : rows_) {
       if (!keeps(row)) { continue; }
       const std::array<bool, sizeof...(Is)> hits{static_cast<bool>(callColumnsOf(std::get<Is>(splits_), row))...};

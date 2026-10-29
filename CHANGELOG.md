@@ -5,6 +5,14 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- MathOpt's `sumOf` takes quadratic terms. A term that MathOpt can hold only in a `QuadraticExpression` - a
+  `QuadraticTerm` (`x * x`) or a `QuadraticExpression` (`(x - 1) * (x - 1)`) - makes `build()` return a
+  `QuadraticExpression` (an array of them under `split()`); a linear term still gives a `LinearExpression`. Concert's
+  `IloExpr` held both already. The choice is a trait of the shared sum builder (`internal::SumTotal`), widened by the
+  backend, so `where()` / `split()` work the same for both kinds.
+
 ## [0.3.0] - 2026-10-29
 
 ### Changed

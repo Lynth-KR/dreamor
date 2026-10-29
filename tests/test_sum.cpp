@@ -14,6 +14,26 @@ static std::size_t terms(const IloExpr& e) {
   return e.expr_->terms.size();
 }
 
+static std::size_t quadraticTerms(const IloExpr& e) {
+  return e.expr_->quadratic.size();
+}
+
+static double linearCoefficients(const IloExpr& e) {
+  double sum = 0;
+  for (const auto& [v, c] : e.expr_->terms) {
+    sum += c;
+  }
+  return sum;
+}
+
+static double quadraticCoefficients(const IloExpr& e) {
+  double sum = 0;
+  for (const auto& [u, v, c] : e.expr_->quadratic) {
+    sum += c;
+  }
+  return sum;
+}
+
 static std::vector<const IloNumVarI*> varsOf(const IloExpr& e) {
   std::vector<const IloNumVarI*> out;
   out.reserve(e.expr_->terms.size());
@@ -66,6 +86,19 @@ int main() try {
   using KCol     = dreamor::Col<std::size_t, "k">;
   const auto IKJ = dreamor::makeSet<ICol, KCol, JCol>(I, I, J).collect();  // more columns than the table's keys
   DREAMOR_CHECK(terms(dreamor::concert::sumOf(env, IKJ, x).build()) == 18);
+
+  // quadratic terms: IloExpr holds them as it holds linear ones, under where() and split() too
+  const auto square     = [&x](ICol i, JCol j) { return static_cast<double>(i.get()) * (x(i, j) * x(i, j)); };
+  const IloExpr squares = dreamor::concert::sumOf(env, IJ, square).build();
+  DREAMOR_CHECK(quadraticTerms(squares) == 6 && isExactlyZero(linearCoefficients(squares)));
+  DREAMOR_CHECK(exactlyEqual(quadraticCoefficients(squares), 2 * (1 + 2 + 3)));
+  const auto deviation = [&x](ICol i, JCol j) { return (x(i, j) - 1) * (x(i, j) - 1); };
+  const auto parts     = dreamor::concert::sumOf(env, IJ, deviation)
+                             .where([](ICol i) { return i.get() > 1; })
+                             .split([](JCol j) { return j.get() == 10; }, [](JCol) { return true; })
+                             .build();
+  DREAMOR_CHECK(quadraticTerms(parts[0]) == 2 && quadraticTerms(parts[1]) == 4);
+  DREAMOR_CHECK(exactlyEqual(linearCoefficients(parts[1]), -2 * 4) && exactlyEqual(parts[1].expr_->constant, 4));
 
   // A lookup by columns inside a term reaches the row sumOf is on without hashing it. That is
   // only a hint: the same variables come back whatever the term looks up and wherever the

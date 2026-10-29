@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Against the real CPLEX (run_tests.sh --cplex): a small MIP built with the library, solved,
-// read back with solution(), and exported to check that key-based names reach CPLEX.
+// read back with solution(), and exported to check that key-based names reach CPLEX; then a
+// quadratic objective summed by sumOf, solved as an MIQP.
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
@@ -89,6 +90,25 @@ int main() try {
     DREAMOR_CHECK(text.str().find("x_1_10") != std::string::npos && text.str().find("s_3") != std::string::npos);
     std::remove(lp.c_str());
     cplex.end();
+
+    // a quadratic objective built by sumOf: integer least squares, an MIQP
+    const IloModel squares(env);
+    const dreamor::concert::VarTable<ICol> fit{env, II, -10, 10, ILOINT, "Fit"};
+    const auto off_target = [&fit](ICol i) {
+      const double target = 1.4 * static_cast<double>(i.get());
+      return (fit(i) - target) * (fit(i) - target);
+    };
+    IloExpr sumOfSquares = dreamor::concert::sumOf(env, II, off_target).build();
+    squares.add(IloMinimize(env, sumOfSquares));
+    sumOfSquares.end();
+    IloCplex leastSquares(squares);
+    leastSquares.setOut(env.getNullStream());
+    DREAMOR_CHECK(leastSquares.solve());
+    DREAMOR_CHECK(leastSquares.getStatus() == IloAlgorithm::Optimal);
+    const auto fitPlan = fit.solution(leastSquares);
+    DREAMOR_CHECK(std::abs(fitPlan(ICol{1}) - 1) < 1e-6 && std::abs(fitPlan(ICol{2}) - 3) < 1e-6 &&
+                  std::abs(fitPlan(ICol{3}) - 4) < 1e-6 && std::abs(fitPlan(ICol{4}) - 6) < 1e-6);
+    leastSquares.end();
   } catch (const IloException& e) {
     std::fprintf(stderr, "IloException: %s\n", e.getMessage());
     ++g_failures;

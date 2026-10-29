@@ -103,7 +103,7 @@ Every public type and function, by header. The [guide](guide.md) explains them i
 | `VarTable<Keys...>{model, set, lb = 0, ub = +inf, is_integer = false, name = nullptr}` | `model` is `math_opt::Model&`; lb, ub are numbers or column functions |
 | `(keys...)`, `(row)`, `contains`, `size`, `keys`, `begin`/`end` | Same as Concert (variables are `math_opt::Variable`) |
 | `solution(result)` | `math_opt::SolveResult` → `ValueTable`; `std::logic_error` if there is no feasible solution |
-| `sumOf(rows, term)`, `sumOf<Col>(container, term)` | Sum builder; `build()` gives `math_opt::LinearExpression` (an array of them with `split`) |
+| `sumOf(rows, term)`, `sumOf<Col>(container, term)` | Sum builder; `build()` gives `math_opt::LinearExpression`, or `math_opt::QuadraticExpression` when the term is quadratic (an array of them with `split`) |
 
 ## Utilities
 

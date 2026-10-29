@@ -103,7 +103,7 @@
 | `VarTable<Keys...>{model, set, lb = 0, ub = +inf, is_integer = false, name = nullptr}` | `model`은 `math_opt::Model&`; lb, ub는 숫자 또는 열 함수 |
 | `(keys...)`, `(row)`, `contains`, `size`, `keys`, `begin`/`end` | Concert와 같음 (변수는 `math_opt::Variable`) |
 | `solution(result)` | `math_opt::SolveResult` → `ValueTable`; 가능해가 없으면 `std::logic_error` |
-| `sumOf(rows, term)`, `sumOf<Col>(container, term)` | 합 빌더; `build()`는 `math_opt::LinearExpression` (`split`이면 그 배열) |
+| `sumOf(rows, term)`, `sumOf<Col>(container, term)` | 합 빌더; `build()`는 `math_opt::LinearExpression`, term이 이차 항이면 `math_opt::QuadraticExpression` (`split`이면 그 배열) |
 
 ## 유틸리티
 

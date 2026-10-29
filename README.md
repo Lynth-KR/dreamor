@@ -98,9 +98,9 @@ const auto result = math_opt::Solve(model, math_opt::SolverType::kHighs);
 const auto yieldPlan = vYield.solution(*result);   // std::logic_error if there is no feasible solution
 ```
 
-Semi-continuous variables exist only in Concert, because MathOpt models have none. MathOpt's `sumOf` accumulates
-into a `LinearExpression`, so a term that returns a quadratic term (`QuadraticExpression`) does not compile
-(Concert's `IloExpr` accepts quadratic terms too).
+Semi-continuous variables exist only in Concert, because MathOpt models have none. MathOpt keeps linear and
+quadratic expressions apart, so its `sumOf` accumulates into a `LinearExpression`, or into a `QuadraticExpression`
+when the term is quadratic (`x * x`, `(x - 1) * (x - 1)`); Concert's `IloExpr` holds both.
 
 When building against the OR-Tools C++ prebuilt, define `OR_PROTO_DLL` as empty and link `libortools`,
 `libprotobuf`, and the Abseil libraries (`tests/run_tests.sh --mathopt DIR` does exactly that).

@@ -34,7 +34,7 @@ const auto sPRODUCE = dreamor::makeSet<MachineCol, ItemCol, PeriodCol>(machines,
 // var Yield {(m,i,t) in PRODUCE} >= 0, <= cap[m] / time[i];
 const auto max_possible_qty = [](MachineCol m, ItemCol i) { return m->capacity / i->time; };
 const dreamor::concert::VarTable<MachineCol, ItemCol, PeriodCol> vYield{env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};
-
+![alt text](image.png)
 // subject to Capacity {m in MACHINES, t in PERIODS}: sum {i: (m,i,t) in PRODUCE} time[i] * Yield[m,i,t] <= cap[m];
 const auto machine_usage = [&](MachineCol m, ItemCol i, PeriodCol t) { return i->time * vYield(m, i, t); };
 const auto producedByMachinePeriod = sPRODUCE.groupBy<MachineCol, PeriodCol>();
@@ -95,8 +95,9 @@ const auto result = math_opt::Solve(model, math_opt::SolverType::kHighs);
 const auto yieldPlan = vYield.solution(*result);   // 가능해가 없으면 std::logic_error
 ```
 
-반연속 변수는 MathOpt 모형에 없어서 Concert에만 있습니다. MathOpt의 `sumOf`는 `LinearExpression`으로 모으므로
-term이 이차 항(`QuadraticExpression`)을 돌려주면 컴파일되지 않습니다(Concert의 `IloExpr`는 이차 항도 받습니다).
+반연속 변수는 MathOpt 모형에 없어서 Concert에만 있습니다. MathOpt는 일차식과 이차식을 나누어 다루므로, MathOpt의
+`sumOf`는 `LinearExpression`으로 모으고 term이 이차 항이면(`x * x`, `(x - 1) * (x - 1)`) `QuadraticExpression`으로
+모읍니다. Concert의 `IloExpr`는 둘 다 담습니다.
 
 OR-Tools C++ 사전 빌드본으로 빌드할 때는
 `OR_PROTO_DLL`을 빈 값으로 정의하고 `libortools`, `libprotobuf`, Abseil 라이브러리를 링크합니다

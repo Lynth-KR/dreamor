@@ -131,6 +131,52 @@ static void sum() {
   // a plain container as a one-column set
   const dreamor::mathopt::VarTable<ICol> y{model, dreamor::makeSet<ICol>(I).collect(), 0, 1};
   DREAMOR_CHECK(terms(dreamor::mathopt::sumOf<ICol>(I, [&y](ICol i) { return y(i); }).build()) == 3);
+
+  // linear terms make a LinearExpression, quadratic ones a QuadraticExpression
+  static_assert(std::is_same_v<decltype(dreamor::mathopt::sumOf(IJ, weighted).build()), math_opt::LinearExpression>);
+  const auto square    = [&x](ICol i, JCol j) { return static_cast<double>(i.get()) * x(i, j) * x(i, j); };
+  const auto quadratic = dreamor::mathopt::sumOf(IJ, square).build();
+  static_assert(std::is_same_v<std::remove_const_t<decltype(quadratic)>, math_opt::QuadraticExpression>);
+  DREAMOR_CHECK(quadratic.quadratic_terms().size() == 6 && quadratic.linear_terms().empty());
+  double squareCoef = 0;
+  for (const auto& [pair, c] : quadratic.quadratic_terms()) {
+    squareCoef += c;
+  }
+  DREAMOR_CHECK(exactlyEqual(squareCoef, 2 * (1 + 2 + 3)));
+
+  // a QuadraticExpression term, under where() and split()
+  const auto deviation = [&x](ICol i, JCol j) { return (x(i, j) - 1) * (x(i, j) - 1); };
+  const auto parts     = dreamor::mathopt::sumOf(IJ, deviation)
+                             .where([](ICol i) { return i.get() > 1; })
+                             .split([](JCol j) { return j.get() == 10; }, [](JCol) { return true; })
+                             .build();
+  static_assert(std::is_same_v<std::remove_cvref_t<decltype(parts[0])>, math_opt::QuadraticExpression>);
+  DREAMOR_CHECK(parts[0].quadratic_terms().size() == 2 && parts[1].quadratic_terms().size() == 4);
+  DREAMOR_CHECK(parts[1].linear_terms().size() == 4 && exactlyEqual(parts[1].offset(), 4));
+
+  // an empty quadratic sum is the zero expression too
+  DREAMOR_CHECK(
+      dreamor::mathopt::sumOf(IJ, square).where([](ICol) { return false; }).build().quadratic_terms().empty());
+}
+
+// A quadratic objective built by sumOf, solved: HiGHS takes no quadratic objective through
+// MathOpt, so this one goes to SCIP.
+static void quadraticObjective() {
+  math_opt::Model model("least squares");
+  const std::vector<std::size_t> I{1, 2, 3};
+  const auto sI = dreamor::makeSet<ICol>(I).collect();
+  const dreamor::mathopt::VarTable<ICol> vFit{model, sI, -10, 10, true, "Fit"};
+  const auto off_target = [&vFit](ICol i) {
+    const double target = 1.4 * static_cast<double>(i.get());
+    return (vFit(i) - target) * (vFit(i) - target);
+  };
+  model.Minimize(dreamor::mathopt::sumOf(sI, off_target).build());
+
+  const auto result = math_opt::Solve(model, math_opt::SolverType::kGscip);
+  DREAMOR_CHECK(result.ok() && result->termination.reason == math_opt::TerminationReason::kOptimal);
+  const auto fitPlan = vFit.solution(*result);
+  DREAMOR_CHECK(std::abs(fitPlan(ICol{1}) - 1) < 1e-6 && std::abs(fitPlan(ICol{2}) - 3) < 1e-6 &&
+                std::abs(fitPlan(ICol{3}) - 4) < 1e-6);
 }
 
 static void solution() {
@@ -187,6 +233,7 @@ static void example() {
 int main() try {
   varTable();
   sum();
+  quadraticObjective();
   solution();
   example();
   return report("mathopt");

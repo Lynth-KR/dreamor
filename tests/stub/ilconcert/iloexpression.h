@@ -2,13 +2,15 @@
 // Concert stub for the opt tests - no CPLEX needed. Mirrors the parts of Concert's shape
 // the library and the examples rely on: handle classes over heap implementations,
 // IloNumVar and IloExpr both IloNumExprArg, operators on IloNumExprArg, arrays with end().
-// Constraints record (variable, coefficient) terms so tests can compare models.
+// Constraints record (variable, coefficient) terms so tests can compare models; expressions
+// also record quadratic (variable, variable, coefficient) terms, as IloExpr holds them.
 #pragma once
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <mutex>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -62,6 +64,7 @@ struct IloNumVarI {
 };
 struct IloExprI {
   std::vector<std::pair<IloNumVarI*, double>> terms;
+  std::vector<std::tuple<IloNumVarI*, IloNumVarI*, double>> quadratic;
   double constant = 0;
 };
 
@@ -74,6 +77,9 @@ class IloNumExprArg {
     if (expr_) {
       for (auto [v, c] : expr_->terms) {
         out.terms.push_back({v, c * k});
+      }
+      for (auto [u, v, c] : expr_->quadratic) {
+        out.quadratic.emplace_back(u, v, c * k);
       }
       out.constant += expr_->constant * k;
     }
@@ -171,6 +177,27 @@ inline IloExpr operator*(const IloNumExprArg& a, double k) {
 }
 inline IloExpr operator*(double k, const IloNumExprArg& a) {
   return a * k;
+}
+// Concert's IloNumExprArg * IloNumExprArg: (a + c)(b + d) = ab + ad + cb + cd, for linear a and b.
+// Past degree 2 real Concert refuses the model when it is extracted; the stub only records
+// what a product of two linear expressions makes.
+inline IloExpr operator*(const IloNumExprArg& a, const IloNumExprArg& b) {
+  IloExprI left;
+  IloExprI right;
+  a.appendTo(left, 1.0);
+  b.appendTo(right, 1.0);
+  IloExpr r(IloEnv{});
+  for (auto [u, cu] : left.terms) {
+    for (auto [v, cv] : right.terms) {
+      r.expr_->quadratic.emplace_back(u, v, cu * cv);
+    }
+    r.expr_->terms.push_back({u, cu * right.constant});
+  }
+  for (auto [v, cv] : right.terms) {
+    r.expr_->terms.push_back({v, cv * left.constant});
+  }
+  r.expr_->constant = left.constant * right.constant;
+  return r;
 }
 inline IloExpr operator+(const IloNumExprArg& a, const IloNumExprArg& b) {
   IloExpr r(IloEnv{});

@@ -213,11 +213,12 @@ These behave identically on both backends. A change to one is a change to both:
 - variable names `<name>_<key0>_<key1>...`;
 - `std::out_of_range` for a lookup outside the set;
 - iteration in set order;
-- `sumOf`'s `where()` / `split()` / `build()`;
+- `sumOf`'s `where()` / `split()` / `build()`, linear or quadratic terms (`build()` gives each solver's expression
+  that holds them: `IloExpr`, or MathOpt's `LinearExpression` / `QuadraticExpression`);
 - a `VarTable` as a sum term.
 
 Backend-only features stay in their backend:
-- Concert only: semi-continuous variables, quadratic terms.
+- Concert only: semi-continuous variables.
 - MathOpt only: `std::logic_error` from `solution()` when there is no feasible solution, because MathOpt would
   otherwise CHECK-fail.
 

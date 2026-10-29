@@ -30,7 +30,8 @@
 //   - the table is built on a math_opt::Model& (there is no environment), the variable kind
 //     is MathOpt's `is_integer` flag, and the default upper bound is +infinity;
 //   - sumOf takes no environment - an empty LinearExpression needs none - and build()
-//     returns a math_opt::LinearExpression (std::array of them under split());
+//     returns a math_opt::LinearExpression, or a math_opt::QuadraticExpression when the term is
+//     quadratic (std::array of them under split()), as MathOpt keeps the two kinds apart;
 //   - solution() reads a math_opt::SolveResult and throws std::logic_error when it has no
 //     primal feasible solution (MathOpt itself would CHECK-fail);
 //   - no semi-continuous variables: MathOpt's model has none.
@@ -151,8 +152,9 @@ class VarTable : private internal::VarTableCore<::operations_research::math_opt:
   }
 };
 
-// sum {t in rows} term(t) as a math_opt::LinearExpression; see concert.hpp for where(),
-// split() and the rules on rows and callables, which are the same here.
+// sum {t in rows} term(t) as a math_opt::LinearExpression, or a math_opt::QuadraticExpression
+// when term(t) is quadratic (a QuadraticTerm or a QuadraticExpression: x * x, (x - 1) * (x - 1));
+// see concert.hpp for where(), split() and the rules on rows and callables, which are the same here.
 template <typename... Columns, std::ranges::input_range Rows, typename Term>
 [[nodiscard]] auto sumOf(Rows&& rows, Term&& term) {
   return internal::makeSum<Columns...>([] { return ::operations_research::math_opt::LinearExpression{}; },
@@ -170,6 +172,15 @@ auto sumOf(First&& /*first*/, Rows&& /*rows*/, Term&& /*term*/) {
 }
 
 }  // namespace dreamor::mathopt
+
+// A term MathOpt can only hold in a QuadraticExpression makes the sum one; a linear term - a
+// variable, a LinearTerm, a LinearExpression, a number - keeps it a LinearExpression.
+template <typename Term>
+  requires(!std::convertible_to<Term, ::operations_research::math_opt::LinearExpression> &&
+           std::convertible_to<Term, ::operations_research::math_opt::QuadraticExpression>)
+struct dreamor::internal::SumTotal<::operations_research::math_opt::LinearExpression, Term> {
+  using type = ::operations_research::math_opt::QuadraticExpression;
+};
 
 // A table is a term, as in concert.hpp: sumOf(rows, vYield).
 template <typename... Keys>

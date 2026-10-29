@@ -168,12 +168,15 @@ solution(const math_opt::SolveResult&)   // → ValueTable; std::logic_error if 
 
 sumOf(rows, term)                        // no env, no model
 sumOf<Col>(container, term)
-    .where(p...).split(p...).build();    // math_opt::LinearExpression (an array after split)
+    .where(p...).split(p...).build();    // math_opt::LinearExpression; QuadraticExpression for a quadratic term
+                                         // (an array after split)
 ```
 
 - A binary variable is `0, 1, true`.
 - Constraints: `model.AddLinearConstraint(expr, name)`. Bounds: `model.set_upper_bound(var, value)`.
-- There are no semi-continuous variables. A quadratic term does not compile.
+- There are no semi-continuous variables.
+- A quadratic term (`x * x`, `(x - 1) * (x - 1)`) makes the sum a `QuadraticExpression`, for `model.Minimize`. HiGHS
+  takes no quadratic objective through MathOpt; SCIP (`kGscip`) and Gurobi do.
 - `math_opt::Variable` is valid while its model lives; there is nothing to `end()`.
 - Building against the OR-Tools C++ prebuilt without CMake needs `-DOR_PROTO_DLL=` and
   `-lortools -lprotobuf` plus the Abseil libraries. `ortools::ortools` in CMake carries all of that.
