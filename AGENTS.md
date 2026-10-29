@@ -6,7 +6,7 @@ brief.
 
 dreamor is a header-only C++20 modeling layer: index sets (solver-independent), variable families (`VarTable`), and
 sums (`sumOf`), with two backends, CPLEX Concert (`dreamor::concert`) and OR-Tools MathOpt (`dreamor::mathopt`).
-Version 0.3.0, Apache 2.0.
+Version 0.3.1, Apache 2.0.
 
 ## Layout
 

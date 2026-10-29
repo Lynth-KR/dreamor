@@ -5,6 +5,8 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-29
+
 ### Added
 
 - MathOpt's `sumOf` takes quadratic terms. A term that MathOpt can hold only in a `QuadraticExpression` - a
