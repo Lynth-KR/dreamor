@@ -12,13 +12,16 @@
 // outlives the model, the algorithm and the environment.
 #pragma once
 
+#include <concepts>
 #include <cstddef>
 #include <memory>
 #include <stdexcept>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
+#include "dreamor/index_set/call.hpp"
 #include "dreamor/index_set/indexed.hpp"
 #include "dreamor/index_set/key_args.hpp"
 #include "dreamor/internal/row_index.hpp"
@@ -29,6 +32,21 @@ template <typename... Keys>
 class ValueTable;
 
 namespace internal {
+// A VarTable's bound and a ValueTable's value are given alike: a number, or a callable over the
+// row's columns.
+template <typename Bound, typename Row>
+consteval void checkBound() {
+  if constexpr (!std::is_arithmetic_v<Bound>) { checkColumnCallable<Bound, Row>(); }
+}
+template <typename Bound, typename Row>
+[[nodiscard]] double boundOf(const Bound& bound, const Row& row) {
+  if constexpr (std::is_arithmetic_v<Bound>) {
+    return static_cast<double>(bound);
+  } else {
+    return static_cast<double>(callColumnsOf(bound, row));
+  }
+}
+
 // The one way a backend's VarTable hands over its values.
 struct ValueTableAccess {
   template <typename... Keys>
@@ -40,12 +58,37 @@ struct ValueTableAccess {
 };
 }  // namespace internal
 
-// Values of a VarTable's variables, read in one go by its solution(), whatever the backend. Keyed like the
-// table: yieldPlan(keys...) or yieldPlan(row), and range-for over (row, value).
+// A number per row of a set: the values of a VarTable's variables, read in one go by its
+// solution() whatever the backend, or data on a set - AMPL's param {S} - built from the set and
+// what each row's value is. Keyed like the set: yieldPlan(keys...) or yieldPlan(row), and
+// range-for over (row, value).
+//
+//     const ValueTable<MachineCol, PeriodCol> hours{sRUN, available_hours};   // param hours {RUN}
 template <typename... Keys>
 class ValueTable {
  public:
   using Key = std::tuple<Keys...>;
+
+  // Each row's value is `value`: a number, or a callable over the row's columns, as a VarTable's
+  // bounds are. The set's row index is shared with every table built on it.
+  template <typename Value>
+  ValueTable(const IndexSet<Key>& keys, const Value& value) : keys_{keys}, index_{internal::sharedRowIndex(keys_)} {
+    internal::checkBound<Value, Key>();
+    values_.reserve(rows().size());
+    for (const Key& row : rows()) {
+      values_.push_back(internal::boundOf(value, row));
+    }
+  }
+  // A set whose columns are not exactly the keys, in order, stops here on one sentence rather
+  // than on "no matching constructor".
+  template <typename OtherTup, typename Value>
+    requires(!std::same_as<OtherTup, Key>)
+  ValueTable(const IndexSet<OtherTup>& /*keys*/, const Value& /*value*/) {
+    static_assert(internal::always_false<OtherTup>,
+                  "A ValueTable is built on a set with exactly its key columns, in the same order: "
+                  "ValueTable<MachineCol, PeriodCol> takes a SetOf<MachineCol, PeriodCol>. Declare the table in "
+                  "the set's order, or derive a set in the table's order with select<...>().");
+  }
 
   // The value of a key: yieldPlan(m, i, t) or yieldPlan(row), the columns in the declared
   // order (see index_set/key_args.hpp). Throws std::out_of_range when the set does not have
@@ -92,3 +135,14 @@ class ValueTable {
 };
 
 }  // namespace dreamor
+
+// A ValueTable names its key columns, so it is itself a column callable - a VarTable's bound, a
+// value of another ValueTable - without a lambda that only looks it up: VarTable{env, sRUN, 0,
+// hours, ...} bounds each Run[m,t] by hours[m,t]. Given a row of its own set, it finds the value
+// by the row's address, as a VarTable finds a variable.
+template <typename... Keys>
+struct dreamor::PredicateColumns<dreamor::ValueTable<Keys...>> {
+  using type = std::tuple<Keys...>;
+};
+template <typename... Keys>
+struct dreamor::internal::TakesWholeRow<dreamor::ValueTable<Keys...>> : std::true_type {};

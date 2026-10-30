@@ -128,8 +128,8 @@ class VarTable : public internal::VarTableCore<IloNumVar, Keys...> {
   template <typename Lb = IloNum, typename Ub = IloNum>
   VarTable(const IloEnv& env,
            const IndexSet<Key>& set,
-           Lb lb                = 0,
-           Ub ub                = IloInfinity,
+           const Lb& lb         = 0,
+           const Ub& ub         = IloInfinity,
            IloNumVar::Type type = ILOFLOAT,
            const char* name     = nullptr)
       : Core{set} {
@@ -147,8 +147,8 @@ class VarTable : public internal::VarTableCore<IloNumVar, Keys...> {
   VarTable(SemiContinuous /*unused*/,
            const IloEnv& env,
            const IndexSet<Key>& set,
-           Lb sclb,
-           Ub ub,
+           const Lb& sclb,
+           const Ub& ub,
            IloNumVar::Type type = ILOFLOAT,
            const char* name     = nullptr)
       : Core{set} {

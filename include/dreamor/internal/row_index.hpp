@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "dreamor/general/flat_index.hpp"
+#include "dreamor/index_set/indexed.hpp"
 #include "dreamor/index_set/key_args.hpp"
 #include "dreamor/logger/logger_light.hpp"
 
@@ -239,5 +240,14 @@ class RowPairIterator {
   const Key* row_ = nullptr;
   const X* x_     = nullptr;
 };
+
+// The row index of a set: every table on the set - vYield and vSetup on sPRODUCE, a ValueTable
+// of data on it, the values a solve gives back - shares one, made by the first. Its hash waits
+// for the first lookup that needs one.
+template <typename Key>
+[[nodiscard]] std::shared_ptr<const RowIndex<Key>> sharedRowIndex(const IndexSet<Key>& keys) {
+  return SetAccess::indexSlot(keys).template get<RowIndex<Key>>(
+      [&keys] { return std::make_shared<const RowIndex<Key>>(SetAccess::rows(keys)); });
+}
 
 }  // namespace dreamor::internal

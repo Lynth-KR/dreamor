@@ -90,7 +90,7 @@ Every public type and function, by header. The [guide](guide.md) explains them i
 **Values** (`value_table.hpp`, namespace `dreamor`, common to all backends)
 | | |
 |---|---|
-| `ValueTable<Keys...>` | Values by `(keys...)`/`(row)`: `yieldPlan(m, i, t)` (`std::out_of_range` if absent), `contains`, `size()`, `keys()`, `(row, value)` iteration |
+| `ValueTable<Keys...>` | `ValueTable<Keys...>{set, value}`: data on a set (`param {S}`), `value` a number or a column callable; a ValueTable is a column callable itself (a bound, a value). Values by `(keys...)`/`(row)`: `yieldPlan(m, i, t)` (`std::out_of_range` if absent), `contains`, `size()`, `keys()`, `(row, value)` iteration |
 
 **Sums** (`concert.hpp`, namespace `dreamor::concert`)
 | | |

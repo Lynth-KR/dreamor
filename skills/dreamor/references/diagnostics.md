@@ -30,6 +30,7 @@ left column. Each message is pinned by a `// expect:` line in `tests/compile_fai
 | `names one key column twice` | `VarTable<ICol, ICol>` | Give each key its own column type | `vartable_key_twice` |
 | `No column of this set has that name` | `groupBy<KCol>()` / `select<KCol>()` with a foreign column | Use the set's columns | `groupby_missing_column`, `select_missing_column` |
 | `A VarTable is built on a set with exactly its key columns` | The table's keys differ from the set's columns or their order | Match the table to the set, or `select<...>()` to reorder | `vartable_key_order_differs_from_set` |
+| `A ValueTable is built on a set with exactly its key columns` | A ValueTable of data whose keys differ from the set's columns or their order | Match the table to the set, or `select<...>()` to reorder | `valuetable_key_order_differs_from_set` |
 | `Scale the sum, not the table` | `100 * vYield` or `vYield * 100` | `100 * sumOf(env, rows, vYield).build()`, or multiply inside a term | `vartable_scaled`, `mathopt/vartable_scaled` |
 | `is not an expression yet` | `sumOf(...)` without `.build()` in a comparison, `+=`, or `-` | Add `.build()` | `sumof_without_build`, `sumof_without_build_plus_assign`, `sumof_without_build_reversed`, `mathopt/sumof_without_build` |
 | `UnbuiltSum` | `sumOf(...)` without `.build()` assigned to an expression or used as an objective | Add `.build()` | `sumof_without_build_assigned`, `sumof_without_build_objective`, `mathopt/sumof_without_build_assigned` |

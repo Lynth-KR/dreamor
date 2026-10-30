@@ -12,7 +12,7 @@ dreamor is a header-only C++20 layer for algebraic optimization models. It provi
 2. **Variable families** (`VarTable`), one table of solver variables per set.
 3. **Sums** (`sumOf`) over a set or a group.
 
-Variable families and sums are backend-specific. `dreamor::ValueTable` (solution values) is shared by both backends.
+Variable families and sums are backend-specific. `dreamor::ValueTable` (solution values, or data on a set: `ValueTable<Keys...>{set, value}`) is shared by both backends.
 
 Everything else — constraints, objectives, solving, duals, parameters — is written in the solver's own API.
 dreamor has no constraint tables, no column generation (tables never grow), and no constraint programming

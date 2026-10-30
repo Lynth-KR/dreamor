@@ -90,7 +90,7 @@
 **값** (`value_table.hpp`, 네임스페이스 `dreamor`, 백엔드 공통)
 | | |
 |---|---|
-| `ValueTable<Keys...>` | `(keys...)`/`(row)`로 값: `yieldPlan(m, i, t)` (없으면 `std::out_of_range`), `contains`, `size()`, `keys()`, `(row, value)` 순회 |
+| `ValueTable<Keys...>` | `ValueTable<Keys...>{set, value}`: 집합 위의 데이터(`param {S}`), `value`는 숫자나 열 콜러블. ValueTable 자체도 열 콜러블(bound, 값). `(keys...)`/`(row)`로 값: `yieldPlan(m, i, t)` (없으면 `std::out_of_range`), `contains`, `size()`, `keys()`, `(row, value)` 순회 |
 
 **합** (`concert.hpp`, 네임스페이스 `dreamor::concert`)
 | | |

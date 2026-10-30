@@ -192,8 +192,13 @@ sumOf<Col>(container, term)
 
 ## ValueTable
 
-`value_table.hpp`, namespace `dreamor`, the same type for both backends.
+`value_table.hpp`, namespace `dreamor`, the same type for both backends: what `solution()` returns, and data on a
+set built by hand.
 
+- `ValueTable<Keys...>{set, value}` - AMPL's `param {S}`: `value` is a number or a column callable, as a VarTable's
+  bounds are; the set's columns must be exactly `Keys...`, in order. Shares the set's row index with the tables on it.
+- A ValueTable is a column callable over its keys: pass it as a VarTable's bound or another ValueTable's value
+  (`VarTable{env, sRUN, 0, hours}`), no lookup lambda.
 - `yieldPlan(keys...)`, `yieldPlan(row)` → `double`; `std::out_of_range` if absent (never a silent 0).
 - `contains`, `size()`, `keys()`, range-for `[row, value]` in set order.
 - Holds only doubles, so it outlives `IloCplex`, `IloEnv`, and the `SolveResult`.

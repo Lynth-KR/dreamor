@@ -38,20 +38,6 @@
 
 namespace dreamor::internal {
 
-// A bound is a number, or a callable over the row's columns.
-template <typename Bound, typename Row>
-consteval void checkBound() {
-  if constexpr (!std::is_arithmetic_v<Bound>) { checkColumnCallable<Bound, Row>(); }
-}
-template <typename Bound, typename Row>
-[[nodiscard]] double boundOf(const Bound& bound, const Row& row) {
-  if constexpr (std::is_arithmetic_v<Bound>) {
-    return static_cast<double>(bound);
-  } else {
-    return static_cast<double>(callColumnsOf(bound, row));
-  }
-}
-
 // What every backend's VarTable derives from, through VarTableCore: the traits below find a
 // table by it.
 struct VarTableBase {};
@@ -146,7 +132,7 @@ class VarTableCore : public VarTableBase {
   }
 
  protected:
-  explicit VarTableCore(const IndexSet<Key>& keys) : keys_{keys}, index_{sharedIndex(keys_)} {}
+  explicit VarTableCore(const IndexSet<Key>& keys) : keys_{keys}, index_{sharedRowIndex(keys_)} {}
 
   VarTableCore(VarTableCore&&) noexcept            = default;
   VarTableCore& operator=(VarTableCore&&) noexcept = default;
@@ -191,14 +177,6 @@ class VarTableCore : public VarTableBase {
   std::vector<Var> vars_;  // vars_[i] is the variable of row i.
 
  private:
-  // The set's row index: every table on the set - vYield and vSetup on sPRODUCE - and every
-  // value table from them share one, made by the first. Its hash waits for the first lookup that
-  // needs one (row_index.hpp).
-  [[nodiscard]] static std::shared_ptr<const RowIndex<Key>> sharedIndex(const IndexSet<Key>& keys) {
-    return SetAccess::indexSlot(keys).template get<RowIndex<Key>>(
-        [&keys] { return std::make_shared<const RowIndex<Key>>(SetAccess::rows(keys)); });
-  }
-
   IndexSet<Key> keys_;                          // Shared; the only copy of the keys.
   std::shared_ptr<const RowIndex<Key>> index_;  // Shared with ValueTables.
 };

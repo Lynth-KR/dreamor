@@ -5,6 +5,15 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `ValueTable<Keys...>{set, value}`: data on a set, AMPL's `param {S}`. `value` is a number or a callable over the
+  row's columns, as a `VarTable`'s bounds are, and the table is read like a solution's. It shares the set's row
+  index with every table on the set. A model that needed a number per row - a limit per group, a capacity per
+  machine and period - kept it in a map keyed by entity pointers; now it is keyed like everything else on the set.
+  A `ValueTable` is a column callable itself, so it is a `VarTable`'s bound or another `ValueTable`'s value as it is;
+  every backend's `VarTable` takes its bounds by `const&`, so such a bound is not copied.
+
 ### Changed
 
 - `FormatBuffer`'s `format()` is static, on a buffer of the thread's (one per `FormatBuffer<N, Policy>` and thread)

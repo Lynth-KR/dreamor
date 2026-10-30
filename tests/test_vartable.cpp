@@ -217,6 +217,32 @@ int main() try {
   const auto& lastRow = *(IJ.begin() + 5);
   DREAMOR_CHECK(exactlyEqual(v(lastRow), v(std::get<ICol>(lastRow), std::get<JCol>(lastRow))) && v.contains(lastRow));
 
+  // a ValueTable of data on a set (param {IJ}): a number for every row, or a callable over the row's columns;
+  // it shares the set's row index with the tables on it, and reads like a solution
+  const dreamor::ValueTable<ICol, JCol> ones{IJ, 1};
+  const auto i_plus_j = [](ICol i, JCol j) { return static_cast<double>(i.get() + j.get()); };
+  const dreamor::ValueTable<ICol, JCol> sums{IJ, i_plus_j};
+  DREAMOR_CHECK(ones.size() == 6 && exactlyEqual(ones(ICol{2}, JCol{20}), 1.0));
+  DREAMOR_CHECK(sums.size() == 6 && exactlyEqual(sums(ICol{1}, JCol{10}), 11.0) && exactlyEqual(sums(lastRow), 22.0));
+  DREAMOR_CHECK_THROWS(std::out_of_range, sums(ICol{9}, JCol{9}));
+  bool inSetOrder = true;
+  auto row        = IJ.begin();
+  for (const auto& [key, value] : sums) {
+    inSetOrder = inSetOrder && key == *row++ && exactlyEqual(value, i_plus_j(std::get<ICol>(key), std::get<JCol>(key)));
+  }
+  DREAMOR_CHECK(inSetOrder && row == IJ.end());
+  const auto ten_i = [](ICol i) { return 10.0 * static_cast<double>(i.get()); };  // a callable may read some columns
+  DREAMOR_CHECK(exactlyEqual(dreamor::ValueTable<ICol, JCol>(IJ, ten_i)(ICol{3}, JCol{10}), 30.0));
+  DREAMOR_CHECK(dreamor::ValueTable<ICol, JCol>(IJ.where([](ICol i) { return i.get() > 100; }), 1.0).size() == 0);
+  // a ValueTable is a column callable: a VarTable's bound, and the value of another ValueTable on fewer or more columns
+  const dreamor::concert::VarTable<ICol, JCol> capped{env, IJ, 0, sums};
+  DREAMOR_CHECK(exactlyEqual(capped(ICol{2}, JCol{20}).getUB(), 22.0) &&
+                exactlyEqual(capped(ICol{3}, JCol{10}).getUB(), 13.0));
+  const auto II                              = dreamor::makeSet<ICol>(I).collect();
+  const dreamor::ValueTable<ICol> tens       = {II, ten_i};
+  const dreamor::ValueTable<ICol, JCol> wide = {IJ, tens};  // reads the ICol of each row
+  DREAMOR_CHECK(exactlyEqual(wide(ICol{2}, JCol{20}), 20.0) && exactlyEqual(wide(ICol{3}, JCol{10}), 30.0));
+
   // empty set: nothing to read, no solver call needed
   const auto none = IJ.where([](ICol i) { return i.get() > 100; });
   const dreamor::concert::VarTable<ICol, JCol> e{env, none, 0, 1};

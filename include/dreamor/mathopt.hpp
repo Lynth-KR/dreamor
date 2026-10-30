@@ -86,8 +86,8 @@ class VarTable : public internal::VarTableCore<::operations_research::math_opt::
   template <typename Lb = double, typename Ub = double>
   VarTable(::operations_research::math_opt::Model& model,
            const IndexSet<Key>& set,
-           Lb lb            = 0,
-           Ub ub            = std::numeric_limits<double>::infinity(),
+           const Lb& lb     = 0,
+           const Ub& ub     = std::numeric_limits<double>::infinity(),
            bool is_integer  = false,
            const char* name = nullptr)
       : Core{set} {
