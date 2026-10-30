@@ -90,6 +90,9 @@ for cxx in g++-13 clang++-18; do
     cmake --build '$work/consumer-mathopt-$cxx' -j\"\$(nproc)\" && '$work/consumer-mathopt-$cxx/lot_sizing'"
 done
 for cxx in g++-13 clang++-18; do
+  job "highs ($cxx)" "CXX=$cxx tests/run_tests.sh --highs \"\$ORTOOLS_DIR\""
+done
+for cxx in g++-13 clang++-18; do
   job "package ($cxx)" "cmake -S tests/cmake_consumer -B '$work/consumer-$cxx' -DCMAKE_CXX_COMPILER=$cxx \
           -DCMAKE_PREFIX_PATH='$work/prefix' &&
     cmake --build '$work/consumer-$cxx' && '$work/consumer-$cxx/consumer'"

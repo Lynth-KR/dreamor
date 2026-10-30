@@ -29,7 +29,7 @@ cannot be merged.
 
 Open an issue with the bug report form, which asks for:
 
-- the dreamor version (or commit), the compiler and its version, the backend (Concert or MathOpt) and its version;
+- the dreamor version (or commit), the compiler and its version, the backend (Concert, MathOpt or HiGHS) and its version;
 - the smallest code that shows the problem - a set, a table and a few rows usually do;
 - what you expected and what happened; for a compile error, its first lines.
 
@@ -57,9 +57,10 @@ the same arguments).
 | `tests/run_tests.sh` | The whole set layer and Concert backend (on a Concert stub), that code which must not compile is rejected, and the syntax of the CPLEX-only code | Nothing |
 | `tests/run_tests.sh --cplex [DIR]` | Verification by solving with real CPLEX, running the example | CPLEX Studio (`$CPLEX_STUDIO_DIR`, default `/opt/ibm/ILOG/CPLEX_Studio2212`) |
 | `tests/run_tests.sh --mathopt [DIR]` | Verification of the MathOpt backend by solving with HiGHS, running the example, building the same example with both backends and comparing the constraints, running the ported OR-Tools samples (SCIP) | OR-Tools C++ prebuilt (`$ORTOOLS_DIR`, default `/opt/ortools`) |
+| `tests/run_tests.sh --highs [DIR]` | Verification of the HiGHS backend by solving with HiGHS, the README's code as written there, the code that must not compile and, in a debug build, the broken contracts | A HiGHS install (`$HIGHS_DIR`, default `/opt/highs`); the OR-Tools C++ prebuilt is one |
 
-Code that must not compile lives one case per file in `tests/compile_fail/` (Concert) and
-`tests/mathopt/compile_fail/` (MathOpt). The runner does not only check that each case is rejected: a
+Code that must not compile lives one case per file in `tests/compile_fail/` (Concert),
+`tests/mathopt/compile_fail/` (MathOpt) and `tests/highs/compile_fail/` (HiGHS). The runner does not only check that each case is rejected: a
 `// expect: <text>` line at the top of the file must appear in the compiler's **first error** (and its notes). The
 point is that what a user reads before the next error is the intended one-sentence message. Cases without
 `// expect:` only have to be rejected. `control.cc` in the same folder is a control case checking that the shared
@@ -106,7 +107,7 @@ OR-Tools paths come from the environment variables above), and the repository's 
   Clang 18 alike. A phase may lose a little where another gains much; a whole family, or a whole model through the
   solver, may not get slower.
 - **Done** means the default tests pass on GCC and Clang, `--mathopt` passes if the MathOpt backend or the shared
-  machinery is touched, `tools/format.sh --check` passes, and `tools/tidy.sh` reports nothing.
+  machinery is touched, `--highs` passes if the HiGHS backend or the shared machinery is touched, `tools/format.sh --check` passes, and `tools/tidy.sh` reports nothing.
 
 [AGENTS.md](AGENTS.md) holds every development rule in full, written for coding agents; it is the reference when
 this page is not enough.

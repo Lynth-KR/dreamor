@@ -1,6 +1,6 @@
 ---
 name: dreamor
-description: Write, review, and fix C++ optimization models that use dreamor (index sets, VarTable, sumOf) on CPLEX Concert or OR-Tools MathOpt. Use this skill whenever code includes "dreamor/..." headers or uses makeSet, SetOf, groupBy, slice, ordered, VarTable, ValueTable, or sumOf; whenever the user wants to translate an AMPL-style model (sets, indexed variables, sums, constraint families) into C++ with dreamor; and whenever a compile error mentions dreamor, VarTable, sumOf, UnbuiltSum, or messages such as "Look a variable or value up by the table's key columns" or "is not an expression yet".
+description: Write, review, and fix C++ optimization models that use dreamor (index sets, VarTable, sumOf) on CPLEX Concert, OR-Tools MathOpt, or HiGHS. Use this skill whenever code includes "dreamor/..." headers or uses makeSet, SetOf, groupBy, slice, ordered, VarTable, ValueTable, sumOf, or HighsEnv; whenever the user wants to translate an AMPL-style model (sets, indexed variables, sums, constraint families) into C++ with dreamor; and whenever a compile error mentions dreamor, VarTable, sumOf, UnbuiltSum, or messages such as "Look a variable or value up by the table's key columns" or "is not an expression yet".
 ---
 
 # dreamor (0.3)
@@ -12,14 +12,14 @@ dreamor is a header-only C++20 layer for algebraic optimization models. It provi
 2. **Variable families** (`VarTable`), one table of solver variables per set.
 3. **Sums** (`sumOf`) over a set or a group.
 
-Variable families and sums are backend-specific. `dreamor::ValueTable` (solution values, or data on a set: `ValueTable<Keys...>{set, value}`) is shared by both backends.
+Variable families and sums are backend-specific. `dreamor::ValueTable` (solution values, or data on a set: `ValueTable<Keys...>{set, value}`) is shared by every backend.
 
 Everything else — constraints, objectives, solving, duals, parameters — is written in the solver's own API.
 dreamor has no constraint tables, no column generation (tables never grow), and no constraint programming
 (interval variables, `noOverlap`, cumulative functions). Do not invent API for these.
 
 Read further only when needed:
-- `references/api.md` — full signatures: sets, `Grouped`, `RowSlice`, `Ordered`, both backends, `ValueTable`.
+- `references/api.md` — full signatures: sets, `Grouped`, `RowSlice`, `Ordered`, every backend, `ValueTable`.
 - `references/diagnostics.md` — every dreamor compile-time message with its cause and fix, plus runtime
   exceptions. Read it whenever you are fixing a build error in dreamor code.
 
@@ -30,12 +30,13 @@ Read further only when needed:
 | `dreamor/index_set.hpp` | `dreamor` | any solver |
 | `dreamor/concert.hpp` | `dreamor::concert` | CPLEX Concert (`IloEnv`, `IloModel`, `IloCplex`, `ILOFLOAT`/`ILOINT`/`ILOBOOL`) |
 | `dreamor/mathopt.hpp` | `dreamor::mathopt` | OR-Tools MathOpt (`math_opt::Model`, `math_opt::Solve`) |
+| `dreamor/highs.hpp` | `dreamor::highs` | HiGHS's own C++ API, written as highspy writes it (`HighsEnv`, `addConstr`, `minimize`, `HighsVarType`) |
 
 There is no `dreamor::VarTable` and no `dreamor::sumOf`. Qualify them with the backend namespace, or alias it:
 `namespace concert = dreamor::concert;`.
 
 CMake: `find_package(dreamor 0.3 CONFIG REQUIRED)`, then link `dreamor::dreamor` plus the solver
-(`ortools::ortools`, or the user's CPLEX target).
+(`ortools::ortools`, `highs::highs`, or the user's CPLEX target).
 
 ## Naming
 
@@ -203,6 +204,34 @@ const auto yieldPlan = vYield.solution(*result);   // std::logic_error if no pri
   `QuadraticExpression` when its term is quadratic.
 - Bounds are tightened with `model.set_upper_bound(vYield(row), 0)`.
 
+## The same model on HiGHS
+
+HiGHS's own API has no expressions; `dreamor::highs` brings highspy's, under highspy's names:
+
+```cpp
+namespace hs = dreamor::highs;
+hs::HighsEnv env;   // or HighsEnv env{options}: a HighsOptions, the Highs's before the model reaches it
+const hs::VarTable<MachineCol, ItemCol, PeriodCol> vYield{env, sPRODUCE, 0, max_possible_qty, HighsVarType::kContinuous, "Yield"};
+const hs::VarTable<MachineCol, ItemCol, PeriodCol> vSetup{env, sPRODUCE, 0, 1, HighsVarType::kInteger, "Setup"};
+
+for (const auto& [machine, period, rows] : sPRODUCE.groupBy<MachineCol, PeriodCol>()) {
+  hs::addConstr(env, hs::sumOf(rows, machine_usage).build() <= machine->capacity, dreamor::exprName("Cap", machine, period));
+}
+
+const auto setup_cost = [&](MachineCol m, ItemCol i, PeriodCol t) { return m->setup * vSetup(m, i, t); };
+hs::minimize(env, hs::sumOf(sPRODUCE, setup_cost).build());   // setObjective, then run(); returns run()'s HighsStatus
+const auto yieldPlan = vYield.solution(env);                  // std::logic_error if no primal solution
+```
+
+- The table takes the `HighsEnv` and HiGHS's `HighsVarType`. A binary variable is `0, 1, HighsVarType::kInteger`.
+- `sumOf` takes no env. A row is `expr <= b`, `a <= expr`, `expr == b` or `(a <= expr) <= b`; `addConstr` merges
+  repeated columns. A quadratic expression goes only to `setObjective`/`minimize`/`maximize`.
+- The model is collected and reaches HiGHS in one `passModel` the first time `env.highs()` is reached (or
+  `minimize`, or `solution`); after that, everything written goes to it as written. Build the model first.
+- Everything else is HiGHS's own API on `env.highs()`: options, `run()`, `getInfo()`, `writeModel`,
+  `changeColBounds(vYield(row).index(), lo, up)`. A failing call throws `HighsError` (`call()`, `status()`).
+- `HighsEnv` is neither copied nor moved; a `HighsVar` is valid while its env lives. Never mix two envs' variables.
+
 ## Patterns
 
 - **Tighten bounds after construction:** `for (const auto& row : vYield.keys().where(in_maintenance)) { vYield(row).setUB(0); }`
@@ -213,7 +242,8 @@ const auto yieldPlan = vYield.solution(*result);   // std::logic_error if no pri
 - **Rows named like their variables:** `model.add(expr <= m->capacity).setName(dreamor::exprName("Cap", m, t));` -
   `Cap_M1_3`, the tokens VarTable uses, with no allocation and no format string. For a name of another shape, a
   column prints as its token under `std::format` or `format` from `dreamor::general::FormatBuffer<256>`.
-- **Duals and reduced costs:** use the solver API (`getDuals`, `dual_values()`). There is no keyed accessor.
+- **Duals and reduced costs:** use the solver API (`getDuals`, `dual_values()`, `env.highs().getSolution().row_dual`).
+  There is no keyed accessor.
 - **Several sums in one pass:** `.split(p1, p2).build()` returns `std::array<..., 2>` and computes each term once.
 - **Model in a struct:** the sets must be built before the `VarTable`s that take them - declare them as members before
   the `VarTable`s (members are constructed in declaration order), or put them in a base class.

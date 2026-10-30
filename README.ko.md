@@ -25,7 +25,7 @@
 
 C++ 최적화 모형을 위한 얇은 모델링 계층입니다. AMPL의 집합 선언처럼 **인덱스 집합**을 만들고, 그 집합
 위에 **변수족**을 한 번에 만들고, 집합을 묶어 **합**을 만듭니다. 제약식과 풀이는 솔버 API를 그대로 씁니다.
-백엔드는 CPLEX Concert와 OR-Tools MathOpt(HiGHS, SCIP, Gurobi, Xpress 등)입니다.
+백엔드는 CPLEX Concert, OR-Tools MathOpt(HiGHS, SCIP, Gurobi, Xpress 등), 그리고 자체 C++ API로 쓰는 HiGHS입니다.
 
 ```cpp
 // set PRODUCE := {m in MACHINES, i in ITEMS[m], t in PERIODS};
@@ -69,6 +69,7 @@ for (const auto& [machine, period, rows] : producedByMachinePeriod) {
 |---|---|---|---|
 | IBM ILOG Concert | `dreamor/concert.hpp` | `dreamor::concert` | CPLEX |
 | OR-Tools MathOpt | `dreamor/mathopt.hpp` | `dreamor::mathopt` | HiGHS, SCIP, GLOP, PDLP, CP-SAT(MIP로), GLPK, Gurobi, Xpress 등 |
+| HiGHS | `dreamor/highs.hpp` | `dreamor::highs` | HiGHS(자체 C++ API로) |
 
 범위, 변수 종류, 이름, 해 읽기는 그 솔버 API의 표기를 그대로 받습니다(Concert라면 `IloEnv`, `ILOFLOAT`,
 `IloCplex`). 이름이 길면 별칭을 둡니다: `namespace concert = dreamor::concert;`. `ValueTable`은 값만 담으므로
@@ -103,6 +104,30 @@ OR-Tools C++ 사전 빌드본으로 빌드할 때는
 `OR_PROTO_DLL`을 빈 값으로 정의하고 `libortools`, `libprotobuf`, Abseil 라이브러리를 링크합니다
 (`tests/run_tests.sh --mathopt DIR`이 그렇게 합니다).
 
+HiGHS의 자체 C++ API는 행렬 API입니다. 열은 인덱스이고, 행은 범위와 배열입니다. HiGHS 팀의 Python 인터페이스인
+highspy가 그 위에 식을 얹었고, `dreamor::highs`는 그 인터페이스를 C++로 옮깁니다. 이름도 highspy를 따릅니다.
+
+```cpp
+namespace hs = dreamor::highs;
+hs::HighsEnv env;                                                    // 작성 중인 모형과, 그것을 푸는 Highs
+const hs::VarTable<MachineCol, ItemCol, PeriodCol> vYield{
+    env, sPRODUCE, 0, max_possible_qty, HighsVarType::kContinuous, "Yield"};   // 종류는 HiGHS의 HighsVarType
+
+for (const auto& [machine, period, rows] : producedByMachinePeriod) {
+  hs::addConstr(env, hs::sumOf(rows, machine_usage).build() <= machine->capacity);  // highspy의 addConstr, sumOf엔 env 없음
+}
+
+hs::minimize(env, hs::sumOf(sPRODUCE, vYield).build());   // 목적함수, 그다음 run()
+const auto yieldPlan = vYield.solution(env);              // 원문제 해가 없으면 std::logic_error
+```
+
+`HighsEnv`는 모형을 모아 두었다가, `Highs`에 처음 닿을 때(`env.highs()`, `minimize`, `solution`) `passModel` 한
+번으로 HiGHS에 넘깁니다. 그 뒤의 변경은 쓰는 대로 바로 넘어갑니다. 나머지는 모두 `env.highs()`에서 쓰는 HiGHS의
+API입니다. 옵션(모형이 닿기 전이라면 `HighsEnv{options}`), `run()`, `writeModel`이 그렇습니다. 행이 따로 된
+타입이라서, 부등식을 목적함수로 주거나 행에 이차 항을 넣으면 컴파일 때 멈춥니다. 실패한 HiGHS 호출은
+`HighsStatus`를 담은 `HighsError`를 던집니다. HiGHS를 링크합니다(`highs::highs`, 또는 `include/highs`와
+`libhighs`). OR-Tools 사전 빌드본에 든 HiGHS도 됩니다(`tests/run_tests.sh --highs DIR`).
+
 ## 설치 — CMake
 
 헤더만 있는 라이브러리라 빌드할 것은 없고, `dreamor::dreamor` 타깃 하나가 include 경로와 C++20을 넘겨줍니다.
@@ -116,12 +141,14 @@ cmake --install build
 ```cmake
 find_package(dreamor 0.3 CONFIG REQUIRED)
 target_link_libraries(app PRIVATE dreamor::dreamor ortools::ortools)    # dreamor/mathopt.hpp
+target_link_libraries(app PRIVATE dreamor::dreamor highs::highs)        # dreamor/highs.hpp
 target_link_libraries(app PRIVATE dreamor::dreamor <CPLEX 타깃>)         # dreamor/concert.hpp
 ```
 
 OR-Tools 사전 빌드본은 자체 CMake 설정을 갖고 있어서 `find_package(ortools CONFIG)`가 되고, `ortools::ortools`가
 include 경로와 정의(`OR_PROTO_DLL`)와 라이브러리를 함께 넘겨줍니다(`CMAKE_PREFIX_PATH`에 OR-Tools 폴더를 추가).
-CPLEX는 공식 CMake 설정이 없으므로 쓰던 방식대로 링크합니다. 설치 없이 `add_subdirectory(dreamor)`나
+HiGHS도 자체 CMake 설정이 있고(`find_package(highs CONFIG)`, `highs::highs`), OR-Tools 사전 빌드본에 든 HiGHS도
+마찬가지입니다. CPLEX는 공식 CMake 설정이 없으므로 쓰던 방식대로 링크합니다. 설치 없이 `add_subdirectory(dreamor)`나
 `FetchContent`로 가져와도 같은 `dreamor::dreamor`를 씁니다(이때는 dreamor의 파일을 설치하지 않습니다).
 
 ## 빠른 시작

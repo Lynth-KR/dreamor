@@ -33,5 +33,5 @@ fi
 fix=
 [ "${1:-}" = "--fix" ] && fix=-fix
 # The files to check, as compile_commands.json names them (absolute paths).
-files='/(include/|tests/(?!stub/|compile_fail/|mathopt/compile_fail/|cmake_consumer)|examples/(?!mathopt_samples/))'
+files='/(include/|tests/(?!stub/|compile_fail/|mathopt/compile_fail/|highs/compile_fail/|cmake_consumer)|examples/(?!mathopt_samples/))'
 $CLANG_TIDY_RUN run-clang-tidy.py -p . -j "$JOBS" -quiet $fix "$files"

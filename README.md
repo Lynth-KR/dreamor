@@ -25,8 +25,8 @@
 
 A thin modeling layer for optimization models in C++. You build **index sets** the way you declare sets in AMPL,
 create a whole **variable family** over a set in one go, and group sets to build **sums**. Constraints and solving
-use the solver's own API. The backends are CPLEX Concert and OR-Tools MathOpt (HiGHS, SCIP, Gurobi, Xpress, and
-more).
+use the solver's own API. The backends are CPLEX Concert, OR-Tools MathOpt (HiGHS, SCIP, Gurobi, Xpress, and
+more), and HiGHS through its own C++ API.
 
 ```cpp
 // set PRODUCE := {m in MACHINES, i in ITEMS[m], t in PERIODS};
@@ -71,6 +71,7 @@ the header you include is your dependency.
 |---|---|---|---|
 | IBM ILOG Concert | `dreamor/concert.hpp` | `dreamor::concert` | CPLEX |
 | OR-Tools MathOpt | `dreamor/mathopt.hpp` | `dreamor::mathopt` | HiGHS, SCIP, GLOP, PDLP, CP-SAT (as MIP), GLPK, Gurobi, Xpress, and more |
+| HiGHS | `dreamor/highs.hpp` | `dreamor::highs` | HiGHS, through its own C++ API |
 
 Bounds, variable types, names, and solution reading take the solver API's own terms (for Concert: `IloEnv`,
 `ILOFLOAT`, `IloCplex`). If the names get long, use an alias: `namespace concert = dreamor::concert;`. `ValueTable`
@@ -105,6 +106,30 @@ when the term is quadratic (`x * x`, `(x - 1) * (x - 1)`); Concert's `IloExpr` h
 When building against the OR-Tools C++ prebuilt, define `OR_PROTO_DLL` as empty and link `libortools`,
 `libprotobuf`, and the Abseil libraries (`tests/run_tests.sh --mathopt DIR` does exactly that).
 
+HiGHS's own C++ API is a matrix API: a column is an index, a row is its bounds and arrays. highspy, the HiGHS team's
+Python interface, puts expressions on top of it, and `dreamor::highs` brings that interface to C++, in its names:
+
+```cpp
+namespace hs = dreamor::highs;
+hs::HighsEnv env;                                                    // the model as written, and the Highs that solves it
+const hs::VarTable<MachineCol, ItemCol, PeriodCol> vYield{
+    env, sPRODUCE, 0, max_possible_qty, HighsVarType::kContinuous, "Yield"};   // HiGHS's HighsVarType for the kind
+
+for (const auto& [machine, period, rows] : producedByMachinePeriod) {
+  hs::addConstr(env, hs::sumOf(rows, machine_usage).build() <= machine->capacity);  // highspy's addConstr, no env in sumOf
+}
+
+hs::minimize(env, hs::sumOf(sPRODUCE, vYield).build());   // the objective, then run()
+const auto yieldPlan = vYield.solution(env);              // std::logic_error if there is no primal solution
+```
+
+`HighsEnv` collects the model and hands it to HiGHS in one `passModel`, the first time the `Highs` is reached
+(`env.highs()`, `minimize`, `solution`); from then on each change goes to it as it is written. Everything else is
+HiGHS's own API on `env.highs()`: options (or `HighsEnv{options}`, before the model reaches it), `run()`,
+`writeModel`. A row is a type of its own, so an inequality given as an objective, or a quadratic term in a row, stops
+at compile time; a HiGHS call that fails throws `HighsError` with its `HighsStatus`. Link HiGHS (`highs::highs`, or
+`include/highs` and `libhighs`); the HiGHS in the OR-Tools prebuilt is one (`tests/run_tests.sh --highs DIR`).
+
 ## Install — CMake
 
 It is a header-only library, so there is nothing to build; a single `dreamor::dreamor` target passes on the include
@@ -118,12 +143,14 @@ cmake --install build
 ```cmake
 find_package(dreamor 0.3 CONFIG REQUIRED)
 target_link_libraries(app PRIVATE dreamor::dreamor ortools::ortools)    # dreamor/mathopt.hpp
+target_link_libraries(app PRIVATE dreamor::dreamor highs::highs)        # dreamor/highs.hpp
 target_link_libraries(app PRIVATE dreamor::dreamor <CPLEX target>)       # dreamor/concert.hpp
 ```
 
 The OR-Tools prebuilt ships its own CMake config, so `find_package(ortools CONFIG)` works and `ortools::ortools`
 passes on the include path, the definition (`OR_PROTO_DLL`), and the libraries together (add the OR-Tools folder to
-`CMAKE_PREFIX_PATH`). CPLEX has no official CMake config, so link it the way you already do. Pulling dreamor in
+`CMAKE_PREFIX_PATH`). HiGHS ships one too (`find_package(highs CONFIG)`, `highs::highs`), and so does the HiGHS in the
+OR-Tools prebuilt. CPLEX has no official CMake config, so link it the way you already do. Pulling dreamor in
 without installing, via `add_subdirectory(dreamor)` or `FetchContent`, gives you the same `dreamor::dreamor` (in that
 case dreamor's files are not installed).
 

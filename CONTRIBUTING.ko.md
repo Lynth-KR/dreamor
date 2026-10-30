@@ -27,7 +27,7 @@ dreamor는 일부러 작게 만든 라이브러리이고, 쓸모의 상당 부�
 
 버그 신고 양식으로 이슈를 열어 주세요. 양식이 다음을 묻습니다.
 
-- dreamor 버전(또는 커밋), 컴파일러와 버전, 백엔드(Concert 또는 MathOpt)와 버전
+- dreamor 버전(또는 커밋), 컴파일러와 버전, 백엔드(Concert, MathOpt, HiGHS 중 하나)와 버전
 - 문제를 보여 주는 가장 작은 코드. 집합 하나, 테이블 하나, 행 몇 개면 대개 충분합니다
 - 기대한 결과와 실제 결과. 컴파일 에러라면 앞부분 몇 줄
 
@@ -54,8 +54,9 @@ WSL2, 컨테이너)는 쓰는 사람이 고르면 됩니다. 최신 컴파일러
 | `tests/run_tests.sh` | 집합 계층과 Concert 백엔드 전부(Concert stub 위에서), 컴파일 실패해야 하는 코드가 거부되는지, CPLEX용 코드의 문법 | 없음 |
 | `tests/run_tests.sh --cplex [DIR]` | 실제 CPLEX로 풀어서 검증, 예제 실행 | CPLEX Studio (`$CPLEX_STUDIO_DIR`, 기본 `/opt/ibm/ILOG/CPLEX_Studio2212`) |
 | `tests/run_tests.sh --mathopt [DIR]` | MathOpt 백엔드를 HiGHS로 풀어서 검증, 예제 실행, 같은 예제를 두 백엔드로 만들어 제약을 대조, 옮겨 온 OR-Tools 예제 실행(SCIP) | OR-Tools C++ 사전 빌드본 (`$ORTOOLS_DIR`, 기본 `/opt/ortools`) |
+| `tests/run_tests.sh --highs [DIR]` | HiGHS 백엔드를 HiGHS로 풀어서 검증, README의 코드를 쓰인 그대로 실행, 컴파일되면 안 되는 코드, 디버그 빌드에서 계약 위반 | HiGHS 설치본 (`$HIGHS_DIR`, 기본 `/opt/highs`); OR-Tools C++ 사전 빌드본도 됨 |
 
-컴파일되면 안 되는 코드는 `tests/compile_fail/`(Concert)와 `tests/mathopt/compile_fail/`(MathOpt)에 한 파일씩
+컴파일되면 안 되는 코드는 `tests/compile_fail/`(Concert), `tests/mathopt/compile_fail/`(MathOpt), `tests/highs/compile_fail/`(HiGHS)에 한 파일씩
 있습니다. 거부되는지만 보지 않고, 파일 맨 위(SPDX 줄 다음)의 `// expect: <문구>`가 컴파일러의 **첫 에러**(와 거기 딸린 note)에
 들어 있는지까지 검사합니다. 사용자가 다음 에러보다 먼저 읽는 것이 의도한 한 문장 메시지인지 보려는 것입니다.
 `// expect:`가 없는 케이스는 거부되기만 하면 통과입니다. 같은 폴더의 `control.cc`는 공통 prelude가 정상적으로
@@ -100,6 +101,7 @@ OR-Tools 경로는 위의 환경 변수로), 저장소의 `.clangd`와 `.vscode/
   셀이 아니라 실험 전체에서, GCC 13으로 빌드해도 Clang 18로 빌드해도 성립해야 합니다. 다른 단계가 크게 얻는다면
   한 단계가 조금 잃을 수는 있지만, 묶음 전체나 솔버를 거친 모델 전체가 느려져서는 안 됩니다.
 - **완료**는 기본 테스트가 GCC와 Clang에서 통과하고, MathOpt 백엔드나 공용 코드를 건드렸다면 `--mathopt`도 통과하고,
+  HiGHS 백엔드나 공용 코드를 건드렸다면 `--highs`도 통과하고,
   `tools/format.sh --check`가 통과하고, `tools/tidy.sh`가 아무것도 보고하지 않는 상태입니다.
 
 개발 규칙 전부는 코딩 에이전트용으로 쓴 [AGENTS.md](AGENTS.md)(영어)에 있습니다. 이 문서로 부족할 때 참고하세요.

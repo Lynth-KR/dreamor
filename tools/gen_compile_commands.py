@@ -2,10 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 """Writes compile_commands.json at the repository root, for clangd.
 
-    python3 tools/gen_compile_commands.py [CPLEX_Studio dir] [OR-Tools dir]
+    python3 tools/gen_compile_commands.py [CPLEX_Studio dir] [OR-Tools dir] [HiGHS dir]
 
 Default CPLEX dir: $CPLEX_STUDIO_DIR, else /opt/ibm/ILOG/CPLEX_Studio2212.
 Default OR-Tools dir (an unpacked C++ prebuilt): $ORTOOLS_DIR, else /opt/ortools.
+Default HiGHS dir (an install with include/highs): $HIGHS_DIR, else the OR-Tools dir when its prebuilt ships
+HiGHS (v9.15 does), else /opt/highs.
 
 Which Concert each file sees:
   - library headers, examples, tests/cplex: the real CPLEX headers (the stub when CPLEX is
@@ -14,6 +16,7 @@ Which Concert each file sees:
   - the MathOpt backend, its example, the ported OR-Tools samples (examples/mathopt_samples)
     and tests/mathopt: OR-Tools (plus the stub, which tests/mathopt/test_cross_backend.cpp
     uses for the Concert side);
+  - the HiGHS backend and tests/highs: HiGHS's include/highs;
   - bench/catalog: the benchmarks' lean stub (bench/common/stub), as bench/catalog/build.sh compiles it.
 tests/compile_fail/*.cpp fail to compile on purpose; clangd reports those errors too.
 Warnings are tests/run_tests.sh's STRICT set (without -Werror) for dreamor's own code, and
@@ -31,6 +34,13 @@ STUDIO = Path(
     sys.argv[1] if len(sys.argv) > 1 else os.environ.get("CPLEX_STUDIO_DIR", "/opt/ibm/ILOG/CPLEX_Studio2212")
 )
 ORTOOLS = Path(sys.argv[2] if len(sys.argv) > 2 else os.environ.get("ORTOOLS_DIR", "/opt/ortools"))
+# HiGHS: as given, else $HIGHS_DIR, else the HiGHS the OR-Tools prebuilt ships, else /opt/highs.
+if len(sys.argv) > 3 or "HIGHS_DIR" in os.environ:
+    HIGHS = Path(sys.argv[3] if len(sys.argv) > 3 else os.environ["HIGHS_DIR"])
+elif (ORTOOLS / "include" / "highs" / "Highs.h").is_file():
+    HIGHS = ORTOOLS
+else:
+    HIGHS = Path("/opt/highs")
 
 BASE = [
     "c++",
@@ -71,12 +81,21 @@ if (ORTOOLS / "include" / "ortools" / "math_opt" / "cpp" / "math_opt.h").is_file
 else:
     print(f"OR-Tools not found at {ORTOOLS}: MathOpt files get no OR-Tools include path", file=sys.stderr)
     MATHOPT = STUB
+if (HIGHS / "include" / "highs" / "Highs.h").is_file():
+    HIGHS_FLAGS = ["-isystem", str(HIGHS / "include" / "highs")]
+else:
+    print(f"HiGHS not found at {HIGHS}: HiGHS files get no HiGHS include path", file=sys.stderr)
+    HIGHS_FLAGS = []
 
 
 def flags_for(path: Path) -> list[str]:
     rel = path.relative_to(ROOT).as_posix()
     if rel.startswith(("tests/mathopt/", "examples/mathopt_samples/")) or "mathopt" in path.name:
         return MATHOPT
+    if rel.startswith("tests/highs/compile_fail/"):
+        return HIGHS_FLAGS + [f"-I{ROOT / 'tests' / 'highs' / 'compile_fail'}"]
+    if rel.startswith("tests/highs/") or path.name == "highs.hpp":
+        return HIGHS_FLAGS
     if rel.startswith("bench/"):
         return BENCH
     if rel.startswith("tests/compile_fail/"):
@@ -88,7 +107,15 @@ def flags_for(path: Path) -> list[str]:
 
 def warnings_for(path: Path) -> list[str]:
     rel = path.relative_to(ROOT).as_posix()
-    if rel.startswith(("examples/mathopt_samples/", "tests/compile_fail/", "tests/mathopt/compile_fail/", "bench/")):
+    if rel.startswith(
+        (
+            "examples/mathopt_samples/",
+            "tests/compile_fail/",
+            "tests/mathopt/compile_fail/",
+            "tests/highs/compile_fail/",
+            "bench/",
+        )
+    ):
         return LENIENT
     return STRICT
 

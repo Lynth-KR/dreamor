@@ -231,7 +231,7 @@ const dreamor::concert::VarTable<키 열...> vName{env, 집합, lb, ub, type, "N
 | `vYield.solution(cplex)` | 해 읽기 (아래) |
 
 **범위를 나중에 조이기**는 새 API 없이 집합으로 고르고 솔버 API로 고칩니다(아래는 Concert, MathOpt라면
-`model.set_upper_bound(vYield(row), 0)`).
+`model.set_upper_bound(vYield(row), 0)`, HiGHS라면 `env.highs().changeColBounds(vYield(row).index(), 0, 0)`).
 
 ```cpp
 const auto in_maintenance = [](MachineCol m, PeriodCol t) { return m->name == "M0" && t.get() == 2; };
@@ -274,11 +274,13 @@ dreamor::concert::sumOf<MachineCol>(env, machines, term).build()       // 일반
 - AMPL: `sum {(m,i,t) in PRODUCE} setup[m] * Setup[m,i,t]` → `sumOf(env, sPRODUCE, setup_cost)`
 
 Concert에서 `build()`가 돌려주는 `IloExpr`의 수명은 받은 쪽 책임입니다(아래 [Concert 자원과 end()](#concert-자원과-end)).
-MathOpt의 `LinearExpression`은 보통의 값이라 신경 쓸 것이 없습니다.
+MathOpt의 `LinearExpression`은 보통의 값이라 신경 쓸 것이 없고, HiGHS의 `HighsLinearExpression`도 그렇습니다.
+MathOpt와 HiGHS의 `sumOf`는 첫 인수를 받지 않습니다. 그 식들은 환경이 필요 없기 때문입니다.
 
 ## 제약식
 
 제약식은 **솔버 API를 그대로** 씁니다. 아래는 Concert이고, MathOpt라면 `model.AddLinearConstraint(...)`입니다.
+HiGHS는 자체 API에 식이 없으므로 highspy의 `addConstr`를 옮긴 `dreamor::highs::addConstr(env, row, name)`입니다.
 라이브러리에 제약 테이블은 없습니다(이유는 [하지 않는 것](philosophy.md#하지-않는-것)).
 
 ```cpp
@@ -335,6 +337,8 @@ for (const auto& [row, qty] : yieldPlan) { ... } // 집합 순서대로
   안에서 만든 임시 배열은 스스로 정리합니다.
 - MathOpt의 `solution()`은 `math_opt::Solve`가 돌려준 `SolveResult`를 받습니다(`vYield.solution(*result)`).
   가능해가 없으면 `std::logic_error`를 던집니다. MathOpt 자체는 이 경우 프로세스를 멈추기(CHECK 실패) 때문입니다.
+- HiGHS의 `solution()`은 `HighsEnv`를 받아(`vYield.solution(env)`) 그 `Highs`가 가진 해를 읽습니다. 원문제 해가
+  없으면, HiGHS가 전에 남긴 값을 돌려주는 대신 `std::logic_error`를 던집니다.
 
 ## Concert 자원과 end()
 
@@ -349,9 +353,27 @@ Concert 객체는 RAII가 아닙니다. 이 라이브러리의 방침은 다음�
 - **임시 `IloExpr`는 만든 쪽(받은 쪽) 책임입니다.** 제약을 만든 뒤에는 식을 `end()`해도 안전합니다
   (식은 제약에 깊은 복사로 들어감). 제약이 수백만 개인 모델에서는 메모리 차이가 납니다.
 
-MathOpt에는 이 절이 해당하지 않습니다. `math_opt::Model`과 `LinearExpression`은 보통의 C++ 객체라 범위를
-벗어나면 정리되고, `end()` 같은 호출이 없습니다. 변수(`math_opt::Variable`)는 모형을 가리키는 값이므로 모형이
-살아 있는 동안만 씁니다.
+MathOpt와 HiGHS에는 이 절이 해당하지 않습니다. `math_opt::Model`과 `LinearExpression`, `HighsEnv`와
+`HighsLinearExpression`은 보통의 C++ 객체라 범위를 벗어나면 정리되고, `end()` 같은 호출이 없습니다.
+변수(`math_opt::Variable`, `HighsVar`)는 모형을 가리키는 값이므로 모형이 살아 있는 동안만 씁니다.
+
+## HiGHS의 환경 — HighsEnv
+
+HiGHS의 자체 C++ API는 모형을 통째로(`passModel`) 받거나 한 번에 하나씩 바꾸는 호출(`addRow`,
+`changeColBounds` 등)을 받고, 바꿀 때마다 비용을 치릅니다. 모형에서 얻어 둔 것을 지우고 새 행렬을 검사하기
+때문입니다. `HighsEnv`는 작성 중인 모형과 그것을 푸는 `Highs`를 함께 들고, 언제 넘길지를 정합니다.
+
+- **모아 두었다가 한 번에.** `VarTable`, `addConstr`, `setObjective`는 환경의 모형에 쓰고, `Highs`는 처음 닿을
+  때(`env.highs()`, `minimize`나 `maximize`, `solution()`) `passModel` 한 번으로 전부 받습니다. 그 뒤로는 쓰는
+  대로 바로 `Highs`에 갑니다. 추출한 `IloCplex`에 Concert 모형이 닿는 것과 같습니다. 먼저 닿게 해도 모든 행이
+  하나씩 넘어갈 뿐, 잃는 것은 시간뿐입니다.
+- **옵션은 모형과 무관합니다.** `HighsEnv{options}`는 `HighsOptions`를 받으므로 조용한 로그나 시간 제한이
+  `passModel`에도 적용됩니다. 모형이 닿은 뒤라면 `env.highs().setOptionValue(...)`도 됩니다.
+- **나머지는 `env.highs()`에서 쓰는 HiGHS의 API입니다.** `run()`, `getInfo()`, `writeModel`, `changeColBounds`.
+- **`HighsVar`는 자기 환경을 압니다.** 두 환경의 변수를 한 식에 섞거나, 한 환경의 행을 다른 환경에 주는 것은
+  계약 위반입니다. 디버그 빌드는 여기서 멈춥니다.
+- 실패한 HiGHS 호출은 호출 이름과 `HighsStatus`를 담은 `HighsError`를 던집니다. HiGHS가 거부하는 모형은 처음
+  닿을 때(`"passModel"`) 던집니다.
 
 ## 열이 많은 집합의 컴파일 비용
 

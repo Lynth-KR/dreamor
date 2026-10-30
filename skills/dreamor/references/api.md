@@ -2,7 +2,8 @@
 
 Contents: [Columns](#columns) · [Building sets](#building-sets) · [IndexSet](#indexset) · [Grouped and RowSlice](#grouped-and-rowslice) ·
 [Ordered](#ordered) · [Membership](#membership) · [Concert backend](#concert-backend-dreamorconcert) ·
-[MathOpt backend](#mathopt-backend-dreamormathopt) · [Common to both backends](#common-to-both-backends) ·
+[MathOpt backend](#mathopt-backend-dreamormathopt) · [HiGHS backend](#highs-backend-dreamorhighs) ·
+[Common to all backends](#common-to-all-backends) ·
 [ValueTable](#valuetable)
 
 The headers in `include/dreamor/` are authoritative; the usage examples in their comments are compiled by
@@ -185,7 +186,43 @@ sumOf<Col>(container, term)
 - Building against the OR-Tools C++ prebuilt without CMake needs `-DOR_PROTO_DLL=` and
   `-lortools -lprotobuf` plus the Abseil libraries. `ortools::ortools` in CMake carries all of that.
 
-## Common to both backends
+## HiGHS backend (`dreamor::highs`)
+
+`highs.hpp`. `namespace hs = dreamor::highs;` HiGHS's own C++ API with highspy's expressions.
+
+```cpp
+HighsEnv env;                            // the model as written, and the Highs that solves it; not copied, not moved
+HighsEnv env{options};                   // options: a HighsOptions, the Highs's before the model reaches it
+env.highs();                             // the Highs: the first call hands it the model in one passModel
+
+VarTable<Keys...>{HighsEnv& env, const SetOf<Keys...>& set,
+                  Lb lb = 0, Ub ub = kHighsInf, HighsVarType type = HighsVarType::kContinuous,
+                  const char* name = nullptr};
+solution(const HighsEnv& env)            // → ValueTable; std::logic_error if no primal solution
+
+HighsCons addConstr(HighsEnv& env, Row&& row, const char* name = nullptr);   // row: expr <= b, a <= expr,
+                                                                             // expr == b, (a <= expr) <= b
+void setObjective(HighsEnv& env, const Objective& objective);                // replaces costs, constant, Hessian
+void setObjective(HighsEnv& env, const Objective& objective, ObjSense sense);
+HighsStatus minimize(HighsEnv& env, const Objective& objective);             // setObjective, then run()
+HighsStatus maximize(HighsEnv& env, const Objective& objective);
+
+sumOf(rows, term)                        // no env
+sumOf<Col>(container, term)
+    .where(p...).split(p...).build();    // HighsLinearExpression; HighsQuadraticExpression for a quadratic term
+```
+
+- `HighsVar`, `HighsCons`: `index()`, `env()`. An objective is a `HighsVar`, a term, a `HighsLinearExpression` or a
+  `HighsQuadraticExpression`; a row (`HighsBoundedLinearExpression`) is not one.
+- A quadratic expression is compared to nothing: HiGHS takes quadratic terms only in the objective.
+- `addConstr` and `setObjective` merge repeated columns and drop the ones that cancel.
+- A HiGHS call that fails throws `HighsError` (`call()`, `status()`); a model HiGHS refuses throws from the first
+  `env.highs()` (`"passModel"`).
+- Mixing two `HighsEnv`s' variables in one expression, or one env's row in another, is a broken contract.
+- Building: `highs::highs` in CMake, or HiGHS's `include/highs` and `libhighs`; the HiGHS in the OR-Tools prebuilt is
+  one.
+
+## Common to all backends
 
 - `vYield(keys...)`, `vYield(row)`: the variable; `std::out_of_range` if the row is not in the set.
 - `contains(keys...)`, `contains(row)`, `size()`, `keys()` (the table's set), `Key` (= `std::tuple<Keys...>`).
@@ -196,7 +233,7 @@ sumOf<Col>(container, term)
 
 ## ValueTable
 
-`value_table.hpp`, namespace `dreamor`, the same type for both backends: what `solution()` returns, and data on a
+`value_table.hpp`, namespace `dreamor`, the same type for every backend: what `solution()` returns, and data on a
 set built by hand.
 
 - `ValueTable<Keys...>{set, value}` - AMPL's `param {S}`: `value` is a number or a column callable, as a VarTable's

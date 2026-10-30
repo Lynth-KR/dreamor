@@ -107,6 +107,23 @@
 | `solution(result)` | `math_opt::SolveResult` → `ValueTable`; 가능해가 없으면 `std::logic_error` |
 | `sumOf(rows, term)`, `sumOf<Col>(container, term)` | 합 빌더; `build()`는 `math_opt::LinearExpression`, term이 이차 항이면 `math_opt::QuadraticExpression` (`split`이면 그 배열) |
 
+**HiGHS 백엔드** (`highs.hpp`, 네임스페이스 `dreamor::highs`)
+| | |
+|---|---|
+| `HighsEnv`, `HighsEnv{options}` | 작성 중인 모형과 그것을 푸는 `Highs`; `options`는 `HighsOptions`, 모형이 닿기 전부터 Highs의 것. 복사도 이동도 안 됨 |
+| `env.highs()` | `Highs`: 처음 부르면 모형을 `passModel` 한 번으로 넘기고, 그 뒤로는 쓰는 대로 바로 넘어감 |
+| `VarTable<Keys...>{env, set, lb = 0, ub = kHighsInf, type = HighsVarType::kContinuous, name = nullptr}` | lb, ub는 숫자 또는 열 함수 |
+| `(keys...)`, `(row)`, `contains`, `size`, `keys`, `begin`/`end` | Concert와 같음 (변수는 `HighsVar`) |
+| `solution(env)` | `Highs`의 해 → `ValueTable`; 원문제 해가 없으면 `std::logic_error` |
+| `HighsVar`, `HighsCons` | 열, 행: `index()`, `env()` |
+| `HighsLinearExpression`, `HighsQuadraticExpression` | 연산자로 만든 식(`+ - *`, 숫자로 `/`); 이차식은 목적함수에만 |
+| `HighsBoundedLinearExpression` | 행: `expr <= b`, `a <= expr`, `expr == b`, `(a <= expr) <= b` |
+| `addConstr(env, row, name = nullptr)` | 반복된 열을 합쳐 행을 추가 → `HighsCons` |
+| `setObjective(env, objective)`, `setObjective(env, objective, sense)` | 비용, 상수, Hessian(그리고 방향)을 바꿈 |
+| `minimize(env, objective)`, `maximize(env, objective)` | `setObjective` 다음 `run()` → 그 `HighsStatus` |
+| `sumOf(rows, term)`, `sumOf<Col>(container, term)` | 합 빌더; `build()`는 `HighsLinearExpression`, term이 이차 항이면 `HighsQuadraticExpression` (`split`이면 그 배열) |
+| `HighsError` | 실패한 HiGHS 호출이 던짐: `call()`, `status()` |
+
 ## 유틸리티
 
 **이름** (`general/format_buffer.hpp`, 네임스페이스 `dreamor::general`)

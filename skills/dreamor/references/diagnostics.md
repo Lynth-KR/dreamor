@@ -3,8 +3,9 @@
 ## Compile-time messages
 
 dreamor stops on misuse with a one-sentence `static_assert`. Match the compiler's **first** error against the
-left column. Each message is pinned by a `// expect:` line in `tests/compile_fail/` (Concert) or
-`tests/mathopt/compile_fail/` (MathOpt), and the pinned case is named in the last column.
+left column. Each message is pinned by a `// expect:` line in `tests/compile_fail/` (Concert),
+`tests/mathopt/compile_fail/` (MathOpt) or `tests/highs/compile_fail/` (HiGHS), and the pinned case is named in the
+last column.
 
 | Message contains | Cause | Fix | Case |
 |---|---|---|---|
@@ -32,11 +33,15 @@ left column. Each message is pinned by a `// expect:` line in `tests/compile_fai
 | `No column of this set has that name` | `groupBy<KCol>()` / `select<KCol>()` with a foreign column | Use the set's columns | `groupby_missing_column`, `select_missing_column` |
 | `A VarTable is built on a set with exactly its key columns` | The table's keys differ from the set's columns or their order | Match the table to the set, or `select<...>()` to reorder | `vartable_key_order_differs_from_set` |
 | `A ValueTable is built on a set with exactly its key columns` | A ValueTable of data whose keys differ from the set's columns or their order | Match the table to the set, or `select<...>()` to reorder | `valuetable_key_order_differs_from_set` |
-| `Scale the sum, not the table` | `100 * vYield` or `vYield * 100` | `100 * sumOf(env, rows, vYield).build()`, or multiply inside a term | `vartable_scaled`, `mathopt/vartable_scaled` |
-| `is not an expression yet` | `sumOf(...)` without `.build()` in a comparison, `+=`, or `-` | Add `.build()` | `sumof_without_build`, `sumof_without_build_plus_assign`, `sumof_without_build_reversed`, `mathopt/sumof_without_build` |
+| `Scale the sum, not the table` | `100 * vYield` or `vYield * 100` | `100 * sumOf(env, rows, vYield).build()`, or multiply inside a term | `vartable_scaled`, `mathopt/vartable_scaled`, `highs/vartable_scaled` |
+| `is not an expression yet` | `sumOf(...)` without `.build()` in a comparison, `+=`, or `-` | Add `.build()` | `sumof_without_build`, `sumof_without_build_plus_assign`, `sumof_without_build_reversed`, `mathopt/sumof_without_build`, `highs/sumof_without_build` |
 | `UnbuiltSum` | `sumOf(...)` without `.build()` assigned to an expression or used as an objective | Add `.build()` | `sumof_without_build_assigned`, `sumof_without_build_objective`, `mathopt/sumof_without_build_assigned` |
 | `takes the IloEnv first` | Concert `sumOf(rows, term)` | `dreamor::concert::sumOf(env, rows, term)` | `sumof_without_env` |
 | `takes no model` | MathOpt `sumOf(model, rows, term)` | `dreamor::mathopt::sumOf(rows, term)` | `mathopt/sumof_with_model` |
+| `takes no HighsEnv` | HiGHS `sumOf(env, rows, term)` | `dreamor::highs::sumOf(rows, term)` | `highs/sumof_with_highs` |
+| `HiGHS takes quadratic terms only in the objective` | A quadratic expression in a row (`x * x <= 1`, a quadratic sum compared) | Put the square in `setObjective()`/`minimize()`, or bound an epigraph variable with linear rows | `highs/quadratic_row`, `highs/quadratic_sum_row` |
+| `addConstr takes a row` | `addConstr(env, x + y)`: an expression with no bounds | `addConstr(env, x + y <= 1)`, or `addConstr(env, (0 <= x - y) <= 5)` | `highs/constr_without_bounds` |
+| `An objective is an expression, not a row` | `setObjective(env, x + y <= 1)` | `setObjective(env, x + y)` | `highs/objective_row` |
 | `split() once` | `.split(...).split(...)` | One `split` with every predicate | `sumof_split_twice` |
 | `sumOf takes an index set` | `sumOf(env, plainVector, term)` | `sumOf<Col>(env, plainVector, term)`, or build a set | `sumof_container_needs_column` |
 | `Bind the set to a variable first` | `sumOf<Col>(env, std::vector<int>{...}, term)` | Store the container in a named variable | `sumof_container_is_temporary` |
@@ -57,7 +62,8 @@ Also rejected, with no pinned message:
 | Exception | When |
 |---|---|
 | `std::out_of_range` | `VarTable` or `ValueTable` lookup of a row not in the set (all backends); `Grouped::at`/`keyAt` past the end |
-| `std::logic_error` | `dreamor::mathopt::VarTable::solution` with no primal feasible solution |
+| `std::logic_error` | `dreamor::mathopt::VarTable::solution` with no primal feasible solution; `dreamor::highs::VarTable::solution` with no primal solution |
+| `dreamor::highs::HighsError` | a HiGHS call that fails, with `call()` and `status()`; a model HiGHS refuses throws from the first `env.highs()` (`"passModel"`) |
 | `std::length_error` | more than 2^32 − 2 rows in a `VarTable`, a `groupBy`, or anything else that hashes rows (`select`, `unite`, `intersect`, `difference`, `membership`, `ordered`, a join in `makeSet`) |
 
 ## Broken contracts (debug builds)
@@ -71,6 +77,8 @@ A broken precondition is undefined behavior. A debug build (no `NDEBUG`) checks 
 | `makeSet: dependent source N returned one element twice` | a dependent source's range repeats an element for some binding | the same, for that list (e.g. a machine's items) |
 | `EntityVector::modify: the entity is not one of this container's` | `modify` given a pointer to an object the container does not hold | pass a pointer from this `EntityVector` |
 | `EntityVector::modify: fn changed the entity's primary key` | `fn` changed what `primaryKey` reads | change the fields around the key only; a new key is a new entity |
+| `dreamor::highs: one expression holds variables of two HighsEnvs` | an expression mixes two environments' variables | build each expression from one `HighsEnv`'s tables |
+| `dreamor::highs::<call>: the expression's variables belong to another HighsEnv` | a row or an objective handed to an env other than its variables' | hand it to the env its variables belong to |
 
 Absences that do not throw:
 - `Grouped::slice` of a missing key returns an empty `RowSlice`, whose sum is 0.

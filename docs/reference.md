@@ -107,6 +107,23 @@ Every public type and function, by header. The [guide](guide.md) explains them i
 | `solution(result)` | `math_opt::SolveResult` → `ValueTable`; `std::logic_error` if there is no feasible solution |
 | `sumOf(rows, term)`, `sumOf<Col>(container, term)` | Sum builder; `build()` gives `math_opt::LinearExpression`, or `math_opt::QuadraticExpression` when the term is quadratic (an array of them with `split`) |
 
+**HiGHS backend** (`highs.hpp`, namespace `dreamor::highs`)
+| | |
+|---|---|
+| `HighsEnv`, `HighsEnv{options}` | The model as written and the `Highs` that solves it; `options` is a `HighsOptions`, the Highs's before the model reaches it. Neither copied nor moved |
+| `env.highs()` | The `Highs`: the first call hands it the model in one `passModel`, and from then on everything written goes to it as written |
+| `VarTable<Keys...>{env, set, lb = 0, ub = kHighsInf, type = HighsVarType::kContinuous, name = nullptr}` | lb, ub are numbers or column functions |
+| `(keys...)`, `(row)`, `contains`, `size`, `keys`, `begin`/`end` | Same as Concert (variables are `HighsVar`) |
+| `solution(env)` | The `Highs`'s solution → `ValueTable`; `std::logic_error` if there is no primal solution |
+| `HighsVar`, `HighsCons` | A column, a row: `index()`, `env()` |
+| `HighsLinearExpression`, `HighsQuadraticExpression` | Expressions in operators (`+ - *`, `/` by a number); a quadratic one is an objective only |
+| `HighsBoundedLinearExpression` | A row: `expr <= b`, `a <= expr`, `expr == b`, `(a <= expr) <= b` |
+| `addConstr(env, row, name = nullptr)` | Adds the row, its repeated columns merged → `HighsCons` |
+| `setObjective(env, objective)`, `setObjective(env, objective, sense)` | Replaces the costs, constant and Hessian (and the sense) |
+| `minimize(env, objective)`, `maximize(env, objective)` | `setObjective`, then `run()` → its `HighsStatus` |
+| `sumOf(rows, term)`, `sumOf<Col>(container, term)` | Sum builder; `build()` gives `HighsLinearExpression`, or `HighsQuadraticExpression` when the term is quadratic (an array of them with `split`) |
+| `HighsError` | Thrown by a HiGHS call that fails: `call()`, `status()` |
+
 ## Utilities
 
 **Names** (`exprName` in `index_set/name_token.hpp`, namespace `dreamor`; the rest in `general/format_buffer.hpp`, namespace `dreamor::general`)

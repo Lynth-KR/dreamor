@@ -10,6 +10,11 @@
 #                                  tests/mathopt/*.cpp (solving with HiGHS),
 #                                  examples/production_planning_mathopt.cpp, and the
 #                                  OR-Tools samples ported in examples/mathopt_samples/.
+#   ./run_tests.sh --highs [DIR]   the HiGHS backend against a HiGHS install at DIR (default
+#                                  $HIGHS_DIR, else /opt/highs): DIR/include/highs and
+#                                  DIR/lib/libhighs. An OR-Tools prebuilt is one too.
+#                                  tests/highs/*.cpp (solving), highs/compile_fail/ and, in a
+#                                  debug build, highs/contract_fail/.
 #
 # Stub mode runs every test_*.cpp, checks that every compile_fail/*.cpp is rejected and that
 # every contract_fail/*.cpp stops on its broken contract (not under -DNDEBUG, which compiles the
@@ -43,6 +48,9 @@ if [ "${1:-}" = "--cplex" ]; then
 elif [ "${1:-}" = "--mathopt" ]; then
   MODE=mathopt
   ORTOOLS=${2:-${ORTOOLS_DIR:-/opt/ortools}}
+elif [ "${1:-}" = "--highs" ]; then
+  MODE=highs
+  HIGHS=${2:-${HIGHS_DIR:-/opt/highs}}
 fi
 mkdir -p "$BUILD"
 OPT=${OPT:--O1 -g}
@@ -74,10 +82,12 @@ STRICT="-Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-s
 case "$CXX" in *clang*) STRICT="$STRICT -Wmissing-prototypes" ;; esac  # C only in GCC
 LENIENT="-Wall -Wextra"
 JOBS=${JOBS:-$(nproc 2>/dev/null || echo 4)}
-# The cases that break a contract on purpose, for a debug build to stop on: stub mode only.
+# The cases that break a contract on purpose, for a debug build to stop on: stub mode, and the
+# HiGHS backend's own in HiGHS mode.
 case " $OPT " in *" -DNDEBUG "*) SKIP_CONTRACT="-DNDEBUG compiles the checks out" ;; esac
 CONTRACT=""
 [ "$MODE" = stub ] && [ -z "${SKIP_CONTRACT:-}" ] && CONTRACT=$(ls contract_fail/*.cpp)
+[ "$MODE" = highs ] && [ -z "${SKIP_CONTRACT:-}" ] && CONTRACT=$(ls highs/contract_fail/*.cpp)
 COMPILE_CHECKS=${COMPILE_CHECKS:-1}
 
 if [ "$MODE" = stub ]; then
@@ -95,6 +105,17 @@ elif [ "$MODE" = mathopt ]; then
   LIBS="-L$ORTOOLS/lib -Wl,-rpath,$ORTOOLS/lib -lortools -lprotobuf$ABSL"
   TESTS="$(ls mathopt/test_*.cpp) ../examples/production_planning_mathopt.cpp"
   echo "OR-Tools: $ORTOOLS"
+elif [ "$MODE" = highs ]; then
+  if [ ! -f "$HIGHS/include/highs/Highs.h" ]; then
+    echo "HiGHS not found at $HIGHS (pass the directory: ./run_tests.sh --highs DIR)"; exit 2
+  fi
+  HIGHS_LIB=$HIGHS/lib
+  [ -d "$HIGHS_LIB" ] || HIGHS_LIB=$HIGHS/lib64
+  # -isystem: HiGHS's headers are not ours to warn about.
+  FLAGS="$COMMON -isystem $HIGHS/include/highs"
+  LIBS="-L$HIGHS_LIB -Wl,-rpath,$HIGHS_LIB -lhighs"
+  TESTS=$(ls highs/test_*.cpp)
+  echo "HiGHS: $HIGHS"
 else
   ARCH=x86-64_linux
   if [ ! -d "$STUDIO/concert/include" ] || [ ! -d "$STUDIO/cplex/include" ]; then
@@ -109,6 +130,7 @@ fi
 
 CF=compile_fail
 [ "$MODE" = mathopt ] && CF=mathopt/compile_fail
+[ "$MODE" = highs ] && CF=highs/compile_fail
 
 # Every compile_fail case starts with its folder's prelude.hpp - the library and the backend's
 # headers - and parsing that is most of a case's time. So it is parsed once, into a precompiled
@@ -172,6 +194,7 @@ done
 
 if [ "$MODE" = stub ]; then
   echo "mathopt/*.cpp: skipped (needs OR-Tools: ./run_tests.sh --mathopt DIR)"
+  echo "highs/*.cpp: skipped (needs HiGHS: ./run_tests.sh --highs DIR)"
 fi
 if [ "$MODE" = stub ] && [ "$COMPILE_CHECKS" = 0 ]; then
   echo "cplex/*.cpp, examples/production_planning.cpp: syntax checks skipped (COMPILE_CHECKS=0)"
@@ -207,6 +230,7 @@ fi
 # Code that breaks a contract: a debug build must stop it - a non-zero exit, as abort() gives -
 # with the case's `// expect: <text>` in what it prints.
 [ "$MODE" = stub ] && [ -n "${SKIP_CONTRACT:-}" ] && echo "contract_fail/*.cpp: skipped ($SKIP_CONTRACT)"
+[ "$MODE" = highs ] && [ -n "${SKIP_CONTRACT:-}" ] && echo "highs/contract_fail/*.cpp: skipped ($SKIP_CONTRACT)"
 for t in $CONTRACT; do
   name=$(basename "${t%.cpp}")
   expect=$(sed -n 's|^// expect: ||p' "$t" | head -n 1)
@@ -222,7 +246,7 @@ for t in $CONTRACT; do
 done
 
 # Code that must not compile: compile_fail/ against Concert (stub or real), mathopt/compile_fail/
-# against OR-Tools.
+# against OR-Tools, highs/compile_fail/ against HiGHS.
 if [ "$COMPILE_CHECKS" = 0 ]; then
   echo "$CF/*.cpp: skipped (COMPILE_CHECKS=0)"
 elif ! compiled cf_control; then

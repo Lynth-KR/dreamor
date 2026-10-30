@@ -96,7 +96,8 @@ jobs:
   mathopt:
     # The MathOpt backend against the OR-Tools C++ prebuilt, solving with HiGHS: unit tests,
     # the example, the Concert-vs-MathOpt comparison of the example's constraints, and the
-    # MathOpt compile_fail cases.
+    # MathOpt compile_fail cases. Then the HiGHS backend on the HiGHS the prebuilt ships: its
+    # tests, the README's code, its compile_fail and contract_fail cases.
     needs: lint
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -116,6 +117,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/ortools"
           curl -sSfL "$ORTOOLS_URL" | tar xz -C "$RUNNER_TEMP/ortools" --strip-components=1
       - run: CXX=${{ matrix.cxx }} tests/run_tests.sh --mathopt "$RUNNER_TEMP/ortools"
+      - run: CXX=${{ matrix.cxx }} tests/run_tests.sh --highs "$RUNNER_TEMP/ortools"
       - name: CMake package with OR-Tools
         run: |
           cmake -S . -B "$RUNNER_TEMP/build" -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/prefix"
@@ -128,7 +130,8 @@ jobs:
   lint:
     # clang-format and ruff at the versions tools/format.sh and ruff.toml pin, then clang-tidy at
     # the version tools/tidy.sh pins, over the library, the tests and the examples. OR-Tools'
-    # headers are needed to see the MathOpt backend; CPLEX is not, the stub stands in.
+    # headers are needed to see the MathOpt backend, and the HiGHS it ships the HiGHS backend; CPLEX
+    # is not, the stub stands in.
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:

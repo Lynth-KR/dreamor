@@ -240,7 +240,8 @@ const dreamor::concert::VarTable<KeyCols...> vName{env, set, lb, ub, type, "Name
 | `vYield.solution(cplex)` | Read the solution (below) |
 
 **Tightening bounds later** needs no new API: pick rows with a set and change them with the solver API (below is
-Concert; for MathOpt, `model.set_upper_bound(vYield(row), 0)`).
+Concert; for MathOpt, `model.set_upper_bound(vYield(row), 0)`; for HiGHS,
+`env.highs().changeColBounds(vYield(row).index(), 0, 0)`).
 
 ```cpp
 const auto in_maintenance = [](MachineCol m, PeriodCol t) { return m->name == "M0" && t.get() == 2; };
@@ -286,11 +287,13 @@ dreamor::concert::sumOf<MachineCol>(env, machines, term).build()       // a plai
 
 In Concert, the lifetime of the `IloExpr` returned by `build()` is the receiver's responsibility (see
 [Concert resources and end()](#concert-resources-and-end) below). MathOpt's `LinearExpression` is an ordinary value,
-so there is nothing to manage.
+so there is nothing to manage, and so is HiGHS's `HighsLinearExpression`. MathOpt's and HiGHS's `sumOf` take no first
+argument: their expressions need no environment.
 
 ## Constraints
 
-Constraints use **the solver API as is**. Below is Concert; for MathOpt it is `model.AddLinearConstraint(...)`. The
+Constraints use **the solver API as is**. Below is Concert; for MathOpt it is `model.AddLinearConstraint(...)`; for
+HiGHS, whose own API has no expressions, it is `dreamor::highs::addConstr(env, row, name)`, highspy's `addConstr`. The
 library has no constraint tables (for why, see [What dreamor does not do](philosophy.md#what-dreamor-does-not-do)).
 
 ```cpp
@@ -352,6 +355,8 @@ for (const auto& [row, qty] : yieldPlan) { ... } // in set order
 - MathOpt's `solution()` takes the `SolveResult` returned by `math_opt::Solve` (`vYield.solution(*result)`). It
   throws `std::logic_error` if there is no feasible solution, because MathOpt itself would stop the process in that
   case (a CHECK failure).
+- HiGHS's `solution()` takes the `HighsEnv` (`vYield.solution(env)`) and reads the solution its `Highs` holds. It
+  throws `std::logic_error` if there is no primal solution, rather than return values HiGHS left from before.
 
 ## Concert resources and end()
 
@@ -367,9 +372,28 @@ Concert objects are not RAII. This library's policy is as follows.
   to `end()` the expression (the expression is deep-copied into the constraint). In models with millions of
   constraints, the memory difference is noticeable.
 
-This section does not apply to MathOpt. `math_opt::Model` and `LinearExpression` are ordinary C++ objects that are
-cleaned up when they go out of scope, and there is no call like `end()`. A variable (`math_opt::Variable`) is a value
-that points at its model, so use it only while the model is alive.
+This section does not apply to MathOpt or HiGHS. `math_opt::Model` and `LinearExpression`, `HighsEnv` and
+`HighsLinearExpression` are ordinary C++ objects that are cleaned up when they go out of scope, and there is no call
+like `end()`. A variable (`math_opt::Variable`, `HighsVar`) is a value that points at its model, so use it only while
+the model is alive.
+
+## HiGHS's environment — HighsEnv
+
+HiGHS's own C++ API takes a model as a whole (`passModel`) or a change at a time (`addRow`, `changeColBounds`, ...),
+and pays for every change: it clears what it derived from the model and checks the new matrix. `HighsEnv` holds both
+the model being written and the `Highs` that solves it, and decides when one reaches the other.
+
+- **Written, then passed once.** `VarTable`, `addConstr` and `setObjective` write into the environment's model, and
+  the `Highs` gets all of it in one `passModel` the first time it is reached: `env.highs()`, `minimize` or `maximize`,
+  a `solution()`. From then on each goes to the `Highs` as it is written, as Concert's model reaches an `IloCplex`
+  that has extracted it. Reaching it first only leaves every row to the incremental path: nothing is lost but time.
+- **Options touch no model.** `HighsEnv{options}` takes a `HighsOptions`, so a quiet log or a time limit holds for
+  the `passModel` too; `env.highs().setOptionValue(...)` works as well, after the model has reached it.
+- **The rest is HiGHS's own API** on `env.highs()`: `run()`, `getInfo()`, `writeModel`, `changeColBounds`.
+- **A `HighsVar` knows its environment.** One expression of two environments' variables, or a row of one handed to
+  another, is a broken contract: a debug build stops on it.
+- A HiGHS call that fails throws `HighsError`, which carries the call and its `HighsStatus`; a model HiGHS refuses
+  throws from that first reach (`"passModel"`).
 
 ## Compile cost of wide sets
 

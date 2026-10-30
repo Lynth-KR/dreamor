@@ -5,7 +5,8 @@ Instructions for coding agents working **on** this repository. For writing model
 brief.
 
 dreamor is a header-only C++20 modeling layer: index sets (solver-independent), variable families (`VarTable`), and
-sums (`sumOf`), with two backends, CPLEX Concert (`dreamor::concert`) and OR-Tools MathOpt (`dreamor::mathopt`).
+sums (`sumOf`), with three backends, CPLEX Concert (`dreamor::concert`), OR-Tools MathOpt (`dreamor::mathopt`) and
+HiGHS on its own C++ API (`dreamor::highs`).
 Version 0.3.1, Apache 2.0.
 
 ## Layout
@@ -13,9 +14,10 @@ Version 0.3.1, Apache 2.0.
 | Path | What |
 |---|---|
 | `include/dreamor/index_set.hpp`, `include/dreamor/index_set/` | Set layer: `Col`, `EntityVector`, `makeSet`, `IndexSet`, `Grouped`, `Ordered`, set algebra. Must not include any solver header |
-| `include/dreamor/value_table.hpp` | `dreamor::ValueTable`, shared by both backends |
+| `include/dreamor/value_table.hpp` | `dreamor::ValueTable`, shared by every backend |
 | `include/dreamor/concert.hpp` | Concert backend |
 | `include/dreamor/mathopt.hpp` | MathOpt backend |
+| `include/dreamor/highs.hpp` | HiGHS backend, on HiGHS's own C++ API |
 | `include/dreamor/internal/` | Shared backend machinery (`var_table_core.hpp`, `row_index.hpp`, `sum_builder.hpp`) |
 | `include/dreamor/general/`, `include/dreamor/logger/` | Utilities (`tuple_hash.hpp`, `flat_index.hpp`, `format_buffer.hpp`, `third_party_headers.hpp`, `logger_light.hpp`) |
 | `examples/` | Lot-sizing example: `production_planning_sets.hpp` (solver-free), `production_planning.hpp` (Concert), `production_planning_mathopt.hpp` (MathOpt), `production_planning_plain.hpp` (without dreamor, for comparison). `mathopt_samples/`: three OR-Tools MathOpt samples ported to dreamor, with a walkthrough of each port (keep Google's license header and the modification notice on these files) |
@@ -34,6 +36,7 @@ There is nothing to build; the tests do not go through CMake.
 tests/run_tests.sh                   # default; needs nothing but a C++20 compiler
 tests/run_tests.sh --cplex [DIR]     # real CPLEX Studio ($CPLEX_STUDIO_DIR, default /opt/ibm/ILOG/CPLEX_Studio2212)
 tests/run_tests.sh --mathopt [DIR]   # OR-Tools C++ prebuilt ($ORTOOLS_DIR, default /opt/ortools), solves with HiGHS
+tests/run_tests.sh --highs [DIR]     # a HiGHS install ($HIGHS_DIR, default /opt/highs); the OR-Tools prebuilt is one
 CXX=clang++-18 tests/run_tests.sh    # compiler choice; default g++
 OPT="-O3 -DNDEBUG" tests/run_tests.sh # optimization; default -O1 -g
 SAN=1 tests/run_tests.sh             # Address + UndefinedBehavior + Leak sanitizers (stub mode only)
@@ -57,6 +60,8 @@ tools/ci_local.sh [REV]              # what CI runs, on one commit checked out a
 - **`--mathopt`** runs `tests/mathopt/*.cpp`, the MathOpt example, the ported samples in
   `examples/mathopt_samples/`, and `tests/mathopt/compile_fail/`.
   `test_cross_backend.cpp` builds the example on both backends and compares the constraints.
+- **`--highs`** runs `tests/highs/*.cpp` (solving with HiGHS, and the README's and `highs.hpp`'s code as written
+  there), `tests/highs/compile_fail/` and, in a debug build, `tests/highs/contract_fail/`.
 - **`--cplex`** solves with real CPLEX. CPLEX is not on CI, so run it locally when you touch Concert-facing code
   and have CPLEX available.
 - **Warnings** are what dreamor's own code is held to; the CMake target adds none, so users keep their own flags.
@@ -68,7 +73,8 @@ tools/ci_local.sh [REV]              # what CI runs, on one commit checked out a
 - **CI** (`.github/workflows/ci.yml`) runs a lint job (`tools/format.sh --check`, then `tools/tidy.sh`), and once it
   passes: the stub job on Clang 18 at `-O1 -g` and `-O3 -DNDEBUG` and on GCC 13 at `-O3 -DNDEBUG`, a sanitize job
   (`SAN=1` and `SAN=thread`, GCC 13; `SAN=1` is GCC 13's `-O1 -g` build), gcc-latest and clang-latest (stub mode on
-  the newest releases), and the MathOpt job on both compilers. The compile_fail cases and the syntax checks run once
+  the newest releases), and the MathOpt job on both compilers, which runs the HiGHS backend's tests too, on the
+  HiGHS the OR-Tools prebuilt ships. The compile_fail cases and the syntax checks run once
   per compiler; the other jobs set `COMPILE_CHECKS=0`. The GCC 13 stub job and the MathOpt job also install the CMake
   package and build `tests/cmake_consumer` (`tests/cmake_consumer_mathopt`) through `find_package(dreamor)`. CI runs
   on pushes to main and on pull requests, not on a change of Markdown alone; a work branch runs it by hand
@@ -105,7 +111,8 @@ tools/ci_local.sh [REV]              # what CI runs, on one commit checked out a
   `tools/tidy.sh --fix` writes: applied from several translation units at once, a fix can land twice or garble a
   call, and const goes on the right.
 - **Done means** default mode passes on both compilers, `--mathopt` passes if you touched anything the MathOpt
-  backend or the shared machinery uses, the Windows check passes if you touched platform-dependent code (see
+  backend or the shared machinery uses, `--highs` passes if you touched anything the HiGHS backend or the shared
+  machinery uses, the Windows check passes if you touched platform-dependent code (see
   "Windows"), `tools/format.sh --check` passes, and `tools/tidy.sh` reports nothing.
 
 ## Windows
@@ -207,20 +214,23 @@ Changes must keep these. They are the library's reason to exist, not style prefe
 
 ## Backend parity
 
-These behave identically on both backends. A change to one is a change to both:
+These behave identically on every backend. A change to one is a change to all:
 
 - bounds as numbers or column callables;
 - variable names `<name>_<key0>_<key1>...`;
 - `std::out_of_range` for a lookup outside the set;
 - iteration in set order;
 - `sumOf`'s `where()` / `split()` / `build()`, linear or quadratic terms (`build()` gives each solver's expression
-  that holds them: `IloExpr`, or MathOpt's `LinearExpression` / `QuadraticExpression`);
+  that holds them: `IloExpr`, MathOpt's `LinearExpression` / `QuadraticExpression`, or HiGHS's
+  `HighsLinearExpression` / `HighsQuadraticExpression`);
 - a `VarTable` as a sum term.
 
 Backend-only features stay in their backend:
 - Concert only: semi-continuous variables.
-- MathOpt only: `std::logic_error` from `solution()` when there is no feasible solution, because MathOpt would
-  otherwise CHECK-fail.
+- MathOpt and HiGHS: `std::logic_error` from `solution()` when there is no (primal) solution - MathOpt would
+  otherwise CHECK-fail, and HiGHS would hand back the values it left from before.
+- HiGHS only: `HighsEnv`, the model collected and passed to the `Highs` once; a row as a type of its own, so a
+  row given as an objective and a quadratic row stop at compile time; `HighsError` for a HiGHS call that fails.
 
 Shared logic belongs in `include/dreamor/internal/`.
 

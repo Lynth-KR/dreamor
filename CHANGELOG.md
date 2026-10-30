@@ -7,6 +7,18 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `dreamor::highs` (`dreamor/highs.hpp`): a backend on HiGHS's own C++ API, written the way highspy, the HiGHS team's
+  Python interface, writes a model - `HighsEnv`, `VarTable`, `sumOf`, `addConstr`, `setObjective`,
+  `minimize`/`maximize`, `solution`, in highspy's names. HiGHS's C++ API is a matrix API, a row its bounds and arrays;
+  here a row is an expression with its bounds, a type of its own (`HighsBoundedLinearExpression`), so an inequality
+  given as an objective, or a quadratic term in a row, stops at compile time. `addConstr` and `setObjective` merge
+  repeated columns, in time linear in the terms, and drop the ones that cancel. `HighsEnv` holds the model being written and the `Highs` that solves it:
+  the model reaches HiGHS in one `passModel` the first time the `Highs` is reached (`env.highs()`, `minimize`,
+  `solution`), and each change after that as it is written. HiGHS pays for every change it is handed: on p-median
+  at 20,000 locations (2,000,000 columns, as many rows), up to the solver's start, a row a call (`addRow`) took
+  1,798 ms, one `passModel` through dreamor 558, the same arrays filled by hand 276, and OR-Tools MathOpt 6,083
+  (medians; `bench/scenario`). A HiGHS call that fails throws `HighsError`, with the call and its `HighsStatus`.
+  `tests/run_tests.sh --highs` runs it, and CI on the HiGHS the OR-Tools prebuilt ships.
 - `dreamor::exprName(family, keys...)`: a row named the way `VarTable` names variables, `"<family>_<key0>_<key1>..."`,
   each key a column by its token or a value, built in a buffer of the thread's with no allocation and no format
   string to read. `std::format` reads its format string on every call and reaches each column through a type-erased
