@@ -45,7 +45,6 @@
 
 #include <concepts>
 #include <cstddef>
-#include <exception>
 #include <limits>
 #include <ranges>
 #include <stdexcept>
@@ -71,12 +70,18 @@ namespace dreamor::mathopt {
 
 template <typename... Keys>
   requires(sizeof...(Keys) > 0 && (internal::is_nameable<Keys> && ...))
-class VarTable : private internal::VarTableCore<::operations_research::math_opt::Variable, Keys...> {
+class VarTable : public internal::VarTableCore<::operations_research::math_opt::Variable, Keys...> {
   using Core = internal::VarTableCore<::operations_research::math_opt::Variable, Keys...>;
 
  public:
   using Key      = Core::Key;
   using Variable = ::operations_research::math_opt::Variable;
+  // Lookup, contains(), size(), keys(), iteration and the constructor that stops on a set with
+  // other key columns are the core's, as on Concert. vYield(row) throws std::out_of_range for a
+  // row outside the set (MathOpt has no null Variable to return anyway). Copy is deleted (a
+  // Variable refers to the model's variable: a copy would alias it under two names) and move is
+  // fine; the variables belong to the model, not to this table.
+  using Core::Core;
 
   template <typename Lb = double, typename Ub = double>
   VarTable(::operations_research::math_opt::Model& model,
@@ -98,43 +103,6 @@ class VarTable : private internal::VarTableCore<::operations_research::math_opt:
                                               variable_name != nullptr ? variable_name : ""));
     }
   }
-
-  // A set whose columns are not exactly the keys, in order: see concert::VarTable.
-  template <typename OtherTup, typename... Rest>
-    requires(!std::same_as<OtherTup, Key>)
-  VarTable(::operations_research::math_opt::Model& /*model*/, const IndexSet<OtherTup>& /*set*/, Rest&&... /*rest*/)
-      : Core{IndexSet<Key>{}} {
-    static_assert(internal::always_false<OtherTup>,
-                  "A VarTable is built on a set with exactly its key columns, in the same order: "
-                  "VarTable<MachineCol, ItemCol, PeriodCol> takes a SetOf<MachineCol, ItemCol, PeriodCol>. "
-                  "Declare the table in the set's order, or derive a set in the table's order with select<...>().");
-  }
-
-  // Copy is deleted (a Variable refers to the model's variable: a copy would alias it under
-  // two names); move is fine. The variables belong to the model, not to this table.
-  VarTable(const VarTable&)                = delete;
-  VarTable& operator=(const VarTable&)     = delete;
-  VarTable(VarTable&&) noexcept            = default;
-  VarTable& operator=(VarTable&&) noexcept = default;
-  ~VarTable() noexcept                     = default;
-
-  // The variable of a key, vYield(m, i, t) or vYield(row), under the same rules as
-  // concert::VarTable. Throws std::out_of_range when the set does not have the key (MathOpt
-  // has no null Variable to return anyway).
-  template <typename... Args>
-  [[nodiscard]] Variable operator()(const Args&... key) const {
-    if constexpr (internal::checkTableKey<Key, Args...>()) {
-      return this->vars_[this->rowOf(key...)];
-    } else {
-      std::terminate();
-    }
-  }
-
-  using Core::begin;
-  using Core::contains;
-  using Core::end;
-  using Core::keys;
-  using Core::size;
 
   // Every value of the best primal feasible solution, keyed like this table. The result owns
   // plain doubles, so it outlives the model and the SolveResult.
@@ -181,12 +149,3 @@ template <typename Term>
 struct dreamor::internal::SumTotal<::operations_research::math_opt::LinearExpression, Term> {
   using type = ::operations_research::math_opt::QuadraticExpression;
 };
-
-// A table is a term, as in concert.hpp: sumOf(rows, vYield).
-template <typename... Keys>
-struct dreamor::PredicateColumns<dreamor::mathopt::VarTable<Keys...>> {
-  using type = std::tuple<Keys...>;
-};
-// Given a row of its own set, a table finds the variable by the row's address.
-template <typename... Keys>
-struct dreamor::internal::TakesWholeRow<dreamor::mathopt::VarTable<Keys...>> : std::true_type {};

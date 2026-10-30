@@ -9,13 +9,16 @@
 //    4.   Macros: Screaming Snake Case (i.e., MY_MACRO)
 //
 // The backend-free part of a variable table: the set it is built on, the index from key to
-// row, the variables in the set's order, lookup and iteration. A backend's VarTable derives
-// from VarTableCore<Var, Keys...>, creates the variables into vars_ in its constructor, and
-// adds operator() (the variable of a row) and solution() in its own solver's terms.
+// row, the variables in the set's order, lookup (operator()) and iteration, the constructor that
+// rejects a set with other key columns, and the traits that make a table a sum term. A backend's
+// VarTable derives from VarTableCore<Var, Keys...> publicly, inherits its constructors
+// (`using Core::Core;`), creates the variables into vars_ in its own constructor, and adds
+// solution() - each in its solver's own terms.
 #pragma once
 
 #include <concepts>
 #include <cstddef>
+#include <exception>
 #include <format>  // IWYU pragma: keep // For std::formatter
 #include <memory>
 #include <stdexcept>
@@ -49,9 +52,13 @@ template <typename Bound, typename Row>
   }
 }
 
+// What every backend's VarTable derives from, through VarTableCore: the traits below find a
+// table by it.
+struct VarTableBase {};
+
 template <typename Var, typename... Keys>
   requires(sizeof...(Keys) > 0 && (is_nameable<Keys> && ...))
-class VarTableCore {
+class VarTableCore : public VarTableBase {
   static_assert(allColumnsDistinct<std::tuple<Keys...>>(std::index_sequence_for<Keys...>{}),
                 "VarTable<ICol, ICol> names one key column twice, and no set has the same column twice: give each "
                 "key its own column type.");
@@ -69,6 +76,32 @@ class VarTableCore {
       return index_->find(rows(), key...) != RowIndex<Key>::kNotFound;
     } else {
       return false;
+    }
+  }
+
+  // A set whose columns are not exactly the keys, in order, stops here on one sentence rather
+  // than on "no matching constructor". Public, as a backend inherits it (`using Core::Core;`)
+  // with this access; its first parameter is the backend's environment or model.
+  template <typename Model, typename OtherTup, typename... Rest>
+    requires(!std::same_as<OtherTup, Key>)
+  VarTableCore(Model&& /*model*/, const IndexSet<OtherTup>& /*set*/, Rest&&... /*rest*/)
+      : VarTableCore{IndexSet<Key>{}} {
+    static_assert(always_false<OtherTup>,
+                  "A VarTable is built on a set with exactly its key columns, in the same order: "
+                  "VarTable<MachineCol, ItemCol, PeriodCol> takes a SetOf<MachineCol, ItemCol, PeriodCol>. "
+                  "Declare the table in the set's order, or derive a set in the table's order with select<...>().");
+  }
+
+  // The variable of a key: vYield(m, i, t) - Yield[m,i,t] in AMPL - or vYield(row). The columns
+  // themselves, in the declared order; anything else stops on one sentence (see
+  // index_set/key_args.hpp). Throws std::out_of_range when the set does not have the key - the
+  // rule of every backend; contains() asks first.
+  template <typename... Args>
+  [[nodiscard]] Var operator()(const Args&... key) const {
+    if constexpr (checkTableKey<Key, Args...>()) {
+      return vars_[rowOf(key...)];
+    } else {
+      std::terminate();
     }
   }
 
@@ -171,3 +204,16 @@ class VarTableCore {
 };
 
 }  // namespace dreamor::internal
+
+// A table names its key columns, so it is itself a sum term: sumOf(env, rows, vYield) sums its
+// variables over the rows - sum {(m,i,t) in rows} Yield[m,i,t] - without a lambda that only looks
+// them up. Every backend's table, through VarTableBase.
+template <typename Table>
+  requires std::derived_from<Table, dreamor::internal::VarTableBase>
+struct dreamor::PredicateColumns<Table> {
+  using type = Table::Key;
+};
+// Given a row of its own set, a table finds the variable by the row's address.
+template <typename Table>
+  requires std::derived_from<Table, dreamor::internal::VarTableBase>
+struct dreamor::internal::TakesWholeRow<Table> : std::true_type {};

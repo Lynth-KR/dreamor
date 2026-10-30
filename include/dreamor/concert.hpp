@@ -88,7 +88,6 @@
 
 #include <concepts>
 #include <cstddef>
-#include <exception>
 #include <ranges>
 #include <stdexcept>
 #include <tuple>
@@ -115,11 +114,16 @@ inline constexpr struct SemiContinuous {
 
 template <typename... Keys>
   requires(sizeof...(Keys) > 0 && (internal::is_nameable<Keys> && ...))
-class VarTable : private internal::VarTableCore<IloNumVar, Keys...> {
+class VarTable : public internal::VarTableCore<IloNumVar, Keys...> {
   using Core = internal::VarTableCore<IloNumVar, Keys...>;
 
  public:
   using Key = Core::Key;
+  // Lookup (vYield(m, i, t), vYield(row)), contains(), size(), keys() and iteration are the
+  // core's; so is the constructor that stops on a set with other key columns. Copy is deleted
+  // (IloNumVar is a handle: a copy would alias the same Concert columns under two names) and
+  // move is fine; nothing is end()ed here - Concert objects follow their env.
+  using Core::Core;
 
   template <typename Lb = IloNum, typename Ub = IloNum>
   VarTable(const IloEnv& env,
@@ -157,44 +161,6 @@ class VarTable : private internal::VarTableCore<IloNumVar, Keys...> {
           env, internal::boundOf(sclb, row), internal::boundOf(ub, row), type, Core::nameOf(names, row)));
     }
   }
-
-  // A set whose columns are not exactly the keys, in order, stops here on one sentence rather
-  // than on "no matching constructor".
-  template <typename OtherTup, typename... Rest>
-    requires(!std::same_as<OtherTup, Key>)
-  VarTable(const IloEnv& /*env*/, const IndexSet<OtherTup>& /*set*/, Rest&&... /*rest*/) : Core{IndexSet<Key>{}} {
-    static_assert(internal::always_false<OtherTup>,
-                  "A VarTable is built on a set with exactly its key columns, in the same order: "
-                  "VarTable<MachineCol, ItemCol, PeriodCol> takes a SetOf<MachineCol, ItemCol, PeriodCol>. "
-                  "Declare the table in the set's order, or derive a set in the table's order with select<...>().");
-  }
-
-  // Copy is deleted (IloNumVar is a handle: a copy would alias the same Concert columns
-  // under two names); move is fine. Nothing is end()ed here - Concert objects follow their env.
-  VarTable(const VarTable&)                = delete;
-  VarTable& operator=(const VarTable&)     = delete;
-  VarTable(VarTable&&) noexcept            = default;
-  VarTable& operator=(VarTable&&) noexcept = default;
-  ~VarTable() noexcept                     = default;
-
-  // The variable of a key: vYield(m, i, t) - Yield[m,i,t] in AMPL - or vYield(row). The
-  // columns themselves, in the declared order; anything else stops on one sentence (see
-  // index_set/key_args.hpp). Throws std::out_of_range when the set does not have the key -
-  // the rule of every backend; contains() asks first.
-  template <typename... Args>
-  [[nodiscard]] IloNumVar operator()(const Args&... key) const {
-    if constexpr (internal::checkTableKey<Key, Args...>()) {
-      return this->vars_[this->rowOf(key...)];
-    } else {
-      std::terminate();
-    }
-  }
-
-  using Core::begin;
-  using Core::contains;
-  using Core::end;
-  using Core::keys;
-  using Core::size;
 
   // Every value at once, after a solve: one getValues() call for the whole table. The
   // result shares this table's set and index and owns plain doubles, so it outlives the
@@ -237,14 +203,3 @@ auto sumOf(Rows&& /*rows*/, Term&& /*term*/) {
 }
 
 }  // namespace dreamor::concert
-
-// A table names its key columns, so it is itself a term: sumOf(env, rows, vYield) sums its
-// variables over the rows - sum {(m,i,t) in rows} Yield[m,i,t] - without a lambda that only
-// looks them up.
-template <typename... Keys>
-struct dreamor::PredicateColumns<dreamor::concert::VarTable<Keys...>> {
-  using type = std::tuple<Keys...>;
-};
-// Given a row of its own set, a table finds the variable by the row's address.
-template <typename... Keys>
-struct dreamor::internal::TakesWholeRow<dreamor::concert::VarTable<Keys...>> : std::true_type {};
