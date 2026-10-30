@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // A column under std::format prints its name token - keyName(), else primaryKey(), else the
-// value - and a column with no token has no formatter.
+// value - and a column with no token has no formatter. An entity column may be declared before its
+// entity is complete.
 #include <cstdint>
 #include <format>
 #include <stdexcept>
@@ -41,6 +42,24 @@ namespace bare {
 struct Thing {};
 }  // namespace bare
 
+// an entity born later in the file: its column is declared while it is still incomplete
+namespace late {
+struct Batch;
+}  // namespace late
+
+}  // namespace
+
+using BatchCol = dreamor::Col<const late::Batch*, "batch">;
+
+namespace {
+namespace late {
+struct Batch {
+  std::uint32_t number;
+};
+inline std::uint32_t keyName(const Batch* b) {
+  return b->number;
+}
+}  // namespace late
 }  // namespace
 
 using MachineCol = dreamor::Col<const keyed::Machine*, "machine">;
@@ -57,6 +76,7 @@ constexpr bool kFormattable = std::is_default_constructible_v<std::formatter<T, 
 static_assert(kFormattable<MachineCol> && kFormattable<NodeCol> && kFormattable<ItemCol> && kFormattable<PeriodCol> &&
               kFormattable<GradeCol>);
 static_assert(!kFormattable<ThingCol>);
+static_assert(kFormattable<BatchCol>);
 
 int main() try {
   const keyed::Machine m3{"M3"};
@@ -69,6 +89,11 @@ int main() try {
   DREAMOR_CHECK(std::format("{}", ItemCol{items.data()}) == "I-01");
   DREAMOR_CHECK(std::format("{}", PeriodCol{2}) == "2");
   DREAMOR_CHECK(std::format("{}", GradeCol{"A"}) == "A");
+
+  // a column declared before its entity was complete names it by the keyName defined with the entity
+  const late::Batch b12{12};
+  DREAMOR_CHECK(std::format("{}", BatchCol{&b12}) == "12");
+  DREAMOR_CHECK(std::string{dreamor::exprName("Run", BatchCol{&b12}, PeriodCol{2})} == "Run_12_2");
 
   // a row name, the way VarTable names a variable
   DREAMOR_CHECK(std::format("Cap_{}_{}_{}", MachineCol{&m3}, NodeCol{&n7}, PeriodCol{2}) == "Cap_M3_7_2");

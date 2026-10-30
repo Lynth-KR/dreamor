@@ -14,6 +14,9 @@ and versions follow [Semantic Versioning](https://semver.org/).
   The pointer is valid until the thread's next `exprName`, as `FormatBuffer`'s is until its next `format`.
 - `general::NameBuilder` is public, with `restart(root)` to start a new name in the same builder: the name, part by
   part, that `VarTable` and now `exprName` build.
+- An entity column declared before its entity is complete is now a tested and documented use: a model can declare
+  every column at the top of a file and define the entities it computes from the data further down. The entity's
+  `keyName` goes right under the entity, before any name is made with the column.
 
 - `ValueTable<Keys...>{set, value}`: data on a set, AMPL's `param {S}`. `value` is a number or a callable over the
   row's columns, as a `VarTable`'s bounds are, and the table is read like a solution's. It shares the set's row

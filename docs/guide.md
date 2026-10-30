@@ -21,6 +21,11 @@ using PeriodCol  = dreamor::Col<std::size_t, "period">;       // the value may b
 - **Tokens for variable names**: for an entity-pointer column, a `keyName(const T*)` function placed in the **same
   namespace** as the entity is used, or else the entity's `primaryKey()` (next section; a debug build says so once
   per column). Values printable with `std::format` (integers, strings) need no hook.
+- **An entity column holds only the entity's address**, so it may be declared before the entity is complete, with
+  the entity forward-declared: every column of a model at the top of a file, the entities that are computed from
+  the data defined further down. Define the entity's `keyName` (or `primaryKey`) right under the entity, before
+  anything names a column of it: the hook is looked up where a name is first made, and a name made earlier would be
+  made without it.
 - **Lookups by key take column values only.** `vYield(m, i, t)`, `yieldPlan(m, i, t)`, `slice(i, t)`, `prev(t)`, and
   `in_routes(m, i)` take the key's columns in declaration order, or one row of the set. Even though `Col` converts
   implicitly from its value, bare values (`x(2, 1)`, a bare pointer) and braces (`slice({i, t})`) are not accepted;
