@@ -12,7 +12,8 @@ and versions follow [Semantic Versioning](https://semver.org/).
   `minimize`/`maximize`, `solution`, in highspy's names. HiGHS's C++ API is a matrix API, a row its bounds and arrays;
   here a row is an expression with its bounds, a type of its own (`HighsBoundedLinearExpression`), so an inequality
   given as an objective, or a quadratic term in a row, stops at compile time. `addConstr` and `setObjective` merge
-  repeated columns, in time linear in the terms, and drop the ones that cancel. `HighsEnv` holds the model being written and the `Highs` that solves it:
+  repeated columns, in time linear in the terms, and drop the ones that cancel; an expression of a few terms keeps
+  them inside itself, with no allocation. `HighsEnv` holds the model being written and the `Highs` that solves it:
   the model reaches HiGHS in one `passModel` the first time the `Highs` is reached (`env.highs()`, `minimize`,
   `solution`), and each change after that as it is written. HiGHS pays for every change it is handed: on p-median
   at 20,000 locations (2,000,000 columns, as many rows), up to the solver's start, a row a call (`addRow`) took

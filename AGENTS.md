@@ -18,7 +18,7 @@ Version 0.3.1, Apache 2.0.
 | `include/dreamor/concert.hpp` | Concert backend |
 | `include/dreamor/mathopt.hpp` | MathOpt backend |
 | `include/dreamor/highs.hpp` | HiGHS backend, on HiGHS's own C++ API |
-| `include/dreamor/internal/` | Shared backend machinery (`var_table_core.hpp`, `row_index.hpp`, `sum_builder.hpp`) |
+| `include/dreamor/internal/` | Shared backend machinery (`var_table_core.hpp`, `row_index.hpp`, `sum_builder.hpp`, `inline_vector.hpp`) |
 | `include/dreamor/general/`, `include/dreamor/logger/` | Utilities (`tuple_hash.hpp`, `flat_index.hpp`, `format_buffer.hpp`, `third_party_headers.hpp`, `logger_light.hpp`) |
 | `examples/` | Lot-sizing example: `production_planning_sets.hpp` (solver-free), `production_planning.hpp` (Concert), `production_planning_mathopt.hpp` (MathOpt), `production_planning_plain.hpp` (without dreamor, for comparison). `mathopt_samples/`: three OR-Tools MathOpt samples ported to dreamor, with a walkthrough of each port (keep Google's license header and the modification notice on these files) |
 | `tests/` | Framework-free tests, `tests/run_tests.sh`, Concert stub (`tests/stub/`), compile-fail cases |

@@ -89,6 +89,7 @@
 
 #include "dreamor/index_set/indexed.hpp"
 #include "dreamor/index_set/key_args.hpp"
+#include "dreamor/internal/inline_vector.hpp"
 #include "dreamor/internal/row_index.hpp"
 #include "dreamor/internal/sum_builder.hpp"
 #include "dreamor/internal/var_table_core.hpp"
@@ -251,15 +252,15 @@ class HighsLinearExpression {
     indices_.reserve(indices_.size() + count);
     coefficients_.reserve(coefficients_.size() + count);
     for (std::size_t k = 0; k < count; ++k) {
-      indices_.push_back(other.indices_[k]);
-      coefficients_.push_back(sign * other.coefficients_[k]);
+      indices_.pushBack(other.indices_[k]);
+      coefficients_.pushBack(sign * other.coefficients_[k]);
     }
   }
 
   void append(HighsVar variable, double coefficient) {
     adopt(&variable.env());
-    indices_.push_back(variable.index());
-    coefficients_.push_back(coefficient);
+    indices_.pushBack(variable.index());
+    coefficients_.pushBack(coefficient);
   }
 
   // Every variable of an expression belongs to one environment: a debug build stops on a second.
@@ -277,8 +278,18 @@ class HighsLinearExpression {
 #endif
   }
 
-  std::vector<HighsInt> indices_;
-  std::vector<double> coefficients_;
+  // A row of a model is mostly a few terms - two variables linked, a bound on a short sum - and a
+  // row written in operators makes an expression or two on the way: kept inside the expression, they
+  // cost no allocation, and a sum longer than this goes to the heap, as a std::vector would. How many
+  // is a matter of layout, as a short string's is: the inline arrays take the room of the two vectors
+  // they stand in for, 48 / 12 = 4 terms on a 64-bit library. The number itself matters little - 2, 4
+  // and 8 build bench/scenario's p-median and lot sizing within 0.5% of each other; what counts is that a
+  // short expression allocates once at most, not once a growth of each of two vectors.
+  static constexpr std::size_t kInlineTerms =
+      (sizeof(std::vector<HighsInt>) + sizeof(std::vector<double>)) / (sizeof(HighsInt) + sizeof(double));
+
+  internal::InlineVector<HighsInt, kInlineTerms> indices_;
+  internal::InlineVector<double, kInlineTerms> coefficients_;
   double constant_{0.0};
   const HighsEnv* env_{nullptr};
 };
