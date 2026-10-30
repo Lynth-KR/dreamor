@@ -3,7 +3,7 @@ name: dreamor
 description: Write, review, and fix C++ optimization models that use dreamor (index sets, VarTable, sumOf) on CPLEX Concert, OR-Tools MathOpt, or HiGHS. Use this skill whenever code includes "dreamor/..." headers or uses makeSet, SetOf, groupBy, slice, ordered, VarTable, ValueTable, sumOf, or HighsEnv; whenever the user wants to translate an AMPL-style model (sets, indexed variables, sums, constraint families) into C++ with dreamor; and whenever a compile error mentions dreamor, VarTable, sumOf, UnbuiltSum, or messages such as "Look a variable or value up by the table's key columns" or "is not an expression yet".
 ---
 
-# dreamor (0.3)
+# dreamor (0.4)
 
 dreamor is a header-only C++20 layer for algebraic optimization models. It provides exactly three things:
 
@@ -35,7 +35,7 @@ Read further only when needed:
 There is no `dreamor::VarTable` and no `dreamor::sumOf`. Qualify them with the backend namespace, or alias it:
 `namespace concert = dreamor::concert;`.
 
-CMake: `find_package(dreamor 0.3 CONFIG REQUIRED)`, then link `dreamor::dreamor` plus the solver
+CMake: `find_package(dreamor 0.4 CONFIG REQUIRED)`, then link `dreamor::dreamor` plus the solver
 (`ortools::ortools`, `highs::highs`, or the user's CPLEX target).
 
 ## Naming

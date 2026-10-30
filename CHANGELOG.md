@@ -5,6 +5,8 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-30
+
 ### Added
 
 - `dreamor::highs` (`dreamor/highs.hpp`): a backend on HiGHS's own C++ API, written the way highspy, the HiGHS team's

@@ -5,7 +5,7 @@
 cmake_minimum_required(VERSION 3.20)
 project(dreamor_consumer_mathopt LANGUAGES CXX)
 
-find_package(dreamor 0.3 CONFIG REQUIRED)
+find_package(dreamor 0.4 CONFIG REQUIRED)
 find_package(ortools CONFIG REQUIRED)
 add_executable(lot_sizing ${CMAKE_CURRENT_SOURCE_DIR}/../../examples/production_planning_mathopt.cpp)
 target_include_directories(lot_sizing PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../examples)
