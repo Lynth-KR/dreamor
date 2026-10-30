@@ -5,6 +5,16 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- `FormatBuffer`'s `format()` is static, on a buffer of the thread's (one per `FormatBuffer<N, Policy>` and thread)
+  instead of the object's. Naming a row changes nothing a caller can see, so a model's `const` member functions now
+  name their rows, and threads name theirs at once. A buffer per object could not be made safe for that: `format()`
+  returns a pointer into it, and a lock released on return would not keep another thread from overwriting the name
+  before the caller copies it. A class that inherits `FormatBuffer` is no larger for it. The returned name is now
+  valid until the thread's next `format()` through any `FormatBuffer<N, Policy>`, not only the same object's - the
+  way it is meant to be used, handed straight to `setName`, is unchanged.
+
 ## [0.3.1] - 2026-10-29
 
 ### Added

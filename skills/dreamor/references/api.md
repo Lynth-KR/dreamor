@@ -203,8 +203,9 @@ sumOf<Col>(container, term)
 No solver; the library uses them itself.
 
 - `dreamor/general/format_buffer.hpp`: `class Model : private dreamor::general::FormatBuffer<256>`, then
-  `model.add(expr <= cap).setName(format("Capacity_{}_{}", m, t));`. A column formats as its name token; the
-  returned `const char*` is valid until the next `format`. Too long a name throws (`kThrow`, the default) or logs and
+  `model.add(expr <= cap).setName(format("Capacity_{}_{}", m, t));`. A column formats as its name token; `format`
+  is static, on a buffer of the thread's, so a `const` member function calls it and threads call it at once; the
+  returned `const char*` is valid until the thread's next `format` through any `FormatBuffer<N, Policy>`. Too long a name throws (`kThrow`, the default) or logs and
   clears (`OnFormatOverflow::kLogAndClear`).
 - `dreamor/logger/logger_light.hpp`: `DREAMOR_LOG_INFO/WARNING/ERROR/FATAL(fmt, args...)` (`std::format`, checked
   at compile time; `FATAL` aborts in every build), `DREAMOR_DEBUG_INFO/ERROR/FATAL` (gone under `NDEBUG`),

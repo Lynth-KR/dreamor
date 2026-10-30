@@ -11,7 +11,7 @@
 // Inherit privately:
 //
 //     class FooFooFoo : private dreamor::FormatBuffer<256, dreamor::OnFormatOverflow::kLogAndClear> {
-//       void f() { ... format("x_length_{}", eqid) ... }
+//       void f() const { ... format("x_length_{}", eqid) ... }
 //     };
 #pragma once
 
@@ -37,8 +37,15 @@ enum class OnFormatOverflow : std::uint8_t {
 
 // Fixed-size scratch buffer for building short names (CPLEX variable / constraint names).
 //
-// IMPORTANT: the returned pointer aliases the internal buffer and is only valid until
-// the next format() call on the SAME object. Consume it immediately; never store it.
+// The buffer is the thread's, not the object's: one per thread for each FormatBuffer<N, Policy>.
+// format() changes no object, so it is static - a const member function names its rows with it - and
+// threads never share a buffer, so it is safe from any number of them at once. A buffer per object
+// could not be: format() returns a pointer into it, and a lock released on return would not keep
+// another thread from overwriting the name before the caller copies it.
+//
+// IMPORTANT: the returned pointer aliases the thread's buffer and is only valid until the next
+// format() on the SAME THREAD - from any object that inherits the same FormatBuffer<N, Policy>.
+// Consume it immediately (setName copies it); never store it.
 template <std::size_t N, OnFormatOverflow Policy = OnFormatOverflow::kThrow>
 class FormatBuffer {
   static_assert(N >= 2, "Buffer must hold at least one character plus a null terminator.");
@@ -55,23 +62,40 @@ class FormatBuffer {
   FormatBuffer& operator=(FormatBuffer&&) noexcept = default;
 
   template <typename... Args>
-  [[nodiscard]] const char* format(const std::format_string<Args...> fmt,
-                                   Args&&... args) noexcept(Policy == OnFormatOverflow::kLogAndClear) {
-    const auto result = std::format_to_n(buffer_.data(), kMaxLength, fmt, std::forward<Args>(args)...);
+  [[nodiscard]] static const char* format(const std::format_string<Args...> fmt,
+                                          Args&&... args) noexcept(Policy == OnFormatOverflow::kLogAndClear) {
+    if constexpr (Policy == OnFormatOverflow::kThrow) {
+      return formatInto(fmt, std::forward<Args>(args)...);
+    } else {
+      // A user's std::formatter (a keyName() result) may throw; this is noexcept, so the throw ends
+      // here, as NameBuilder::append's does.
+      try {
+        return formatInto(fmt, std::forward<Args>(args)...);
+      } catch (...) {
+        buffer[0] = '\0';
+        DREAMOR_LOG_WARNING("A formatter threw in format(); the name is empty.");
+        return buffer.data();
+      }
+    }
+  }
+
+ private:
+  template <typename... Args>
+  static const char* formatInto(const std::format_string<Args...> fmt, Args&&... args) {
+    const auto result = std::format_to_n(buffer.data(), kMaxLength, fmt, std::forward<Args>(args)...);
     *result.out       = '\0';  // Null-terminate the string
     if (static_cast<std::size_t>(result.size) >= kMaxLength) {
       if constexpr (Policy == OnFormatOverflow::kThrow) {
         throw std::runtime_error("Formatting error or buffer overflow in format().");
       } else {
-        buffer_[0] = '\0';  // Ensure it's null-terminated
+        buffer[0] = '\0';  // Ensure it's null-terminated
         DREAMOR_LOG_WARNING("Formatting error or buffer overflow in format().");
       }
     }
-    return buffer_.data();
+    return buffer.data();
   }
 
- private:
-  std::array<char, N> buffer_{};
+  static thread_local inline std::array<char, N> buffer{};
 };
 
 // Builds a dotted/underscored name incrementally while walking a tree, using ONE buffer

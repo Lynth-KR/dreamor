@@ -110,7 +110,7 @@
 **이름** (`general/format_buffer.hpp`, 네임스페이스 `dreamor::general`)
 | | |
 |---|---|
-| `FormatBuffer<N, Policy = OnFormatOverflow::kThrow>` | 이름용 고정 버퍼(`N`글자). private으로 상속하고 `format(fmt, args...)`을 부름. 돌려주는 `const char*`는 같은 객체의 다음 `format`까지 유효 (복사해 가는 `setName`에 바로 넘김). 열은 이름 토큰으로 출력 |
+| `FormatBuffer<N, Policy = OnFormatOverflow::kThrow>` | 이름용 고정 버퍼(`N`글자). 스레드마다 하나라서 객체는 아무것도 들고 있지 않음. private으로 상속하고 `format(fmt, args...)`을 부름. `format`은 static이라 `const` 멤버 함수에서도, 여러 스레드에서 동시에도 부를 수 있음. 돌려주는 `const char*`는 같은 스레드에서 같은 `FormatBuffer<N, Policy>`를 통한 다음 `format`까지 유효 (복사해 가는 `setName`에 바로 넘김). 열은 이름 토큰으로 출력 |
 | `OnFormatOverflow::kThrow`, `kLogAndClear` | 이름이 `N - 1`글자를 넘으면: `std::runtime_error`, 또는 경고와 빈 이름 (이때 `format`은 `noexcept`) |
 
 **로그** (`logger/logger_light.hpp`)

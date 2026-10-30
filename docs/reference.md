@@ -110,7 +110,7 @@ Every public type and function, by header. The [guide](guide.md) explains them i
 **Names** (`general/format_buffer.hpp`, namespace `dreamor::general`)
 | | |
 |---|---|
-| `FormatBuffer<N, Policy = OnFormatOverflow::kThrow>` | A fixed buffer of `N` chars for names. Inherit privately; `format(fmt, args...)` returns a `const char*` valid until the next `format` on the same object (hand it straight to `setName`, which copies it). A column formats as its name token |
+| `FormatBuffer<N, Policy = OnFormatOverflow::kThrow>` | A fixed buffer of `N` chars for names, one per thread: the object holds nothing. Inherit privately; `format(fmt, args...)` is static - a `const` member function calls it, and so do many threads at once - and returns a `const char*` valid until the thread's next `format` through any `FormatBuffer<N, Policy>` (hand it straight to `setName`, which copies it). A column formats as its name token |
 | `OnFormatOverflow::kThrow`, `kLogAndClear` | A name longer than `N - 1` chars: `std::runtime_error`, or a warning and an empty name (`format` is then `noexcept`) |
 
 **Logging** (`logger/logger_light.hpp`)
