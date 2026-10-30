@@ -14,6 +14,7 @@
 #include "dreamor/index_set.hpp"
 #include "dreamor/logger/logger_light.hpp"
 #include "float_compare.hpp"
+#include "ilconcert/ilomodel.h"
 
 using namespace dreamor;
 using namespace dreamor::concert;
@@ -152,6 +153,11 @@ int main() try {
     const FromCol i{&n1};
     const ToCol j{&n2};
     DREAMOR_CHECK(std::format("Cap_{}_{}", i, j) == "Cap_1_2");
+    // index_set/name_token.hpp (exprName)
+    const IloModel model(env);
+    const IloNumVar load(env, 0, 10);
+    model.add(load <= 5).setName(dreamor::exprName("Capacity", i, j));
+    DREAMOR_CHECK(std::string{dreamor::exprName("Capacity", i, j)} == "Capacity_1_2");
   }
 
   // logger/logger_light.hpp (FileSink): the lines go to the file for the scope, then back

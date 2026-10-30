@@ -210,9 +210,9 @@ const auto yieldPlan = vYield.solution(*result);   // std::logic_error if no pri
 - **Constraint for only some keys:** filter the driver set with `where` before the loop.
 - **Lower and upper constraint per key:** add both in the same iteration.
 - **One named global constraint (Concert):** `IloRange r = (expr <= B); r.setName("SetupBudget"); model.add(r);`
-- **Rows named like their variables (Concert):** a column prints as its name token, so
-  `model.add(expr <= m->capacity).setName(format("Cap_{}_{}", m, t));` with `format` from a class that privately
-  inherits `dreamor::general::FormatBuffer<256>` (or `std::format(...).c_str()`).
+- **Rows named like their variables:** `model.add(expr <= m->capacity).setName(dreamor::exprName("Cap", m, t));` -
+  `Cap_M1_3`, the tokens VarTable uses, with no allocation and no format string. For a name of another shape, a
+  column prints as its token under `std::format` or `format` from `dreamor::general::FormatBuffer<256>`.
 - **Duals and reduced costs:** use the solver API (`getDuals`, `dual_values()`). There is no keyed accessor.
 - **Several sums in one pass:** `.split(p1, p2).build()` returns `std::array<..., 2>` and computes each term once.
 - **Model in a struct:** the sets must be built before the `VarTable`s that take them - declare them as members before

@@ -3,6 +3,7 @@
 // value - and a column with no token has no formatter.
 #include <cstdint>
 #include <format>
+#include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -71,6 +72,24 @@ int main() try {
 
   // a row name, the way VarTable names a variable
   DREAMOR_CHECK(std::format("Cap_{}_{}_{}", MachineCol{&m3}, NodeCol{&n7}, PeriodCol{2}) == "Cap_M3_7_2");
+
+  // exprName: the same name with no format string, from columns and plain values alike; one buffer of
+  // the thread's for every exprName, so a name lives until the next
+  const MachineCol machine{&m3};
+  const NodeCol node{&n7};
+  const PeriodCol second{2};
+  DREAMOR_CHECK(std::string{dreamor::exprName("Cap", machine, node, second)} == "Cap_M3_7_2");
+  DREAMOR_CHECK(std::string{dreamor::exprName("Stock", ItemCol{items.data()}, GradeCol{"A"})} == "Stock_I-01_A");
+  DREAMOR_CHECK(std::string{dreamor::exprName("Tangent", node, std::size_t{3})} == "Tangent_7_3");
+  DREAMOR_CHECK(std::string{dreamor::exprName("Objective")} == "Objective");
+  const char* first = dreamor::exprName("A", node);
+  DREAMOR_CHECK(dreamor::exprName("B", machine, second) == first && std::string{first} == "B_M3_2");
+  const std::string tooLong(300, 'x');
+  bool overflowed = false;
+  try {
+    (void)dreamor::exprName(tooLong, node);
+  } catch (const std::runtime_error&) { overflowed = true; }
+  DREAMOR_CHECK(overflowed);
 
   // a column takes no format spec
   bool rejected = false;

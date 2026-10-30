@@ -7,6 +7,14 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `dreamor::exprName(family, keys...)`: a row named the way `VarTable` names variables, `"<family>_<key0>_<key1>..."`,
+  each key a column by its token or a value, built in a buffer of the thread's with no allocation and no format
+  string to read. `std::format` reads its format string on every call and reaches each column through a type-erased
+  formatter: on 111,500 names of the lot-sizing example it took 18.0 ms where this takes 4.6 ms, the same characters.
+  The pointer is valid until the thread's next `exprName`, as `FormatBuffer`'s is until its next `format`.
+- `general::NameBuilder` is public, with `restart(root)` to start a new name in the same builder: the name, part by
+  part, that `VarTable` and now `exprName` build.
+
 - `ValueTable<Keys...>{set, value}`: data on a set, AMPL's `param {S}`. `value` is a number or a callable over the
   row's columns, as a `VarTable`'s bounds are, and the table is read like a solution's. It shares the set's row
   index with every table on the set. A model that needed a number per row - a limit per group, a capacity per

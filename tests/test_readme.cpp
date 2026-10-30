@@ -16,7 +16,6 @@
 
 #include "check.hpp"
 #include "dreamor/concert.hpp"
-#include "dreamor/general/format_buffer.hpp"
 #include "dreamor/index_set.hpp"
 #include "float_compare.hpp"
 namespace {
@@ -81,7 +80,7 @@ struct FakeCplex {  // stand-in for solution(): every variable "solves" to its u
 };
 
 // README Quick start: the model class, as written there
-class LotSizing : private dreamor::general::FormatBuffer<256> {
+class LotSizing {
  public:
   LotSizing(IloEnv environment,
             const std::vector<const Machine*>& machines,
@@ -142,7 +141,7 @@ class LotSizing : private dreamor::general::FormatBuffer<256> {
     const auto machine_usage = [this](MachineCol m, ItemCol i, PeriodCol t) { return i->time * vYield(m, i, t); };
     for (const auto& [machine, period, rows] : sPRODUCE.groupBy<MachineCol, PeriodCol>()) {
       IloExpr totalLoad = dreamor::concert::sumOf(env, rows, machine_usage).build();
-      model.add(totalLoad <= machine->capacity).setName(format("Capacity_{}_{}", machine, period));
+      model.add(totalLoad <= machine->capacity).setName(dreamor::exprName("Capacity", machine, period));
       totalLoad.end();
     }
   }

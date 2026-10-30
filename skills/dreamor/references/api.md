@@ -211,7 +211,11 @@ set built by hand.
 
 No solver; the library uses them itself.
 
-- `dreamor/general/format_buffer.hpp`: `class Model : private dreamor::general::FormatBuffer<256>`, then
+- `dreamor::exprName(family, keys...)` (`index_set/name_token.hpp`): `"<family>_<key0>_<key1>..."`, a row named as
+  VarTable names variables - columns by their token, or values - in a buffer of the thread's, no allocation, no
+  format string; valid until the thread's next `exprName`. `general::NameBuilder<N>` builds such a name part by part
+  (`restart(root)`, `append(length, token)`, `name()`).
+- `dreamor/general/format_buffer.hpp`: for a name of another shape, `class Model : private dreamor::general::FormatBuffer<256>`, then
   `model.add(expr <= cap).setName(format("Capacity_{}_{}", m, t));`. A column formats as its name token; `format`
   is static, on a buffer of the thread's, so a `const` member function calls it and threads call it at once; the
   returned `const char*` is valid until the thread's next `format` through any `FormatBuffer<N, Policy>`. Too long a name throws (`kThrow`, the default) or logs and

@@ -123,6 +123,16 @@ class NameBuilder {
 
   [[nodiscard]] bool enabled() const noexcept { return enabled_; }
 
+  // Starts a new name at `root`, enabled: the buffer holds the root alone, and the returned length is
+  // where append() goes on - one builder makes name after name with no copy of itself.
+  std::size_t restart(std::string_view root) noexcept(Policy == OnFormatOverflow::kLogAndClear) {
+    enabled_                 = true;
+    const std::size_t copied = root.copy(buffer_.data(), kMaxLength);
+    buffer_[copied]          = '\0';
+    root_length_             = clamp(root.size());
+    return root_length_;
+  }
+
   [[nodiscard]] std::size_t rootLength() const noexcept { return root_length_; }
 
   // Appends "<separator><token>" at `length` and returns the new length.

@@ -112,6 +112,8 @@
 **이름** (`general/format_buffer.hpp`, 네임스페이스 `dreamor::general`)
 | | |
 |---|---|
+| `exprName(family, keys...)` (`index_set/name_token.hpp`, 네임스페이스 `dreamor`) | `"<family>_<key0>_<key1>..."`, `VarTable`이 변수 이름을 짓듯 지은 행 이름: 키는 열(그 토큰)이나 값. 스레드의 버퍼에서 만들어 할당도 서식 문자열도 없음. `const char*`는 같은 스레드의 다음 `exprName`까지 유효 (복사해 가는 `setName`에 바로 넘김). 255글자를 넘으면 `std::runtime_error` |
+| `NameBuilder<N, Policy = OnFormatOverflow::kThrow>` | `N`글자 자기 버퍼에 이름을 조각조각 만듦: `NameBuilder{root}`나 `restart(root)`, 그다음 토큰마다 `append(length, token, separator = "_")` (숫자는 `std::to_chars`, 문자열은 복사, 그 밖은 서식), `name()`. `VarTable`이 변수 이름을, `exprName`이 행 이름을 이것으로 지음 |
 | `FormatBuffer<N, Policy = OnFormatOverflow::kThrow>` | 이름용 고정 버퍼(`N`글자). 스레드마다 하나라서 객체는 아무것도 들고 있지 않음. private으로 상속하고 `format(fmt, args...)`을 부름. `format`은 static이라 `const` 멤버 함수에서도, 여러 스레드에서 동시에도 부를 수 있음. 돌려주는 `const char*`는 같은 스레드에서 같은 `FormatBuffer<N, Policy>`를 통한 다음 `format`까지 유효 (복사해 가는 `setName`에 바로 넘김). 열은 이름 토큰으로 출력 |
 | `OnFormatOverflow::kThrow`, `kLogAndClear` | 이름이 `N - 1`글자를 넘으면: `std::runtime_error`, 또는 경고와 빈 이름 (이때 `format`은 `noexcept`) |
 

@@ -136,7 +136,6 @@ linked by inventory.
 #include <ilcplex/ilocplex.h>
 #include "dreamor/index_set.hpp"
 #include "dreamor/concert.hpp"
-#include "dreamor/general/format_buffer.hpp"
 struct Item { std::string name; double time, hold; std::vector<double> demand; };
 struct Machine { std::string name; double capacity, setup; std::vector<const Item*> items; };
 
@@ -150,8 +149,8 @@ using ItemCol    = dreamor::Col<const Item*, "item">;
 using PeriodCol  = dreamor::Col<std::size_t, "period">;
 
 // 3) The model. Its sets come first - members are built in declaration order, and a VarTable takes its set.
-//    FormatBuffer gives it format(), which names rows the way VarTable names variables
-class LotSizing : private dreamor::general::FormatBuffer<256> {
+//    exprName names its rows the way VarTable names variables
+class LotSizing {
  public:
   LotSizing(IloEnv environment, const std::vector<const Machine*>& machines, const std::vector<const Item*>& items,
             const std::vector<std::size_t>& periods)
@@ -205,7 +204,7 @@ class LotSizing : private dreamor::general::FormatBuffer<256> {
     const auto machine_usage = [this](MachineCol m, ItemCol i, PeriodCol t) { return i->time * vYield(m, i, t); };
     for (const auto& [machine, period, rows] : sPRODUCE.groupBy<MachineCol, PeriodCol>()) {
       IloExpr totalLoad = dreamor::concert::sumOf(env, rows, machine_usage).build();
-      model.add(totalLoad <= machine->capacity).setName(format("Capacity_{}_{}", machine, period));
+      model.add(totalLoad <= machine->capacity).setName(dreamor::exprName("Capacity", machine, period));
       totalLoad.end();
     }
   }
@@ -255,7 +254,7 @@ Two headers dreamor uses itself, there for model code too. Neither depends on a 
 
 | Header | |
 |---|---|
-| `dreamor/general/format_buffer.hpp` | `dreamor::general::FormatBuffer<N>` builds names in a fixed buffer, with no allocation per name. A model class inherits it privately and names rows with `format(...)`; a column prints as the token its variables' names use, so `model.add(load <= cap).setName(format("Capacity_{}_{}", m, t))` names a row the way `VarTable` names variables |
+| `dreamor/index_set.hpp`, `dreamor/general/format_buffer.hpp` | `dreamor::exprName("Capacity", m, t)` names a row the way `VarTable` names variables - `Capacity_M1_3`, each column by its token - in a buffer of the thread's, with no allocation and no format string: `model.add(load <= cap).setName(dreamor::exprName("Capacity", m, t))`. `general::NameBuilder<N>` builds such names part by part, and `general::FormatBuffer<N>` formats any other name (`format(...)`, a column printing as its token) |
 | `dreamor/logger/logger_light.hpp` | `DREAMOR_LOG_INFO` / `WARNING` / `ERROR` / `FATAL(fmt, args...)` write a line with the elapsed time, the call site and the level, the text through `std::format`, checked at compile time. `DREAMOR_DEBUG_*` vanish under `NDEBUG`, arguments and all. `dreamor::logger::FileSink sink{"model.log"};` sends the thread's lines to a file until the scope ends |
 
 The [API reference](docs/reference.md#utilities) lists the rest.

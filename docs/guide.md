@@ -218,8 +218,9 @@ const dreamor::concert::VarTable<KeyCols...> vName{env, set, lb, ub, type, "Name
 - Defaults when omitted: `lb = 0`, `ub = IloInfinity`, `ILOFLOAT`, no name.
 - Semi-continuous variables: `dreamor::concert::VarTable<...> vBatch{dreamor::concert::semiContinuous, env, sBATCH, sclb, ub, ILOFLOAT, "Batch"};`
 - Names are `name_key0_key1...` (`Yield_M0_I3_2`). Key tokens come from the `keyName()` hook (or `primaryKey()`).
-  `nullptr` means no name. A column under `std::format` prints the same token, so a row can be named the way its
-  variables are: `std::format("Cap_{}_{}", m, t)` (or a `FormatBuffer`'s `format`).
+  `nullptr` means no name. A row is named the way its variables are with `dreamor::exprName("Cap", m, t)` - the same
+  tokens, in a buffer of the thread's, with no format string to read; a column under `std::format` (or a
+  `FormatBuffer`'s `format`) prints the same token, for a name of another shape.
 - A VarTable takes its set in its constructor, so the set must be built first. When you bundle a model into a struct,
   either declare the sets as members before the VarTables (members are constructed in declaration order) or put them
   in a base class (a base is constructed before the members). The example's `Sets` / `Model` takes the base class.
@@ -306,6 +307,23 @@ model.add(setupBudget);
 - If only some keys have a constraint, filter the driver set with `where` first.
 - Add names with `setName` when you need them. They help when reading LP exports or conflict analysis (finding the
   cause of infeasibility).
+
+## Names
+
+A model names its variables and rows by one rule, `<family>_<key0>_<key1>...`, each key by its token (`keyName()`,
+else `primaryKey()`, else the value). Two tools cover it; the other two are for the exceptions.
+
+| Tool | Who uses it | What it does |
+|---|---|---|
+| `VarTable` | every model | names its variables itself (`Yield_M1_I3_2`): nothing to call |
+| `dreamor::exprName(family, keys...)` | whatever else needs a name | the same rule for one name - a row, or a variable made outside a set: `model.add(load <= cap).setName(dreamor::exprName("Capacity", m, t))`. A key without one is a literal (`"SetupBudget"`) |
+| `general::FormatBuffer<N>::format` | rarely | a name of another shape (`x[1,2]`, a number as `{:.2f}`), from a format string; a column prints as its token |
+| `general::NameBuilder<N>` | more rarely | a name put together part by part - down a tree, say, a level at a time; what `VarTable` and `exprName` are built on |
+
+`exprName` and `format` build in a buffer of the thread's and return a pointer valid until the thread's next call:
+hand it straight to `setName`, `AddLinearConstraint` or `addConstr`, which copy it. `exprName` reads no format
+string - `std::format` reads one on every call - so a model that names tens of thousands of rows takes a fraction of
+the time.
 
 ## Reading solutions
 

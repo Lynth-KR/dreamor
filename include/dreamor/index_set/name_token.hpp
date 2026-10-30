@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // File: name_token.hpp
 // The token a column contributes to a name: what VarTable writes for each key in
-// "<name>_<key0>_<key1>...", and what a column prints as under std::format, so that a row can
-// be named the way its variables are (from a FormatBuffer, or std::format):
+// "<name>_<key0>_<key1>...", what exprName writes for a row, and what a column prints as under
+// std::format, so that a row can be named the way its variables are:
 //
 //     const FromCol i{&n1};
 //     const ToCol j{&n2};
@@ -12,9 +12,12 @@
 // primaryKey() - has no formatter, so formatting it does not compile.
 #pragma once
 
+#include <cstddef>
 #include <format>
+#include <string_view>
 #include <type_traits>
 
+#include "dreamor/general/format_buffer.hpp"
 #include "dreamor/index_set/column.hpp"
 #include "dreamor/logger/logger_light.hpp"
 
@@ -77,6 +80,52 @@ template <typename Column>
 concept has_name_token = is_column<Column> && (has_key_name<Column> || has_primary_key_name<Column>);
 
 }  // namespace dreamor::internal
+
+namespace dreamor::internal {
+
+// A key's token as a name takes it: a column with no token of its own (an int period, a string
+// grade) by its value, so that a number goes through std::to_chars rather than a formatter.
+template <typename Key>
+[[nodiscard]] decltype(auto) plainNameToken(const Key& key) {
+  if constexpr (is_column<Key> && !has_name_token<Key>) {
+    return key.get();
+  } else {
+    return toNameToken(key);
+  }
+}
+
+// The longest name exprName builds, with its terminator: FormatBuffer's usual size.
+inline constexpr std::size_t kExprNameSize = 256;
+
+// The thread's builder for exprName: one for every exprName, whatever its keys.
+[[nodiscard]] inline general::NameBuilder<kExprNameSize>& exprNameBuilder() {
+  thread_local general::NameBuilder<kExprNameSize> builder{""};
+  return builder;
+}
+
+}  // namespace dreamor::internal
+
+namespace dreamor {
+
+// A row's name, the way VarTable names its variables: "<family>_<key0>_<key1>...", each key a column
+// (by the token it gives a variable's name) or a value. It is built in a buffer of the thread's, with no
+// allocation and no format string to read - std::format reads one each call - so the pointer it returns
+// is valid until the thread's next exprName: hand it straight to setName, AddLinearConstraint or
+// addConstr, which copy it. A name longer than 255 characters throws std::runtime_error, as
+// FormatBuffer's format does.
+//
+//     model.add(load <= cap).setName(dreamor::exprName("Capacity", m, t));   // "Capacity_M1_3"
+template <typename... Keys>
+  requires(internal::is_nameable<Keys> && ...)
+[[nodiscard]] const char* exprName(std::string_view family, const Keys&... keys) {
+  general::NameBuilder<internal::kExprNameSize>& names = internal::exprNameBuilder();
+  // NOLINTNEXTLINE(misc-const-correctness): each key assigns it; with none (a family alone) nothing does
+  [[maybe_unused]] std::size_t length = names.restart(family);
+  ((length = names.append(length, internal::plainNameToken(keys))), ...);
+  return names.name();
+}
+
+}  // namespace dreamor
 
 // A column prints as its name token: format("Cap_{}_{}", i, j) names a row the way VarTable
 // names its variables. The token is printed as it is; a column takes no format spec.

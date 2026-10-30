@@ -109,9 +109,11 @@ Every public type and function, by header. The [guide](guide.md) explains them i
 
 ## Utilities
 
-**Names** (`general/format_buffer.hpp`, namespace `dreamor::general`)
+**Names** (`exprName` in `index_set/name_token.hpp`, namespace `dreamor`; the rest in `general/format_buffer.hpp`, namespace `dreamor::general`)
 | | |
 |---|---|
+| `exprName(family, keys...)` | `"<family>_<key0>_<key1>..."`, a row named the way `VarTable` names variables: each key a column (by its token) or a value. In a buffer of the thread's, with no allocation and no format string; the `const char*` is valid until the thread's next `exprName` (hand it to `setName`, which copies it). Longer than 255 chars: `std::runtime_error` |
+| `NameBuilder<N, Policy = OnFormatOverflow::kThrow>` | A name built part by part in its own buffer of `N` chars: `NameBuilder{root}` or `restart(root)`, then `append(length, token, separator = "_")` a token at a time (a number through `std::to_chars`, text copied, anything else formatted), `name()`. What `VarTable` names its variables with, and `exprName` its rows |
 | `FormatBuffer<N, Policy = OnFormatOverflow::kThrow>` | A fixed buffer of `N` chars for names, one per thread: the object holds nothing. Inherit privately; `format(fmt, args...)` is static - a `const` member function calls it, and so do many threads at once - and returns a `const char*` valid until the thread's next `format` through any `FormatBuffer<N, Policy>` (hand it straight to `setName`, which copies it). A column formats as its name token |
 | `OnFormatOverflow::kThrow`, `kLogAndClear` | A name longer than `N - 1` chars: `std::runtime_error`, or a warning and an empty name (`format` is then `noexcept`) |
 

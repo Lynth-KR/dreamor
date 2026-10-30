@@ -211,7 +211,8 @@ const dreamor::concert::VarTable<키 열...> vName{env, 집합, lb, ub, type, "N
 - 반연속 변수: `dreamor::concert::VarTable<...> vBatch{dreamor::concert::semiContinuous, env, sBATCH, sclb, ub, ILOFLOAT, "Batch"};`
 - 이름은 `이름_키0_키1...` (`Yield_M0_I3_2`). 키 토큰은 `keyName()` 훅(없으면 `primaryKey()`)에서 옵니다. `nullptr`이면 이름 없음.
   열을 `std::format`에 넘기면 같은 토큰이 출력되므로, 행 이름도 변수 이름과 같은 방식으로 지을 수 있습니다:
-  `std::format("Cap_{}_{}", m, t)` (또는 `FormatBuffer`의 `format`).
+  `dreamor::exprName("Cap", m, t)` (같은 토큰을 스레드의 버퍼에서, 서식 문자열 없이). 다른 모양의 이름은
+  `std::format`(또는 `FormatBuffer`의 `format`)으로: 열은 같은 토큰으로 출력됩니다.
 - VarTable은 생성자에서 집합을 받으므로 집합이 먼저 만들어져 있어야 합니다. 모델을 구조체로 묶을 때는 집합을
   VarTable보다 먼저 선언한 멤버로 두거나(멤버는 선언 순서대로 만들어집니다), 기반 클래스에 둡니다(기반 클래스가
   멤버보다 먼저 만들어집니다). 예제의 `Sets` / `Model`은 기반 클래스를 씁니다.
@@ -293,6 +294,22 @@ model.add(setupBudget);
 - 한 키에 제약이 둘(하한·상한)이면 루프 안에서 둘 다 추가합니다.
 - 일부 키에만 제약이 있으면 드라이버 집합을 먼저 `where`로 거릅니다.
 - 이름은 필요할 때 `setName`으로 붙입니다. LP 내보내기나 충돌 분석(infeasible 원인 찾기) 결과를 읽을 때 유용합니다.
+
+## 이름
+
+모형은 변수와 행을 한 규칙으로 짓습니다: `<family>_<key0>_<key1>...`, 키마다 그 토큰(`keyName()`, 없으면
+`primaryKey()`, 없으면 값). 도구 둘이면 충분하고, 나머지 둘은 예외를 위한 것입니다.
+
+| 도구 | 누가 쓰나 | 하는 일 |
+|---|---|---|
+| `VarTable` | 모든 모형 | 변수 이름을 스스로 짓습니다(`Yield_M1_I3_2`). 부를 것이 없습니다 |
+| `dreamor::exprName(family, keys...)` | 그 밖에 이름이 필요한 모든 것 | 같은 규칙으로 이름 하나: 행, 또는 집합 밖에서 만든 변수. `model.add(load <= cap).setName(dreamor::exprName("Capacity", m, t))`. 키가 없으면 문자열 리터럴(`"SetupBudget"`) |
+| `general::FormatBuffer<N>::format` | 드물게 | 모양이 다른 이름(`x[1,2]`, 숫자를 `{:.2f}`로)을 서식 문자열로. 열은 토큰으로 출력 |
+| `general::NameBuilder<N>` | 더 드물게 | 조각을 이어 붙여 만드는 이름 - 예컨대 트리를 한 단계씩 내려가며. `VarTable`과 `exprName`이 이것으로 짓습니다 |
+
+`exprName`과 `format`은 스레드의 버퍼에 만들고, 같은 스레드의 다음 호출까지 유효한 포인터를 돌려줍니다. 복사해 가는
+`setName`, `AddLinearConstraint`, `addConstr`에 바로 넘기세요. `exprName`은 서식 문자열을 읽지 않아서
+(`std::format`은 호출마다 읽습니다) 행 수만 개에 이름을 붙이는 모형에서 시간이 몇 분의 일로 줍니다.
 
 ## 해 읽기
 

@@ -133,7 +133,6 @@ CPLEX는 공식 CMake 설정이 없으므로 쓰던 방식대로 링크합니다
 #include <ilcplex/ilocplex.h>
 #include "dreamor/index_set.hpp"
 #include "dreamor/concert.hpp"
-#include "dreamor/general/format_buffer.hpp"
 struct Item { std::string name; double time, hold; std::vector<double> demand; };
 struct Machine { std::string name; double capacity, setup; std::vector<const Item*> items; };
 
@@ -147,8 +146,8 @@ using ItemCol    = dreamor::Col<const Item*, "item">;
 using PeriodCol  = dreamor::Col<std::size_t, "period">;
 
 // 3) 모형. 집합이 먼저 옵니다 - 멤버는 선언 순서대로 만들어지고, VarTable은 집합을 받습니다.
-//    FormatBuffer가 format()을 주어, VarTable이 변수 이름을 짓듯 행 이름을 짓습니다
-class LotSizing : private dreamor::general::FormatBuffer<256> {
+//    exprName이 VarTable이 변수 이름을 짓듯 행 이름을 짓습니다
+class LotSizing {
  public:
   LotSizing(IloEnv environment, const std::vector<const Machine*>& machines, const std::vector<const Item*>& items,
             const std::vector<std::size_t>& periods)
@@ -201,7 +200,7 @@ class LotSizing : private dreamor::general::FormatBuffer<256> {
     const auto machine_usage = [this](MachineCol m, ItemCol i, PeriodCol t) { return i->time * vYield(m, i, t); };
     for (const auto& [machine, period, rows] : sPRODUCE.groupBy<MachineCol, PeriodCol>()) {
       IloExpr totalLoad = dreamor::concert::sumOf(env, rows, machine_usage).build();
-      model.add(totalLoad <= machine->capacity).setName(format("Capacity_{}_{}", machine, period));
+      model.add(totalLoad <= machine->capacity).setName(dreamor::exprName("Capacity", machine, period));
       totalLoad.end();
     }
   }
@@ -250,7 +249,7 @@ dreamor가 스스로 쓰는 헤더 두 개로, 모델 코드에서도 쓸 수 �
 
 | 헤더 | |
 |---|---|
-| `dreamor/general/format_buffer.hpp` | `dreamor::general::FormatBuffer<N>`는 고정 버퍼에 이름을 만들어서, 이름마다 메모리를 할당하지 않습니다. 모델 클래스가 private으로 상속하고 `format(...)`으로 행 이름을 짓습니다. 열은 변수 이름에 쓰이는 토큰으로 출력되므로, `model.add(load <= cap).setName(format("Capacity_{}_{}", m, t))`는 `VarTable`이 변수 이름을 짓는 방식대로 행 이름을 짓습니다 |
+| `dreamor/index_set.hpp`, `dreamor/general/format_buffer.hpp` | `dreamor::exprName("Capacity", m, t)`는 `VarTable`이 변수 이름을 짓는 방식대로 행 이름을 짓습니다(`Capacity_M1_3`, 열마다 그 토큰). 스레드의 버퍼에서 만들어 할당도, 서식 문자열도 없습니다: `model.add(load <= cap).setName(dreamor::exprName("Capacity", m, t))`. `general::NameBuilder<N>`는 그런 이름을 조각조각 만들고, `general::FormatBuffer<N>`는 그 밖의 이름을 서식으로 만듭니다(`format(...)`, 열은 토큰으로 출력) |
 | `dreamor/logger/logger_light.hpp` | `DREAMOR_LOG_INFO` / `WARNING` / `ERROR` / `FATAL(fmt, args...)`는 경과 시간, 호출 위치, 수준과 함께 한 줄을 쓰고, 본문은 컴파일 시점에 검사되는 `std::format`으로 만듭니다. `DREAMOR_DEBUG_*`는 `NDEBUG`에서 인자까지 통째로 사라집니다. `dreamor::logger::FileSink sink{"model.log"};`는 그 범위가 끝날 때까지 이 스레드의 로그를 파일로 보냅니다 |
 
 나머지는 [API 목록](docs/ko/reference.md#유틸리티)에 있습니다.
