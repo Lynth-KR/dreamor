@@ -237,6 +237,21 @@ template <typename Tup>
   return internal::SetAccess::make(std::move(out));
 }
 
+// A = B: the same rows, in any order - a set's equality, as std::unordered_set's. Neither holds a
+// row twice, so equal sizes and every row of A in B say it. Whether the rows also come in the same
+// order is std::ranges::equal(A, B).
+template <typename Tup>
+[[nodiscard]] bool operator==(const IndexSet<Tup>& left, const IndexSet<Tup>& right) {
+  const auto& left_rows  = internal::SetAccess::rows(left);
+  const auto& right_rows = internal::SetAccess::rows(right);
+  if (left_rows.size() != right_rows.size()) { return false; }
+  if (left_rows.data() == right_rows.data()) { return true; }  // copies of one set share its rows
+  const auto index    = internal::indexRows(right_rows);
+  const auto at       = internal::rowsAt(right_rows);
+  const auto in_right = [&](const Tup& row) { return index.find(row, at) != internal::TupleIndex<Tup>::kNotFound; };
+  return std::ranges::all_of(left_rows, in_right);
+}
+
 // O(1) membership test, so one set can filter another during generation instead of
 // intersecting afterwards:
 //

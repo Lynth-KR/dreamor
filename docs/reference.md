@@ -32,6 +32,7 @@ Every public type and function, by header. The [guide](guide.md) explains them i
 | `membership()` | → `Membership` |
 | `ordered()` | → `Ordered` |
 | `unite(A, B)`, `intersect(A, B)`, `difference(A, B)` | Binary operations → `IndexSet` |
+| `A == B`, `A != B` | The same rows, in any order |
 
 **EntityVector** (`entity_vector.hpp`)
 | | |

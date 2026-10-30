@@ -32,6 +32,7 @@
 | `membership()` | → `Membership` |
 | `ordered()` | → `Ordered` |
 | `unite(A, B)`, `intersect(A, B)`, `difference(A, B)` | 이항 연산 → `IndexSet` |
+| `A == B`, `A != B` | 같은 행, 순서 무관 |
 
 **EntityVector** (`entity_vector.hpp`)
 | | |

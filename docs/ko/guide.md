@@ -137,6 +137,7 @@ const auto sMAKE_STAGED = dreamor::makeSet<MachineCol>(machines, sOPEN).where(fi
 | `dreamor::unite(A, B)` | A ∪ B |
 | `dreamor::intersect(A, B)` | A ∩ B |
 | `dreamor::difference(A, B)` | A \ B |
+| `A == B` | 같은 행, 순서 무관 (순서까지는 `std::ranges::equal(A, B)`) |
 
 ```cpp
 const auto sPEAK_PRODUCE  = sPRODUCE.where(is_peak);                  // 수요가 몰리는 기간의 생산 행

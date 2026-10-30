@@ -141,6 +141,7 @@ O(1) and shares the rows.
 | `dreamor::unite(A, B)` | A ∪ B |
 | `dreamor::intersect(A, B)` | A ∩ B |
 | `dreamor::difference(A, B)` | A \ B |
+| `A == B` | The same rows, in any order (`std::ranges::equal(A, B)` compares the order too) |
 
 ```cpp
 const auto sPEAK_PRODUCE  = sPRODUCE.where(is_peak);                  // production rows in peak-demand periods

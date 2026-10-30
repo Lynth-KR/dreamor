@@ -111,6 +111,15 @@ int main() try {
   DREAMOR_CHECK(dreamor::intersect(IJ, IJ.where(even)).size() == 6);
   DREAMOR_CHECK(dreamor::difference(IJ, IJ.where(even)).size() == 6);
 
+  // equality: the same rows, in any order; order is std::ranges::equal's business
+  const auto reversed =
+      IJ.orderBy([](const auto& row) { return -static_cast<std::ptrdiff_t>(std::get<ICol>(row).get()); });
+  DREAMOR_CHECK(reversed == IJ && IJ == reversed && !std::ranges::equal(reversed, IJ));
+  DREAMOR_CHECK(IJ == IJ && dreamor::unite(IJ.where(even), dreamor::difference(IJ, IJ.where(even))) == IJ);
+  DREAMOR_CHECK(IJ != IJ.where(even) && IJ.where(even) != dreamor::difference(IJ, IJ.where(even)));
+  DREAMOR_CHECK(IJ.where(even).size() == dreamor::difference(IJ, IJ.where(even)).size());  // same size, other rows
+  DREAMOR_CHECK(IJ.where([](ICol) { return false; }) == dreamor::SetOf<ICol, JCol>{});
+
   // the visit order: with no predicate to tell them apart, a dependent source goes before a
   // container - its list per binding is usually the shorter - and containers keep declaration order
   {

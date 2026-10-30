@@ -80,7 +80,8 @@ random-access, default-constructible (empty), O(1) copy sharing rows.
 | `membership()` | `Membership` | `(m,i) in S` |
 | `ordered()` | `Ordered` | ordered set |
 
-Free functions: `dreamor::unite(A, B)` (∪), `intersect(A, B)` (∩), `difference(A, B)` (\).
+Free functions: `dreamor::unite(A, B)` (∪), `intersect(A, B)` (∩), `difference(A, B)` (\). `A == B`: the same rows in
+any order, as `std::unordered_set`'s; `std::ranges::equal(A, B)` compares the order too.
 
 In generic code where the set type is a template parameter: `sANY.template select<A>()`.
 

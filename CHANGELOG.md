@@ -13,6 +13,8 @@ and versions follow [Semantic Versioning](https://semver.org/).
   machine and period - kept it in a map keyed by entity pointers; now it is keyed like everything else on the set.
   A `ValueTable` is a column callable itself, so it is a `VarTable`'s bound or another `ValueTable`'s value as it is;
   every backend's `VarTable` takes its bounds by `const&`, so such a bound is not copied.
+- `A == B` on sets: the same rows, in any order, as `std::unordered_set`'s equality - a set holds no row twice, so
+  equal sizes and every row of `A` in `B` say it. `std::ranges::equal(A, B)` still compares the order too.
 
 ### Changed
 
