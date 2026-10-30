@@ -45,7 +45,7 @@ static_assert(!std::is_copy_constructible_v<dreamor::EntityVector<Machine>> &&
               std::is_nothrow_move_constructible_v<dreamor::EntityVector<Machine>>);
 
 int main() try {
-  // insert and emplace: the element with the key, and whether it went in - as std::set does
+  // insert and emplace: the element with the key, by its address, and whether it went in - as std::set does
   dreamor::EntityVector<Machine> machines;
   const auto [m1, m1_new] = machines.emplace("M1", 40.0);
   DREAMOR_CHECK(m1_new && m1->code == "M1" && machines.size() == 1);
@@ -54,7 +54,7 @@ int main() try {
   DREAMOR_CHECK(machines.insert(Machine{"M2", 25.0}).second && machines.size() == 2);
 
   // by key, and in insertion order
-  DREAMOR_CHECK(machines.contains("M2") && !machines.contains("M3"));
+  DREAMOR_CHECK(machines.contains("M2") && !machines.contains("M3") && machines.find("M3") == nullptr);
   DREAMOR_CHECK(machines.find("M2")->code == "M2" && machines[0].code == "M1" && machines.back().code == "M2");
 
   // elements never move: a pointer taken early still points at its entity after many more
@@ -63,9 +63,10 @@ int main() try {
     machines.emplace("M" + std::to_string(i), 1.0);
   }
   DREAMOR_CHECK(&machines.front() == first && first->code == "M1" && machines.size() == 1999);
+  DREAMOR_CHECK(m1 == first && again == first);  // what emplace and insert returned lasts too
   bool all_found = true;
   for (const auto& m : machines) {
-    all_found = all_found && &*machines.find(m.code) == &m;
+    all_found = all_found && machines.find(m.code) == &m;
   }
   DREAMOR_CHECK(all_found);
 

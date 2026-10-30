@@ -228,7 +228,7 @@ int main() try {
     dreamor::EntityVector<Machine> plant;
     const auto [first, inserted] = plant.emplace(Machine{"M1", 40.0, 5.0, {}});
     const auto sRUN              = dreamor::makeSet<MachineCol, PeriodCol>(plant, periods).collect();
-    plant.modify(&*first, [](Machine& m) { m.setup = 4.0; });
+    plant.modify(first, [](Machine& m) { m.setup = 4.0; });
     DREAMOR_CHECK(inserted && !plant.emplace(Machine{"M1", 1.0, 1.0, {}}).second && sRUN.size() == periods.size() &&
                   exactlyEqual(plant.front().setup, 4.0));
   }

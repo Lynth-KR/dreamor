@@ -19,15 +19,17 @@
 //     inline auto primaryKey(const Route& r) { return std::tuple{r.plant, r.code}; }   // composite
 //
 //     dreamor::EntityVector<Machine> machines;
-//     const auto [at, inserted] = machines.emplace("M1", 40.0);   // inserted == false: M1 was there
+//     const auto [m1, inserted] = machines.emplace("M1", 40.0);   // inserted == false: M1 was there
 //     makeSet<MachineCol, PeriodCol>(machines, periods)            // a container source, as any
 //
 // It reads like a std::vector and inserts like a std::set:
 //   - insert / emplace return {the element with that key, whether it went in}, as std::set's
-//     do. Ignoring the bool is the caller's business.
+//     do - the element by its address, the handle that lasts. Ignoring the bool is the caller's
+//     business.
 //   - Elements never move: they live in a std::deque, which keeps references valid as it grows,
 //     so a pointer taken into the model stays the entity's. There is no erase, for the same
-//     reason.
+//     reason. Its iterators do not last: the deque's are all invalidated by the next insert, so
+//     an iterator is for walking the container, not for holding on to an element.
 //   - Access is const. An element changes only through modify(entity, fn), as in
 //     Boost.MultiIndex: fn gets it mutable, and its primary key must come out the same. Meant
 //     for writing results back once the model is built - sets are snapshots, and a predicate
@@ -111,14 +113,17 @@ class EntityVector {
   [[nodiscard]] const T& back() const { return items_.back(); }
 
   // {the element with this key, whether it went in}: false when the key was already held,
-  // and the element stays as it was.
-  std::pair<const_iterator, bool> insert(const T& entity) { return emplace(entity); }
-  std::pair<const_iterator, bool> insert(T&& entity) { return emplace(std::move(entity)); }
+  // and the element stays as it was. The element comes as its address, which lasts as long as
+  // the container - an iterator would not outlive the next insert (std::deque's do not), and the
+  // address is what a column of entities holds anyway, as std::vector::emplace_back returns the
+  // element rather than an iterator to it.
+  std::pair<const T*, bool> insert(const T& entity) { return emplace(entity); }
+  std::pair<const T*, bool> insert(T&& entity) { return emplace(std::move(entity)); }
 
   // Builds the element in place, then keeps it only if its key is new. If indexing throws, the
   // element goes again and the container is as it was.
   template <typename... Args>
-  std::pair<const_iterator, bool> emplace(Args&&... args) {
+  std::pair<const T*, bool> emplace(Args&&... args) {
     items_.emplace_back(std::forward<Args>(args)...);
     const std::size_t entry = items_.size() - 1;
     std::size_t held        = Index::kNotFound;
@@ -130,17 +135,17 @@ class EntityVector {
     }
     if (held != Index::kNotFound) {
       items_.pop_back();
-      return {positionOf(held), false};
+      return {&items_[held], false};
     }
-    return {positionOf(entry), true};
+    return {&items_[entry], true};
   }
 
-  // The element with this key, or end().
-  [[nodiscard]] const_iterator find(const key_type& key) const {
+  // The element with this key, by its address as insert and emplace give it, or null.
+  [[nodiscard]] const T* find(const key_type& key) const {
     const std::size_t found = index_.find(asIndexKey(key), keyAt());
-    return found == Index::kNotFound ? end() : positionOf(found);
+    return found == Index::kNotFound ? nullptr : &items_[found];
   }
-  [[nodiscard]] bool contains(const key_type& key) const { return find(key) != end(); }
+  [[nodiscard]] bool contains(const key_type& key) const { return find(key) != nullptr; }
 
   // Changes one element: fn(T&). The element must be one of this container's, and its primary
   // key must not change - both preconditions, checked by a debug build.
@@ -179,10 +184,6 @@ class EntityVector {
 
   [[nodiscard]] auto keyAt() const {
     return [this](std::size_t entry) { return internal::indexKeyOf(items_[entry]); };
-  }
-
-  [[nodiscard]] const_iterator positionOf(std::size_t position) const {
-    return items_.cbegin() + static_cast<std::deque<T>::difference_type>(position);
   }
 
   std::deque<T> items_;

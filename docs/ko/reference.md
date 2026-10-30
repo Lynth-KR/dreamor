@@ -37,8 +37,9 @@
 | | |
 |---|---|
 | `primaryKey(const T&)` | `T` 옆의 ADL 훅: 무엇이 그것을 식별하는지(값 또는 `std::tuple`). `dreamor::Entity<T>`가 이를 확인 |
-| `insert(entity)`, `emplace(args...)` | `{그 키의 원소를 가리키는 반복자, 들어갔는지}` |
-| `find(key)`, `contains(key)` | 기본 키로 찾기 |
+| `insert(entity)`, `emplace(args...)` | `std::pair<const T*, bool>`: `{그 키의 원소의 주소, 들어갔는지}` |
+| `find(key)` | `const T*`: 그 키의 원소, 없으면 `nullptr` |
+| `contains(key)` | 그 키의 원소가 있는지 |
 | `operator[]`, `at`, `front`, `back`, `begin`, `end`, `cbegin`, `cend`, `size`, `empty` | const 접근, 삽입 순서 |
 | `value_type`, `key_type`, `size_type`, `const_iterator` (= `iterator`) | 멤버 타입. 표준 컨테이너와 같은 이름이며, `key_type`은 `primaryKey()`가 돌려주는 타입 |
 | `modify(entity, fn)` | 원소 하나에 `fn(T&)`; 키는 바뀌면 안 됨 |

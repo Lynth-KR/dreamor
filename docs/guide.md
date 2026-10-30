@@ -39,11 +39,13 @@ inline const std::string& primaryKey(const Machine& m) { return m.name; }     //
 dreamor::EntityVector<Machine> plant;
 const auto [first, inserted] = plant.emplace(Machine{"M1", 40.0, 5.0, {}});   // inserted == false: M1 was there
 const auto sRUN = dreamor::makeSet<MachineCol, PeriodCol>(plant, periods).collect();
-plant.modify(&*first, [](Machine& m) { m.setup = 4.0; });                     // the one way to change one
+plant.modify(first, [](Machine& m) { m.setup = 4.0; });                        // the one way to change one
 ```
 
 - It reads like `std::vector` - indexing, iteration in insertion order, `size()` - and inserts like `std::set`:
-  `insert` and `emplace` return `{the element with that key, whether it went in}`; `find(key)`, `contains(key)`.
+  `insert` and `emplace` return `{the element with that key, whether it went in}`, and `find(key)` the element or
+  null, `contains(key)` whether it is there. An element comes by its address, the handle that lasts: an iterator
+  would not outlive the next insert.
 - Elements never move (a `std::deque` underneath) and nothing is erased, so pointers into the model stay the
   entity's. Copying is deleted - a copy would be a second object for every entity; moving keeps each in place.
 - Access is const. `modify(entity, fn)` changes one in place, and its primary key must come out the same (a debug

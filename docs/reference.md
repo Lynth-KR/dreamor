@@ -37,8 +37,9 @@ Every public type and function, by header. The [guide](guide.md) explains them i
 | | |
 |---|---|
 | `primaryKey(const T&)` | ADL hook next to `T`: what identifies it (a value or a `std::tuple`). `dreamor::Entity<T>` checks for it |
-| `insert(entity)`, `emplace(args...)` | `{iterator to the element with that key, whether it went in}` |
-| `find(key)`, `contains(key)` | By primary key |
+| `insert(entity)`, `emplace(args...)` | `std::pair<const T*, bool>`: `{the element with that key, by its address, whether it went in}` |
+| `find(key)` | `const T*`: the element with that key, or `nullptr` |
+| `contains(key)` | Whether an element has that key |
 | `operator[]`, `at`, `front`, `back`, `begin`, `end`, `cbegin`, `cend`, `size`, `empty` | Const access, insertion order |
 | `value_type`, `key_type`, `size_type`, `const_iterator` (= `iterator`) | Member types, named as the standard containers name them; `key_type` is what `primaryKey()` returns |
 | `modify(entity, fn)` | `fn(T&)` on one element; its key must not change |

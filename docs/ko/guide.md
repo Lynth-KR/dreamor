@@ -38,11 +38,12 @@ inline const std::string& primaryKey(const Machine& m) { return m.name; }     //
 dreamor::EntityVector<Machine> plant;
 const auto [first, inserted] = plant.emplace(Machine{"M1", 40.0, 5.0, {}});   // inserted == false: M1 was there
 const auto sRUN = dreamor::makeSet<MachineCol, PeriodCol>(plant, periods).collect();
-plant.modify(&*first, [](Machine& m) { m.setup = 4.0; });                     // the one way to change one
+plant.modify(first, [](Machine& m) { m.setup = 4.0; });                        // the one way to change one
 ```
 
 - 읽기는 `std::vector`처럼(인덱스, 삽입 순서 순회, `size()`), 넣기는 `std::set`처럼 합니다. `insert`와 `emplace`는
-  `{그 키의 원소, 들어갔는지}`를 돌려줍니다. `find(key)`, `contains(key)`도 있습니다.
+  `{그 키의 원소, 들어갔는지}`를, `find(key)`는 그 원소나 null을, `contains(key)`는 있는지를 돌려줍니다. 원소는
+  주소로 줍니다. 반복자는 다음 삽입에서 무효가 되지만 주소는 유지되기 때문입니다.
 - 원소는 움직이지 않고(내부는 `std::deque`) 지우지도 않으므로, 모델에 넘긴 포인터는 계속 그 엔티티를 가리킵니다.
   복사는 막혀 있습니다(복사본은 모든 엔티티의 두 번째 객체입니다). 이동해도 원소는 제자리에 있습니다.
 - 접근은 const입니다. `modify(entity, fn)`이 원소 하나를 제자리에서 바꾸며, 기본 키는 그대로여야 합니다(디버그

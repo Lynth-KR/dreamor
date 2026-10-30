@@ -130,7 +130,7 @@ static void runDreamor(const Keys<K>& keys, Result& r) {
   r.measure("find_miss", [&] {
     std::uint64_t found = 0;
     for (const std::uint32_t i : keys.order) {
-      found += items.find(keys.absent[i]) != items.end();
+      found += items.find(keys.absent[i]) != nullptr;
     }
     r.check("find_miss", found);
   });

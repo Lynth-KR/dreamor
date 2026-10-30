@@ -32,8 +32,8 @@ the type: `inline const std::string& primaryKey(const Machine& m) { return m.nam
 
 | Member | Result |
 |---|---|
-| `insert(entity)`, `emplace(args...)` | `std::pair<const_iterator, bool>`: the element with that key, whether it went in (as `std::set`) |
-| `find(key)`, `contains(key)` | by primary key; `find` gives `end()` when absent |
+| `insert(entity)`, `emplace(args...)` | `std::pair<const T*, bool>`: the element with that key by its address, whether it went in (as `std::set`) |
+| `find(key)`, `contains(key)` | by primary key; `find` gives the element's address, `nullptr` when absent |
 | `operator[]`, `at`, `front`, `back`, `begin`, `end`, `cbegin`, `cend`, `size`, `empty` | const access, insertion order |
 | `value_type`, `key_type`, `size_type`, `const_iterator` (= `iterator`) | member types, as the standard containers name them; `key_type` is what `primaryKey()` returns |
 | `modify(entity, fn)` | `fn(T&)` on one element in place; the key must not change (debug builds check) |

@@ -15,6 +15,13 @@ and versions follow [Semantic Versioning](https://semver.org/).
   valid until the thread's next `format()` through any `FormatBuffer<N, Policy>`, not only the same object's - the
   way it is meant to be used, handed straight to `setName`, is unchanged.
 
+- `EntityVector`'s `insert` and `emplace` return `std::pair<const T*, bool>`, and `find` a `const T*` (`nullptr`
+  when the key is absent): the element by its address, not an iterator to it. The address is the handle that
+  lasts - the container's iterators are `std::deque`'s, all invalidated by the next insert - and the one a column of
+  entities holds, so `modify(first, ...)` and a link from one entity to another no longer go through `&*first`.
+  Code that dereferenced or compared the returned element keeps compiling; `find(key) != end()` becomes
+  `contains(key)` or `!= nullptr`, and code that named the iterator type or advanced it changes too.
+
 ## [0.3.1] - 2026-10-29
 
 ### Added
