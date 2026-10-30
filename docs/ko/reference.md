@@ -30,7 +30,7 @@
 | `where(p...)`, `orderBy(key)`, `select<Cols...>()`, `select(expr)` | 파생 → `IndexSet` |
 | `groupBy<Cols...>()` | → `Grouped` |
 | `membership()` | → `Membership` |
-| `ordered()` | → `Ordered` |
+| `ordered()`, `ordered<A...>()` | → 집합 전체, 또는 `A...`가 같은 행끼리의 그룹마다의 `Ordered` |
 | `unite(A, B)`, `intersect(A, B)`, `difference(A, B)` | 이항 연산 → `IndexSet` |
 | `A == B`, `A != B` | 같은 행, 순서 무관 |
 
@@ -72,7 +72,7 @@
 | `ord(열...)` | 위치 (`std::optional<std::size_t>`, 없으면 비어 있음). 아래 모두 열 대신 행 하나도 받음 |
 | `next(열...)`, `next(열..., steps)`, `prev(...)` 같은 꼴 | 이웃 행 포인터 또는 `nullptr` |
 | `nextCyclic(...)`, `prevCyclic(...)` | 끝에서 처음으로 돌아가는 이웃 |
-| `first()`, `last()`, `at(pos)` | 처음, 끝, 위치로 |
+| `first()`, `last()`, `at(pos)` | 처음, 끝, 위치로 (`ordered<A...>()`에는 없음. 거기서 `ord`, `isFirst`, `isLast`는 그룹 안 기준) |
 | `isFirst(열...)`, `isLast(열...)`, `contains(열...)` | 판정 |
 | `size()`, `empty()`, `members()` | 크기, 중복 제거된 집합 |
 

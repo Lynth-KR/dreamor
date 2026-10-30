@@ -12,6 +12,7 @@ left column. Each message is pinned by a `// expect:` line in `tests/compile_fai
 | `without braces` | `slice({i, t})` | `slice(i, t)` | `grouped_slice_braced` |
 | `Slice by this groupBy's key columns` | `slice(2, 1)`, or a column that is not a group key | Pass the `groupBy` key columns in order | `grouped_slice_raw_values`, `grouped_slice_wrong_key` |
 | `Name the Grouped first` | `S.groupBy<C>().slice(c)` | `const auto byC = S.groupBy<C>();` then `byC.slice(c)` | `grouped_slice_needs_a_name` |
+| `ordered<Columns...>() orders within each group` | `S.ordered<A>().first()`, `at()`, `last()` | `ord()`, `isFirst()`, `isLast()` within a group, or `S.ordered()` for the whole set | `ordered_within_has_no_first` |
 | `Name the Ordered first` | `S.ordered().prev(t)` | `const auto orderedT = S.ordered();` then `orderedT.prev(t)` | `ordered_needs_a_name` |
 | `Name an element of the ordered set` | `orderedT.prev(1)` | `orderedT.prev(PeriodCol{1})` | `ordered_prev_raw_value` |
 | `Ask membership` | `in_ij(1, 2)` | Pass columns or a row | `membership_raw_values` |

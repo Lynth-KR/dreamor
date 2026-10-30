@@ -79,6 +79,7 @@ random-access, default-constructible (empty), O(1) copy sharing rows.
 | `groupBy<Cols...>()` | `Grouped` | slices |
 | `membership()` | `Membership` | `(m,i) in S` |
 | `ordered()` | `Ordered` | ordered set |
+| `ordered<A...>()` | `Ordered` within each group of rows that agree on `A...` | `next(t, S[a])` |
 
 Free functions: `dreamor::unite(A, B)` (∪), `intersect(A, B)` (∩), `difference(A, B)` (\). `A == B`: the same rows in
 any order, as `std::unordered_set`'s; `std::ranges::equal(A, B)` compares the order too.
@@ -106,8 +107,10 @@ random-access view into the set's rows (no copies), valid while the `Grouped` li
 
 ## Ordered
 
-`index_set/ordered.hpp`. A positional view over the deduplicated set. Every lookup is on a named `Ordered` only, and
-accepts either the columns or one row.
+`index_set/ordered.hpp`. A positional view over the deduplicated set - or, from `ordered<A...>()`, within each group
+of rows that agree on `A...`: walks stop (cyclic: wrap) at the group's ends, `ord`/`isFirst`/`isLast` are within the
+group, and `first()`/`last()`/`at()` stop on a sentence. Every lookup is on a named `Ordered` only, and accepts either
+the columns or one row.
 
 | | |
 |---|---|

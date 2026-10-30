@@ -135,6 +135,7 @@ O(1) and shares the rows.
 | `S.groupBy<A>()` | Grouping (next section) | slices |
 | `S.membership()` | O(1) membership predicate, to put in another set's `where` | `(m,i) in S` |
 | `S.ordered()` | ord / next / prev / nextCyclic / prevCyclic | ordered set |
+| `S.ordered<A>()` | the same within each group of rows that agree on `A` | `next(t, S[a])` |
 
 | Free function | |
 |---|---|
@@ -153,7 +154,10 @@ if (const auto* prevPeriod = orderedPeriods.prev(t)) { /* the previous period */
 
 `ordered()` is a positional view (`Ordered`) over the deduplicated set. Positions count from 0. `next`/`prev`/
 `nextCyclic`/`prevCyclic` may take a step count after the element (`next(t, 2)`, negative allowed) and return a
-pointer to the row, or `nullptr` past the boundary or for an element not in the set. The rest is in the
+pointer to the row, or `nullptr` past the boundary or for an element not in the set. `ordered<A>()` does the same
+within each group of rows that agree on `A` - AMPL's `next(t, S[a])` - so a walk stops (or, cyclic, wraps) at its
+group's ends, `ord` is the position within the group and `isFirst`/`isLast` are the group's ends; `first()`, `last()`
+and `at()`, positions of the whole set, are not there. The rest is in the
 [public API reference](reference.md#public-api-reference).
 
 The `Membership` returned by `membership()` is a predicate object, so you may also call it directly, passing the

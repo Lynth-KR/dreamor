@@ -132,6 +132,19 @@ int main() try {
     DREAMOR_CHECK(sumOf(env, arcs, use_of).build().expr_->terms.size() == 2);
   }
 
+  // value_table.hpp (data on a set) and index_set/ordered.hpp (within groups)
+  {
+    using Tup                  = std::tuple<MachineCol, PeriodCol>;
+    const auto sRUN            = makeSet<MachineCol, PeriodCol>(machines, periods).collect();
+    const auto available_hours = [](PeriodCol t) { return 8.0 + t.get(); };
+    const ValueTable<MachineCol, PeriodCol> hours{sRUN, available_hours};
+    const auto periodsOfMachine = sRUN.ordered<MachineCol>();
+    const auto& [m, t]          = *sRUN.begin();
+    const Tup* next             = periodsOfMachine.next(m, t);
+    DREAMOR_CHECK(next != nullptr && std::get<MachineCol>(*next) == m &&
+                  exactlyEqual(hours(*next), 8.0 + std::get<PeriodCol>(*next).get()));
+  }
+
   // index_set/name_token.hpp (a column under std::format)
   {
     const Node& n1 = nodeData[0];

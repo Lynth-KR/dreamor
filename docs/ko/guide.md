@@ -131,6 +131,7 @@ const auto sMAKE_STAGED = dreamor::makeSet<MachineCol>(machines, sOPEN).where(fi
 | `S.groupBy<A>()` | 묶기 (다음 절) | 슬라이스 |
 | `S.membership()` | O(1) 소속 판정 술어. 다른 집합의 `where`에 넣음 | `(m,i) in S` |
 | `S.ordered()` | ord / next / prev / nextCyclic / prevCyclic | ordered set |
+| `S.ordered<A>()` | `A`가 같은 행끼리의 그룹마다 같은 일 | `next(t, S[a])` |
 
 | 자유 함수 | |
 |---|---|
@@ -149,7 +150,10 @@ if (const auto* prevPeriod = orderedPeriods.prev(t)) { /* 직전 기간 */ }
 
 `ordered()`는 중복을 없앤 집합 위의 위치 뷰(`Ordered`)입니다. 위치는 0부터 셉니다. `next`/`prev`/
 `nextCyclic`/`prevCyclic`는 원소 뒤에 걸음 수를 받을 수 있고(`next(t, 2)`, 음수 가능) 행의 포인터를 돌려주며,
-경계를 넘거나 집합에 없는 원소면 `nullptr`입니다. 나머지는 [공개 API 전체 목록](reference.md#공개-api-전체-목록)에 있습니다.
+경계를 넘거나 집합에 없는 원소면 `nullptr`입니다. `ordered<A>()`는 같은 일을 `A`가 같은 행끼리의 그룹 안에서 합니다
+(AMPL의 `next(t, S[a])`). 그래서 이동은 그룹 끝에서 멈추고(cyclic이면 그룹 안에서 돌고), `ord`는 그룹 안의 위치,
+`isFirst`/`isLast`는 그룹의 양 끝입니다. 집합 전체의 위치를 뜻하는 `first()`, `last()`, `at()`은 없습니다.
+나머지는 [공개 API 전체 목록](reference.md#공개-api-전체-목록)에 있습니다.
 
 `membership()`이 돌려주는 `Membership`은 술어 객체라서 직접 불러도 됩니다. 열을 따로
 (`in_routes(MachineCol{m}, ItemCol{i})`) 넘기거나 행 튜플 하나(`in_routes(row)`)를 넘깁니다.

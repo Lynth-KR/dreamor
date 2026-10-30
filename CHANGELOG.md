@@ -15,6 +15,11 @@ and versions follow [Semantic Versioning](https://semver.org/).
   every backend's `VarTable` takes its bounds by `const&`, so such a bound is not copied.
 - `A == B` on sets: the same rows, in any order, as `std::unordered_set`'s equality - a set holds no row twice, so
   equal sizes and every row of `A` in `B` say it. `std::ranges::equal(A, B)` still compares the order too.
+- `S.ordered<A...>()`: `ord` / `next` / `prev` / `nextCyclic` / `prevCyclic` within each group of rows that agree on
+  `A...`, AMPL's `next(t, S[a])` over an indexed collection of ordered sets. A walk stops (or wraps) at its group's
+  ends, `ord` is the position within the group, and `first()` / `last()` / `at()`, which name positions of the whole
+  set, stop on a sentence. A chain of rows within a group - a step that gives way only after the one ahead of it -
+  no longer needs a `next` pointer kept in the data.
 
 ### Changed
 

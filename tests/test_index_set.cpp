@@ -106,6 +106,31 @@ int main() try {
   const auto* beforeOne = T.prev(ICol{1});
   DREAMOR_CHECK(beforeOne != nullptr && std::get<ICol>(*beforeOne).get() == 3 && T.next(ICol{4}) == nullptr);
 
+  // ordered within groups - next(j, S[i]): each i's rows here are interleaved with the other's
+  {
+    const std::vector<std::size_t> Js{10, 20, 30};
+    const std::vector<std::size_t> Is{1, 2};
+    const auto rowsJI  = dreamor::makeSet<JCol, ICol>(Js, Is).collect();  // (10,1) (10,2) (20,1) (20,2) ...
+    const auto withinI = rowsJI.ordered<ICol>();
+    const auto* after  = withinI.next(JCol{10}, ICol{1});
+    const auto* around = withinI.nextCyclic(JCol{30}, ICol{2});
+    const auto* behind = withinI.prevCyclic(JCol{10}, ICol{1});
+    DREAMOR_CHECK(after != nullptr && *after == std::tuple{JCol{20}, ICol{1}});
+    DREAMOR_CHECK(withinI.next(JCol{30}, ICol{1}) == nullptr && withinI.prev(JCol{10}, ICol{2}) == nullptr);
+    DREAMOR_CHECK(around != nullptr && *around == std::tuple{JCol{10}, ICol{2}});
+    DREAMOR_CHECK(behind != nullptr && *behind == std::tuple{JCol{30}, ICol{1}});
+    DREAMOR_CHECK(withinI.next(JCol{10}, ICol{1}, 2) != nullptr && withinI.next(JCol{10}, ICol{1}, 3) == nullptr);
+    DREAMOR_CHECK(withinI.ord(JCol{20}, ICol{2}) == std::optional<std::size_t>{1} &&
+                  withinI.isFirst(JCol{10}, ICol{2}));
+    DREAMOR_CHECK(withinI.isLast(JCol{30}, ICol{1}) && !withinI.isLast(JCol{20}, ICol{1}) &&
+                  !withinI.isFirst(JCol{20}, ICol{1}));
+    DREAMOR_CHECK(withinI.next(JCol{40}, ICol{1}) == nullptr && !withinI.contains(JCol{40}, ICol{1}) &&
+                  withinI.contains(*after));
+    DREAMOR_CHECK(withinI.size() == 6 && withinI.members() == rowsJI);
+    const auto alone = rowsJI.ordered<JCol, ICol>();  // every row its own group
+    DREAMOR_CHECK(alone.next(JCol{10}, ICol{1}) == nullptr && alone.isFirst(JCol{10}, ICol{1}));
+  }
+
   // binary operations
   DREAMOR_CHECK(dreamor::unite(II, II).size() == 4);
   DREAMOR_CHECK(dreamor::intersect(IJ, IJ.where(even)).size() == 6);

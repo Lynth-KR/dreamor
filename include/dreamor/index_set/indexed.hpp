@@ -19,6 +19,7 @@
 //     S.groupBy<OrderCol>()       Grouped: walk groups, slice by key
 //     S.membership()             O(1) membership predicate over S's columns
 //     S.ordered()                ord / next / prev
+//     S.ordered<MachineCol>()    the same within each machine's rows   next(t, S[m])
 //     unite(A, B), intersect(A, B), difference(A, B)
 //
 // The members are defined in the headers that implement them; include
@@ -44,7 +45,7 @@ template <typename Tup>
 class IndexSet;
 template <typename Tup, typename... Columns>
 class Grouped;
-template <typename Tup>
+template <typename Tup, typename... Within>
 class Ordered;
 template <typename Tup>
 class Membership;
@@ -137,7 +138,8 @@ class IndexSet : public std::ranges::view_base {
   template <typename... Columns>
   [[nodiscard]] Grouped<Tup, Columns...> groupBy() const;
   [[nodiscard]] Membership<Tup> membership() const;
-  [[nodiscard]] Ordered<Tup> ordered() const;
+  template <typename... Within>
+  [[nodiscard]] Ordered<Tup, Within...> ordered() const;
 
  private:
   friend struct internal::SetAccess;

@@ -105,6 +105,7 @@ These are enforced by the compiler or needed for a correct model.
 | `setof {(i,j) in EDGES} (j,i)` | `sEDGES.select([](FromCol i, ToCol j) { return std::tuple<FromCol, ToCol>{j, i}; })` |
 | `(m,i) in ROUTES` | `sROUTES.membership()`, called as `in_routes(m, i)` or passed to `where` |
 | `prev(t)`, `next(t, 2)`, `ord(t)` on an ordered set | `const auto orderedPeriods = sPERIODS.ordered();` then `.prev(t)` (row pointer or `nullptr`), `.next(t, 2)`, `.ord(t)` (0-based optional) |
+| `next(t, S[m])`, the next row within an indexed collection | `const auto periodsOfMachine = sRUN.ordered<MachineCol>();` then `.next(m, t)` (`nullptr` at the end of `m`'s rows) |
 | `var Yield {PRODUCE} >= 0, <= cap[m]/time[i];` | `const dreamor::concert::VarTable<MachineCol, ItemCol, PeriodCol> vYield{env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};` |
 | `sum {(m,i,t) in PRODUCE} setup[m] * Setup[m,i,t]` | `dreamor::concert::sumOf(env, sPRODUCE, setup_cost).build()` |
 | `sum {m: (m,i,t) in PRODUCE} Yield[m,i,t]` | `dreamor::concert::sumOf(env, producedByItemPeriod.slice(i, t), vYield).build()` |
