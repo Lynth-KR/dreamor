@@ -34,7 +34,7 @@ const auto sPRODUCE = dreamor::makeSet<MachineCol, ItemCol, PeriodCol>(machines,
 // var Yield {(m,i,t) in PRODUCE} >= 0, <= cap[m] / time[i];
 const auto max_possible_qty = [](MachineCol m, ItemCol i) { return m->capacity / i->time; };
 const dreamor::concert::VarTable<MachineCol, ItemCol, PeriodCol> vYield{env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};
-![alt text](image.png)
+
 // subject to Capacity {m in MACHINES, t in PERIODS}: sum {i: (m,i,t) in PRODUCE} time[i] * Yield[m,i,t] <= cap[m];
 const auto machine_usage = [&](MachineCol m, ItemCol i, PeriodCol t) { return i->time * vYield(m, i, t); };
 const auto producedByMachinePeriod = sPRODUCE.groupBy<MachineCol, PeriodCol>();
