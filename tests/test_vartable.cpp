@@ -2,7 +2,9 @@
 // VarTable: built once from a set, bounds as numbers or column callables, names from keys,
 // lookup, iteration in set order, solution().
 #include <algorithm>
+#include <bit>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <format>
 #include <optional>
@@ -20,6 +22,7 @@
 #include "float_compare.hpp"
 using ICol = dreamor::Col<std::size_t, "i">;
 using JCol = dreamor::Col<std::size_t, "j">;
+using KCol = dreamor::Col<std::size_t, "k">;
 
 // An entity whose name token's formatter throws: the variable name stops after the separator,
 // with a warning, instead of the throw ending the noexcept naming in std::terminate.
@@ -138,6 +141,25 @@ int main() try {
     }
   }
   DREAMOR_CHECK(hintsAgree);
+
+  // a hint inside a row, not at its start - what a row of a set gone, of another key, leaves where
+  // a set now is - on rows of 24 bytes, whose size is no power of two: every lookup still gives what
+  // the row's address gives. Small values, so that the bytes across two rows read as a row's columns.
+  const std::vector<std::size_t> V{0, 1, 2};
+  const auto IJK = dreamor::makeSet<ICol, JCol, KCol>(V, V, V).collect();
+  const dreamor::concert::VarTable<ICol, JCol, KCol> w{env, IJK, 0, 1};
+  bool insideAgrees = true;
+  for (const auto& hinted : IJK) {
+    for (const std::size_t offset : {sizeof(std::size_t), 2 * sizeof(std::size_t)}) {
+      for (const auto& row : IJK) {
+        const auto* const inside = std::bit_cast<const void*>(std::bit_cast<std::uintptr_t>(&hinted) + offset);
+        dreamor::internal::lastRows().front() = {.row = inside, .walking = true};
+        const auto [i, j, k]                  = row;
+        insideAgrees                          = insideAgrees && w(i, j, k).getImpl() == w(row).getImpl();
+      }
+    }
+  }
+  DREAMOR_CHECK(insideAgrees);
 
   // callable bounds: one column, two columns
   const dreamor::concert::VarTable<ICol, JCol> y{env,

@@ -30,7 +30,8 @@
 # (default -O1 -g; CI also runs -O3 -DNDEBUG). Sanitizers, in stub mode only - the OR-Tools and
 # CPLEX libraries are not instrumented:
 #   SAN=1       AddressSanitizer, UndefinedBehaviorSanitizer and LeakSanitizer (ASan's, turned
-#               on explicitly here rather than left to the platform default)
+#               on explicitly here rather than left to the platform default). The tests that look
+#               rows up by columns across sets made and gone run a second time with no quarantine.
 #   SAN=thread  ThreadSanitizer - a build of its own, as it cannot run beside ASan. The tests run
 #               with address randomization off (setarch -R): with the entropy recent kernels use,
 #               TSan cannot place its shadow memory and stops before main.
@@ -192,6 +193,16 @@ for t in $TESTS; do
     $RUN "$BUILD/$name" > "$BUILD/$name.out" && printf '%-16s ok  (solved; plan in tests/%s/%s.out)\n' "$label" "$BUILD" "$name" || status=1
   else
     $RUN "$BUILD/$name" || status=1
+    # ASan holds freed memory back (a quarantine), so no set is made where one gone was, and a hint
+    # it left never lies inside a set made after it. Once more with memory handed back at once.
+    if [ "${SAN:-}" = 1 ]; then
+      case $name in
+        test_differential* | test_row_hints)
+          printf 'no quarantine: '
+          ASAN_OPTIONS="$ASAN_OPTIONS:quarantine_size_mb=0" $RUN "$BUILD/$name" || status=1
+          ;;
+      esac
+    fi
   fi
 done
 

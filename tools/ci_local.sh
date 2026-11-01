@@ -71,13 +71,13 @@ job format 'tools/format.sh --check'
 job tidy 'python3 tools/gen_compile_commands.py && tools/tidy.sh'
 [ -z "$failed" ] || exit 1
 
-# GCC 13 at -O1 -g is sanitize (1); the compile-time checks run once per compiler. As on CI.
+# GCC 13 at -O1 -g is sanitize (g++-13, 1); the compile-time checks run once per compiler. As on CI.
 job "stub (g++-13, -O3 -DNDEBUG)" "CXX=g++-13 OPT='-O3 -DNDEBUG' tests/run_tests.sh"
 job "stub (clang++-18, -O1 -g)" "CXX=clang++-18 OPT='-O1 -g' tests/run_tests.sh"
 job "stub (clang++-18, -O3 -DNDEBUG)" "CXX=clang++-18 OPT='-O3 -DNDEBUG' COMPILE_CHECKS=0 tests/run_tests.sh"
-for san in 1 thread; do
-  job "sanitize ($san)" "CXX=g++-13 SAN=$san COMPILE_CHECKS=0 tests/run_tests.sh"
-done
+job "sanitize (g++-13, 1)" "CXX=g++-13 SAN=1 COMPILE_CHECKS=0 tests/run_tests.sh"
+job "sanitize (clang++-18, 1)" "CXX=clang++-18 SAN=1 COMPILE_CHECKS=0 tests/run_tests.sh"
+job "sanitize (g++-13, thread)" "CXX=g++-13 SAN=thread COMPILE_CHECKS=0 tests/run_tests.sh"
 job gcc-latest "podman run --rm -v \"\$PWD\":/src -w /src $GCC_IMAGE sh -c 'CXX=g++ tests/run_tests.sh'"
 job clang-latest 'CXX=clang++-23 tests/run_tests.sh'
 

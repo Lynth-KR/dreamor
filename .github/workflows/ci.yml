@@ -23,7 +23,7 @@ jobs:
     # the compile_fail cases check that both print our message first.
     # Real CPLEX: tests/run_tests.sh --cplex [CPLEX_Studio dir], locally.
     # -O3 -DNDEBUG is CMake's Release: GCC finds more with inlining, and asserts compile away.
-    # GCC 13 at -O1 -g is sanitize (1): the same build, instrumented.
+    # GCC 13 at -O1 -g is sanitize (g++-13, 1): the same build, instrumented.
     # The compile_fail cases and the syntax checks depend on the compiler alone, not on OPT or
     # SAN, so they run once per compiler (checks: 1) and COMPILE_CHECKS=0 skips them elsewhere.
     # The g++-13 entry also installs the CMake package and builds tests/cmake_consumer through
@@ -56,19 +56,26 @@ jobs:
           done
 
   sanitize:
-    # The stub-mode tests under sanitizers, two builds: Address + UndefinedBehavior + Leak, and
-    # Thread on its own (it cannot share a build with ASan) - tables on one set share its row
-    # index across threads, behind a lock. The compile-time checks are the stub job's.
+    # The stub-mode tests under sanitizers: Address + UndefinedBehavior + Leak, built by GCC and by
+    # Clang, which instrument in ways of their own, and Thread on its own (it cannot share a build
+    # with ASan) - tables on one set share its row index across threads, and lookups on several
+    # threads build it once. The compile-time checks are the stub job's.
     needs: lint
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        san: ["1", thread]
+        include:
+          - { cxx: g++-13, san: "1" }
+          - { cxx: clang++-18, san: "1" }
+          - { cxx: g++-13, san: thread }
     steps:
       - uses: actions/checkout@v7
-      - run: CXX=g++-13 SAN=${{ matrix.san }} COMPILE_CHECKS=0 tests/run_tests.sh
+      - name: Clang 18
+        if: matrix.cxx == 'clang++-18'
+        run: command -v clang++-18 || (sudo apt-get update && sudo apt-get install -y clang-18)
+      - run: CXX=${{ matrix.cxx }} SAN=${{ matrix.san }} COMPILE_CHECKS=0 tests/run_tests.sh
 
   gcc-latest:
     # The compiler range: the stub job holds the floor (GCC 13, Clang 18), this job and

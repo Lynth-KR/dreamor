@@ -73,9 +73,9 @@ tools/ci_local.sh [REV]              # what CI runs, on one commit checked out a
   `isExactlyZero` from `tests/float_compare.hpp`, never with `==`.
 - **CI** (`.github/workflows/ci.yml`) runs a lint job (`tools/format.sh --check`, then `tools/tidy.sh`), and once it
   passes: the stub job on Clang 18 at `-O1 -g` and `-O3 -DNDEBUG` and on GCC 13 at `-O3 -DNDEBUG`, a sanitize job
-  (`SAN=1` and `SAN=thread`, GCC 13; `SAN=1` is GCC 13's `-O1 -g` build), gcc-latest and clang-latest (stub mode on
-  the newest releases), and the MathOpt job on both compilers, which runs the HiGHS backend's tests too, on the
-  HiGHS the OR-Tools prebuilt ships. The compile_fail cases and the syntax checks run once
+  (`SAN=1` on GCC 13 and Clang 18, `SAN=thread` on GCC 13; GCC 13's `SAN=1` is its `-O1 -g` build), gcc-latest and
+  clang-latest (stub mode on the newest releases), and the MathOpt job on both compilers, which runs the HiGHS
+  backend's tests too, on the HiGHS the OR-Tools prebuilt ships. The compile_fail cases and the syntax checks run once
   per compiler; the other jobs set `COMPILE_CHECKS=0`. The GCC 13 stub job and the MathOpt job also install the CMake
   package and build `tests/cmake_consumer` (`tests/cmake_consumer_mathopt`) through `find_package(dreamor)`. CI runs
   on pushes to main and on pull requests, not on a change of Markdown alone; a work branch runs it by hand

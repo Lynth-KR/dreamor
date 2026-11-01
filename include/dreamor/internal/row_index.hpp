@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -116,14 +117,19 @@ class RowIndex {
   }
 
  private:
-  // The position of a row by its address, or kNotFound when it is not one of rows.
-  // std::less<> orders pointers into different arrays too; inside the range, the pointer is
-  // one of rows' elements.
+  // The position of the row an address falls in, or kNotFound when it is not inside rows.
+  // std::less<> orders pointers into different arrays too. Inside the range, a row sumOf published
+  // or one handed in is one of rows' elements; a hint of lastRows() need not be: the hints are every
+  // Key's on the thread, and one left by a set gone can fall inside a row of a set, of another Key,
+  // that now has its memory. So the offset is divided in bytes, taking it down to its row's start: a
+  // difference of Key pointers would assume a whole number of rows, which the compiler turns into a
+  // multiply by sizeof(Key)'s inverse - a position past the rows for an address mid-row of 24 bytes.
   [[nodiscard]] static std::size_t positionOf(const std::vector<Key>& rows, const void* row) {
     const Key* const first = rows.data();
     const std::less<> before;
     if (row == nullptr || before(row, first) || !before(row, first + rows.size())) { return kNotFound; }
-    return static_cast<std::size_t>(static_cast<const Key*>(row) - first);
+    const std::uintptr_t offset = std::bit_cast<std::uintptr_t>(row) - std::bit_cast<std::uintptr_t>(first);
+    return static_cast<std::size_t>(offset / sizeof(Key));
   }
 
   // The row's columns are exactly the ones asked for.
