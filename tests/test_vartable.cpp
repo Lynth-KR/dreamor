@@ -250,11 +250,13 @@ int main() try {
   }
   DREAMOR_CHECK(threadsAgree);
 
-  // solution: one call, values keyed like the table, temporaries ended
+  // solution: one getValues on the variables gathered once, values keyed like the table, the values' array ended
   const std::size_t arraysBefore = IloNumVarArray::ended;
   const std::size_t numsBefore   = IloNumArray::ended;
   const auto v                   = y.solution(FakeAlgorithm{env});
-  DREAMOR_CHECK(IloNumVarArray::ended == arraysBefore + 1 && IloNumArray::ended == numsBefore + 1);
+  DREAMOR_CHECK(IloNumVarArray::ended == arraysBefore && IloNumArray::ended == numsBefore + 1);
+  const auto again = y.solution(FakeAlgorithm{env});  // on the variables gathered by the first call
+  DREAMOR_CHECK(again.size() == 6 && exactlyEqual(again(cI{2}, cJ{20}), v(cI{2}, cJ{20})));
   DREAMOR_CHECK(v.size() == 6 && exactlyEqual(v(cI{2}, cJ{20}), -2 + 40) && v.contains(cI{1}, cJ{10}));
   DREAMOR_CHECK_THROWS(std::out_of_range, v(cI{9}, cJ{9}));
   std::size_t m = 0;

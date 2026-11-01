@@ -88,6 +88,8 @@
 
 #include <concepts>
 #include <cstddef>
+#include <memory>
+#include <mutex>
 #include <ranges>
 #include <stdexcept>
 #include <tuple>
@@ -169,22 +171,38 @@ class VarTable : public internal::VarTableCore<IloNumVar, Keys...> {
   template <typename Algorithm>
   [[nodiscard]] ValueTable<Keys...> solution(const Algorithm& algorithm) const {
     std::vector<double> values(this->vars_.size());
-    if (!this->vars_.empty()) {
+    if (!values.empty()) {
       const IloEnv env = algorithm.getEnv();
-      IloNumVarArray array(env);
-      for (const IloNumVar& var : this->vars_) {
-        array.add(var);
-      }
       IloNumArray out(env);
-      algorithm.getValues(out, array);
+      algorithm.getValues(out, gathered(env));
       for (std::size_t i = 0; i < values.size(); ++i) {
         values[i] = out[static_cast<IloInt>(i)];
       }
-      out.end();  // Temporaries made here; ending the array does not end its variables.
-      array.end();
+      out.end();  // The one temporary made here.
     }
     return this->valueTable(std::move(values));
   }
+
+ private:
+  // The variables as one IloNumVarArray, gathered by the first solution() and kept for the next:
+  // a loop that solves again and again reads them without gathering them each time, and building
+  // the model pays nothing for it. Threads that ask at once gather it once. The array is the
+  // env's, as Concert's arrays are: env.end() frees it, and the table does not end it.
+  [[nodiscard]] const IloNumVarArray& gathered(const IloEnv& env) const {
+    std::call_once(gathered_->once, [&] {
+      auto array = std::make_unique<IloNumVarArray>(env);
+      for (const IloNumVar& var : this->vars_) {
+        array->add(var);
+      }
+      gathered_->array = std::move(array);
+    });
+    return *gathered_->array;
+  }
+  struct Gathered {
+    std::once_flag once;
+    std::unique_ptr<IloNumVarArray> array;
+  };
+  std::unique_ptr<Gathered> gathered_ = std::make_unique<Gathered>();
 };
 
 // sum {t in rows} term(t) as an IloExpr; see the description at the top of this file.

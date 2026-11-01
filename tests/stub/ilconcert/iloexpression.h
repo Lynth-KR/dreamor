@@ -118,12 +118,12 @@ class IloSemiContVar : public IloNumVar {
 
 class IloNumVarArray {
  public:
-  explicit IloNumVarArray(IloEnv) : v_(new std::vector<IloNumVar>) {}
+  // The env's, as Concert's arrays are: env.end() frees it, end() only lets go of it.
+  explicit IloNumVarArray(IloEnv) : v_(IloStubArena::own(new std::vector<IloNumVar>)) {}
   void add(const IloNumVar& x) { v_->push_back(x); }
   IloInt getSize() const { return static_cast<IloInt>(v_->size()); }
   const IloNumVar& operator[](IloInt i) const { return (*v_)[static_cast<std::size_t>(i)]; }
   void end() {
-    delete v_;
     v_ = nullptr;
     ++ended;
   }
