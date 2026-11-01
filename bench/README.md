@@ -11,10 +11,11 @@ it, each a designed experiment with its own runner and README:
   stub, so only the containers are measured.
 - **[scenario/](scenario/README.md), layer 2: whole models.** A model built end to end by dreamor
   and by hand, up to the moment a solver starts on it - the modeling-language benchmarks' measure -
-  on the stub, CPLEX and MathOpt: p-median, the model those benchmarks use, and the repository's
-  lot-sizing example as it is written, against hand-optimized code and against the usual `std::map`
-  code. The headline is the time to the solver's start; a slow scenario points back to the catalog
-  family that explains it.
+  on the stub, CPLEX, MathOpt and HiGHS's own API: p-median, the model those benchmarks use, and the
+  repository's lot-sizing example as it is written, against hand-optimized code and against the usual
+  `std::map` code. The headline is the time to the solver's start; a slow scenario points back to the
+  catalog family that explains it. MathOpt and HiGHS put the same model in the same HiGHS, so they
+  also compare the two ways to it.
 
 Beside them, two studies that answer one question each:
 
@@ -41,8 +42,13 @@ Beside them, two studies that answer one question each:
 - **Every arm does the same work.** Each phase hands out a check (the rows, the variables' bounds,
   the model's rows and nonzeros) that every arm must agree on; the reports list any that do not.
 - **One run, one fresh process.** A model build is a one-shot, so every measurement is a cold one,
-  and the arms of a repetition run under the same memory layout - an environment padding and a heap
-  seed of the repetition's own (Mytkowicz et al., ASPLOS 2009; van Kempen & Berger, ISMM '26).
+  and the arms of a repetition run under the same memory and code layout - an environment padding, a
+  heap seed and binaries linked with a code layout of the repetition's own (Mytkowicz et al., ASPLOS
+  2009; Curtsinger & Berger, ASPLOS 2013; van Kempen & Berger, ISMM '26).
+- **What dreamor does not touch is measured once.** The hand-written arms are built without the
+  library, so a new version of dreamor reruns its own arm alone: `run.py --reuse <earlier run>` takes
+  their runs from the earlier run when every one of their binaries is the one it measured, and runs a
+  tenth of them again (at least 30) as a control of the machine (`common/reuse.py`).
 - **Machines are not compared.** Conclusions are drawn between arms on one machine; each run's meta
   file records which (CPU, virtualization, pinning, compiler, commit).
 - **Where results go.** `results/<date>_<commit>_<experiment>.../`, one folder a run, ignored by

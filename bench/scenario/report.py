@@ -8,7 +8,8 @@ model, extract and the solve with no time; the stub has no solver, so the two ar
 whole process as the runner saw it - the geometric mean of the repetitions' ratios, the arms of a
 repetition having run under the same layout, with a 95% interval; below 1, dreamor is faster. Then
 each phase's ratio, and every check the arms disagree on: a ratio compares like with like only when
-the models are the same.
+the models are the same. Last, each arm across the backends that solve: its median time to the
+solver's start on each, and each backend / MathOpt - the same model, through another API to HiGHS.
 
 Usage: python3 report.py ../results/<run>
 """
@@ -22,6 +23,7 @@ from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from catalog.report import T95, load  # noqa: E402
+from common.reuse import split  # noqa: E402
 
 SOLVER = ["extract", "solve0"]
 
@@ -55,6 +57,7 @@ def main():
     meta, runs = load(folder)
     size = meta.get("size", "L")
     fixed = meta.get("fixed") or {"C": meta.get("customers"), "P": meta.get("open")}
+    runs, drift = split(runs, lambda r: tuple(str(r.get(k, "")) for k in ["backend", "impl", size, *fixed, "rep"]))
     out = io.StringIO()
 
     def p(line=""):
@@ -74,6 +77,9 @@ def main():
         ", ".join(f"{k} = {v}" for k, v in fixed.items())
         + f"; commit {meta['commit']}{' (dirty)' if meta['dirty'] else ''}; {meta['cpu']}"
     )
+    if drift:
+        p()
+        p(drift)
     failed = [r for r in runs if r.get("status") != "ok"]
     if failed:
         p()
@@ -169,6 +175,70 @@ def main():
             )
             + " |"
         )
+
+    # Each arm against the backend's matrix API - the arrays filled by position and handed over at
+    # once: what an expression API costs over it, the vendor's own (Concert) and dreamor's alike.
+    matrix = {"cplex": "callable", "highs": "hand"}
+    for b, ref in matrix.items():
+        arms = [i for i in meta["impls"] if i != ref and any(k[0] == b and i in d and ref in d for k, d in by.items())]
+        if not arms:
+            continue
+        sizes = sorted({k[1] for k, d in by.items() if k[0] == b and ref in d})
+        p()
+        p(f"## {b}: each arm / {ref}, the matrix API (model, then to the solver's start)")
+        p()
+        p(f"| {size} | {ref} to start ms | " + " | ".join(arms) + " |")
+        p("|---|---|" + "---|" * len(arms))
+        for n in sizes:
+            reps = [d for k, d in by.items() if k[0] == b and k[1] == n and ref in d]
+            cells = []
+            for o in arms:
+                pairs = [(measures(d[o]), measures(d[ref])) for d in reps if o in d]
+                if not pairs:
+                    cells.append("-")
+                    continue
+                model = math.exp(statistics.fmean(math.log(a["model"] / r["model"]) for a, r in pairs))
+                start = math.exp(statistics.fmean(math.log(a["to_solve"] / r["to_solve"]) for a, r in pairs))
+                cells.append(f"{model:.2f} / {start:.2f}")
+            base = statistics.median(measures(d[ref])["to_solve"] for d in reps)
+            p(f"| {n} | {base:.1f} | " + " | ".join(cells) + " |")
+
+    # Each arm across the solving backends: the same model, the same repetition's layout.
+    solving = [b for b in meta["backends"] if b != "stub" and any(k[0] == b for k in by)]
+    if len(solving) > 1:
+        base = "mathopt" if "mathopt" in solving else solving[0]
+        p()
+        p(f"## Across backends: time to the solver's start, and each / {base}")
+        for impl in meta["impls"]:
+            sizes = sorted({k[1] for k, d in by.items() if k[0] == base and impl in d})
+            shown_on = [b for b in solving if any(k[0] == b and impl in d for k, d in by.items())]
+            if not sizes or len(shown_on) < 2:
+                continue
+            p()
+            p(f"{impl}:")
+            p()
+            p(
+                f"| {size} | "
+                + " | ".join(f"{b} ms" for b in shown_on)
+                + "".join(f" | {b} / {base}" for b in shown_on if b != base)
+                + " |"
+            )
+            p("|---|" + "---|" * (2 * len(shown_on) - 1))
+            for n in sizes:
+                cells = []
+                for b in shown_on:
+                    t = [measures(d[impl])["to_solve"] for k, d in by.items() if k[0] == b and k[1] == n and impl in d]
+                    cells.append(f"{statistics.median(t):.1f}" if t else "-")
+                for b in shown_on:
+                    if b == base:
+                        continue
+                    lns = [
+                        math.log(measures(d[impl])["to_solve"] / measures(by[(base, n, rep)][impl])["to_solve"])
+                        for (bb, nn, rep), d in by.items()
+                        if bb == b and nn == n and impl in d and impl in by.get((base, n, rep), {})
+                    ]
+                    cells.append(shown(*ratio(lns)) if lns else "-")
+                p(f"| {n} | " + " | ".join(cells) + " |")
 
     text = out.getvalue()
     print(text, end="")

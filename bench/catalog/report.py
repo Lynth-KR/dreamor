@@ -20,6 +20,9 @@ import os
 import statistics
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from common.reuse import split  # noqa: E402
+
 TOTAL = "total"  # every phase but build, summed: what the family's operations cost together
 # Two-sided 95% quantiles of Student's t by degrees of freedom, 1 to 30 (index 0 unused).
 T95 = [
@@ -69,6 +72,9 @@ def main():
     folder = sys.argv[1]
     meta, runs = load(folder)
     factors = list(meta["two_level"])
+    runs, drift = split(
+        runs, lambda r: tuple(str(r.get(k, "")) for k in ["family", "impl", "N_target", "k", *factors, "rep", "build"])
+    )
     out = io.StringIO()
 
     def p(line=""):
@@ -86,6 +92,8 @@ def main():
         f"Runs: {len(runs)}, ok {len(ok)}, skipped by an arm {sum(1 for r in ok if r['skipped'])}, "
         f"failed {len(runs) - len(ok)}."
     )
+    if drift:
+        p(drift)
 
     cell_keys = ["k", "N_target", *factors]
     # Every arm that ran a cell's repetition must agree on every check.

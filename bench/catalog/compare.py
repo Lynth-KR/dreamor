@@ -112,6 +112,44 @@ def main():
             worst += [(x, ph, c) for c, x in cells.items()]
     p()
 
+    # A cost that grows with the columns shows here and nowhere else: the table above pools them.
+    ks = sorted({c[1] for (ph, n), cells in ratios.items() for c in cells})
+    if len(ks) > 1:
+        instructions = "instructions" in counters
+        p("## By phase and k")
+        p()
+        p(
+            "The ratio at each k, over N and the cells"
+            + (" (in brackets, the instructions')." if instructions else ".")
+            + " A phase a k does not have is left empty."
+        )
+        p()
+        p(f"| phase |{''.join(f' k={k} |' for k in ks)}")
+        p(f"|---|{'---|' * len(ks)}")
+        for ph in order:
+
+            def at_k(table, k):
+                cells = [
+                    statistics.fmean(xs)
+                    for (q, _n, *rest), by in table.items()
+                    if q == ph
+                    for c, xs in by.items()
+                    if c[1] == k
+                ]
+                return math.exp(statistics.fmean(cells)) if cells else None
+
+            row = []
+            for k in ks:
+                t = at_k({(q, n): by for (q, n), by in ratios.items()}, k)
+                i = (
+                    at_k({(q, n, c): by for (q, n, c), by in counted.items() if c == "instructions"}, k)
+                    if instructions
+                    else None
+                )
+                row.append("" if t is None else f"{t:.3f}" + (f" ({i:.3f})" if i is not None else ""))
+            p(f"| {ph} |{''.join(f' {x} |' for x in row)}")
+        p()
+
     p("## Cells that moved most")
     p()
     p(f"| phase | ratio | {' | '.join(['impl', 'k', 'N', *factors])} |")

@@ -6,7 +6,7 @@
 // (README.md). Every arm builds the same data the same way before its first phase, so the
 // heap an arm starts from does not depend on the arm.
 //
-//   catalog --family lookup|group|setop|slice|make|order|data --impl <arm> --k 2|3|5 --N <rows>
+//   catalog --family lookup|group|setop|slice|make|order|data --impl <arm> --k 1|2|3|5|8 --N <rows>
 //           --O shared|owned --D dense|sparse --S uniform|skewed --G large|small
 //           --L ordered|shuffled --I aligned|permuted [--rep r] [--seed s] [--lookups n]
 //           [--heap-seed h] [--phases a,b,...] [--pmu <events>]
@@ -66,7 +66,10 @@ Args parse(int argc, char** argv) {
     } else if (k == "--impl") {
       a.impl = v;
     } else if (k == "--k") {
-      a.cell.k = std::stoul(level(k, v, {"2", "3", "5"}));
+      a.cell.k = std::stoul(level(k, v, {"1", "2", "3", "5", "8"}));
+      if (a.cell.k > kMaxColumns) {
+        usage("--k " + v + ": this build runs k <= " + std::to_string(kMaxColumns) + "; k = 8 is ./catalog8");
+      }
     } else if (k == "--N") {
       a.cell.n_target = std::strtoull(v.c_str(), nullptr, 10);
     } else if (k == "--O") {

@@ -2,21 +2,27 @@
 # SPDX-License-Identifier: Apache-2.0
 """Runs a layer-2 scenario (README.md): a model built end to end, by dreamor and by hand.
 
-Every backend built by build.sh (stub, cplex, mathopt), every size and every arm, each run a fresh
+Every backend built by build.sh (stub, cplex, mathopt, highs), every size and every arm, each run a fresh
 process, in a seeded random order. Every repetition runs under its own memory layout (Mytkowicz et
 al., ASPLOS 2009; van Kempen & Berger, ISMM '26): an environment padding of its own length and a
-heap seed of its own; every arm of a repetition gets the same layout, so they stay paired. ASLR stays
-on. --layout off runs every repetition alike.
+heap seed of its own; and its own code layout, on the copies LAYOUTS=<reps> ./build.sh links for it
+(../common/layout.py). Every arm of a repetition gets the same seeds, so they stay paired. ASLR stays
+on. --layout off runs every repetition alike, on ./build.sh's plain binaries.
 
 Results go to ../results/<date>_<commit>_scenario_<scenario>_<size><levels>/runs.jsonl, one line a run, with
 meta.json beside it; wall_s is the whole process as the runner saw it, loading the solver's
 libraries included. Running the same thing again resumes it.
 
+--reuse <earlier run> measures a new version of dreamor against the hand-written arms that run measured,
+when their binaries are the same (../common/reuse.py): only the dreamor arm runs, and a tenth of the
+hand-written runs (at least 30) again, as controls of the machine.
+
 Usage:
-  ./build.sh
+  LAYOUTS=5 ./build.sh
   python3 run.py --scenario pmedian                # L = 5000 to 50000, 5 repetitions
   python3 run.py --scenario lotsizing              # 170 and 1700 items (1e5 and 1e6 rows)
-  python3 run.py --scenario pmedian --levels 5000 --reps 1   # quick trial
+  python3 run.py --scenario pmedian --levels 5000 --reps 1 --layout off   # quick trial
+  python3 run.py --scenario pmedian --reuse ../results/<an earlier run of the same plan>
   python3 report.py ../results/<run>
 """
 
@@ -32,6 +38,7 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
+from common.layout import check_layouts, laid_out  # noqa: E402
 from common.machine import (  # noqa: E402
     choose_cpu,
     choose_pmu,
@@ -44,13 +51,14 @@ from common.machine import (  # noqa: E402
     read_text,
     virtualization,
 )
+from common.reuse import copies  # noqa: E402
 
-BACKENDS = ["stub", "cplex", "mathopt"]
+BACKENDS = ["stub", "cplex", "mathopt", "highs"]
 # Per scenario: its arms, the factor that sets its size and that factor's levels, the arguments
 # every run takes, and the largest size an arm still finishes at in reasonable time.
 SCENARIOS = {
     "pmedian": dict(
-        impls=["dreamor", "hand"],
+        impls=["dreamor", "hand", "calls", "callable", "callable-rows"],
         size="L",
         # The literature's sizes: 100 customers, 100 locations to open, 5000 to 50000 candidates.
         levels=["5000", "10000", "20000", "50000"],
@@ -58,11 +66,14 @@ SCENARIOS = {
         largest={},
     ),
     "lotsizing": dict(
-        impls=["dreamor", "flat", "plain"],
+        impls=["dreamor", "flat", "plain", "callable", "callable-rows"],
         size="items",
         # 20 machines, each routing about 60% of the items, over 50 periods: 600 rows an item.
         levels=["170", "1700"],
         fixed=lambda a: dict(machines=a.machines, periods=a.periods),
+        # The example's own data in every repetition (its seed, 7): the repetitions differ in their
+        # memory layout alone.
+        data_seed=7,
         # plain's stock balance scans every machine's routes for each (item, period): it grows with
         # the square of the items.
         largest={"plain": 1700},
@@ -80,6 +91,26 @@ def key_of(run, spec, fixed):
     return tuple(str(run[k]) for k in ["backend", "impl", spec["size"], *fixed, "rep"])
 
 
+# What an earlier run must share with this one for --reuse to take its hand-written arms.
+SAME = [
+    "scenario",
+    "backends",
+    "impls",
+    "size",
+    "levels",
+    "fixed",
+    "reps",
+    "seed",
+    "data_seed",
+    "solvers",
+    "layout",
+    "pmu",
+    "cpu",
+    "pinned_cpus",
+    "compiler",
+]
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--scenario", required=True, choices=sorted(SCENARIOS))
@@ -95,19 +126,38 @@ def main():
     ap.add_argument("--pmu", default="auto", help="hardware counters, as ../catalog --pmu takes them; auto or none")
     ap.add_argument("--cpu", default="auto", help="auto, none, or a CPU list")
     ap.add_argument("--timeout", type=int, default=1800)
-    ap.add_argument("--layout", default="on", choices=["on", "off"], help="a memory layout of its own per repetition")
+    ap.add_argument(
+        "--layout", default="on", choices=["on", "off"], help="a memory and code layout of its own per repetition"
+    )
+    ap.add_argument(
+        "--reuse", help="an earlier run of the same plan whose hand-written arms to take (../common/reuse.py)"
+    )
     ap.add_argument("--out", help="results folder")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
     spec = SCENARIOS[args.scenario]
     fixed = spec["fixed"](args)
-    binary = {b: os.path.join(HERE, f"{args.scenario}_{b}") for b in BACKENDS}
-    backends = args.backends.split(",") if args.backends else [b for b in BACKENDS if os.path.isfile(binary[b])]
+
+    # The dreamor arm runs on build/<scenario>_<backend>, the hand-written arms on
+    # build/<scenario>_<backend>_hand, built without the library: one build of them serves every version of dreamor.
+    def binary(backend, impl):
+        return os.path.join(HERE, "build", f"{args.scenario}_{backend}" + ("" if impl == "dreamor" else "_hand"))
+
+    built = [b for b in BACKENDS if all(os.path.isfile(binary(b, i)) for i in ("dreamor", "hand"))]
+    backends = args.backends.split(",") if args.backends else built
     for b in backends:
-        if not os.path.isfile(binary.get(b, "")):
-            sys.exit(f"no {args.scenario}_{b}: run build.sh first (it skips a backend that is not installed).")
+        if b not in built:
+            sys.exit(
+                f"no {args.scenario}_{b} and {args.scenario}_{b}_hand: run build.sh first (it skips a backend "
+                "that is not installed)."
+            )
     impls = args.impls.split(",") if args.impls else spec["impls"]
+    code_layouts = (
+        check_layouts(sorted({binary(b, i) for b in backends for i in impls}), args.reps, args.seed)
+        if args.layout == "on"
+        else None
+    )
     levels = [str(int(float(n))) for n in (args.levels or ",".join(spec["levels"])).split(",")]
 
     commit, dirty, label = code_state()
@@ -128,24 +178,7 @@ def main():
         cpus = set(parse_cpulist(args.cpu))
         cpu_info = {"reason": f"given (--cpu {args.cpu})", "virtualized": virtualization()}
 
-    plan = [
-        dict(backend=b, impl=impl, **{spec["size"]: n}, **fixed, rep=rep, seed=args.seed + rep)
-        for rep, b, n, impl in itertools.product(range(args.reps), backends, levels, impls)
-        if int(n) <= spec["largest"].get(impl, int(n))
-    ]
-    random.Random(args.seed).shuffle(plan)
-    done = set()
-    if os.path.exists(runs_path):
-        with open(runs_path) as f:
-            done = {key_of(json.loads(line), spec, fixed) for line in f if line.strip()}
-    todo = [p for p in plan if key_of(p, spec, fixed) not in done]
     pmu, pmu_choice = choose_pmu(args.pmu)
-    print(f"results: {os.path.relpath(out)}  ({cpu_model()}; cpu: {sorted(cpus) if cpus else cpu_info['reason']})")
-    print(f"counters: {pmu_choice}")
-    print(f"{len(todo)} runs to go (of {len(plan)})")
-    if args.dry_run:
-        return
-
     meta = dict(
         scenario=args.scenario,
         backends=backends,
@@ -155,7 +188,14 @@ def main():
         fixed=fixed,
         reps=args.reps,
         seed=args.seed,
+        data_seed=spec.get("data_seed"),
+        solvers=dict(
+            cplex=os.environ.get("CPLEX_STUDIO_DIR"),
+            ortools=os.environ.get("ORTOOLS_DIR"),
+            highs=os.environ.get("HIGHS_DIR") or os.environ.get("ORTOOLS_DIR"),
+        ),
         layout=args.layout,
+        code_layouts=code_layouts,
         aslr=read_text("/proc/sys/kernel/randomize_va_space"),
         pmu=pmu,
         pmu_choice=pmu_choice,
@@ -170,8 +210,44 @@ def main():
         started=time.strftime("%Y-%m-%d %H:%M:%S"),
         **environment(cpu=min(cpus) if cpus else None),
     )
+
+    plan = [
+        dict(backend=b, impl=impl, **{spec["size"]: n}, **fixed, rep=rep, seed=spec.get("data_seed", args.seed + rep))
+        for rep, b, n, impl in itertools.product(range(args.reps), backends, levels, impls)
+        if int(n) <= spec["largest"].get(impl, int(n))
+    ]
+    random.Random(args.seed).shuffle(plan)
+
+    def done_key(run):  # a run, and whether it is a control (--reuse): a control repeats a copied run
+        return key_of(run, spec, fixed), bool(run.get("control"))
+
+    reused = []
+    if args.reuse:
+        hand = sorted(os.path.basename(binary(b, "hand")) for b in backends)
+        reused, controls, meta["reuse"] = copies(
+            args.reuse, meta, SAME, code_layouts, hand, plan, lambda r: key_of(r, spec, fixed), args.seed
+        )
+        plan += controls
+        random.Random(args.seed + 3).shuffle(plan)
+    done = set()
+    if os.path.exists(runs_path):
+        with open(runs_path) as f:
+            done = {done_key(json.loads(line)) for line in f if line.strip()}
+    reused = [r for r in reused if done_key(r) not in done]
+    done |= {done_key(r) for r in reused}
+    todo = [p for p in plan if done_key(p) not in done]
+    print(f"results: {os.path.relpath(out)}  ({cpu_model()}; cpu: {sorted(cpus) if cpus else cpu_info['reason']})")
+    print(f"counters: {pmu_choice}")
+    print(f"{len(todo)} runs to go (of {len(plan)})")
+    if args.dry_run:
+        return
+
     with open(os.path.join(out, "meta.json"), "w") as f:
         json.dump(meta, f, indent=2)
+    if reused:
+        with open(runs_path, "a") as f:
+            f.writelines(json.dumps(r) + "\n" for r in reused)
+        print(f"{len(reused)} hand-written runs copied from {meta['reuse']['source']}")
 
     def pin():
         if cpus:
@@ -180,7 +256,14 @@ def main():
     t0 = time.monotonic()
     with open(runs_path, "a") as f:
         for i, p in enumerate(todo, 1):
-            cmd = [binary[p["backend"]], "--impl", p["impl"], f"--{spec['size']}", p[spec["size"]]]
+            exe = binary(p["backend"], p["impl"])
+            cmd = [
+                laid_out(exe, p["rep"]) if args.layout == "on" else exe,
+                "--impl",
+                p["impl"],
+                f"--{spec['size']}",
+                p[spec["size"]],
+            ]
             cmd += [x for k, v in fixed.items() for x in (f"--{k}", str(v))]
             cmd += ["--rep", str(p["rep"]), "--seed", str(p["seed"])]
             pad, heap_seed = layout_of(args.seed, p["rep"]) if args.layout == "on" else (0, 0)
@@ -195,6 +278,8 @@ def main():
                 row = json.loads(res.stdout) if status == "ok" else dict(p, error=res.stderr.strip()[:200])
             except subprocess.TimeoutExpired:
                 status, row = "timeout", dict(p)
+            if p.get("control"):
+                row["control"] = True
             row.update(status=status, order=len(done) + i - 1, wall_s=round(time.monotonic() - start, 3), env_pad=pad)
             f.write(json.dumps(row) + "\n")
             f.flush()

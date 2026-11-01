@@ -261,12 +261,12 @@ for (const auto& [row, qty] : yieldPlan) {
 }
 ```
 
-전체 예제는 `examples/`에 있습니다. 데이터·열·집합은 솔버와 무관한 `production_planning_sets.hpp` 하나이고,
-그 위에 같은 모형을 Concert로 쓴 `production_planning.hpp`(실행: `production_planning.cpp`), MathOpt로 쓴
+전체 예제는 `examples/`에 있습니다. 데이터와 생성기는 `production_planning_data.hpp`, 열과 집합은
+`production_planning_sets.hpp`에 있고 둘 다 솔버와 무관합니다. 그 위에 같은 모형을 Concert로 쓴 `production_planning.hpp`(실행: `production_planning.cpp`), MathOpt로 쓴
 `production_planning_mathopt.hpp`(실행: `production_planning_mathopt.cpp`, HiGHS), HiGHS로 쓴
 `production_planning_highs.hpp`(실행: `production_planning_highs.cpp`)가 올라갑니다. 각 모형이 Concert 모형과 같은
 제약을 만드는지는 `tests/mathopt/test_cross_backend.cpp`와 `tests/highs/test_cross_backend.cpp`가 대조합니다. 같은
-모형을 `std::map`과 Concert만으로 쓴 비교판은 `production_planning_plain.hpp`입니다.
+모형을 데이터 위에 `std::map`과 Concert만으로 쓴 비교판은 `production_planning_plain.hpp`입니다.
 
 [`examples/mathopt_samples/`](examples/mathopt_samples/README.ko.md)에는 OR-Tools가 직접 제공하는 MathOpt 예제
 세 개(`cocktail_hour`, `time_indexed_scheduling`, `lagrangian_relaxation`)를 dreamor로 옮긴 것과, 각각 무엇이

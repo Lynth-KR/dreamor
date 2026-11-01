@@ -265,13 +265,13 @@ for (const auto& [row, qty] : yieldPlan) {
 }
 ```
 
-The full example lives in `examples/`. Data, columns, and sets are in a single solver-independent file,
-`production_planning_sets.hpp`; on top of it sit the same model written for Concert, `production_planning.hpp` (run:
+The full example lives in `examples/`. The data and its generator are in `production_planning_data.hpp`, the columns
+and sets in `production_planning_sets.hpp`, both solver-independent; on top of them sit the same model written for Concert, `production_planning.hpp` (run:
 `production_planning.cpp`), for MathOpt, `production_planning_mathopt.hpp` (run: `production_planning_mathopt.cpp`,
 HiGHS), and for HiGHS, `production_planning_highs.hpp` (run: `production_planning_highs.cpp`).
 `tests/mathopt/test_cross_backend.cpp` and `tests/highs/test_cross_backend.cpp` check that each builds the
-constraints the Concert model does. A comparison version of the same model written with only `std::map` and Concert
-is `production_planning_plain.hpp`.
+constraints the Concert model does. A comparison version of the same model written with only `std::map` and Concert, on
+the data alone, is `production_planning_plain.hpp`.
 
 [`examples/mathopt_samples/`](examples/mathopt_samples/README.md) has three of OR-Tools' own MathOpt samples
 (`cocktail_hour`, `time_indexed_scheduling`, `lagrangian_relaxation`) ported to dreamor, with a walkthrough of

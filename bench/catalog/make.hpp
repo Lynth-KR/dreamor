@@ -8,7 +8,8 @@
 //   vars_named  the same, each named x_<id>_<id>..., as a model names its variables
 //   join        the same rows again, as A (every column but the period) joined with B (k1 and
 //               the period) on k1: the rows collect makes, so the two phases' checks agree
-// A and B are made before any phase and not measured.
+// A and B are made before any phase and not measured. At k = 1 a row is its k1 alone: no period
+// to join on, so no join.
 //
 // dreamor's makeSet and VarTable are set against nested loops into a std::vector, a variable a
 // row, and names written with std::to_chars - the same code in every hand-written arm - and joins
@@ -32,8 +33,10 @@
 #include "../common/measure.hpp"
 #include "../common/result.hpp"
 #include "data.hpp"
-#include "dreamor/concert.hpp"
-#include "dreamor/index_set.hpp"
+#if CATALOG_DREAMOR
+#  include "dreamor/concert.hpp"
+#  include "dreamor/index_set.hpp"
+#endif
 #include "shared.hpp"
 
 namespace make {
@@ -48,6 +51,7 @@ inline std::uint64_t rowCheck(const Serials& serials, std::size_t k) {
   return keyOf(serials, k) | 1;
 }
 
+#if CATALOG_DREAMOR
 // --- dreamor ---------------------------------------------------------------------------------
 template <typename Seq>
 struct Dreamor;
@@ -69,6 +73,43 @@ struct Dreamor<std::index_sequence<J...>> {
   }
 
   static void run(const Data& d, Result& r) {
+    if constexpr (kK == 1) {
+      runSingle(d, r);
+      return;
+    } else {
+      runJoined(d, r);
+    }
+  }
+
+  // k = 1: collect and the variables, no join.
+  static void runSingle(const Data& d, Result& r) {
+    IloEnv env;
+    Set sX;
+    r.measure("collect", [&] { sX = G::make(d); });
+    r.check("collect", check(sX));
+    std::optional<Table> vX, vNamed;
+    r.measure("vars", [&] { vX.emplace(env, sX, 0, typename G::Tag{}, ILOFLOAT); });
+    if (vX) {
+      std::uint64_t sum = 0;
+      for (const auto& [row, x] : *vX) {
+        sum += ubOf(x);
+      }
+      r.check("vars", sum);
+    }
+    r.measure("vars_named", [&] { vNamed.emplace(env, sX, 0, typename G::Tag{}, ILOFLOAT, "x"); });
+    if (vNamed) {
+      std::uint64_t sum = 0;
+      for (const auto& [row, x] : *vNamed) {
+        sum += ubOf(x);
+      }
+      r.check("vars_named", sum);
+    }
+    env.end();
+  }
+
+  static void runJoined(const Data& d, Result& r)
+    requires(kK > 1)
+  {
     IloEnv env;
     // A: k1 and the middle columns; B: k1 and the period.
     const auto sA = [&]<std::size_t... M>(std::index_sequence<M...>) {
@@ -105,16 +146,18 @@ struct Dreamor<std::index_sequence<J...>> {
     env.end();
   }
 };
+#endif
 
+#if !CATALOG_DREAMOR
 // --- hand-written ----------------------------------------------------------------------------
 enum class Way { kIdentity, kMixed, kSort, kMap };
 
 static void runHand(Way way, const Data& d, Result& r) {
   const std::size_t k = d.k, last = d.last();
-  // A's rows, k - 1 entities each, and B's (k1, period) pairs, in generation order.
+  // A's rows, k - 1 entities each, and B's (k1, period) pairs, in generation order. None at k = 1.
   std::vector<const Ent*> a_rows;
   std::vector<std::pair<const Ent*, const Ent*>> b_rows;
-  {
+  if (k > 1) {
     std::array<const Ent*, kMaxColumns> row{};
     const auto walk = [&](auto& self, std::size_t j) -> void {
       if (j == last) {
@@ -195,6 +238,10 @@ static void runHand(Way way, const Data& d, Result& r) {
     r.check("vars_named", sum);
   }
 
+  if (k == 1) {
+    env.end();
+    return;
+  }
   std::vector<const Ent*> joined;  // k a row
   r.measure("join", [&] {
     const std::size_t a_width = last;
@@ -278,16 +325,26 @@ static void runHand(Way way, const Data& d, Result& r) {
   r.check("join", setCheck(joined));
   env.end();
 }
+#endif
 
 static void run(const std::string& impl, const Data& d, const Samples&, Result& r) {
+#if CATALOG_DREAMOR
   if (impl == "dreamor") {
     switch (d.k) {
+      case 1: Dreamor<std::make_index_sequence<1>>::run(d, r); break;
       case 2: Dreamor<std::make_index_sequence<2>>::run(d, r); break;
       case 3: Dreamor<std::make_index_sequence<3>>::run(d, r); break;
       case 5: Dreamor<std::make_index_sequence<5>>::run(d, r); break;
-      default: r.skip("k must be 2, 3 or 5");
+#  if CATALOG_MAX_COLUMNS >= 8
+      case 8: Dreamor<std::make_index_sequence<8>>::run(d, r); break;
+#  endif
+      default: r.skip("k must be 1, 2, 3 or 5 (8 on ./catalog8)");
     }
-  } else if (impl == "identity") {
+  } else {
+    r.skip("no arm " + impl + " in ./catalog: the hand-written arms are ./catalog_hand");
+  }
+#else
+  if (impl == "identity") {
     runHand(Way::kIdentity, d, r);
   } else if (impl == "mixed") {
     runHand(Way::kMixed, d, r);
@@ -298,6 +355,7 @@ static void run(const std::string& impl, const Data& d, const Samples&, Result& 
   } else {
     r.skip("no arm " + impl);
   }
+#endif
 }
 
 }  // namespace make

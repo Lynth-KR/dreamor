@@ -14,14 +14,18 @@
 // Against the stub there is no solver, so a run stops after constraints.
 //
 // Arms:
-//   dreamor  planning::Model / planning::MathOptModel, the example itself
+//   dreamor  planning::Model / planning::MathOptModel / planning::HighsApiModel, the example itself
 //   plain    planning::PlainModel, the example's own comparison: std::maps by the entities and
 //            loops over the data, the way the model is usually written without index sets
 //            (Concert only, as in the example)
 //   flat     hand-optimized: routes in machine order, each item's routes as CSR, variables in
-//            std::vectors by position, names written with std::to_chars
+//            std::vectors by position, names written with std::to_chars; on HiGHS, the model's
+//            arrays filled by position and handed over in one passModel
+//   callable       CPLEX's Callable Library, the C API under Concert: the arrays filled by position
+//                  and handed over in one CPXnewcols and one CPXaddrows (CPLEX only)
+//   callable-rows  the same columns in one CPXnewcols, then a CPXaddrows a row (CPLEX only)
 //
-//   lotsizing --impl dreamor|plain|flat --items <I> [--machines 20] [--periods 50] [--rep r]
+//   lotsizing --impl dreamor|plain|flat|callable|callable-rows --items <I> [--machines 20] [--periods 50] [--rep r]
 //             [--seed s] [--heap-seed h] [--pmu <events>]
 #include <array>
 #include <charconv>
@@ -30,6 +34,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -40,9 +45,16 @@
 #include "../common/result.hpp"
 #include "backend.hpp"
 #include "dreamor/logger/logger_light.hpp"
-#if defined(SCENARIO_MATHOPT)
+#if !SCENARIO_DREAMOR
+#  include "../../examples/production_planning_data.hpp"
+#elif defined(SCENARIO_MATHOPT)
 #  include "../../examples/production_planning_mathopt.hpp"
+#elif defined(SCENARIO_HIGHS)
+#  include "../../examples/production_planning_highs.hpp"
 #else
+#  include "../../examples/production_planning.hpp"
+#endif
+#if !SCENARIO_DREAMOR && !defined(SCENARIO_MATHOPT) && !defined(SCENARIO_HIGHS)
 #  include "../../examples/production_planning_plain.hpp"
 #endif
 
@@ -50,6 +62,7 @@ namespace {
 
 using planning::Instance;
 
+#if !SCENARIO_DREAMOR
 // What a hand-coder keeps beside the data: the routes in machine order, the routes of each item.
 struct Routes {
   std::vector<const planning::Machine*> machine;   // by route
@@ -117,8 +130,11 @@ class Name {
   std::array<char, 256> buf_{};
   std::size_t at_;
 };
+#endif
 
 #if defined(SCENARIO_MATHOPT)
+
+#  if SCENARIO_DREAMOR
 
 void runDreamor(const Instance& in, Result& r) {
   math_opt::Model model;
@@ -127,6 +143,8 @@ void runDreamor(const Instance& in, Result& r) {
   r.measure("constraints", [&] { m->build(model); });
   solve(model, r);
 }
+
+#  else
 
 void runFlat(const Instance& in, Result& r) {
   const std::size_t t_count = in.periods.size();
@@ -200,7 +218,125 @@ void runPlain(const Instance& /*in*/, Result& r) {
   r.skip("the example's plain model is Concert only");
 }
 
+#  endif
+
+#elif defined(SCENARIO_HIGHS)
+
+#  if SCENARIO_DREAMOR
+
+void runDreamor(const Instance& in, Result& r) {
+  dreamor::highs::HighsEnv env{startOptions()};
+  std::optional<planning::HighsApiModel> m;
+  r.measure("variables", [&] { m.emplace(env, in); });
+  r.measure("constraints", [&] { m->build(env); });
+  solve(env, r);
+}
+
+#  else
+
+// Columns: Yield [route * T + t], Setup after them, Stock [item * T + t] after those; rows row-wise.
+void runFlat(const Instance& in, Result& r) {
+  const std::size_t t_count = in.periods.size();
+  Highs highs;
+  highs.passOptions(startOptions());
+  HighsModel model;
+  HighsLp& lp          = model.lp_;
+  HighsSparseMatrix& a = lp.a_matrix_;
+  a.format_            = MatrixFormat::kRowwise;
+  a.start_.assign(1, 0);
+  const auto endRow = [&](double lower, double upper) {
+    lp.row_lower_.push_back(lower);
+    lp.row_upper_.push_back(upper);
+    a.start_.push_back(static_cast<HighsInt>(a.index_.size()));
+  };
+  std::optional<Routes> routes;
+  std::size_t yield = 0, setup = 0, stock = 0;  // the first column of each
+  r.measure("variables", [&] {
+    routes.emplace(in);
+    const std::size_t r_count = routes->item.size();
+    const std::size_t n       = 2 * r_count * t_count + in.items.size() * t_count;
+    setup                     = r_count * t_count;
+    stock                     = 2 * r_count * t_count;
+    lp.col_lower_.assign(n, 0);
+    lp.col_upper_.resize(n);
+    lp.col_cost_.assign(n, 0);
+    lp.integrality_.assign(n, HighsVarType::kContinuous);
+    lp.col_names_.resize(n);
+    Name yield_name{"Yield"}, setup_name{"Setup"}, stock_name{"Stock"};
+    for (std::size_t q = 0; q < r_count; ++q) {
+      const planning::Machine* m = routes->machine[q];
+      const planning::Item* i    = routes->item[q];
+      for (const std::size_t t : in.periods) {
+        const std::size_t v        = q * t_count + t;
+        lp.col_upper_[yield + v]   = m->capacity / i->time;
+        lp.col_names_[yield + v]   = yield_name(m->name, i->name, t);
+        lp.col_upper_[setup + v]   = 1;
+        lp.integrality_[setup + v] = HighsVarType::kInteger;
+        lp.col_names_[setup + v]   = setup_name(m->name, i->name, t);
+      }
+    }
+    for (std::size_t i = 0; i < in.items.size(); ++i) {
+      for (const std::size_t t : in.periods) {
+        lp.col_upper_[stock + i * t_count + t] = kHighsInf;
+        lp.col_names_[stock + i * t_count + t] = stock_name(in.items[i]->name, t);
+      }
+    }
+  });
+  r.measure("constraints", [&] {
+    const auto put = [&](std::size_t column, double value) {
+      a.index_.push_back(static_cast<HighsInt>(column));
+      a.value_.push_back(value);
+    };
+    for (std::size_t i = 0; i < in.items.size(); ++i) {
+      for (std::size_t t = 0; t < t_count; ++t) {
+        for (std::uint32_t k = routes->item_start[i]; k < routes->item_start[i + 1]; ++k) {
+          put(yield + routes->of_item[k] * t_count + t, 1);
+        }
+        if (t > 0) { put(stock + i * t_count + t - 1, 1); }
+        put(stock + i * t_count + t, -1);
+        endRow(in.items[i]->demand[t], in.items[i]->demand[t]);
+      }
+    }
+    for (std::size_t m = 0; m < in.machines.size(); ++m) {
+      const std::uint32_t first = routes->machine_start[m], last = routes->machine_start[m + 1];
+      if (first == last) { continue; }
+      for (std::size_t t = 0; t < t_count; ++t) {
+        for (std::uint32_t q = first; q < last; ++q) {
+          put(yield + q * t_count + t, routes->item[q]->time);
+        }
+        endRow(-kHighsInf, in.machines[m]->capacity);
+      }
+    }
+    for (std::size_t v = 0; v < setup; ++v) {
+      put(yield + v, 1);
+      put(setup + v, -lp.col_upper_[yield + v]);
+      endRow(-kHighsInf, 0);
+    }
+    for (std::size_t i = 0; i < in.items.size(); ++i) {
+      for (std::size_t t = 0; t < t_count; ++t) {
+        lp.col_cost_[stock + i * t_count + t] = in.items[i]->hold;
+      }
+    }
+    for (std::size_t q = 0; q < routes->item.size(); ++q) {
+      for (std::size_t t = 0; t < t_count; ++t) {
+        lp.col_cost_[setup + q * t_count + t] = routes->machine[q]->setup;
+      }
+    }
+  });
+  lp.num_col_ = a.num_col_ = static_cast<HighsInt>(lp.col_cost_.size());
+  lp.num_row_ = a.num_row_ = static_cast<HighsInt>(lp.row_lower_.size());
+  solve(highs, std::move(model), r);
+}
+
+void runPlain(const Instance& /*in*/, Result& r) {
+  r.skip("the example's plain model is Concert only");
+}
+
+#  endif
+
 #else  // Concert, real or the stub
+
+#  if SCENARIO_DREAMOR
 
 void runDreamor(const Instance& in, Result& r) {
   IloEnv env;
@@ -211,6 +347,8 @@ void runDreamor(const Instance& in, Result& r) {
   solve(env, model, r);
   env.end();
 }
+
+#  else
 
 void runPlain(const Instance& in, Result& r) {
   IloEnv env;
@@ -293,6 +431,211 @@ void runFlat(const Instance& in, Result& r) {
   solve(env, model, r);
   env.end();
 }
+
+#  endif
+
+#endif
+
+#if defined(SCENARIO_CALLABLE) && !SCENARIO_DREAMOR
+
+// The model's columns as CPXnewcols takes them: Yield [route * T + t], Setup after them, Stock
+// [item * T + t] after those, with their bounds, types, costs and names - the names copied into one
+// buffer of terminated strings, as C code keeps them.
+struct CallableColumns {
+  std::vector<double> lower, upper, cost;
+  std::vector<char> type, names;
+  std::vector<std::size_t> name_at;
+  std::size_t yield = 0, setup = 0, stock = 0;  // the first column of each
+
+  CallableColumns(const Instance& in, const Routes& routes) {
+    const std::size_t t_count = in.periods.size(), r_count = routes.item.size();
+    const std::size_t n = 2 * r_count * t_count + in.items.size() * t_count;
+    setup               = r_count * t_count;
+    stock               = 2 * r_count * t_count;
+    lower.assign(n, 0);
+    upper.resize(n);
+    cost.assign(n, 0);
+    type.assign(n, 'C');
+    name_at.resize(n);
+    Name yield_name{"Yield"}, setup_name{"Setup"}, stock_name{"Stock"};
+    const auto name = [&](std::size_t column, const char* text) {
+      name_at[column] = names.size();
+      names.insert(names.end(), text, text + std::strlen(text) + 1);
+    };
+    for (std::size_t q = 0; q < r_count; ++q) {
+      const planning::Machine* m = routes.machine[q];
+      const planning::Item* i    = routes.item[q];
+      for (const std::size_t t : in.periods) {
+        const std::size_t v = q * t_count + t;
+        upper[yield + v]    = m->capacity / i->time;
+        name(yield + v, yield_name(m->name, i->name, t));
+        upper[setup + v] = 1;
+        type[setup + v]  = 'B';
+        name(setup + v, setup_name(m->name, i->name, t));
+      }
+    }
+    for (std::size_t i = 0; i < in.items.size(); ++i) {
+      for (const std::size_t t : in.periods) {
+        upper[stock + i * t_count + t] = CPX_INFBOUND;
+        name(stock + i * t_count + t, stock_name(in.items[i]->name, t));
+      }
+    }
+  }
+  // Every column handed over in one call. CPXnewcols takes the names as char** (it reads them).
+  [[nodiscard]] bool add(const Callable& cpx) {
+    std::vector<char*> name_of(name_at.size());
+    for (std::size_t k = 0; k < name_at.size(); ++k) {
+      name_of[k] = names.data() + name_at[k];
+    }
+    return CPXnewcols(cpx.env(),
+                      cpx.lp(),
+                      static_cast<int>(lower.size()),
+                      cost.data(),
+                      lower.data(),
+                      upper.data(),
+                      type.data(),
+                      name_of.data()) == 0;
+  }
+};
+
+// Every row of the model, in the order the other arms add them, a coefficient at a time to
+// put(column, coefficient) and each row's end to emit(sense, rhs); the costs into cost.
+template <typename Put, typename Emit>
+void eachRow(const Instance& in,
+             const Routes& routes,
+             const CallableColumns& columns,
+             std::vector<double>& cost,
+             const Put& put,
+             const Emit& emit) {
+  const std::size_t t_count = in.periods.size();
+  for (std::size_t i = 0; i < in.items.size(); ++i) {
+    for (std::size_t t = 0; t < t_count; ++t) {
+      for (std::uint32_t k = routes.item_start[i]; k < routes.item_start[i + 1]; ++k) {
+        put(columns.yield + routes.of_item[k] * t_count + t, 1);
+      }
+      if (t > 0) { put(columns.stock + i * t_count + t - 1, 1); }
+      put(columns.stock + i * t_count + t, -1);
+      emit('E', in.items[i]->demand[t]);
+    }
+  }
+  for (std::size_t m = 0; m < in.machines.size(); ++m) {
+    const std::uint32_t first = routes.machine_start[m], last = routes.machine_start[m + 1];
+    if (first == last) { continue; }
+    for (std::size_t t = 0; t < t_count; ++t) {
+      for (std::uint32_t q = first; q < last; ++q) {
+        put(columns.yield + q * t_count + t, routes.item[q]->time);
+      }
+      emit('L', in.machines[m]->capacity);
+    }
+  }
+  for (std::size_t v = 0; v < columns.setup; ++v) {
+    put(columns.yield + v, 1);
+    put(columns.setup + v, -columns.upper[columns.yield + v]);
+    emit('L', 0);
+  }
+  for (std::size_t i = 0; i < in.items.size(); ++i) {
+    for (std::size_t t = 0; t < t_count; ++t) {
+      cost[columns.stock + i * t_count + t] = in.items[i]->hold;
+    }
+  }
+  for (std::size_t q = 0; q < routes.item.size(); ++q) {
+    for (std::size_t t = 0; t < t_count; ++t) {
+      cost[columns.setup + q * t_count + t] = routes.machine[q]->setup;
+    }
+  }
+}
+
+// The Callable Library as its own examples write a model: every array filled by position and
+// handed over in one CPXnewcols and one CPXaddrows.
+void runCallable(const Instance& in, Result& r) {
+  const Callable cpx;
+  std::optional<Routes> routes;
+  std::optional<CallableColumns> columns;
+  std::vector<double> rhs, value;
+  std::vector<char> sense;
+  std::vector<int> begin, index;
+  r.measure("variables", [&] {
+    routes.emplace(in);
+    columns.emplace(in, *routes);
+  });
+  r.measure("constraints", [&] {
+    const auto put = [&](std::size_t column, double coefficient) {
+      index.push_back(static_cast<int>(column));
+      value.push_back(coefficient);
+    };
+    std::size_t row_start = 0;
+    const auto emit       = [&](char row_sense, double row_rhs) {
+      begin.push_back(static_cast<int>(row_start));
+      row_start = index.size();
+      sense.push_back(row_sense);
+      rhs.push_back(row_rhs);
+    };
+    eachRow(in, *routes, *columns, columns->cost, put, emit);
+  });
+  r.measure("extract", [&] {
+    r.sink += columns->add(cpx);
+    r.sink += CPXaddrows(cpx.env(),
+                         cpx.lp(),
+                         0,
+                         static_cast<int>(rhs.size()),
+                         static_cast<int>(index.size()),
+                         rhs.data(),
+                         sense.data(),
+                         begin.data(),
+                         index.data(),
+                         value.data(),
+                         nullptr,
+                         nullptr) == 0;
+  });
+  start(cpx, r);
+}
+
+// The Callable Library a call a row: the columns, named, in one CPXnewcols; every row handed to
+// CPLEX as it is made; the costs in one CPXchgobj.
+void runCallableRows(const Instance& in, Result& r) {
+  const Callable cpx;
+  std::optional<Routes> routes;
+  std::optional<CallableColumns> columns;
+  r.measure("variables", [&] {
+    routes.emplace(in);
+    columns.emplace(in, *routes);
+    r.sink += columns->add(cpx);
+  });
+  r.measure("constraints", [&] {
+    std::vector<int> index;  // the row being made
+    std::vector<double> value;
+    const auto put = [&](std::size_t column, double coefficient) {
+      index.push_back(static_cast<int>(column));
+      value.push_back(coefficient);
+    };
+    const auto emit = [&](char row_sense, double row_rhs) {
+      const int begin = 0;
+      r.sink += CPXaddrows(cpx.env(),
+                           cpx.lp(),
+                           0,
+                           1,
+                           static_cast<int>(index.size()),
+                           &row_rhs,
+                           &row_sense,
+                           &begin,
+                           index.data(),
+                           value.data(),
+                           nullptr,
+                           nullptr) == 0;
+      index.clear();
+      value.clear();
+    };
+    std::vector<double> cost(columns->cost.size(), 0);
+    eachRow(in, *routes, *columns, cost, put, emit);
+    std::vector<int> all(cost.size());
+    for (std::size_t k = 0; k < all.size(); ++k) {
+      all[k] = static_cast<int>(k);
+    }
+    CPXchgobj(cpx.env(), cpx.lp(), static_cast<int>(all.size()), all.data(), cost.data());
+  });
+  r.measure("extract", [] {});
+  start(cpx, r);
+}
 #endif
 
 [[noreturn]] void usage(const std::string& why) {
@@ -331,7 +674,9 @@ int main(int argc, char** argv) {
       usage("unknown option " + k);
     }
   }
-  if (impl != "dreamor" && impl != "plain" && impl != "flat") { usage("--impl dreamor|plain|flat"); }
+  if (impl != "dreamor" && impl != "plain" && impl != "flat" && impl != "callable" && impl != "callable-rows") {
+    usage("--impl dreamor|plain|flat|callable|callable-rows");
+  }
   if (items == 0 || machines == 0 || periods == 0) { usage("--items, --machines and --periods must be positive"); }
 
   Result r;
@@ -343,13 +688,32 @@ int main(int argc, char** argv) {
     routes += m->items.size();
   }
   if (!pmu_spec.empty()) { pmu().open(pmu_spec); }
+#if SCENARIO_DREAMOR
   if (impl == "dreamor") {
     runDreamor(*in, r);
-  } else if (impl == "plain") {
-    runPlain(*in, r);
   } else {
-    runFlat(*in, r);
+    r.skip("no arm " + impl + " in ./lotsizing_" + kBackend + ": the hand-written arms are ./lotsizing_" + kBackend +
+           "_hand");
   }
+#else
+  if (impl == "plain") {
+    runPlain(*in, r);
+  } else if (impl == "flat") {
+    runFlat(*in, r);
+  } else if (impl == "dreamor") {
+    r.skip(std::string{"no arm dreamor in ./lotsizing_"} + kBackend + "_hand: it is ./lotsizing_" + kBackend);
+  } else {
+#  if defined(SCENARIO_CALLABLE)
+    if (impl == "callable") {
+      runCallable(*in, r);
+    } else {
+      runCallableRows(*in, r);
+    }
+#  else
+    r.skip("the Callable Library is CPLEX's");
+#  endif
+  }
+#endif
   const double main_ms = std::chrono::duration<double, std::milli>(Clk::now() - started).count();
 
   std::printf(

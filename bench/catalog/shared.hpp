@@ -9,8 +9,12 @@
 #include <utility>
 
 #include "data.hpp"
-#include "dreamor/concert.hpp"
-#include "dreamor/index_set.hpp"
+#if CATALOG_DREAMOR
+#  include "dreamor/concert.hpp"
+#  include "dreamor/index_set.hpp"
+#else
+#  include <ilcplex/ilocplex.h>
+#endif
 
 namespace catalog {
 
@@ -85,6 +89,7 @@ inline std::uint64_t keyOf(const Serials& serials, std::size_t count) {
   return h;
 }
 
+#if CATALOG_DREAMOR
 // The set every dreamor arm builds, for k = sizeof...(J) columns: the k1s, then column j's list of
 // each k1, kept by the predicate when the cell is sparse; x on it, tagged by its rows' serials.
 template <typename Seq>
@@ -117,5 +122,6 @@ struct Gen<std::index_sequence<J...>> {
     }(std::make_index_sequence<kK - 1>{});
   }
 };
+#endif
 
 }  // namespace catalog

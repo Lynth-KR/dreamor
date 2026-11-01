@@ -29,10 +29,8 @@ bench/solver/probe_*
 bench/plan/model
 bench/plan/plan
 bench/plan/plan_count
-bench/catalog/catalog
-bench/catalog/catalog_*
-bench/scenario/pmedian_*
-bench/scenario/lotsizing_*
+bench/catalog/build/
+bench/scenario/build/
 bench/results/
 
 # Others

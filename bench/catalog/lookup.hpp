@@ -11,6 +11,9 @@
 //   miss      contains() of the same keys with the period in no row
 //   half      contains(), then x where it is there, over keys of which half are rows
 //
+// At k = 1 a row is its k1 alone: there is no period, so no y, and no neighbor or project; a miss
+// is a k1 in no row, a different one each (data.hpp).
+//
 // dreamor is set against hand-written arms that pack the ids into one integer and keep rows in a
 // vector: through std::unordered_map with libstdc++'s identity hash (`identity`), with a mixed
 // hash (`mixed`), or through a direct array over every combination of ids (`array`), which a
@@ -35,13 +38,16 @@
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "../common/measure.hpp"
 #include "../common/result.hpp"
 #include "data.hpp"
-#include "dreamor/concert.hpp"
-#include "dreamor/index_set.hpp"
+#if CATALOG_DREAMOR
+#  include "dreamor/concert.hpp"
+#  include "dreamor/index_set.hpp"
+#endif
 #include "shared.hpp"
 
 namespace lookup {
@@ -53,6 +59,7 @@ using catalog::ubOf;
 
 inline const std::vector<std::string> kPhases = {"build", "index", "neighbor", "project", "hit", "miss", "half"};
 
+#if CATALOG_DREAMOR
 // --- dreamor ---------------------------------------------------------------------------------
 template <typename Seq>
 struct Dreamor;
@@ -63,8 +70,9 @@ struct Dreamor<std::index_sequence<J...>> {
   static constexpr std::size_t kLast = G::kLast;
   using Set                          = typename G::Set;
   using Table                        = typename G::Table;
-  using PairSet                      = dreamor::SetOf<cK<0>, cK<kLast>>;
-  using PairTable                    = dreamor::concert::VarTable<cK<0>, cK<kLast>>;
+  static constexpr bool kPairs       = kK > 1;  // y, on (k1, period): not at k = 1
+  using PairSet                      = std::conditional_t<kPairs, dreamor::SetOf<cK<0>, cK<kLast>>, std::monostate>;
+  using PairTable = std::conditional_t<kPairs, dreamor::concert::VarTable<cK<0>, cK<kLast>>, std::monostate>;
 
   struct PairTag {
     double operator()(cK<0> a, cK<kLast> t) const {
@@ -81,34 +89,38 @@ struct Dreamor<std::index_sequence<J...>> {
     r.measure("build", [&] {
       sX = G::make(d);
       vX.emplace(env, sX, 0, typename G::Tag{}, ILOFLOAT);
-      sY = sX.template select<cK<0>, cK<kLast>>();
-      vY.emplace(env, sY, 0, PairTag{}, ILOFLOAT);
+      if constexpr (kPairs) {
+        sY = sX.template select<cK<0>, cK<kLast>>();
+        vY.emplace(env, sY, 0, PairTag{}, ILOFLOAT);
+      }
     });
     r.measure("index", [&] {
       // An absent key: the lookup has to build the index to say so.
       const auto& row = *sX.begin();
       r.sink += vX->contains(replaced<J>(row, d.absent)...);
-      r.sink += vY->contains(std::get<cK<0>>(row), cK<kLast>{d.absent});
+      if constexpr (kPairs) { r.sink += vY->contains(std::get<cK<0>>(row), cK<kLast>{d.absent}); }
     });
-    r.measure("neighbor", [&] {
-      std::uint64_t sum = 0;
-      for (const auto& row : sX) {
-        const Ent* p = d.prev(std::get<cK<kLast>>(row).get());
-        if (p == nullptr) { continue; }
-        const auto key = std::tuple{replaced<J>(row, p)...};
-        if (std::apply([&](auto... c) { return vX->contains(c...); }, key)) {
-          sum += ubOf(std::apply([&](auto... c) { return (*vX)(c...); }, key));
+    if constexpr (kPairs) {
+      r.measure("neighbor", [&] {
+        std::uint64_t sum = 0;
+        for (const auto& row : sX) {
+          const Ent* p = d.prev(std::get<cK<kLast>>(row).get());
+          if (p == nullptr) { continue; }
+          const auto key = std::tuple{replaced<J>(row, p)...};
+          if (std::apply([&](auto... c) { return vX->contains(c...); }, key)) {
+            sum += ubOf(std::apply([&](auto... c) { return (*vX)(c...); }, key));
+          }
         }
-      }
-      r.check("neighbor", sum);
-    });
-    r.measure("project", [&] {
-      std::uint64_t sum = 0;
-      for (const auto& row : sX) {
-        sum += ubOf((*vY)(std::get<cK<0>>(row), std::get<cK<kLast>>(row)));
-      }
-      r.check("project", sum);
-    });
+        r.check("neighbor", sum);
+      });
+      r.measure("project", [&] {
+        std::uint64_t sum = 0;
+        for (const auto& row : sX) {
+          sum += ubOf((*vY)(std::get<cK<0>>(row), std::get<cK<kLast>>(row)));
+        }
+        r.check("project", sum);
+      });
+    }
     r.measure("hit", [&] {
       std::uint64_t sum = 0;
       for (const auto& key : s.hit) {
@@ -143,7 +155,9 @@ struct Dreamor<std::index_sequence<J...>> {
     }
   }
 };
+#endif
 
+#if !CATALOG_DREAMOR
 // --- hand-written ----------------------------------------------------------------------------
 // The index a hand-written arm keeps from a packed key to an entry.
 template <typename Hash>
@@ -172,6 +186,7 @@ inline constexpr long double kArraySlotsPerRow = 16;
 template <typename Index>
 static void runHand(const Data& d, const Samples& s, Result& r) {
   const std::size_t k = d.k, last = d.last();
+  const bool pairs = k > 1;  // y, on (k1, period): not at k = 1
   IloEnv env;
   Packer px, py;
   px.k = k;
@@ -230,7 +245,7 @@ static void runHand(const Data& d, const Samples& s, Result& r) {
         serial[j] = serial_of[j][row[j]];
       }
       x.emplace_back(env, 0, tagOf(serial, k, 0), ILOFLOAT);
-      if (seen.emplace(pairOf(row), static_cast<std::uint32_t>(pair_keys.size())).second) {
+      if (pairs && seen.emplace(pairOf(row), static_cast<std::uint32_t>(pair_keys.size())).second) {
         pair_keys.push_back(pairOf(row));
         y.emplace_back(env, 0, tagOf(std::array<std::uint32_t, 2>{serial[0], serial[last]}, 2, 1), ILOFLOAT);
       }
@@ -245,39 +260,43 @@ static void runHand(const Data& d, const Samples& s, Result& r) {
       }
       ix.add(px(id), i);
     }
-    iy.reserve(pair_keys.size());
-    for (std::uint32_t i = 0; i < pair_keys.size(); ++i) {
-      iy.add(pair_keys[i], i);
+    if (pairs) {
+      iy.reserve(pair_keys.size());
+      for (std::uint32_t i = 0; i < pair_keys.size(); ++i) {
+        iy.add(pair_keys[i], i);
+      }
     }
   });
   // The period before, by id: what a hand-coder keeps beside the entities.
   std::vector<std::uint32_t> prev_id(d.ents[last].size(), Index::kNone);
   for (const auto& e : d.ents[last]) {
-    const Ent* p   = d.prev(e.get());
+    const Ent* p   = pairs ? d.prev(e.get()) : nullptr;
     prev_id[e->id] = p ? p->id : Index::kNone;
   }
-  r.measure("neighbor", [&] {
-    std::uint64_t sum = 0;
-    for (std::size_t i = 0; i < d.rows; ++i) {
-      std::array<std::uint32_t, kMaxColumns> id{};
-      for (std::size_t j = 0; j < k; ++j) {
-        id[j] = ids[i * k + j];
+  if (pairs) {
+    r.measure("neighbor", [&] {
+      std::uint64_t sum = 0;
+      for (std::size_t i = 0; i < d.rows; ++i) {
+        std::array<std::uint32_t, kMaxColumns> id{};
+        for (std::size_t j = 0; j < k; ++j) {
+          id[j] = ids[i * k + j];
+        }
+        const std::uint32_t p = prev_id[id[last]];
+        if (p == Index::kNone) { continue; }
+        id[last]              = p;
+        const std::uint32_t e = ix.find(px(id));
+        if (e != Index::kNone) { sum += ubOf(x[e]); }
       }
-      const std::uint32_t p = prev_id[id[last]];
-      if (p == Index::kNone) { continue; }
-      id[last]              = p;
-      const std::uint32_t e = ix.find(px(id));
-      if (e != Index::kNone) { sum += ubOf(x[e]); }
-    }
-    r.check("neighbor", sum);
-  });
-  r.measure("project", [&] {
-    std::uint64_t sum = 0;
-    for (std::size_t i = 0; i < d.rows; ++i) {
-      sum += ubOf(y[iy.find(pairOf(&ids[i * k]))]);
-    }
-    r.check("project", sum);
-  });
+      r.check("neighbor", sum);
+    });
+    r.measure("project", [&] {
+      std::uint64_t sum = 0;
+      for (std::size_t i = 0; i < d.rows; ++i) {
+        sum += ubOf(y[iy.find(pairOf(&ids[i * k]))]);
+      }
+      r.check("project", sum);
+    });
+  }
   const auto idsOf = [k](const std::array<const Ent*, kMaxColumns>& key) {
     std::array<std::uint32_t, kMaxColumns> id{};
     for (std::size_t j = 0; j < k; ++j) {
@@ -314,6 +333,7 @@ static void runHand(const Data& d, const Samples& s, Result& r) {
 static void runMap(const Data& d, const Samples& s, Result& r) {
   using Key           = std::array<const Ent*, kMaxColumns>;  // unused columns stay null
   const std::size_t k = d.k, last = d.last();
+  const bool pairs = k > 1;  // y, on (k1, period): not at k = 1
   IloEnv env;
   std::map<Key, IloNumVar> x;
   std::map<std::pair<const Ent*, const Ent*>, IloNumVar> y;
@@ -326,7 +346,7 @@ static void runMap(const Data& d, const Samples& s, Result& r) {
       rows.push_back(key);
       x.emplace(key, IloNumVar(env, 0, tagOf(serialsOf(key, k), k, 0), ILOFLOAT));
       const auto pair = std::make_pair(key[0], key[last]);
-      if (!y.contains(pair)) {
+      if (pairs && !y.contains(pair)) {
         y.emplace(
             pair,
             IloNumVar(env, 0, tagOf(std::array<std::uint32_t, 2>{key[0]->serial, key[last]->serial}, 2, 1), ILOFLOAT));
@@ -334,23 +354,25 @@ static void runMap(const Data& d, const Samples& s, Result& r) {
     });
   });
   r.measure("index", [] {});
-  r.measure("neighbor", [&] {
-    std::uint64_t sum = 0;
-    for (Key key : rows) {
-      const Ent* p = d.prev(key[last]);
-      if (p == nullptr) { continue; }
-      key[last] = p;
-      if (const auto it = x.find(key); it != x.end()) { sum += ubOf(it->second); }
-    }
-    r.check("neighbor", sum);
-  });
-  r.measure("project", [&] {
-    std::uint64_t sum = 0;
-    for (const Key& key : rows) {
-      sum += ubOf(y.at({key[0], key[last]}));
-    }
-    r.check("project", sum);
-  });
+  if (pairs) {
+    r.measure("neighbor", [&] {
+      std::uint64_t sum = 0;
+      for (Key key : rows) {
+        const Ent* p = d.prev(key[last]);
+        if (p == nullptr) { continue; }
+        key[last] = p;
+        if (const auto it = x.find(key); it != x.end()) { sum += ubOf(it->second); }
+      }
+      r.check("neighbor", sum);
+    });
+    r.measure("project", [&] {
+      std::uint64_t sum = 0;
+      for (const Key& key : rows) {
+        sum += ubOf(y.at({key[0], key[last]}));
+      }
+      r.check("project", sum);
+    });
+  }
   const auto keyOf = [k](const Key& sample) {
     Key key{};
     std::copy_n(sample.begin(), k, key.begin());
@@ -379,16 +401,26 @@ static void runMap(const Data& d, const Samples& s, Result& r) {
   });
   env.end();
 }
+#endif
 
 static void run(const std::string& impl, const Data& d, const Samples& s, Result& r) {
+#if CATALOG_DREAMOR
   if (impl == "dreamor") {
     switch (d.k) {
+      case 1: Dreamor<std::make_index_sequence<1>>::run(d, s, r); break;
       case 2: Dreamor<std::make_index_sequence<2>>::run(d, s, r); break;
       case 3: Dreamor<std::make_index_sequence<3>>::run(d, s, r); break;
       case 5: Dreamor<std::make_index_sequence<5>>::run(d, s, r); break;
-      default: r.skip("k must be 2, 3 or 5");
+#  if CATALOG_MAX_COLUMNS >= 8
+      case 8: Dreamor<std::make_index_sequence<8>>::run(d, s, r); break;
+#  endif
+      default: r.skip("k must be 1, 2, 3 or 5 (8 on ./catalog8)");
     }
-  } else if (impl == "identity") {
+  } else {
+    r.skip("no arm " + impl + " in ./catalog: the hand-written arms are ./catalog_hand");
+  }
+#else
+  if (impl == "identity") {
     runHand<MapIndex<std::hash<std::uint64_t>>>(d, s, r);
   } else if (impl == "mixed") {
     runHand<MapIndex<MixedHash>>(d, s, r);
@@ -399,6 +431,7 @@ static void run(const std::string& impl, const Data& d, const Samples& s, Result
   } else {
     r.skip("no arm " + impl);
   }
+#endif
 }
 
 }  // namespace lookup

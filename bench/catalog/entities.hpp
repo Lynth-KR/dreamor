@@ -33,8 +33,10 @@
 #include "../common/measure.hpp"
 #include "../common/result.hpp"
 #include "data.hpp"
-#include "dreamor/concert.hpp"
-#include "dreamor/index_set.hpp"
+#if CATALOG_DREAMOR
+#  include "dreamor/concert.hpp"
+#  include "dreamor/index_set.hpp"
+#endif
 #include "shared.hpp"
 
 namespace entities {
@@ -50,9 +52,11 @@ template <typename K>
 const K& primaryKey(const Item<K>& item) {
   return item.code;
 }
+#if CATALOG_DREAMOR
 inline constexpr dreamor::ColumnName kItemName{"item"};
 template <typename K>
 using cItem = dreamor::Col<const Item<K>*, kItemName>;
+#endif
 
 inline double tagOf(std::uint32_t serial) {
   return ::tagOf(std::array<std::uint32_t, 1>{serial}, 1, 2);
@@ -105,6 +109,7 @@ Keys<K> makeKeys(std::size_t n, bool random_order, std::uint64_t seed) {
   return keys;
 }
 
+#if CATALOG_DREAMOR
 // --- dreamor ---------------------------------------------------------------------------------
 template <typename K>
 static void runDreamor(const Keys<K>& keys, Result& r) {
@@ -119,6 +124,7 @@ static void runDreamor(const Keys<K>& keys, Result& r) {
     for (std::size_t i = 0; i < keys.present.size(); ++i) {
       items.emplace(keys.present[i], static_cast<std::uint32_t>(i));
     }
+    items.freeze();
   });
   r.measure("find_hit", [&] {
     std::uint64_t sum = 0;
@@ -163,7 +169,9 @@ static void runDreamor(const Keys<K>& keys, Result& r) {
   });
   env.end();
 }
+#endif
 
+#if !CATALOG_DREAMOR
 // --- hand-written ----------------------------------------------------------------------------
 template <typename K>
 static void runUmap(const Keys<K>& keys, Result& r) {
@@ -270,20 +278,27 @@ static void runMap(const Keys<K>& keys, Result& r) {
   });
   env.end();
 }
+#endif
 
 template <typename K>
 static void runKey(const std::string& impl, std::size_t n, bool random_order, std::uint64_t seed, Result& r) {
   Keys<K> keys;
   r.setup("keys", [&] { keys = makeKeys<K>(n, random_order, seed); });
+#if CATALOG_DREAMOR
   if (impl == "dreamor") {
     runDreamor(keys, r);
-  } else if (impl == "umap") {
+  } else {
+    r.skip("no arm " + impl + " in ./catalog: the hand-written arms are ./catalog_hand");
+  }
+#else
+  if (impl == "umap") {
     runUmap(keys, r);
   } else if (impl == "map") {
     runMap(keys, r);
   } else {
     r.skip("no arm " + impl);
   }
+#endif
 }
 
 static void run(const std::string& impl,

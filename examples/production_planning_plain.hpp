@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // The same lot-sizing model as production_planning.hpp, written with plain Concert and
-// std::map - the way it is usually done without index sets. Kept for comparison (and the
-// tests check both build the same model).
+// std::map - the way it is usually done without index sets, on the data alone and with no part of
+// the library. Kept for comparison (and the tests check both build the same model).
 #pragma once
 
 #include <cstddef>
@@ -10,7 +10,9 @@
 #include <tuple>
 #include <utility>
 
-#include "production_planning.hpp"
+#include <ilcplex/ilocplex.h>
+
+#include "production_planning_data.hpp"
 
 namespace planning {
 

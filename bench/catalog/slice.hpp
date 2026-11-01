@@ -36,8 +36,10 @@
 #include "../common/measure.hpp"
 #include "../common/result.hpp"
 #include "data.hpp"
-#include "dreamor/concert.hpp"
-#include "dreamor/index_set.hpp"
+#if CATALOG_DREAMOR
+#  include "dreamor/concert.hpp"
+#  include "dreamor/index_set.hpp"
+#endif
 #include "group.hpp"
 #include "shared.hpp"
 
@@ -126,6 +128,7 @@ static Driver makeDriver(const Data& d, const std::string& shape, std::uint64_t 
   return dr;
 }
 
+#if CATALOG_DREAMOR
 // --- dreamor ---------------------------------------------------------------------------------
 template <typename Seq>
 struct Dreamor;
@@ -212,7 +215,9 @@ struct Dreamor<std::index_sequence<J...>> {
     });
   }
 };
+#endif
 
+#if !CATALOG_DREAMOR
 // --- hand-written ----------------------------------------------------------------------------
 enum class Way { kIdentity, kMixed, kSort, kMap };
 
@@ -421,21 +426,34 @@ static void runHand(Way way, const Data& d, const Drivers& drivers, Result& r) {
   }
   env.end();
 }
+#endif
 
 static void run(const std::string& impl, const Data& d, std::uint64_t seed, Result& r) {
+  if (d.k == 1) {
+    r.skip("no k = 1: the family's operations need a period beside k1");
+    return;
+  }
   Drivers drivers;
   r.setup("drivers", [&] {
     drivers[0] = makeDriver(d, "inner", seed);
     drivers[1] = makeDriver(d, "lead", seed);
   });
+#if CATALOG_DREAMOR
   if (impl == "dreamor") {
     switch (d.k) {
       case 2: Dreamor<std::make_index_sequence<2>>::run(d, drivers, r); break;
       case 3: Dreamor<std::make_index_sequence<3>>::run(d, drivers, r); break;
       case 5: Dreamor<std::make_index_sequence<5>>::run(d, drivers, r); break;
-      default: r.skip("k must be 2, 3 or 5");
+#  if CATALOG_MAX_COLUMNS >= 8
+      case 8: Dreamor<std::make_index_sequence<8>>::run(d, drivers, r); break;
+#  endif
+      default: r.skip("k must be 2, 3 or 5 (8 on ./catalog8)");
     }
-  } else if (impl == "identity") {
+  } else {
+    r.skip("no arm " + impl + " in ./catalog: the hand-written arms are ./catalog_hand");
+  }
+#else
+  if (impl == "identity") {
     runHand(Way::kIdentity, d, drivers, r);
   } else if (impl == "mixed") {
     runHand(Way::kMixed, d, drivers, r);
@@ -446,6 +464,7 @@ static void run(const std::string& impl, const Data& d, std::uint64_t seed, Resu
   } else {
     r.skip("no arm " + impl);
   }
+#endif
 }
 
 }  // namespace slice

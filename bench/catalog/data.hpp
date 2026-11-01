@@ -15,7 +15,14 @@
 #include <utility>
 #include <vector>
 
-#include "dreamor/index_set.hpp"
+// Built twice (build.sh): CATALOG_DREAMOR=1 is ./catalog, the dreamor arm alone; 0 is ./catalog_hand, the
+// hand-written arms, with no dreamor header but the logger - so a change to the library leaves it as it is.
+#ifndef CATALOG_DREAMOR
+#  error "Build with -DCATALOG_DREAMOR=1 (./catalog) or 0 (./catalog_hand), as build.sh does."
+#endif
+#if CATALOG_DREAMOR
+#  include "dreamor/index_set.hpp"
+#endif
 
 // One entity type for every column: a column is told apart by its name, not by what it holds.
 // serial is the entity's place in the data, id the integer a hand-written arm packs into its keys.
@@ -27,6 +34,7 @@ inline std::uint32_t keyName(const Ent* e) {
   return e->id;
 }
 
+#if CATALOG_DREAMOR
 // Column j of a row: k1 (outer), k2 .. k(k-1) (by k1), and the last one, the period (by k1).
 template <std::size_t J>
 struct KName;
@@ -50,10 +58,31 @@ template <>
 struct KName<4> {
   static constexpr dreamor::ColumnName value{"k5"};
 };
+template <>
+struct KName<5> {
+  static constexpr dreamor::ColumnName value{"k6"};
+};
+template <>
+struct KName<6> {
+  static constexpr dreamor::ColumnName value{"k7"};
+};
+template <>
+struct KName<7> {
+  static constexpr dreamor::ColumnName value{"k8"};
+};
 template <std::size_t J>
 using cK = dreamor::Col<const Ent*, KName<J>::value>;
+#endif
 
-inline constexpr std::size_t kMaxColumns = 5;
+// The widest k this build runs. The hand-written arms and the samples hold a row in an array this
+// wide, the columns past k null, so the width is part of what they cost: build.sh builds ./catalog
+// at 5, for k <= 5, and ./catalog8 at 8, for k = 8 alone, so that k <= 5 runs the arrays it always
+// has and k = 8 has no column to spare.
+#ifndef CATALOG_MAX_COLUMNS
+#  define CATALOG_MAX_COLUMNS 5
+#endif
+inline constexpr std::size_t kMaxColumns = CATALOG_MAX_COLUMNS;
+static_assert(kMaxColumns == 5 || kMaxColumns == 8);
 
 static inline std::uint64_t mix(std::uint64_t x) {
   x += 0x9e3779b97f4a7c15ULL;
@@ -65,7 +94,7 @@ static inline std::uint64_t mix(std::uint64_t x) {
 // The cell: the data's shape. Two-level factors keep the benchmark's names and meanings; L and I
 // are the two halves of its A.
 struct Cell {
-  std::size_t k        = 3;        // columns
+  std::size_t k        = 3;        // columns: 1, 2, 3, 5 or 8
   std::size_t n_target = 1000000;  // rows
   bool owned           = false;    // O: the middle columns' entities belong to one k1 each
   bool sparse          = false;    // D: one candidate in ten is a row, by a predicate
@@ -79,14 +108,15 @@ struct Cell {
 struct Data {
   std::size_t k = 0;
   // ents[j]: column j's entities in serial order. The last column's last entity is a period in
-  // no list: the absent key of the misses.
+  // no list: the absent key of the misses. At k = 1, k1s in no row follow the rows' (absents).
   std::array<std::vector<std::unique_ptr<Ent>>, kMaxColumns> ents;
   std::vector<const Ent*> k1s;  // the order the data is read in
   // lists[j][k1->serial] for j = 1 .. k-1: what k1 offers for column j, in list order.
   std::array<std::vector<std::vector<const Ent*>>, kMaxColumns> lists;
   const Ent* absent = nullptr;
-  bool sparse       = false;
-  std::size_t rows  = 0;
+  std::vector<const Ent*> absents;  // k = 1: one k1 in no row a row, the misses' keys; absent the first
+  bool sparse      = false;
+  std::size_t rows = 0;
 
   [[nodiscard]] std::size_t last() const { return k - 1; }
   // A candidate row - its entities' serials - is a row when the predicate keeps it.
@@ -112,7 +142,11 @@ struct Data {
     for (const Ent* a : k1s) {
       row[0]     = a;
       serials[0] = a->serial;
-      walk(1, a->serial, row, serials, f);
+      if (k == 1) {
+        if (keep(serials)) { f(row); }
+      } else {
+        walk(1, a->serial, row, serials, f);
+      }
     }
   }
 
@@ -138,7 +172,53 @@ struct Data {
   }
 };
 
+// Mean list size of a middle column (1 .. k-2). The middle columns share 50 combinations, or 5 on
+// small lists, between them; k = 3 and 5 take the (k-2)th root, which k = 5 rounds to 4 x 4 x 4 = 64
+// and 2 x 2 x 2 = 8. k = 8 takes those same 64 and 8 - 2 a column, or 2 on three columns and 1 on
+// the rest - where the root would round to 2 and 1 (64 and 1): k = 5 and 8 then differ in their
+// columns alone.
+static double middleMean(const Cell& c, std::size_t j) {
+  if (c.k == 8) { return c.small && j > 3 ? 1.0 : 2.0; }
+  return c.k > 2 ? std::pow(c.small ? 5.0 : 50.0, 1.0 / static_cast<double>(c.k - 2)) : 1.0;
+}
+
+// k = 1: the rows are the k1s alone, kept by the predicate when the cell is sparse. As many k1s
+// again, in no row, are the misses' keys: one absent key would be one slot, in cache from the
+// second miss on, where k > 1 spreads its misses over the rows' k1s. The list factors (O, S, G, L)
+// have nothing to act on.
+static Data makeSingle(const Cell& c) {
+  Data d;
+  d.k      = 1;
+  d.sparse = c.sparse;
+  std::array<std::uint32_t, kMaxColumns> serials{};
+  while (d.rows < c.n_target) {
+    const auto serial = static_cast<std::uint32_t>(d.ents[0].size());
+    d.ents[0].push_back(std::make_unique<Ent>(Ent{serial, serial}));
+    d.k1s.push_back(d.ents[0].back().get());
+    serials[0] = serial;
+    d.rows += d.keep(serials);
+  }
+  const std::size_t count = d.ents[0].size();
+  for (std::size_t i = 0; i < d.rows; ++i) {
+    const auto serial = static_cast<std::uint32_t>(d.ents[0].size());
+    d.ents[0].push_back(std::make_unique<Ent>(Ent{serial, serial}));
+    d.absents.push_back(d.ents[0].back().get());
+  }
+  d.absent = d.absents.front();
+  if (c.permuted) {
+    std::mt19937_64 h(c.seed * 6151 + 29);  // the absent keys keep their ids
+    std::vector<std::uint32_t> ids(count);
+    std::iota(ids.begin(), ids.end(), 0U);
+    std::shuffle(ids.begin(), ids.end(), h);
+    for (std::size_t i = 0; i < count; ++i) {
+      d.ents[0][i]->id = ids[i];
+    }
+  }
+  return d;
+}
+
 static Data makeData(const Cell& c) {
+  if (c.k == 1) { return makeSingle(c); }
   Data d;
   d.k      = c.k;
   d.sparse = c.sparse;
@@ -153,7 +233,6 @@ static Data makeData(const Cell& c) {
   const std::size_t last = c.k - 1;
   // Mean list sizes: the periods 100 or 10; the middle columns share 50 or 5 between them.
   const double periods = c.small ? 10 : 100;
-  const double middle  = c.k > 2 ? std::pow(c.small ? 5.0 : 50.0, 1.0 / static_cast<double>(c.k - 2)) : 1.0;
   auto add             = [&d](std::size_t j) {
     const auto serial = static_cast<std::uint32_t>(d.ents[j].size());
     d.ents[j].push_back(std::make_unique<Ent>(Ent{serial, serial}));
@@ -167,7 +246,7 @@ static Data makeData(const Cell& c) {
   std::array<std::vector<const Ent*>, kMaxColumns> shared;
   if (!c.owned) {
     for (std::size_t j = 1; j < last; ++j) {
-      const auto pool = static_cast<std::size_t>(std::lround(middle * 50));
+      const auto pool = static_cast<std::size_t>(std::lround(middleMean(c, j) * 50));
       for (std::size_t i = 0; i < pool; ++i) {
         shared[j].push_back(add(j));
       }
@@ -183,7 +262,7 @@ static Data makeData(const Cell& c) {
     const Ent* k1 = add(0);
     d.k1s.push_back(k1);
     for (std::size_t j = 1; j < c.k; ++j) {
-      const double mean = j == last ? periods : middle;
+      const double mean = j == last ? periods : middleMean(c, j);
       std::size_t n     = std::max<std::size_t>(1, static_cast<std::size_t>(std::lround(mean * weight())));
       std::vector<const Ent*> list;
       if (j == last) {
@@ -257,7 +336,8 @@ static double tagOf(const Serials& serials, std::size_t count, std::uint64_t fam
 }
 
 // Keys every arm looks up, drawn once outside the measurements: rows at random, each at most once
-// (the hits), the same rows with the absent period (the misses), and each of those keys a hit or
+// (the hits), the same rows with the absent period (the misses; at k = 1, a k1 in no row, a
+// different one each, in random order), and each of those keys a hit or
 // a miss at random (half: a lookup that does not know which it will be). The rows are walked once
 // and shuffled, so a key is a row drawn uniformly, whatever the lists' sizes.
 struct Samples {
@@ -273,10 +353,14 @@ static Samples makeSamples(const Data& d, std::size_t lookups, std::uint64_t see
   s.hit.resize(std::min(lookups, s.hit.size()));
   s.miss.reserve(s.hit.size());
   s.half.reserve(s.hit.size());
-  for (auto row : s.hit) {
+  std::vector<const Ent*> absents = d.absents;
+  std::mt19937_64 h(seed * 7727 + 5);  // not g: the draws at k > 1 stay as they were
+  std::shuffle(absents.begin(), absents.end(), h);
+  for (std::size_t i = 0; i < s.hit.size(); ++i) {
+    auto row           = s.hit[i];
     const bool present = (g() & 1) != 0;
     if (present) { s.half.push_back(row); }
-    row[d.last()] = d.absent;
+    row[d.last()] = d.k == 1 ? absents[i] : d.absent;
     s.miss.push_back(row);
     if (!present) { s.half.push_back(row); }
   }
