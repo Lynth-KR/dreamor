@@ -32,7 +32,7 @@ namespace internal {
 
 template <typename... Columns, typename Tup>
 [[nodiscard]] auto pickColumns(const IndexSet<Tup>& set) {
-  std::vector<std::tuple<Columns...>> out;
+  Rows<std::tuple<Columns...>> out;
   out.reserve(set.size());
   for (const auto& tuple : set) {
     out.emplace_back(std::get<Columns>(tuple)...);
@@ -49,14 +49,14 @@ using TupleIndex = ::dreamor::general::FlatIndex<Tup>;
 
 // The key_at of a FlatIndex whose entries are positions in rows.
 template <typename Tup>
-[[nodiscard]] auto rowsAt(const std::vector<Tup>& rows) {
+[[nodiscard]] auto rowsAt(const Rows<Tup>& rows) {
   return [&rows](std::size_t row) -> const Tup& { return rows[row]; };
 }
 
 // Every row by position; a repeat keeps its first one. Rows are hashed a block ahead
 // (general::hashedBlocks), as everywhere below that walks a whole set.
 template <typename Tup>
-[[nodiscard]] TupleIndex<Tup> indexRows(const std::vector<Tup>& rows) {
+[[nodiscard]] TupleIndex<Tup> indexRows(const Rows<Tup>& rows) {
   TupleIndex<Tup> index{rows.size()};
   const auto at = rowsAt(rows);
   ::dreamor::general::hashedBlocks(
@@ -73,13 +73,13 @@ template <typename Tup>
 
 // Appends tuple, whose hash this is, unless out has it already; seen indexes out.
 template <typename Tup>
-void appendNew(std::vector<Tup>& out, TupleIndex<Tup>& seen, const Tup& tuple, std::size_t hash) {
+void appendNew(Rows<Tup>& out, TupleIndex<Tup>& seen, const Tup& tuple, std::size_t hash) {
   if (seen.insert(tuple, hash, out.size(), rowsAt(out)) == TupleIndex<Tup>::kNotFound) { out.push_back(tuple); }
 }
 
 // Appends the first occurrence of each of rows that out does not have yet, front to back.
 template <typename Tup>
-void appendFirstOccurrences(std::vector<Tup>& out, TupleIndex<Tup>& seen, const std::vector<Tup>& rows) {
+void appendFirstOccurrences(Rows<Tup>& out, TupleIndex<Tup>& seen, const Rows<Tup>& rows) {
   ::dreamor::general::hashedBlocks(
       0,
       rows.size(),
@@ -93,8 +93,8 @@ void appendFirstOccurrences(std::vector<Tup>& out, TupleIndex<Tup>& seen, const 
 
 // First occurrence of each tuple, front to back.
 template <typename Tup>
-[[nodiscard]] std::vector<Tup> firstOccurrences(const std::vector<Tup>& rows) {
-  std::vector<Tup> out;
+[[nodiscard]] Rows<Tup> firstOccurrences(const Rows<Tup>& rows) {
+  Rows<Tup> out;
   out.reserve(rows.size());
   TupleIndex<Tup> seen{rows.size()};
   appendFirstOccurrences(out, seen, rows);
@@ -105,7 +105,7 @@ template <typename Tup>
 // no row twice, so no row needs to be checked against the ones already kept.
 template <typename Tup>
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): two sets of one type is what filtering one by the other means
-void appendFiltered(std::vector<Tup>& out, const IndexSet<Tup>& from, const IndexSet<Tup>& by, bool keep) {
+void appendFiltered(Rows<Tup>& out, const IndexSet<Tup>& from, const IndexSet<Tup>& by, bool keep) {
   const auto& from_rows = SetAccess::rows(from);
   const auto& by_rows   = SetAccess::rows(by);
   const auto index      = indexRows(by_rows);
@@ -197,7 +197,7 @@ auto IndexSet<Tup>::select(Expr expr) const {
                 "select(expr) returns two columns with the same name. Names have to be unique even when the value "
                 "types differ, because kName is what names a variable in the model.");
   if constexpr (Selected::known && Selected::is_row) {
-    std::vector<NewRow> out;
+    internal::Rows<NewRow> out;
     out.reserve(size());
     for (const auto& row : *this) {
       out.emplace_back(internal::callColumnsOf(expr, row));
@@ -212,7 +212,7 @@ auto IndexSet<Tup>::select(Expr expr) const {
 template <typename Tup>
 [[nodiscard]] IndexSet<Tup> unite(const IndexSet<Tup>& left, const IndexSet<Tup>& right) {
   const auto& left_rows = internal::SetAccess::rows(left);
-  std::vector<Tup> out;
+  internal::Rows<Tup> out;
   out.reserve(left.size() + right.size());
   out.insert(out.end(), left_rows.begin(), left_rows.end());
   internal::appendFiltered(out, right, left, false);
@@ -223,7 +223,7 @@ template <typename Tup>
 template <typename Tup>
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): two sets of one type is what intersecting means
 [[nodiscard]] IndexSet<Tup> intersect(const IndexSet<Tup>& left, const IndexSet<Tup>& right) {
-  std::vector<Tup> out;
+  internal::Rows<Tup> out;
   internal::appendFiltered(out, left, right, true);
   return internal::SetAccess::make(std::move(out));
 }
@@ -232,7 +232,7 @@ template <typename Tup>
 template <typename Tup>
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): two sets of one type is what A \ B means
 [[nodiscard]] IndexSet<Tup> difference(const IndexSet<Tup>& left, const IndexSet<Tup>& right) {
-  std::vector<Tup> out;
+  internal::Rows<Tup> out;
   internal::appendFiltered(out, left, right, false);
   return internal::SetAccess::make(std::move(out));
 }
@@ -308,7 +308,7 @@ template <typename Tup>
 template <typename Key>
 IndexSet<Tup> IndexSet<Tup>::orderBy(Key key) const {
   static_assert(std::invocable<Key&, const Tup&>, "orderBy(key): key(row) must be callable with a row of this set.");
-  std::vector<Tup> rows{begin(), end()};
+  internal::Rows<Tup> rows{begin(), end()};
   std::ranges::stable_sort(rows, {}, key);
   return internal::SetAccess::make(std::move(rows));
 }

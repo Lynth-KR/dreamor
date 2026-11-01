@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // sumOf over sets, groups and plain containers; where and split.
+#include <array>
 #include <cstddef>
 #include <vector>
 
@@ -121,5 +122,31 @@ int main() try {
   };
   DREAMOR_CHECK(varsOf(dreamor::concert::sumOf(env, IJ, nested).build()) == direct);
   DREAMOR_CHECK(dreamor::internal::currentRow() == nullptr);
+
+  // A table summed over a group of its own set takes its variables by the rows' positions; over a
+  // group of an equal set collected apart, rows of the same type at other addresses, it looks each
+  // row up. Either way the variables are those of a lookup row by row, under where() and split().
+  const auto apart     = dreamor::makeSet<ICol, JCol>(I, J).collect();
+  const auto apartByJ  = apart.groupBy<JCol>();
+  const auto byColumns = [&x](const auto& rows, const auto& keep) {
+    std::vector<const IloNumVarI*> out;
+    for (const auto& [i, j] : rows) {
+      if (keep(i)) { out.push_back(x(i, j).getImpl()); }
+    }
+    return out;
+  };
+  const auto every  = [](ICol /*i*/) { return true; };
+  const auto notTwo = [](ICol i) { return i.get() != 2; };
+  const auto isOne  = [](ICol i) { return i.get() == 1; };
+  for (const auto* groups : std::array{&byJ, &apartByJ}) {
+    for (const auto& group : *groups) {
+      const auto& rows = group.tuples;
+      DREAMOR_CHECK(varsOf(dreamor::concert::sumOf(env, rows, x).build()) == byColumns(rows, every));
+      DREAMOR_CHECK(varsOf(dreamor::concert::sumOf(env, rows, x).where(notTwo).build()) == byColumns(rows, notTwo));
+      const auto parted = dreamor::concert::sumOf(env, rows, x).where(notTwo).split(isOne, every).build();
+      DREAMOR_CHECK(varsOf(parted[0]) == byColumns(rows, [&](ICol i) { return notTwo(i) && isOne(i); }));
+      DREAMOR_CHECK(varsOf(parted[1]) == byColumns(rows, notTwo));
+    }
+  }
   return report("sum");
 } catch (...) { return ::uncaught(); }

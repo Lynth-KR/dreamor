@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstring>
 #include <format>
+#include <iterator>
 #include <optional>
 #include <ranges>
 #include <stdexcept>
@@ -141,6 +142,33 @@ int main() try {
     }
   }
   DREAMOR_CHECK(hintsAgree);
+
+  // more sets in turn than there are hints, and hints left by sets gone where new ones now are:
+  // each lookup gives what the row's address gives
+  bool turnsAgree = true;
+  for (std::size_t round = 0; round < 3; ++round) {
+    std::vector<dreamor::SetOf<ICol, JCol>> sets;
+    sets.reserve(6);
+    for (std::size_t s = 0; s < 6; ++s) {
+      const std::vector<std::size_t> Is{s + round, s + round + 1};
+      sets.push_back(dreamor::makeSet<ICol, JCol>(Is, J).collect());
+    }
+    std::vector<dreamor::concert::VarTable<ICol, JCol>> tables;
+    tables.reserve(sets.size());
+    for (const auto& set : sets) {
+      tables.emplace_back(env, set, 0, 1);
+    }
+    for (const std::size_t turns : {2U, 5U, 6U}) {
+      for (std::size_t at = 0; at < sets.front().size(); ++at) {
+        for (std::size_t s = 0; s < turns; ++s) {
+          const auto& row   = *std::next(sets[s].begin(), static_cast<std::ptrdiff_t>(at));
+          const auto [i, j] = row;
+          turnsAgree        = turnsAgree && tables[s](i, j).getImpl() == tables[s](row).getImpl();
+        }
+      }
+    }
+  }
+  DREAMOR_CHECK(turnsAgree);
 
   // a hint inside a row, not at its start - what a row of a set gone, of another key, leaves where
   // a set now is - on rows of 24 bytes, whose size is no power of two: every lookup still gives what

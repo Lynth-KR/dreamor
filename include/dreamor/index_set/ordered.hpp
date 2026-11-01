@@ -307,7 +307,7 @@ class Ordered {
     }
   }
 
-  [[nodiscard]] const std::vector<Tup>& rows() const noexcept { return internal::SetAccess::rows(members_); }
+  [[nodiscard]] const internal::Rows<Tup>& rows() const noexcept { return internal::SetAccess::rows(members_); }
 
   IndexSet<Tup> members_;                         // Within groups, the set laid out group by group.
   ::dreamor::general::FlatIndex<Tup> positions_;  // Element -> position, over members_' rows.

@@ -196,7 +196,7 @@ class Set {
     checkSources(std::make_index_sequence<kSourceCount>{});
 #endif
     indexJoins(std::make_index_sequence<kSourceCount>{});
-    std::vector<ElemTuple> out;
+    internal::Rows<ElemTuple> out;
     out.reserve(exactRows(std::make_index_sequence<kSourceCount>{}));
     generate<0, std::index_sequence<>>(out);
     checks_ = nullptr;
@@ -482,7 +482,7 @@ class Set {
       if constexpr (std::same_as<std::remove_cvref_t<decltype(source)>, IndexSet<SourceRow>>) {
         std::get<Source>(indexes_).emplace(source);  // Shares the set's rows.
       } else {
-        std::vector<SourceRow> rows;
+        internal::Rows<SourceRow> rows;
         for (const auto& row : source) {
           rows.push_back(row);
         }
@@ -504,7 +504,7 @@ class Set {
   // Walks the sources in visit order, binding one column at a time. BoundCols names the
   // element-tuple column of each bound value, in the order they were bound.
   template <std::size_t Step, typename BoundCols, typename... Bound>
-  void generate(std::vector<ElemTuple>& out, const Bound&... bound) {
+  void generate(internal::Rows<ElemTuple>& out, const Bound&... bound) {
     if constexpr (Step == kSourceCount) {
       static_assert(sizeof...(Bound) == kArity, "Sources and columns disagree.");
       emit<BoundCols>(out, std::tie(bound...), std::make_index_sequence<kArity>{});
@@ -553,7 +553,7 @@ class Set {
   // A joined source walks only the rows that match what is bound; any other spread source
   // walks all of its rows.
   template <std::size_t Step, std::size_t Source, typename BoundCols, typename... Bound>
-  void visitSpread(std::vector<ElemTuple>& out, const Bound&... bound) {
+  void visitSpread(internal::Rows<ElemTuple>& out, const Bound&... bound) {
     if constexpr (kJoins<Source>) {
       if (const auto& grouped = std::get<Source>(indexes_)) {  // Built by collect() before generate().
         for (const auto& tuple : grouped->slice(boundKey<typename JoinIndex<Source>::Key, BoundCols>(bound...))) {
@@ -570,7 +570,7 @@ class Set {
   // Unpacks one tuple of a spread source column by column, so predicates still see every
   // intermediate partial tuple. A column bound already is one the join index matched.
   template <std::size_t Step, std::size_t Source, std::size_t I, typename BoundCols, typename Tup, typename... Bound>
-  void spread(std::vector<ElemTuple>& out, const Tup& tuple, const Bound&... bound) {
+  void spread(internal::Rows<ElemTuple>& out, const Tup& tuple, const Bound&... bound) {
     if constexpr (I == std::tuple_size_v<Tup>) {
       generate<Step + 1, BoundCols>(out, bound...);
     } else {
@@ -589,7 +589,7 @@ class Set {
   // Reassembles into declaration order: the visit order is an implementation detail, the
   // result tuple is not.
   template <typename BoundCols, typename BoundRefs, std::size_t... Is>
-  static void emit(std::vector<ElemTuple>& out, const BoundRefs& bound, std::index_sequence<Is...> /*unused*/) {
+  static void emit(internal::Rows<ElemTuple>& out, const BoundRefs& bound, std::index_sequence<Is...> /*unused*/) {
     out.emplace_back(std::get<internal::positionInSequence<Is, BoundCols>()>(bound)...);
   }
 

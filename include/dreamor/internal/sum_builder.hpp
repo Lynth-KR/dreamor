@@ -17,6 +17,7 @@
 #include <array>
 #include <concepts>
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <ranges>
@@ -28,6 +29,7 @@
 #include "dreamor/index_set/call.hpp"
 #include "dreamor/index_set/column.hpp"
 #include "dreamor/index_set/element.hpp"
+#include "dreamor/index_set/grouped.hpp"
 #include "dreamor/index_set/key_args.hpp"
 #include "dreamor/internal/row_index.hpp"
 
@@ -44,6 +46,28 @@ struct TermRef {
     return (*term)(args...);
   }
 };
+
+// The term a builder holds, seen through a TermRef.
+template <typename Term>
+struct HeldTerm {
+  using type = Term;
+};
+template <typename T>
+struct HeldTerm<TermRef<T>> {
+  using type = T;
+};
+
+// Whether a sum over Rows takes Term by its rows' positions: the rows are a group (RowSlice) and
+// the term a table on rows of the same type. That the group is of the table's own set is known
+// only at run time (UnbuiltSum::eachRow).
+template <typename Rows, typename Term, typename Row>
+[[nodiscard]] consteval bool byPosition() {
+  if constexpr (IsRowSlice<std::remove_cvref_t<Rows>>::value) {
+    using Held = HeldTerm<Term>::type;
+    if constexpr (TakesRowNumber<Held>::value) { return std::is_same_v<typename Held::Key, Row>; }
+  }
+  return false;
+}
 
 template <typename Term>
 [[nodiscard]] auto holdTerm(Term&& term) {
@@ -289,10 +313,9 @@ class UnbuiltSum {
   [[nodiscard]] auto build() {
     if constexpr (std::tuple_size_v<Splits> == 0) {
       auto total = zero();
-      for (auto&& row : rows_) {
-        if (!keeps(row)) { continue; }
-        total += termOf(row);
-      }
+      eachRow([&](const auto& row, const auto& term) {
+        if (keeps(row)) { total += term(); }
+      });
       return total;
     } else {
       return buildSplit(std::make_index_sequence<std::tuple_size_v<Splits>>{});
@@ -300,6 +323,37 @@ class UnbuiltSum {
   }
 
  private:
+  // Calls visit(row, term) on each row, term() giving the term on it. On a group of the set the
+  // table is on, the group's positions are the variables': the term is taken by position, as
+  // hand-written code takes x[i], with no lookup of the row's address. Any other rows - a group of
+  // another set with rows of the same type, a set, a container - go through termOf.
+  template <typename Visit>
+  void eachRow(const Visit& visit) {
+    if constexpr (byPosition<Rows, Term, Row>()) {
+      using Held             = HeldTerm<Term>::type;
+      const Held& table      = heldTerm();
+      const Row* const first = SliceAccess::first(rows_);
+      if (first == TakesRowNumber<Held>::firstRow(table)) {
+        for (const std::uint32_t at : SliceAccess::positions(rows_)) {
+          visit(first[at], [&] { return TakesRowNumber<Held>::at(table, at); });
+        }
+        return;
+      }
+    }
+    for (auto&& row : rows_) {
+      visit(row, [&]() -> decltype(auto) { return termOf(row); });
+    }
+  }
+
+  // The term, seen through a TermRef.
+  [[nodiscard]] const auto& heldTerm() const noexcept {
+    if constexpr (std::is_same_v<typename HeldTerm<Term>::type, Term>) {
+      return term_;
+    } else {
+      return *term_.term;
+    }
+  }
+
   // The backend's empty expression, as wide as the terms need (SumTotal).
   [[nodiscard]] auto zero() const {
     using Value = std::remove_cvref_t<decltype(termOf(std::declval<const Row&>()))>;
@@ -329,13 +383,13 @@ class UnbuiltSum {
   template <std::size_t... Is>
   [[nodiscard]] auto buildSplit(std::index_sequence<Is...> /*unused*/) {
     std::array<decltype(zero()), sizeof...(Is)> totals{(static_cast<void>(Is), zero())...};
-    for (auto&& row : rows_) {
-      if (!keeps(row)) { continue; }
+    eachRow([&](const auto& row, const auto& term) {
+      if (!keeps(row)) { return; }
       const std::array<bool, sizeof...(Is)> hits{static_cast<bool>(callColumnsOf(std::get<Is>(splits_), row))...};
-      if (std::ranges::none_of(hits, std::identity{})) { continue; }
-      const auto term_value = termOf(row);
+      if (std::ranges::none_of(hits, std::identity{})) { return; }
+      const auto term_value = term();
       ((hits[Is] ? static_cast<void>(totals[Is] += term_value) : static_cast<void>(0)), ...);
-    }
+    });
     return totals;
   }
 

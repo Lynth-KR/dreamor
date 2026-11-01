@@ -90,7 +90,7 @@ class RowIndex {
  public:
   static constexpr std::size_t kNotFound = ::dreamor::general::FlatIndex<Key>::kNotFound;
 
-  explicit RowIndex(const std::vector<Key>& rows) {
+  explicit RowIndex(const Rows<Key>& rows) {
     if (rows.size() >= std::numeric_limits<std::uint32_t>::max()) {
       throw std::length_error("VarTable: more than 2^32 - 2 index tuples.");
     }
@@ -105,7 +105,7 @@ class RowIndex {
   //     of it - see lastRows().
   // Which of the two applies is known at compile time.
   template <typename... Args>
-  [[nodiscard]] std::size_t find(const std::vector<Key>& rows, const Args&... key) const {
+  [[nodiscard]] std::size_t find(const Rows<Key>& rows, const Args&... key) const {
     if constexpr (isExactRow<Key, Args...>()) {
       const std::size_t at = positionOf(rows, std::addressof(key...));
       return at != kNotFound ? at : built(rows).find(key..., rowsAt(rows));
@@ -124,7 +124,7 @@ class RowIndex {
   // that now has its memory. So the offset is divided in bytes, taking it down to its row's start: a
   // difference of Key pointers would assume a whole number of rows, which the compiler turns into a
   // multiply by sizeof(Key)'s inverse - a position past the rows for an address mid-row of 24 bytes.
-  [[nodiscard]] static std::size_t positionOf(const std::vector<Key>& rows, const void* row) {
+  [[nodiscard]] static std::size_t positionOf(const Rows<Key>& rows, const void* row) {
     const Key* const first = rows.data();
     const std::less<> before;
     if (row == nullptr || before(row, first) || !before(row, first + rows.size())) { return kNotFound; }
@@ -145,8 +145,22 @@ class RowIndex {
   // Rows are distinct, so a row that holds the key is the key's row.
   // Out of line, so that find() - the published-row check and a call - stays small enough to
   // inline into a sumOf term, where the published row answers nearly every lookup.
+  //
+  // Tried against this layout and dropped (measured per lookup shape, and over the catalog's
+  // lookup and order families, GCC 13 and Clang 18):
+  //   - the hints' check apart from the hash - the hash in a function of its own, or the check
+  //     inline at the caller: a walk sheds the frame (82 -> 45 instructions on GCC), but the hash
+  //     gains a call, its columns past the registers on the stack - scattered and absent keys
+  //     +15% to +20%, more the more columns. Forcing the check inline moves the call up a level
+  //     instead, and how far depends on the model's own code around the lookup.
+  //   - a set's hint left in its place, not swapped to the front - held as the set's rows and a
+  //     position - or swapped only on the way to the hash: turns between sets 15-20% faster,
+  //     scattered and absent keys 4-9% slower.
+  // One call a lookup, whatever the call site looks like: predictable, and nothing tried did
+  // better across the shapes. Change it for a new idea, measured the same way, rather than for
+  // another arrangement of these.
   template <typename... Columns>
-  [[nodiscard, gnu::noinline]] std::size_t findByColumns(const std::vector<Key>& rows, const Columns&... key) const {
+  [[nodiscard, gnu::noinline]] std::size_t findByColumns(const Rows<Key>& rows, const Columns&... key) const {
     LastRows& hints  = lastRows();
     std::size_t last = positionOf(rows, hints.front().row);
     if (last == kNotFound) {
@@ -182,14 +196,14 @@ class RowIndex {
     return found;
   }
 
-  [[nodiscard]] static auto rowsAt(const std::vector<Key>& rows) {
+  [[nodiscard]] static auto rowsAt(const Rows<Key>& rows) {
     return [&rows](std::size_t row) -> const Key& { return rows[row]; };
   }
 
   // The hash, built once, by whichever lookup needs it first; the others wait for it. A set holds
   // no row twice (index_set.hpp), so each key has one variable. A debug build stops on a repeat
   // all the same: indexing finds it for nothing.
-  [[nodiscard]] const ::dreamor::general::FlatIndex<Key>& built(const std::vector<Key>& rows) const {
+  [[nodiscard]] const ::dreamor::general::FlatIndex<Key>& built(const Rows<Key>& rows) const {
     if (!ready_.load(std::memory_order_acquire)) {
       std::call_once(once_, [&] {
         ::dreamor::general::FlatIndex<Key> index{rows.size()};

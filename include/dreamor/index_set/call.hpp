@@ -45,6 +45,13 @@ struct CallColumnsOf<std::tuple<Cols...>> {
 template <typename Callable>
 struct TakesWholeRow : std::false_type {};
 
+// A callable that needs no lookup at all given a row's position in its own set: a variable
+// table, whose variables are in the set's order. A sum over a group of that set, which holds its
+// rows' positions, takes the term by position. The backends' tables specialize it with
+// firstRow(callable), the set's first row, and at(callable, n), the term on the row at n.
+template <typename Callable>
+struct TakesRowNumber : std::false_type {};
+
 // Guarded on the row, so a range that is not an index set produces the one diagnostic
 // its caller (sumOf, VarTable) already reports instead of one per call site.
 template <typename Callable, typename Row>

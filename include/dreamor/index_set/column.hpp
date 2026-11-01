@@ -72,7 +72,7 @@ class Col {
     return *value_;
   }
 
-  friend bool operator==(Col, Col) = default;
+  friend bool operator==(const Col&, const Col&) = default;
 
  private:
   T value_{};

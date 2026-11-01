@@ -159,7 +159,7 @@ class VarTableCore : public VarTableBase {
     return at;
   }
 
-  [[nodiscard]] const std::vector<Key>& rows() const noexcept { return SetAccess::rows(keys_); }
+  [[nodiscard]] const Rows<Key>& rows() const noexcept { return SetAccess::rows(keys_); }
 
   // The values of vars_, in the same order, as a ValueTable sharing this table's set and index.
   [[nodiscard]] ValueTable<Keys...> valueTable(std::vector<double> values) const {
@@ -188,6 +188,8 @@ class VarTableCore : public VarTableBase {
   VarStorage<Var>::type vars_;  // vars_[i] is the variable of row i.
 
  private:
+  template <typename>
+  friend struct TakesRowNumber;  // a sum over a group of the set takes vars_ by the rows' positions
   using Iterator = RowPairIterator<Key, decltype(cursorAt(std::declval<const typename VarStorage<Var>::type&>(), 0))>;
 
   IndexSet<Key> keys_;                          // Shared; the only copy of the keys.
@@ -208,3 +210,12 @@ struct dreamor::PredicateColumns<Table> {
 template <typename Table>
   requires std::derived_from<Table, dreamor::internal::VarTableBase>
 struct dreamor::internal::TakesWholeRow<Table> : std::true_type {};
+// Given a row's position in its set, the variable is the one at that position.
+template <typename Table>
+  requires std::derived_from<Table, dreamor::internal::VarTableBase>
+struct dreamor::internal::TakesRowNumber<Table> : std::true_type {
+  [[nodiscard]] static const Table::Key* firstRow(const Table& table) noexcept {
+    return SetAccess::rows(table.keys()).data();
+  }
+  [[nodiscard]] static auto at(const Table& table, std::size_t n) { return table.vars_[n]; }
+};

@@ -12,6 +12,7 @@
 #include <limits>
 #include <numeric>
 #include <ranges>
+#include <span>
 #include <stdexcept>
 #include <tuple>
 #include <type_traits>
@@ -24,6 +25,10 @@
 #include "dreamor/index_set/key_args.hpp"
 
 namespace dreamor {
+
+namespace internal {
+struct SliceAccess;
+}  // namespace internal
 
 // One group: rows of the grouped set, in the set's order. A random-access view - size(),
 // empty(), rows[i], front(), back(), range-for - over row numbers into the set, so it
@@ -106,6 +111,7 @@ class RowSlice : public std::ranges::view_base {
  private:
   template <typename, typename...>
   friend class Grouped;
+  friend struct internal::SliceAccess;
   RowSlice(const Tup* base, const std::uint32_t* first, std::size_t count) noexcept
       : base_{base}, first_{first}, count_{count} {}
 
@@ -115,6 +121,28 @@ class RowSlice : public std::ranges::view_base {
 
   std::size_t count_ = 0;
 };
+
+namespace internal {
+
+// Library-side access to a group's rows: the set's first row, and the positions in it of the
+// group's rows, in the set's order - what a sum takes a table's variables by (sum_builder.hpp).
+struct SliceAccess {
+  template <typename Tup>
+  [[nodiscard]] static const Tup* first(const RowSlice<Tup>& rows) noexcept {
+    return rows.base_;
+  }
+  template <typename Tup>
+  [[nodiscard]] static std::span<const std::uint32_t> positions(const RowSlice<Tup>& rows) noexcept {
+    return {rows.first_, rows.count_};
+  }
+};
+
+template <typename T>
+struct IsRowSlice : std::false_type {};
+template <typename Tup>
+struct IsRowSlice<RowSlice<Tup>> : std::true_type {};
+
+}  // namespace internal
 
 // One group of a Grouped: its key and its rows. It destructures flat - the key's columns
 // first, the rows last - so a loop names what it reads:
@@ -355,7 +383,7 @@ class Grouped {
   // The set with its groups made contiguous, as a set of its own.
   [[nodiscard]] IndexSet<Tup> regrouped() const {
     const auto& rows = internal::SetAccess::rows(set_);
-    std::vector<Tup> out;
+    internal::Rows<Tup> out;
     out.reserve(rows_.size());
     for (const std::uint32_t i : rows_) {
       out.push_back(rows[i]);

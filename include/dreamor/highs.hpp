@@ -1335,8 +1335,8 @@ class VarTable : public internal::VarTableCore<HighsVar, Keys...> {
       : Core{set} {
     internal::checkBound<Lb, Key>();
     internal::checkBound<Ub, Key>();
-    const std::vector<Key>& rows = this->rows();
-    const std::size_t count      = rows.size();
+    const internal::Rows<Key>& rows = this->rows();
+    const std::size_t count         = rows.size();
     if (count == 0) { return; }
     const auto bounds = [&](std::span<double> lower, std::span<double> upper) {
       for (std::size_t i = 0; i < count; ++i) {

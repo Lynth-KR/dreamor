@@ -39,6 +39,8 @@
 #include <utility>
 #include <vector>
 
+#include "dreamor/general/aligned_vector.hpp"
+
 namespace dreamor {
 
 template <typename Tup>
@@ -79,22 +81,28 @@ class SharedSlot {
   mutable std::weak_ptr<const void> held_;
 };
 
+// A set's rows, from a cache line's start: where a row falls within a line - in one, or across two -
+// then does not depend on what the allocator handed out before (general/aligned_vector.hpp). Every
+// table and index on the set reads them.
+template <typename Tup>
+using Rows = ::dreamor::general::AlignedVector64<Tup>;
+
 // What every copy of a set shares: its rows and the slot built from them.
 template <typename Tup>
 class SetRows {
  public:
-  explicit SetRows(std::vector<Tup> rows) : rows_{std::move(rows)} {}
+  explicit SetRows(Rows<Tup> rows) : rows_{std::move(rows)} {}
 
  private:
   friend struct SetAccess;
-  std::vector<Tup> rows_;
+  Rows<Tup> rows_;
   SharedSlot index_;
 };
 
 // Library-side access to a set's rows, so IndexSet itself never hands out its storage.
 struct SetAccess {
   template <typename Tup>
-  [[nodiscard]] static const std::vector<Tup>& rows(const IndexSet<Tup>& set) noexcept {
+  [[nodiscard]] static const Rows<Tup>& rows(const IndexSet<Tup>& set) noexcept {
     return set.rows_->rows_;
   }
   // The slot shared by every set with these rows - copies of one set, never an equal set.
@@ -103,7 +111,7 @@ struct SetAccess {
     return set.rows_->index_;
   }
   template <typename Tup>
-  [[nodiscard]] static IndexSet<Tup> make(std::vector<Tup> rows) {
+  [[nodiscard]] static IndexSet<Tup> make(Rows<Tup> rows) {
     return IndexSet<Tup>{std::make_shared<const SetRows<Tup>>(std::move(rows))};
   }
 };
@@ -116,7 +124,7 @@ template <typename Tup>
 class IndexSet : public std::ranges::view_base {
  public:
   using value_type     = Tup;
-  using const_iterator = std::vector<Tup>::const_iterator;
+  using const_iterator = internal::Rows<Tup>::const_iterator;
   using iterator       = const_iterator;
 
   // Empty. Lets a model declare its sets as members and assign them once they are built.
@@ -146,7 +154,7 @@ class IndexSet : public std::ranges::view_base {
   explicit IndexSet(std::shared_ptr<const internal::SetRows<Tup>> rows) : rows_{std::move(rows)} {}
 
   [[nodiscard]] static const std::shared_ptr<const internal::SetRows<Tup>>& empty() {
-    static const auto empty_rows = std::make_shared<const internal::SetRows<Tup>>(std::vector<Tup>{});
+    static const auto empty_rows = std::make_shared<const internal::SetRows<Tup>>(internal::Rows<Tup>{});
     return empty_rows;
   }
 

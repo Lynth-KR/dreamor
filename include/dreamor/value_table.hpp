@@ -127,7 +127,7 @@ class ValueTable {
   ValueTable(IndexSet<Key> keys, std::shared_ptr<const internal::RowIndex<Key>> index, std::vector<double> values)
       : keys_{std::move(keys)}, index_{std::move(index)}, values_{std::move(values)} {}
 
-  [[nodiscard]] const std::vector<Key>& rows() const noexcept { return internal::SetAccess::rows(keys_); }
+  [[nodiscard]] const internal::Rows<Key>& rows() const noexcept { return internal::SetAccess::rows(keys_); }
 
   IndexSet<Key> keys_;
   std::shared_ptr<const internal::RowIndex<Key>> index_;
