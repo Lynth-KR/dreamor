@@ -30,15 +30,15 @@ C++ 최적화 모형을 위한 얇은 모델링 계층입니다. AMPL의 집합 
 
 ```cpp
 // set PRODUCE := {m in MACHINES, i in ITEMS[m], t in PERIODS};
-const auto sPRODUCE = dreamor::makeSet<MachineCol, ItemCol, PeriodCol>(machines, items_of, periods).collect();
+const auto sPRODUCE = dreamor::makeSet<cMachine, cItem, cPeriod>(machines, items_of, periods).collect();
 
 // var Yield {(m,i,t) in PRODUCE} >= 0, <= cap[m] / time[i];
-const auto max_possible_qty = [](MachineCol m, ItemCol i) { return m->capacity / i->time; };
-const dreamor::concert::VarTable<MachineCol, ItemCol, PeriodCol> vYield{env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};
+const auto max_possible_qty = [](cMachine m, cItem i) { return m->capacity / i->time; };
+const dreamor::concert::VarTable<cMachine, cItem, cPeriod> vYield{env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};
 
 // subject to Capacity {m in MACHINES, t in PERIODS}: sum {i: (m,i,t) in PRODUCE} time[i] * Yield[m,i,t] <= cap[m];
-const auto machine_usage = [&](MachineCol m, ItemCol i, PeriodCol t) { return i->time * vYield(m, i, t); };
-const auto producedByMachinePeriod = sPRODUCE.groupBy<MachineCol, PeriodCol>();
+const auto machine_usage = [&](cMachine m, cItem i, cPeriod t) { return i->time * vYield(m, i, t); };
+const auto producedByMachinePeriod = sPRODUCE.groupBy<cMachine, cPeriod>();
 for (const auto& [machine, period, rows] : producedByMachinePeriod) {
   model.add(dreamor::concert::sumOf(env, rows, machine_usage).build() <= machine->capacity);
 }
@@ -84,9 +84,9 @@ MathOpt에서 달라지는 것은 모두 MathOpt의 표기입니다.
 ```cpp
 namespace math_opt = ::operations_research::math_opt;
 math_opt::Model model("lot sizing");
-const dreamor::mathopt::VarTable<MachineCol, ItemCol, PeriodCol> vYield{
+const dreamor::mathopt::VarTable<cMachine, cItem, cPeriod> vYield{
     model, sPRODUCE, 0, max_possible_qty, /*is_integer=*/false, "Yield"};   // env 대신 Model&, 종류는 is_integer
-const dreamor::mathopt::VarTable<MachineCol, ItemCol, PeriodCol> vSetup{model, sPRODUCE, 0, 1, true, "Setup"};
+const dreamor::mathopt::VarTable<cMachine, cItem, cPeriod> vSetup{model, sPRODUCE, 0, 1, true, "Setup"};
 
 for (const auto& [machine, period, rows] : producedByMachinePeriod) {
   const math_opt::LinearExpression totalLoad = dreamor::mathopt::sumOf(rows, machine_usage).build();  // env 없음
@@ -111,7 +111,7 @@ highspy가 그 위에 식을 얹었고, `dreamor::highs`는 그 인터페이스�
 ```cpp
 namespace hs = dreamor::highs;
 hs::HighsEnv env;                                                    // 작성 중인 모형과, 그것을 푸는 Highs
-const hs::VarTable<MachineCol, ItemCol, PeriodCol> vYield{
+const hs::VarTable<cMachine, cItem, cPeriod> vYield{
     env, sPRODUCE, 0, max_possible_qty, HighsVarType::kContinuous, "Yield"};   // 종류는 HiGHS의 HighsVarType
 
 for (const auto& [machine, period, rows] : producedByMachinePeriod) {
@@ -169,9 +169,9 @@ inline const std::string& keyName(const Item* i) { return i->name; }
 inline const std::string& keyName(const Machine* m) { return m->name; }
 
 // 2) 열
-using MachineCol = dreamor::Col<const Machine*, "machine">;
-using ItemCol    = dreamor::Col<const Item*, "item">;
-using PeriodCol  = dreamor::Col<std::size_t, "period">;
+using cMachine = dreamor::Col<const Machine*, "machine">;
+using cItem    = dreamor::Col<const Item*, "item">;
+using cPeriod  = dreamor::Col<std::size_t, "period">;
 
 // 3) 모형. 집합이 먼저 옵니다 - 멤버는 선언 순서대로 만들어지고, VarTable은 집합을 받습니다.
 //    exprName이 VarTable이 변수 이름을 짓듯 행 이름을 짓습니다
@@ -181,10 +181,10 @@ class LotSizing {
             const std::vector<std::size_t>& periods)
       : env(environment),
         model(environment),
-        sPERIODS(dreamor::makeSet<PeriodCol>(periods).collect()),
-        sROUTES(dreamor::makeSet<MachineCol, ItemCol>(machines, items_of).collect()),
-        sPRODUCE(dreamor::makeSet<PeriodCol>(sROUTES, periods).collect()),     // 기존 집합을 확장
-        sSTOCK(dreamor::makeSet<ItemCol, PeriodCol>(items, periods).collect()) {
+        sPERIODS(dreamor::makeSet<cPeriod>(periods).collect()),
+        sROUTES(dreamor::makeSet<cMachine, cItem>(machines, items_of).collect()),
+        sPRODUCE(dreamor::makeSet<cPeriod>(sROUTES, periods).collect()),     // 기존 집합을 확장
+        sSTOCK(dreamor::makeSet<cItem, cPeriod>(items, periods).collect()) {
     addInventoryBalance();
     addCapacity();
     addSetupLinks();
@@ -195,28 +195,28 @@ class LotSizing {
   IloModel model;
 
   // 집합
-  const dreamor::SetOf<PeriodCol> sPERIODS;
-  const dreamor::SetOf<MachineCol, ItemCol> sROUTES;
-  const dreamor::SetOf<MachineCol, ItemCol, PeriodCol> sPRODUCE;
-  const dreamor::SetOf<ItemCol, PeriodCol> sSTOCK;
+  const dreamor::SetOf<cPeriod> sPERIODS;
+  const dreamor::SetOf<cMachine, cItem> sROUTES;
+  const dreamor::SetOf<cMachine, cItem, cPeriod> sPRODUCE;
+  const dreamor::SetOf<cItem, cPeriod> sSTOCK;
 
   // 4) 변수, 위의 집합 위에
-  const dreamor::concert::VarTable<MachineCol, ItemCol, PeriodCol> vYield{env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};
-  const dreamor::concert::VarTable<MachineCol, ItemCol, PeriodCol> vSetup{env, sPRODUCE, 0, 1, ILOBOOL, "Setup"};
-  const dreamor::concert::VarTable<ItemCol, PeriodCol> vStock{env, sSTOCK, 0, IloInfinity, ILOFLOAT, "Stock"};
+  const dreamor::concert::VarTable<cMachine, cItem, cPeriod> vYield{env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};
+  const dreamor::concert::VarTable<cMachine, cItem, cPeriod> vSetup{env, sPRODUCE, 0, 1, ILOBOOL, "Setup"};
+  const dreamor::concert::VarTable<cItem, cPeriod> vStock{env, sSTOCK, 0, IloInfinity, ILOFLOAT, "Stock"};
 
  private:
-  static constexpr auto items_of = [](MachineCol m) { return m->items; };     // 의존 소스: 포인터 범위를 반환
-  static constexpr auto max_possible_qty = [](MachineCol m, ItemCol i) { return m->capacity / i->time; };
+  static constexpr auto items_of = [](cMachine m) { return m->items; };     // 의존 소스: 포인터 범위를 반환
+  static constexpr auto max_possible_qty = [](cMachine m, cItem i) { return m->capacity / i->time; };
 
   // 5) 제약
   //    재고 균형: 모든 (품목, 기간)에 대해. 그 기간에 만드는 기계가 없어도 걸려야 하므로 sSTOCK 을 돈다
   void addInventoryBalance() {
     const auto orderedPeriods = sPERIODS.ordered();
-    const auto producedByItemPeriod = sPRODUCE.groupBy<ItemCol, PeriodCol>();
+    const auto producedByItemPeriod = sPRODUCE.groupBy<cItem, cPeriod>();
     for (const auto& [i, t] : sSTOCK) {
       IloExpr totalInFlow = dreamor::concert::sumOf(env, producedByItemPeriod.slice(i, t), vYield).build();
-      if (const auto* prevPeriod = orderedPeriods.prev(t)) { totalInFlow += vStock(i, std::get<PeriodCol>(*prevPeriod)); }
+      if (const auto* prevPeriod = orderedPeriods.prev(t)) { totalInFlow += vStock(i, std::get<cPeriod>(*prevPeriod)); }
       const double currentDemand = i->demand[t.get()];
       const auto endingStock = vStock(i, t);
       model.add(totalInFlow - currentDemand == endingStock);
@@ -225,8 +225,8 @@ class LotSizing {
   }
   //    기계 용량. 행 이름은 변수 이름과 같은 방식으로 (Capacity_M0_0)
   void addCapacity() {
-    const auto machine_usage = [this](MachineCol m, ItemCol i, PeriodCol t) { return i->time * vYield(m, i, t); };
-    for (const auto& [machine, period, rows] : sPRODUCE.groupBy<MachineCol, PeriodCol>()) {
+    const auto machine_usage = [this](cMachine m, cItem i, cPeriod t) { return i->time * vYield(m, i, t); };
+    for (const auto& [machine, period, rows] : sPRODUCE.groupBy<cMachine, cPeriod>()) {
       IloExpr totalLoad = dreamor::concert::sumOf(env, rows, machine_usage).build();
       model.add(totalLoad <= machine->capacity).setName(dreamor::exprName("Capacity", machine, period));
       totalLoad.end();
@@ -241,8 +241,8 @@ class LotSizing {
 
   // 6) 목적
   void addObjective() {
-    IloExpr holdingCost = dreamor::concert::sumOf(env, sSTOCK, [this](ItemCol i, PeriodCol t) { return i->hold * vStock(i, t); }).build();
-    IloExpr setupCost = dreamor::concert::sumOf(env, sPRODUCE, [this](MachineCol m, ItemCol i, PeriodCol t) { return m->setup * vSetup(m, i, t); }).build();
+    IloExpr holdingCost = dreamor::concert::sumOf(env, sSTOCK, [this](cItem i, cPeriod t) { return i->hold * vStock(i, t); }).build();
+    IloExpr setupCost = dreamor::concert::sumOf(env, sPRODUCE, [this](cMachine m, cItem i, cPeriod t) { return m->setup * vSetup(m, i, t); }).build();
     IloExpr totalCost = holdingCost + setupCost;
     model.add(IloMinimize(env, totalCost));
     holdingCost.end();
@@ -257,7 +257,7 @@ IloCplex cplex(lotSizing.model);
 cplex.solve();
 const auto yieldPlan = lotSizing.vYield.solution(cplex);
 for (const auto& [row, qty] : yieldPlan) {
-  if (qty > 1e-6) { print(std::get<MachineCol>(row), std::get<ItemCol>(row), std::get<PeriodCol>(row), qty); }
+  if (qty > 1e-6) { print(std::get<cMachine>(row), std::get<cItem>(row), std::get<cPeriod>(row), qty); }
 }
 ```
 

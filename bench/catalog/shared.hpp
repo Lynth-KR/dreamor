@@ -93,27 +93,27 @@ template <std::size_t... J>
 struct Gen<std::index_sequence<J...>> {
   static constexpr std::size_t kK    = sizeof...(J);
   static constexpr std::size_t kLast = kK - 1;
-  using Set                          = dreamor::SetOf<KCol<J>...>;
-  using Table                        = dreamor::concert::VarTable<KCol<J>...>;
+  using Set                          = dreamor::SetOf<cK<J>...>;
+  using Table                        = dreamor::concert::VarTable<cK<J>...>;
 
   // Callables take the columns they read, by type: no generic lambdas.
   struct Keep {
     const Data* d;
-    bool operator()(KCol<J>... c) const { return d->keep(std::array<std::uint32_t, kMaxColumns>{c->serial...}); }
+    bool operator()(cK<J>... c) const { return d->keep(std::array<std::uint32_t, kMaxColumns>{c->serial...}); }
   };
   struct Tag {
-    double operator()(KCol<J>... c) const { return tagOf(std::array<std::uint32_t, kMaxColumns>{c->serial...}, kK, 0); }
+    double operator()(cK<J>... c) const { return tagOf(std::array<std::uint32_t, kMaxColumns>{c->serial...}, kK, 0); }
   };
   template <std::size_t I>
   struct ListOf {
     const Data* d;
-    std::span<const Ent* const> operator()(KCol<0> k1) const { return d->lists[I][k1->serial]; }
+    std::span<const Ent* const> operator()(cK<0> k1) const { return d->lists[I][k1->serial]; }
   };
 
   static Set make(const Data& d) {
     return [&]<std::size_t... I>(std::index_sequence<I...>) {
-      return d.sparse ? dreamor::makeSet<KCol<J>...>(d.k1s, ListOf<I + 1>{&d}...).where(Keep{&d}).collect()
-                      : dreamor::makeSet<KCol<J>...>(d.k1s, ListOf<I + 1>{&d}...).collect();
+      return d.sparse ? dreamor::makeSet<cK<J>...>(d.k1s, ListOf<I + 1>{&d}...).where(Keep{&d}).collect()
+                      : dreamor::makeSet<cK<J>...>(d.k1s, ListOf<I + 1>{&d}...).collect();
     }(std::make_index_sequence<kK - 1>{});
   }
 };

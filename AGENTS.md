@@ -292,7 +292,7 @@ Follow it in library code:
   `tests/check.hpp`).
 
 User-facing examples (README, `docs/`, header comments, examples, skill) follow the user conventions instead:
-- columns `PascalCaseCol`, sets `sSCREAMING_SNAKE`, variable families `vPascalCase`;
+- columns `cPascalCase`, sets `sSCREAMING_SNAKE`, variable families `vPascalCase`;
 - callables taking columns in `snake_case`;
 - everything else in `camelCase`.
 

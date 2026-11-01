@@ -16,13 +16,13 @@
 
 namespace {
 
-using PeriodCol = dreamor::Col<std::size_t, "period">;
+using cPeriod = dreamor::Col<std::size_t, "period">;
 
 // A model names its rows from const member functions: format() changes no object.
 class Rows : private dreamor::general::FormatBuffer<32> {
  public:
   explicit Rows(std::string_view name) : family{name} {}
-  [[nodiscard]] std::string capacity(std::size_t m, PeriodCol t) const { return format("{}_{}_{}", family, m, t); }
+  [[nodiscard]] std::string capacity(std::size_t m, cPeriod t) const { return format("{}_{}_{}", family, m, t); }
   [[nodiscard]] const char* raw(std::size_t m) const { return format("{}_{}", family, m); }
   [[nodiscard]] std::string tooLong() const { return format("{}{:>40}", family, 1); }
 
@@ -53,7 +53,7 @@ void nameAlone(std::size_t thread, char& whole) {
   const Rows rows{"Cap"};
   whole = 1;
   for (std::size_t k = 0; k < kNames; ++k) {
-    if (rows.capacity(thread, PeriodCol{k}) != std::format("Cap_{}_{}", thread, k)) { whole = 0; }
+    if (rows.capacity(thread, cPeriod{k}) != std::format("Cap_{}_{}", thread, k)) { whole = 0; }
   }
 }
 
@@ -61,7 +61,7 @@ void nameAlone(std::size_t thread, char& whole) {
 
 int main() try {
   const Rows rows{"Cap"};
-  DREAMOR_CHECK(rows.capacity(3, PeriodCol{2}) == "Cap_3_2");
+  DREAMOR_CHECK(rows.capacity(3, cPeriod{2}) == "Cap_3_2");
 
   // Too long a name: kThrow throws, kLogAndClear gives an empty one.
   DREAMOR_CHECK_THROWS(std::runtime_error, rows.tooLong());

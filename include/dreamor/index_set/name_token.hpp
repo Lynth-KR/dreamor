@@ -4,8 +4,8 @@
 // "<name>_<key0>_<key1>...", what exprName writes for a row, and what a column prints as under
 // std::format, so that a row can be named the way its variables are:
 //
-//     const FromCol i{&n1};
-//     const ToCol j{&n2};
+//     const cFrom i{&n1};
+//     const cTo j{&n2};
 //     std::format("Cap_{}_{}", i, j)  // "Cap_1_2" with keyName(const Node*) returning the id
 //
 // A column whose value has no token - an entity pointer with neither keyName() nor

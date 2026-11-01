@@ -16,9 +16,9 @@
 //
 //     namespace math_opt = ::operations_research::math_opt;
 //     math_opt::Model model("lot sizing");
-//     const dreamor::mathopt::VarTable<MachineCol, ItemCol, PeriodCol> vYield{
+//     const dreamor::mathopt::VarTable<cMachine, cItem, cPeriod> vYield{
 //         model, sPRODUCE, 0, max_possible_qty, /*is_integer=*/false, "Yield"};
-//     const dreamor::mathopt::VarTable<MachineCol, ItemCol, PeriodCol> vSetup{model, sPRODUCE, 0, 1, true, "Setup"};
+//     const dreamor::mathopt::VarTable<cMachine, cItem, cPeriod> vSetup{model, sPRODUCE, 0, 1, true, "Setup"};
 //
 //     math_opt::LinearExpression totalLoad = dreamor::mathopt::sumOf(rows, machine_usage).build();
 //     model.AddLinearConstraint(totalLoad <= machine->capacity);

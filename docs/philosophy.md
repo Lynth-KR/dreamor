@@ -8,7 +8,7 @@ contributor knows what a change has to keep.
 
 ## Design principles
 
-- **Columns are called by name.** You refer to a column by its column type, such as `MachineCol` or `PeriodCol`,
+- **Columns are called by name.** You refer to a column by its column type, such as `cMachine` or `cPeriod`,
   not by its position in a tuple. Predicates, bound functions, and the terms of a sum are all callables that
   **take the columns they read as parameters**.
 - **A set is a fact.** Once built, a set cannot be changed (it is read-only). When you need another set, you derive
@@ -48,7 +48,7 @@ comments and the code match once the prefix is dropped.
 
 | What | Shape | Example | AMPL |
 |---|---|---|---|
-| Column type | PascalCase + `Col` | `MachineCol`, `PeriodCol` | |
+| Column type | PascalCase + `Col` | `cMachine`, `cPeriod` | |
 | Set (`SetOf`) | `s` + SCREAMING_SNAKE_CASE | `sPRODUCE`, `sPEAK_PRODUCE` | `PRODUCE` |
 | Variable family (`VarTable`) | `v` + PascalCase | `vYield`, `vSetup`, `vStock` | `Yield` |
 
@@ -75,7 +75,7 @@ everything else in camelCase (`totalInFlow`, `yieldPlan`).
 9. A function object whose `operator()` is a template, so that its columns cannot be read from its parameters, can
    be used as a predicate by specializing `dreamor::PredicateColumns` to declare the columns it reads.
    ```cpp
-   template <> struct dreamor::PredicateColumns<MyFilter> { using type = std::tuple<MachineCol, PeriodCol>; };
+   template <> struct dreamor::PredicateColumns<MyFilter> { using type = std::tuple<cMachine, cPeriod>; };
    ```
 10. In generic code (`[](const auto& sANY)`), calling a member that takes columns as template arguments, such as
     `sANY.select<A>()`, requires `sANY.template select<A>()`. This does not come up in the recommended style, which

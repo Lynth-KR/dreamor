@@ -2,5 +2,5 @@
 // expect: More column types than columns to name
 #include "prelude.hpp"
 int main() {
-  (void)dreamor::makeSet<ICol, JCol>(I).collect();
+  (void)dreamor::makeSet<cI, cJ>(I).collect();
 }

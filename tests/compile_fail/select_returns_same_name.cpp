@@ -2,5 +2,5 @@
 // expect: select(expr) returns two columns with the same name
 #include "prelude.hpp"
 int main() {
-  (void)IJ().select([](ICol i) { return std::tuple<ICol, dreamor::Col<int, "i">>{i, 1}; });
+  (void)IJ().select([](cI i) { return std::tuple<cI, dreamor::Col<int, "i">>{i, 1}; });
 }

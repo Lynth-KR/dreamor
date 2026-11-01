@@ -3,9 +3,9 @@
 // A column of an index set: a value type plus a name. The name is required, not inferred,
 // because two columns over the same entity are the ordinary case:
 //
-//     using MachineCol = Col<const Machine*, "machine">;
-//     using FromCol = Col<const Node*, "from">;
-//     using ToCol   = Col<const Node*, "to">;
+//     using cMachine = Col<const Machine*, "machine">;
+//     using cFrom = Col<const Node*, "from">;
+//     using cTo   = Col<const Node*, "to">;
 //
 // Col converts implicitly to the value it wraps, so predicates, entity code and VarTable
 // see a plain `const Machine*`; -> and * reach the entity directly.
@@ -96,7 +96,7 @@ template <typename T, ColumnName Name>
 
 // Opt-in hook for callables whose columns cannot be deduced from their signature -
 // anything with a template operator() constrained on argument COUNT rather than type.
-// Specialize with `using type = std::tuple<NodeCol, PeriodCol>;`.
+// Specialize with `using type = std::tuple<cNode, cPeriod>;`.
 template <typename Pred>
 struct PredicateColumns {};
 
@@ -178,8 +178,8 @@ template <typename Tup, std::size_t... Is>
 template <typename Tup, typename... Columns>
 consteval void checkColumns() {
   static_assert((is_column<Columns> && ...),
-                "Name the column: s.groupBy<MachineCol>(), not s.groupBy<const Machine*>(). "
-                "Declare it once with `using MachineCol = Col<const Machine*, \"machine\">;`.");
+                "Name the column: s.groupBy<cMachine>(), not s.groupBy<const Machine*>(). "
+                "Declare it once with `using cMachine = Col<const Machine*, \"machine\">;`.");
   static_assert(((countColumns<Columns, Tup>() != 0) && ...), "No column of this set has that name.");
   // A repeat would build a tuple holding the same column twice, and std::get<Column> on
   // that is ill-formed - so the failure would surface much later, inside <tuple>.

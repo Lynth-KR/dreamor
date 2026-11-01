@@ -12,11 +12,11 @@
 namespace planning {
 
 struct MathOptModel : Sets {
-  const dreamor::mathopt::VarTable<MachineCol, ItemCol, PeriodCol> vYield;
-  const dreamor::mathopt::VarTable<MachineCol, ItemCol, PeriodCol> vSetup;
-  const dreamor::mathopt::VarTable<ItemCol, PeriodCol> vStock;
+  const dreamor::mathopt::VarTable<cMachine, cItem, cPeriod> vYield;
+  const dreamor::mathopt::VarTable<cMachine, cItem, cPeriod> vSetup;
+  const dreamor::mathopt::VarTable<cItem, cPeriod> vStock;
 
-  static constexpr auto max_possible_qty = [](MachineCol m, ItemCol i) { return m->capacity / i->time; };
+  static constexpr auto max_possible_qty = [](cMachine m, cItem i) { return m->capacity / i->time; };
 
   MathOptModel(operations_research::math_opt::Model& model, const Instance& in)
       : Sets{in},
@@ -26,23 +26,21 @@ struct MathOptModel : Sets {
 
   void build(operations_research::math_opt::Model& model) const {
     using operations_research::math_opt::LinearExpression;
-    const auto machine_usage = [&](MachineCol m, ItemCol i, PeriodCol t) { return i->time * vYield(m, i, t); };
+    const auto machine_usage = [&](cMachine m, cItem i, cPeriod t) { return i->time * vYield(m, i, t); };
 
     // balance: stock carried in + made - demand = stock carried out
     const auto orderedPeriods       = sPERIODS.ordered();
-    const auto producedByItemPeriod = sPRODUCE.groupBy<ItemCol, PeriodCol>();
+    const auto producedByItemPeriod = sPRODUCE.groupBy<cItem, cPeriod>();
     for (const auto& [i, t] : sSTOCK) {
       LinearExpression totalInFlow = dreamor::mathopt::sumOf(producedByItemPeriod.slice(i, t), vYield).build();
-      if (const auto* prevPeriod = orderedPeriods.prev(t)) {
-        totalInFlow += vStock(i, std::get<PeriodCol>(*prevPeriod));
-      }
+      if (const auto* prevPeriod = orderedPeriods.prev(t)) { totalInFlow += vStock(i, std::get<cPeriod>(*prevPeriod)); }
       const double currentDemand = i->demand[t.get()];
       const auto endingStock     = vStock(i, t);
       model.AddLinearConstraint(totalInFlow - currentDemand == endingStock);
     }
 
     // capacity of each machine in each period
-    const auto producedByMachinePeriod = sPRODUCE.groupBy<MachineCol, PeriodCol>();
+    const auto producedByMachinePeriod = sPRODUCE.groupBy<cMachine, cPeriod>();
     for (const auto& [machine, period, rows] : producedByMachinePeriod) {
       const LinearExpression totalLoad = dreamor::mathopt::sumOf(rows, machine_usage).build();
       model.AddLinearConstraint(totalLoad <= machine->capacity);
@@ -54,8 +52,8 @@ struct MathOptModel : Sets {
     }
 
     const LinearExpression holdingCost =
-        dreamor::mathopt::sumOf(sSTOCK, [&](ItemCol i, PeriodCol t) { return i->hold * vStock(i, t); }).build();
-    const LinearExpression setupCost = dreamor::mathopt::sumOf(sPRODUCE, [&](MachineCol m, ItemCol i, PeriodCol t) {
+        dreamor::mathopt::sumOf(sSTOCK, [&](cItem i, cPeriod t) { return i->hold * vStock(i, t); }).build();
+    const LinearExpression setupCost = dreamor::mathopt::sumOf(sPRODUCE, [&](cMachine m, cItem i, cPeriod t) {
                                          return m->setup * vSetup(m, i, t);
                                        }).build();
     model.Minimize(holdingCost + setupCost);

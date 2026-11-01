@@ -14,12 +14,12 @@
 //
 //     S.where(p, q)              rows passing every predicate     {(m,i) in S: p and q}
 //     S.orderBy(key)             stable reorder by key
-//     S.select<MachineCol, ...>()   projection (or column reorder), as a set
+//     S.select<cMachine, ...>()   projection (or column reorder), as a set
 //     S.select(expr)             each row as expr makes it, as a set   setof {(i,j) in S} (j,i)
-//     S.groupBy<OrderCol>()       Grouped: walk groups, slice by key
+//     S.groupBy<cOrder>()       Grouped: walk groups, slice by key
 //     S.membership()             O(1) membership predicate over S's columns
 //     S.ordered()                ord / next / prev
-//     S.ordered<MachineCol>()    the same within each machine's rows   next(t, S[m])
+//     S.ordered<cMachine>()    the same within each machine's rows   next(t, S[m])
 //     unite(A, B), intersect(A, B), difference(A, B)
 //
 // The members are defined in the headers that implement them; include
@@ -52,7 +52,7 @@ class Ordered;
 template <typename Tup>
 class Membership;
 
-// SetOf<MachineCol, ItemCol> reads as the set it declares.
+// SetOf<cMachine, cItem> reads as the set it declares.
 template <typename... Columns>
 using SetOf = IndexSet<std::tuple<Columns...>>;
 

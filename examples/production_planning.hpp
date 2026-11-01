@@ -10,11 +10,11 @@
 namespace planning {
 
 struct Model : Sets {
-  const dreamor::concert::VarTable<MachineCol, ItemCol, PeriodCol> vYield;
-  const dreamor::concert::VarTable<MachineCol, ItemCol, PeriodCol> vSetup;
-  const dreamor::concert::VarTable<ItemCol, PeriodCol> vStock;
+  const dreamor::concert::VarTable<cMachine, cItem, cPeriod> vYield;
+  const dreamor::concert::VarTable<cMachine, cItem, cPeriod> vSetup;
+  const dreamor::concert::VarTable<cItem, cPeriod> vStock;
 
-  static constexpr auto max_possible_qty = [](MachineCol m, ItemCol i) { return m->capacity / i->time; };
+  static constexpr auto max_possible_qty = [](cMachine m, cItem i) { return m->capacity / i->time; };
 
   Model(IloEnv env, const Instance& in)
       : Sets{in},
@@ -23,16 +23,14 @@ struct Model : Sets {
         vStock{env, sSTOCK, 0, IloInfinity, ILOFLOAT, "Stock"} {}
 
   void build(IloEnv env, const IloModel& model) const {
-    const auto machine_usage = [&](MachineCol m, ItemCol i, PeriodCol t) { return i->time * vYield(m, i, t); };
+    const auto machine_usage = [&](cMachine m, cItem i, cPeriod t) { return i->time * vYield(m, i, t); };
 
     // balance: stock carried in + made - demand = stock carried out
     const auto orderedPeriods       = sPERIODS.ordered();
-    const auto producedByItemPeriod = sPRODUCE.groupBy<ItemCol, PeriodCol>();
+    const auto producedByItemPeriod = sPRODUCE.groupBy<cItem, cPeriod>();
     for (const auto& [i, t] : sSTOCK) {
       IloExpr totalInFlow = dreamor::concert::sumOf(env, producedByItemPeriod.slice(i, t), vYield).build();
-      if (const auto* prevPeriod = orderedPeriods.prev(t)) {
-        totalInFlow += vStock(i, std::get<PeriodCol>(*prevPeriod));
-      }
+      if (const auto* prevPeriod = orderedPeriods.prev(t)) { totalInFlow += vStock(i, std::get<cPeriod>(*prevPeriod)); }
       const double currentDemand = i->demand[t.get()];
       const auto endingStock     = vStock(i, t);
       model.add(totalInFlow - currentDemand == endingStock);
@@ -40,7 +38,7 @@ struct Model : Sets {
     }
 
     // capacity of each machine in each period
-    const auto producedByMachinePeriod = sPRODUCE.groupBy<MachineCol, PeriodCol>();
+    const auto producedByMachinePeriod = sPRODUCE.groupBy<cMachine, cPeriod>();
     for (const auto& [machine, period, rows] : producedByMachinePeriod) {
       IloExpr totalLoad = dreamor::concert::sumOf(env, rows, machine_usage).build();
       model.add(totalLoad <= machine->capacity);
@@ -53,8 +51,8 @@ struct Model : Sets {
     }
 
     IloExpr holdingCost =
-        dreamor::concert::sumOf(env, sSTOCK, [&](ItemCol i, PeriodCol t) { return i->hold * vStock(i, t); }).build();
-    IloExpr setupCost = dreamor::concert::sumOf(env, sPRODUCE, [&](MachineCol m, ItemCol i, PeriodCol t) {
+        dreamor::concert::sumOf(env, sSTOCK, [&](cItem i, cPeriod t) { return i->hold * vStock(i, t); }).build();
+    IloExpr setupCost = dreamor::concert::sumOf(env, sPRODUCE, [&](cMachine m, cItem i, cPeriod t) {
                           return m->setup * vSetup(m, i, t);
                         }).build();
     IloExpr totalCost = holdingCost + setupCost;

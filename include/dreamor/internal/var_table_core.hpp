@@ -59,7 +59,7 @@ template <typename Var, typename... Keys>
   requires(sizeof...(Keys) > 0 && (is_nameable<Keys> && ...))
 class VarTableCore : public VarTableBase {
   static_assert(allColumnsDistinct<std::tuple<Keys...>>(std::index_sequence_for<Keys...>{}),
-                "VarTable<ICol, ICol> names one key column twice, and no set has the same column twice: give each "
+                "VarTable<cI, cI> names one key column twice, and no set has the same column twice: give each "
                 "key its own column type.");
 
  public:
@@ -87,7 +87,7 @@ class VarTableCore : public VarTableBase {
       : VarTableCore{IndexSet<Key>{}} {
     static_assert(always_false<OtherTup>,
                   "A VarTable is built on a set with exactly its key columns, in the same order: "
-                  "VarTable<MachineCol, ItemCol, PeriodCol> takes a SetOf<MachineCol, ItemCol, PeriodCol>. "
+                  "VarTable<cMachine, cItem, cPeriod> takes a SetOf<cMachine, cItem, cPeriod>. "
                   "Declare the table in the set's order, or derive a set in the table's order with select<...>().");
   }
 

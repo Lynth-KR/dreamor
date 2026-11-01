@@ -3,5 +3,5 @@
 #include "prelude.hpp"
 int main() {
   IloEnv env;
-  const dreamor::concert::VarTable<ICol, JCol> x{env, IJ(), 0, [](KCol k) { return k.get(); }};
+  const dreamor::concert::VarTable<cI, cJ> x{env, IJ(), 0, [](cK k) { return k.get(); }};
 }

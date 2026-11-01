@@ -53,9 +53,9 @@ inline const std::string& keyName(const Machine* m) {
   return m->name;
 }
 
-using MachineCol = dreamor::Col<const Machine*, "machine">;
-using ItemCol    = dreamor::Col<const Item*, "item">;
-using PeriodCol  = dreamor::Col<std::size_t, "period">;
+using cMachine = dreamor::Col<const Machine*, "machine">;
+using cItem    = dreamor::Col<const Item*, "item">;
+using cPeriod  = dreamor::Col<std::size_t, "period">;
 
 struct Instance {
   std::vector<std::unique_ptr<Item>> items;
@@ -110,18 +110,18 @@ struct Instance {
 
 // Sets first (a base class is initialized before the members that use it), then variables.
 struct Sets {
-  dreamor::SetOf<PeriodCol> sPERIODS;
-  dreamor::SetOf<MachineCol, ItemCol> sROUTES;
-  dreamor::SetOf<MachineCol, ItemCol, PeriodCol> sPRODUCE;
-  dreamor::SetOf<ItemCol, PeriodCol> sSTOCK;
+  dreamor::SetOf<cPeriod> sPERIODS;
+  dreamor::SetOf<cMachine, cItem> sROUTES;
+  dreamor::SetOf<cMachine, cItem, cPeriod> sPRODUCE;
+  dreamor::SetOf<cItem, cPeriod> sSTOCK;
 
   explicit Sets(const Instance& in) {
-    const auto items_of = [](MachineCol m) { return m->items; };
+    const auto items_of = [](cMachine m) { return m->items; };
 
-    sPERIODS = dreamor::makeSet<PeriodCol>(in.periods).collect();
-    sROUTES  = dreamor::makeSet<MachineCol, ItemCol>(in.machines, items_of).collect();
-    sPRODUCE = dreamor::makeSet<PeriodCol>(sROUTES, in.periods).collect();
-    sSTOCK   = dreamor::makeSet<ItemCol, PeriodCol>(in.items, in.periods).collect();
+    sPERIODS = dreamor::makeSet<cPeriod>(in.periods).collect();
+    sROUTES  = dreamor::makeSet<cMachine, cItem>(in.machines, items_of).collect();
+    sPRODUCE = dreamor::makeSet<cPeriod>(sROUTES, in.periods).collect();
+    sSTOCK   = dreamor::makeSet<cItem, cPeriod>(in.items, in.periods).collect();
   }
 };
 }  // namespace planning

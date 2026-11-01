@@ -63,11 +63,11 @@ struct Dreamor<std::index_sequence<J...>> {
   static constexpr std::size_t kLast = G::kLast;
   using Set                          = typename G::Set;
   using Table                        = typename G::Table;
-  using PairSet                      = dreamor::SetOf<KCol<0>, KCol<kLast>>;
-  using PairTable                    = dreamor::concert::VarTable<KCol<0>, KCol<kLast>>;
+  using PairSet                      = dreamor::SetOf<cK<0>, cK<kLast>>;
+  using PairTable                    = dreamor::concert::VarTable<cK<0>, cK<kLast>>;
 
   struct PairTag {
-    double operator()(KCol<0> a, KCol<kLast> t) const {
+    double operator()(cK<0> a, cK<kLast> t) const {
       return tagOf(std::array<std::uint32_t, 2>{a->serial, t->serial}, 2, 1);
     }
   };
@@ -81,19 +81,19 @@ struct Dreamor<std::index_sequence<J...>> {
     r.measure("build", [&] {
       sX = G::make(d);
       vX.emplace(env, sX, 0, typename G::Tag{}, ILOFLOAT);
-      sY = sX.template select<KCol<0>, KCol<kLast>>();
+      sY = sX.template select<cK<0>, cK<kLast>>();
       vY.emplace(env, sY, 0, PairTag{}, ILOFLOAT);
     });
     r.measure("index", [&] {
       // An absent key: the lookup has to build the index to say so.
       const auto& row = *sX.begin();
       r.sink += vX->contains(replaced<J>(row, d.absent)...);
-      r.sink += vY->contains(std::get<KCol<0>>(row), KCol<kLast>{d.absent});
+      r.sink += vY->contains(std::get<cK<0>>(row), cK<kLast>{d.absent});
     });
     r.measure("neighbor", [&] {
       std::uint64_t sum = 0;
       for (const auto& row : sX) {
-        const Ent* p = d.prev(std::get<KCol<kLast>>(row).get());
+        const Ent* p = d.prev(std::get<cK<kLast>>(row).get());
         if (p == nullptr) { continue; }
         const auto key = std::tuple{replaced<J>(row, p)...};
         if (std::apply([&](auto... c) { return vX->contains(c...); }, key)) {
@@ -105,28 +105,28 @@ struct Dreamor<std::index_sequence<J...>> {
     r.measure("project", [&] {
       std::uint64_t sum = 0;
       for (const auto& row : sX) {
-        sum += ubOf((*vY)(std::get<KCol<0>>(row), std::get<KCol<kLast>>(row)));
+        sum += ubOf((*vY)(std::get<cK<0>>(row), std::get<cK<kLast>>(row)));
       }
       r.check("project", sum);
     });
     r.measure("hit", [&] {
       std::uint64_t sum = 0;
       for (const auto& key : s.hit) {
-        sum += ubOf((*vX)(KCol<J>{key[J]}...));
+        sum += ubOf((*vX)(cK<J>{key[J]}...));
       }
       r.check("hit", sum);
     });
     r.measure("miss", [&] {
       std::uint64_t found = 0;
       for (const auto& key : s.miss) {
-        found += vX->contains(KCol<J>{key[J]}...);
+        found += vX->contains(cK<J>{key[J]}...);
       }
       r.check("miss", found);
     });
     r.measure("half", [&] {
       std::uint64_t sum = 0;
       for (const auto& key : s.half) {
-        if (vX->contains(KCol<J>{key[J]}...)) { sum += ubOf((*vX)(KCol<J>{key[J]}...)); }
+        if (vX->contains(cK<J>{key[J]}...)) { sum += ubOf((*vX)(cK<J>{key[J]}...)); }
       }
       r.check("half", sum);
     });
@@ -135,11 +135,11 @@ struct Dreamor<std::index_sequence<J...>> {
 
   // Column I of row, with the period replaced by p.
   template <std::size_t I, typename Row>
-  static KCol<I> replaced(const Row& row, const Ent* p) {
+  static cK<I> replaced(const Row& row, const Ent* p) {
     if constexpr (I == kLast) {
-      return KCol<I>{p};
+      return cK<I>{p};
     } else {
-      return std::get<KCol<I>>(row);
+      return std::get<cK<I>>(row);
     }
   }
 };

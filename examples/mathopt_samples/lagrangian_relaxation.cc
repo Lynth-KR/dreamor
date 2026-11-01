@@ -145,10 +145,10 @@ struct Graph {
 };
 
 // An arc is an entity of the graph; its tail and head are values read off it.
-using ArcCol = dreamor::Col<const Arc*, "arc">;
-using NodeCol = dreamor::Col<int, "node">;
-using TailCol = dreamor::Col<int, "tail">;
-using HeadCol = dreamor::Col<int, "head">;
+using cArc = dreamor::Col<const Arc*, "arc">;
+using cNode = dreamor::Col<int, "node">;
+using cTail = dreamor::Col<int, "tail">;
+using cHead = dreamor::Col<int, "head">;
 
 // The token an arc contributes to its variable's name: x_<i>_<j>.
 inline std::string keyName(const Arc* arc) {
@@ -164,17 +164,17 @@ inline std::string keyName(const Arc* arc) {
 struct Network {
   explicit Network(const Graph& graph) {
     const auto node_ids = std::views::iota(0, graph.num_nodes);
-    const auto tail_of = [](ArcCol a) { return std::views::single(a->i); };
-    const auto head_of = [](ArcCol a) { return std::views::single(a->j); };
-    sNODES = dreamor::makeSet<NodeCol>(node_ids).collect();
-    sARC_ENDS = dreamor::makeSet<ArcCol, TailCol, HeadCol>(graph.arcs, tail_of,
+    const auto tail_of = [](cArc a) { return std::views::single(a->i); };
+    const auto head_of = [](cArc a) { return std::views::single(a->j); };
+    sNODES = dreamor::makeSet<cNode>(node_ids).collect();
+    sARC_ENDS = dreamor::makeSet<cArc, cTail, cHead>(graph.arcs, tail_of,
                                                           head_of)
                     .collect();
-    sARCS = sARC_ENDS.select<ArcCol>();
+    sARCS = sARC_ENDS.select<cArc>();
   }
-  dreamor::SetOf<NodeCol> sNODES;
-  dreamor::SetOf<ArcCol, TailCol, HeadCol> sARC_ENDS;
-  dreamor::SetOf<ArcCol> sARCS;
+  dreamor::SetOf<cNode> sNODES;
+  dreamor::SetOf<cArc, cTail, cHead> sARC_ENDS;
+  dreamor::SetOf<cArc> sARCS;
 };
 
 // The shortest path model: flow variables, the cost and resource expressions,
@@ -183,7 +183,7 @@ struct Network {
 struct FlowModel : Network {
   FlowModel(const Graph& graph, bool integer);
   std::unique_ptr<math_opt::Model> model;
-  dreamor::mathopt::VarTable<ArcCol> vFlow;  // var x {ARCS} >= 0, <= 1;
+  dreamor::mathopt::VarTable<cArc> vFlow;  // var x {ARCS} >= 0, <= 1;
   math_opt::LinearExpression cost;
   math_opt::LinearExpression resource_1;
   math_opt::LinearExpression resource_2;
@@ -194,28 +194,28 @@ FlowModel::FlowModel(const Graph& graph, const bool integer)
       model(std::make_unique<math_opt::Model>("LagrangianProblem")),
       vFlow(*model, sARCS, 0, 1, integer, "x"),
       // sum {a in ARCS} cost[a] * x[a], and the same for each resource
-      cost(dreamor::mathopt::sumOf(sARCS, [this](ArcCol a) {
+      cost(dreamor::mathopt::sumOf(sARCS, [this](cArc a) {
              return a->cost * vFlow(a);
            }).build()),
-      resource_1(dreamor::mathopt::sumOf(sARCS, [this](ArcCol a) {
+      resource_1(dreamor::mathopt::sumOf(sARCS, [this](cArc a) {
                    return a->resource_1 * vFlow(a);
                  }).build()),
-      resource_2(dreamor::mathopt::sumOf(sARCS, [this](ArcCol a) {
+      resource_2(dreamor::mathopt::sumOf(sARCS, [this](cArc a) {
                    return a->resource_2 * vFlow(a);
                  }).build()) {
   // subject to Balance {n in NODES}:
   //   sum {(a,n,h) in ARC_ENDS} x[a] - sum {(a,t,n) in ARC_ENDS} x[a] = b[n];
   // Over NODES, not over the arcs' groups: a node with no arc out (the sink)
   // or no arc in (the source) still gets its row.
-  const auto outOf = sARC_ENDS.groupBy<TailCol>();
-  const auto into = sARC_ENDS.groupBy<HeadCol>();
+  const auto outOf = sARC_ENDS.groupBy<cTail>();
+  const auto into = sARC_ENDS.groupBy<cHead>();
   for (const auto& [n] : sNODES) {
     const int rhs = n.get() == graph.source ? 1
                     : n.get() == graph.sink ? -1
                                             : 0;
     model->AddLinearConstraint(
-        dreamor::mathopt::sumOf(outOf.slice(TailCol{n.get()}), vFlow).build() -
-            dreamor::mathopt::sumOf(into.slice(HeadCol{n.get()}), vFlow).build() ==
+        dreamor::mathopt::sumOf(outOf.slice(cTail{n.get()}), vFlow).build() -
+            dreamor::mathopt::sumOf(into.slice(cHead{n.get()}), vFlow).build() ==
         rhs);
   }
 }

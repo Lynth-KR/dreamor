@@ -78,12 +78,12 @@ A dependent source that hands back the whole container, but reads the column bef
 only be visited after that column, which forces an order:
 
 ```cpp
-auto a_after_c = [&](CCol) -> const std::vector<const E*>& { return as; };
-auto b_after_a = [&](ACol) -> const std::vector<const E*>& { return bs; };
-makeSet<ACol, BCol, CCol>(a_after_c, b_after_a, cs)   // visits C, A, B
+auto a_after_c = [&](cC) -> const std::vector<const E*>& { return as; };
+auto b_after_a = [&](cA) -> const std::vector<const E*>& { return bs; };
+makeSet<cA, cB, cC>(a_after_c, b_after_a, cs)   // visits C, A, B
 ```
 
-The rows are what `makeSet<ACol, BCol, CCol>(as, bs, cs)` gives - only the order of the loops
+The rows are what `makeSet<cA, cB, cC>(as, bs, cs)` gives - only the order of the loops
 changes. Every variant of a case must produce the same set (rows and an order-free checksum), and
 `run.py` stops if one does not.
 

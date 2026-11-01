@@ -51,7 +51,7 @@ struct KName<4> {
   static constexpr dreamor::ColumnName value{"k5"};
 };
 template <std::size_t J>
-using KCol = dreamor::Col<const Ent*, KName<J>::value>;
+using cK = dreamor::Col<const Ent*, KName<J>::value>;
 
 inline constexpr std::size_t kMaxColumns = 5;
 

@@ -2,5 +2,5 @@
 // expect: No column of this set has that name
 #include "prelude.hpp"
 int main() {
-  (void)IJ().select<KCol>();
+  (void)IJ().select<cK>();
 }

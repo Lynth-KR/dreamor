@@ -170,7 +170,7 @@ class Set {
                   "callable with a template operator() specializes PredicateColumns "
                   "instead.");
     static_assert(internal::PlacementOf<Pred, ElemTuple>::all_named,
-                  "Take the columns themselves: `[](ItemCol i, OrderCol o)`, not "
+                  "Take the columns themselves: `[](cItem i, cOrder o)`, not "
                   "`[](const Item* i, const Order* o)`. Col converts to its value "
                   "implicitly, so only the parameter list changes.");
     static_assert(internal::PlacementOf<Pred, ElemTuple>::all_present,
@@ -178,7 +178,7 @@ class Set {
     static_assert(
         internal::PlacementOf<Pred, ElemTuple>::no_repeated_column,
         "This callable takes the same column twice, so both parameters would get one value: give each its own "
-        "column - `[](FromCol a, ToCol b)` - or take the column once.");
+        "column - `[](cFrom a, cTo b)` - or take the column once.");
     static_assert(!internal::ColumnsOfPredicate<Pred>::known ||
                       std::tuple_size_v<typename internal::ColumnsOfPredicate<Pred>::type> != 0,
                   "The predicate reads no columns, so it would be a constant. Take the "
@@ -371,7 +371,7 @@ class Set {
 
  private:
   static_assert(internal::dependentSourcesReadable<RangeTuple, ElemTuple>(),
-                "A dependent column needs one concrete signature: `[](MachineCol m) { ... }`. "
+                "A dependent column needs one concrete signature: `[](cMachine m) { ... }`. "
                 "A generic or `mutable` lambda has no readable parameter list - the source "
                 "runs once per binding, so it has to be callable as const.");
   static_assert(
@@ -385,7 +385,7 @@ class Set {
       "so a membership test or a VarTable lookup against them finds nothing - and they die "
       "when that binding's loop ends.");
   static_assert(internal::dependentSourcesNamed<RangeTuple, ElemTuple>(),
-                "A dependent column takes the columns themselves: `[](MachineCol m)`, not "
+                "A dependent column takes the columns themselves: `[](cMachine m)`, not "
                 "`[](const Machine* m)`, and only columns this set has.");
   static_assert(internal::dependentSourcesDistinct<RangeTuple, ElemTuple>(),
                 "A dependent column takes the same column twice, so both parameters would get one value: give each "
@@ -601,9 +601,9 @@ class Set {
 
 // Each argument is a source of columns; each explicit type names one NEW column:
 //
-//     {m in MACHINES, i in ITEMS}          makeSet<MachineCol, ItemCol>(machines, items)
-//     {m in MACHINES, i in ITEMS[m]}       makeSet<MachineCol, ItemCol>(machines, items_of)
-//     {(m,i) in ASSIGN, o in ORDERS}       makeSet<OrderCol>(sASSIGN, orders)
+//     {m in MACHINES, i in ITEMS}          makeSet<cMachine, cItem>(machines, items)
+//     {m in MACHINES, i in ITEMS[m]}       makeSet<cMachine, cItem>(machines, items_of)
+//     {(m,i) in ASSIGN, o in ORDERS}       makeSet<cOrder>(sASSIGN, orders)
 //     {(m,i) in ROUTES, (i,t) in OPEN}     makeSet<>(sROUTES, sOPEN)
 //
 // Two sets that share a column are joined on it, as in AMPL: the one visited second is
@@ -635,17 +635,17 @@ template <typename... Columns, typename... Sources>
                 "split it into sets that share key columns, or put a hand on your heart and ask whether the model "
                 "needs them all.");
   static_assert((internal::is_column<Columns> && ...),
-                "Every column needs a name: makeSet<MachineCol, ItemCol>(machines, items), not "
+                "Every column needs a name: makeSet<cMachine, cItem>(machines, items), not "
                 "makeSet<const Machine*, const Item*>(...). Declare each one once with "
-                "`using MachineCol = Col<const Machine*, \"machine\">;`.");
+                "`using cMachine = Col<const Machine*, \"machine\">;`.");
   static_assert(internal::allElementsAreColumns<ElemTuple>(std::make_index_sequence<std::tuple_size_v<ElemTuple>>{}),
                 "A column of this set is not a Col. A spread source brings its own column "
                 "types, so the set it spreads has to have been built with named columns "
                 "too - a hand-made vector<tuple<int, int>> will not do.");
   static_assert(internal::allColumnsDistinct<ElemTuple>(std::make_index_sequence<std::tuple_size_v<ElemTuple>>{}),
                 "The same column type appears twice, so a type no longer identifies one "
-                "column. Give each its own: `using FromCol = Col<const Node*, \"from\">;` "
-                "and `using ToCol = Col<const Node*, \"to\">;`. Only two set sources may share "
+                "column. Give each its own: `using cFrom = Col<const Node*, \"from\">;` "
+                "and `using cTo = Col<const Node*, \"to\">;`. Only two set sources may share "
                 "a column - that joins them on it; a column named in makeSet<...> is always new.");
   static_assert(internal::allColumnNamesDistinct<ElemTuple>(std::make_index_sequence<std::tuple_size_v<ElemTuple>>{}),
                 "Two columns share a name. Names have to be unique even when the value "

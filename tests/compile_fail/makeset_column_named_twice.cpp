@@ -3,5 +3,5 @@
 #include "prelude.hpp"
 int main() {
   const auto ij = IJ();
-  (void)dreamor::makeSet<ICol>(ij, I).collect();
+  (void)dreamor::makeSet<cI>(ij, I).collect();
 }

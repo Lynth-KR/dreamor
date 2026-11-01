@@ -68,18 +68,18 @@ struct Dreamor<std::index_sequence<J...>> {
 
   // Column I of row, with the period replaced by p.
   template <std::size_t I, typename Row>
-  static KCol<I> replaced(const Row& row, const Ent* p) {
+  static cK<I> replaced(const Row& row, const Ent* p) {
     if constexpr (I == kLast) {
-      return KCol<I>{p};
+      return cK<I>{p};
     } else {
-      return std::get<KCol<I>>(row);
+      return std::get<cK<I>>(row);
     }
   }
 
   static void run(const Data& d, Result& r) {
     IloEnv env;
     const std::vector<const Ent*> periods = periodsOf(d);
-    const auto sPERIODS                   = dreamor::makeSet<KCol<kLast>>(periods).collect();
+    const auto sPERIODS                   = dreamor::makeSet<cK<kLast>>(periods).collect();
     Set sX;
     std::optional<Table> vX;
     r.measure("build", [&] {
@@ -102,7 +102,7 @@ struct Dreamor<std::index_sequence<J...>> {
     r.measure("step", [&] {
       std::uint64_t sum = 0;
       for (const auto& row : sX) {
-        const auto* p = ordered->prev(std::get<KCol<kLast>>(row));
+        const auto* p = ordered->prev(std::get<cK<kLast>>(row));
         if (p != nullptr) { sum += std::get<0>(*p)->serial + 1; }
       }
       r.check("step", sum);
@@ -110,7 +110,7 @@ struct Dreamor<std::index_sequence<J...>> {
     r.measure("lag", [&] {
       std::uint64_t sum = 0;
       for (const auto& row : sX) {
-        const auto* p = ordered->prev(std::get<KCol<kLast>>(row), kLag);
+        const auto* p = ordered->prev(std::get<cK<kLast>>(row), kLag);
         if (p != nullptr) { sum += at(row, std::get<0>(*p).get()); }
       }
       r.check("lag", sum);
@@ -119,7 +119,7 @@ struct Dreamor<std::index_sequence<J...>> {
       std::uint64_t sum = 0;
       for (const auto& row : sX) {
         for (std::ptrdiff_t l = 0; l < kWindow; ++l) {
-          const auto* p = ordered->prev(std::get<KCol<kLast>>(row), l);
+          const auto* p = ordered->prev(std::get<cK<kLast>>(row), l);
           if (p == nullptr) { break; }
           sum += at(row, std::get<0>(*p).get());
         }

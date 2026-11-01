@@ -32,13 +32,13 @@ namespace dreamor {
 //
 // Positions are 0-based. Holds the set itself, sharing its rows.
 //
-// S.ordered<MachineCol>() orders within each machine's rows instead - AMPL's next(t, S[m]) over an
+// S.ordered<cMachine>() orders within each machine's rows instead - AMPL's next(t, S[m]) over an
 // indexed collection of ordered sets: a row's neighbours are the rows of its own group, in the
 // set's order, and the walk stops (or, cyclic, wraps) at the group's ends. ord() is then the
 // position within the group, isFirst / isLast the group's ends; at(), first() and last(), which
 // name positions of the whole set, are not there.
 //
-//     const auto periodsOfMachine = sRUN.ordered<MachineCol>();
+//     const auto periodsOfMachine = sRUN.ordered<cMachine>();
 //     if (const Tup* next = periodsOfMachine.next(m, t)) { ... }   // the period after t among m's
 template <typename Tup, typename... Within>
 class Ordered {
@@ -315,7 +315,7 @@ class Ordered {
   std::vector<std::size_t> group_starts_;         // Within groups: size K + 1, each group's first position.
 };
 
-// S.ordered() over the whole set; S.ordered<MachineCol>() within each machine's rows.
+// S.ordered() over the whole set; S.ordered<cMachine>() within each machine's rows.
 template <typename Tup>
 template <typename... Within>
 Ordered<Tup, Within...> IndexSet<Tup>::ordered() const {

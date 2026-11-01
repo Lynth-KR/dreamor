@@ -23,7 +23,7 @@ The headers in `include/dreamor/` are authoritative; the usage examples in their
 | `std::hash<Col<...>>` | Columns can key `std::unordered_map` |
 | `PredicateColumns<F>` | Specialization point: `template <> struct dreamor::PredicateColumns<F> { using type = std::tuple<Cols...>; };` for a function object with a template `operator()` |
 
-Two columns over the same `T` with different names are different types (`FromCol`, `ToCol` over `const Node*`).
+Two columns over the same `T` with different names are different types (`cFrom`, `cTo` over `const Node*`).
 
 ## EntityVector
 
@@ -61,8 +61,8 @@ dreamor::makeSet<Cols...>(sources...)   // one source per column; a set source c
 | Source | Example | Meaning |
 |---|---|---|
 | Container (lvalue) | `machines` | Every value; elements may be pointers, entities, or smart pointers — all give a pointer column |
-| Dependent source | `[](MachineCol m) { return m->items; }` | Values depending on earlier columns; must return a range of pointers |
-| Existing set | `makeSet<PeriodCol>(sROUTES, periods)` | Fills that set's columns at once. Set sources sharing a column are joined on it (`makeSet<>(sROUTES, sOPEN)`): the later one is looked up, not scanned. A column named in `makeSet<...>` is always new |
+| Dependent source | `[](cMachine m) { return m->items; }` | Values depending on earlier columns; must return a range of pointers |
+| Existing set | `makeSet<cPeriod>(sROUTES, periods)` | Fills that set's columns at once. Set sources sharing a column are joined on it (`makeSet<>(sROUTES, sOPEN)`): the later one is looked up, not scanned. A column named in `makeSet<...>` is always new |
 
 Row order is generation order; which column varies fastest is unspecified. Use `orderBy` when order matters.
 Precondition: no source holds an element twice (a container, a dependent source's range, a set), and an entity is
@@ -80,7 +80,7 @@ random-access, default-constructible (empty), O(1) copy sharing rows.
 | `begin()`, `end()`, `size()` | iteration | |
 | `where(p...)` | `IndexSet` of rows passing all predicates | `{(m,i) in S: p and q}` |
 | `select<Cols...>()` | `IndexSet`, projection, duplicates removed; all columns in another order = reorder | `setof {...} (m,i)` |
-| `select(expr)` | `IndexSet` of what `expr` returns per row (one `Col` or a `std::tuple` of them), duplicates removed. `expr` takes the columns it reads; a value changes column only where the new column is written: `std::tuple<FromCol, ToCol>{j, i}` | `setof {(i,j) in S} (j,i)` |
+| `select(expr)` | `IndexSet` of what `expr` returns per row (one `Col` or a `std::tuple` of them), duplicates removed. `expr` takes the columns it reads; a value changes column only where the new column is written: `std::tuple<cFrom, cTo>{j, i}` | `setof {(i,j) in S} (j,i)` |
 | `orderBy(key)` | `IndexSet`, stable sort by `key(row)`; the only place a generic lambda is allowed | |
 | `groupBy<Cols...>()` | `Grouped` | slices |
 | `membership()` | `Membership` | `(m,i) in S` |
@@ -127,7 +127,7 @@ the columns or one row.
 | `isFirst(cols...)`, `isLast(cols...)`, `contains(cols...)` | tests |
 | `size()`, `empty()`, `members()` | size, the deduplicated set |
 
-Read a column from a returned pointer with `std::get<PeriodCol>(*prevPeriod)`.
+Read a column from a returned pointer with `std::get<cPeriod>(*prevPeriod)`.
 
 ## Membership
 

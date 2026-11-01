@@ -48,9 +48,9 @@ struct E {
 inline std::uint32_t keyName(const E* e) {
   return e->serial;
 }
-using K1Col = dreamor::Col<const E*, "k1">;
-using K2Col = dreamor::Col<const E*, "k2">;
-using K3Col = dreamor::Col<const E*, "k3">;
+using cK1 = dreamor::Col<const E*, "k1">;
+using cK2 = dreamor::Col<const E*, "k2">;
+using cK3 = dreamor::Col<const E*, "k3">;
 
 static bool g_unique     = true;
 static std::size_t g_pad = 0;
@@ -138,7 +138,7 @@ int main(int argc, char** argv) {
   const char* backend = "mathopt";
   operations_research::math_opt::Model model;
   using Var     = operations_research::math_opt::Variable;
-  using Table   = dreamor::mathopt::VarTable<K1Col, K2Col, K3Col>;
+  using Table   = dreamor::mathopt::VarTable<cK1, cK2, cK3>;
   auto newVar   = [&](double ub) { return model.AddVariable(0, ub, false, ""); };
   auto newTable = [&](const auto& set, const auto& ub) { return Table(model, set, 0, ub); };
 #else
@@ -149,7 +149,7 @@ int main(int argc, char** argv) {
 #  endif
   IloEnv env;
   using Var     = IloNumVar;
-  using Table   = dreamor::concert::VarTable<K1Col, K2Col, K3Col>;
+  using Table   = dreamor::concert::VarTable<cK1, cK2, cK3>;
   auto newVar   = [&](double ub) { return IloNumVar(env, 0, ub, ILOFLOAT); };
   auto newTable = [&](const auto& set, const auto& ub) { return Table(env, set, 0, ub, ILOFLOAT); };
 #endif
@@ -159,13 +159,13 @@ int main(int argc, char** argv) {
   const Clock total;
   if (arm == "dreamor") {
     Clock c;
-    const auto set = dreamor::makeSet<K1Col, K2Col, K3Col>(k1s, k2s, k3s).collect();
+    const auto set = dreamor::makeSet<cK1, cK2, cK3>(k1s, k2s, k3s).collect();
     keys_ms        = c.wallMs();
     std::vector<Table> tables;
     tables.reserve(families);
     for (std::size_t f = 0; f < families; ++f) {
       const Clock cf;
-      const auto ub = [f](K1Col a, K2Col b, K3Col c3) { return boundOf(a->serial, b->serial, c3->serial, f); };
+      const auto ub = [f](cK1 a, cK2 b, cK3 c3) { return boundOf(a->serial, b->serial, c3->serial, f); };
       tables.push_back(newTable(set, ub));  // the first builds the set's row index
       family_ms.push_back(cf.wallMs());
     }

@@ -10,11 +10,11 @@
 namespace planning {
 
 struct HighsApiModel : Sets {
-  const dreamor::highs::VarTable<MachineCol, ItemCol, PeriodCol> vYield;
-  const dreamor::highs::VarTable<MachineCol, ItemCol, PeriodCol> vSetup;
-  const dreamor::highs::VarTable<ItemCol, PeriodCol> vStock;
+  const dreamor::highs::VarTable<cMachine, cItem, cPeriod> vYield;
+  const dreamor::highs::VarTable<cMachine, cItem, cPeriod> vSetup;
+  const dreamor::highs::VarTable<cItem, cPeriod> vStock;
 
-  static constexpr auto max_possible_qty = [](MachineCol m, ItemCol i) { return m->capacity / i->time; };
+  static constexpr auto max_possible_qty = [](cMachine m, cItem i) { return m->capacity / i->time; };
 
   HighsApiModel(dreamor::highs::HighsEnv& env, const Instance& in)
       : Sets{in},
@@ -25,36 +25,34 @@ struct HighsApiModel : Sets {
   void build(dreamor::highs::HighsEnv& env) const {
     using dreamor::highs::addConstr;
     using dreamor::highs::HighsLinearExpression;
-    const auto machine_usage = [&](MachineCol m, ItemCol i, PeriodCol t) { return i->time * vYield(m, i, t); };
+    const auto machine_usage = [&](cMachine m, cItem i, cPeriod t) { return i->time * vYield(m, i, t); };
 
     // balance: stock carried in + made - demand = stock carried out
     const auto orderedPeriods       = sPERIODS.ordered();
-    const auto producedByItemPeriod = sPRODUCE.groupBy<ItemCol, PeriodCol>();
+    const auto producedByItemPeriod = sPRODUCE.groupBy<cItem, cPeriod>();
     for (const auto& [i, t] : sSTOCK) {
       HighsLinearExpression totalInFlow = dreamor::highs::sumOf(producedByItemPeriod.slice(i, t), vYield).build();
-      if (const auto* prevPeriod = orderedPeriods.prev(t)) {
-        totalInFlow += vStock(i, std::get<PeriodCol>(*prevPeriod));
-      }
+      if (const auto* prevPeriod = orderedPeriods.prev(t)) { totalInFlow += vStock(i, std::get<cPeriod>(*prevPeriod)); }
       const double currentDemand = i->demand[t.get()];
       const auto endingStock     = vStock(i, t);
       addConstr(env, totalInFlow - currentDemand == endingStock);
     }
 
     // capacity of each machine in each period
-    const auto producedByMachinePeriod = sPRODUCE.groupBy<MachineCol, PeriodCol>();
+    const auto producedByMachinePeriod = sPRODUCE.groupBy<cMachine, cPeriod>();
     for (const auto& [machine, period, rows] : producedByMachinePeriod) {
       addConstr(env, dreamor::highs::sumOf(rows, machine_usage).build() <= machine->capacity);
     }
 
     // no production without a setup; a HighsVar is an index, so the bound comes from the row
     for (const auto& [row, yieldVar] : vYield) {
-      const double upper = max_possible_qty(std::get<MachineCol>(row), std::get<ItemCol>(row));
+      const double upper = max_possible_qty(std::get<cMachine>(row), std::get<cItem>(row));
       addConstr(env, yieldVar <= upper * vSetup(row));
     }
 
     const HighsLinearExpression holdingCost =
-        dreamor::highs::sumOf(sSTOCK, [&](ItemCol i, PeriodCol t) { return i->hold * vStock(i, t); }).build();
-    const HighsLinearExpression setupCost = dreamor::highs::sumOf(sPRODUCE, [&](MachineCol m, ItemCol i, PeriodCol t) {
+        dreamor::highs::sumOf(sSTOCK, [&](cItem i, cPeriod t) { return i->hold * vStock(i, t); }).build();
+    const HighsLinearExpression setupCost = dreamor::highs::sumOf(sPRODUCE, [&](cMachine m, cItem i, cPeriod t) {
                                               return m->setup * vSetup(m, i, t);
                                             }).build();
     dreamor::highs::setObjective(env, holdingCost + setupCost, ObjSense::kMinimize);

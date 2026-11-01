@@ -14,8 +14,8 @@
 #include "dreamor/general/aligned_vector.hpp"
 #include "dreamor/index_set.hpp"
 
-using ICol = dreamor::Col<std::size_t, "i">;
-using JCol = dreamor::Col<std::size_t, "j">;
+using cI = dreamor::Col<std::size_t, "i">;
+using cJ = dreamor::Col<std::size_t, "j">;
 
 namespace {
 
@@ -59,12 +59,12 @@ int main() try {
   // sets: collected, filtered, joined, projected, combined, ordered, and empty
   const std::vector<std::size_t> I{1, 2, 3, 4, 5};
   const std::vector<std::size_t> J{10, 20, 30};
-  const auto IJ     = dreamor::makeSet<ICol, JCol>(I, J).collect();
-  const auto kept   = dreamor::makeSet<ICol, JCol>(I, J).where([](ICol i) { return i.get() % 2 == 1; }).collect();
-  const auto Is     = dreamor::makeSet<ICol>(I).collect();
-  const auto Js     = dreamor::makeSet<JCol>(J).collect();
+  const auto IJ     = dreamor::makeSet<cI, cJ>(I, J).collect();
+  const auto kept   = dreamor::makeSet<cI, cJ>(I, J).where([](cI i) { return i.get() % 2 == 1; }).collect();
+  const auto Is     = dreamor::makeSet<cI>(I).collect();
+  const auto Js     = dreamor::makeSet<cJ>(J).collect();
   const auto onI    = dreamor::makeSet<>(Is, IJ).collect();
-  const auto picked = IJ.select<ICol>();
+  const auto picked = IJ.select<cI>();
   DREAMOR_CHECK(rowsOnLine(IJ) && rowsOnLine(kept) && rowsOnLine(Is) && rowsOnLine(Js) && rowsOnLine(onI));
   DREAMOR_CHECK(rowsOnLine(picked) && picked.size() == I.size());
   const auto both    = dreamor::unite(IJ, kept);
@@ -72,7 +72,7 @@ int main() try {
   const auto missing = dreamor::difference(IJ, kept);
   DREAMOR_CHECK(rowsOnLine(both) && rowsOnLine(common) && rowsOnLine(missing));
   DREAMOR_CHECK(both.size() == IJ.size() && common.size() == kept.size() && missing.size() == IJ.size() - kept.size());
-  const dreamor::SetOf<ICol, JCol> none;
+  const dreamor::SetOf<cI, cJ> none;
   DREAMOR_CHECK(rowsOnLine(none) && none.size() == 0);
   return report("aligned_vector");
 } catch (...) { return ::uncaught(); }

@@ -9,14 +9,14 @@ dreamor의 각 부분을 모형이 쓰는 순서대로 설명합니다. 열과 �
 ## 열(Column)
 
 ```cpp
-using MachineCol = dreamor::Col<const Machine*, "machine">;   // 값 타입 + 이름
-using PeriodCol  = dreamor::Col<std::size_t, "period">;       // 값이 정수여도 됨
+using cMachine = dreamor::Col<const Machine*, "machine">;   // 값 타입 + 이름
+using cPeriod  = dreamor::Col<std::size_t, "period">;       // 값이 정수여도 됨
 ```
 
 - `Col`은 감싼 값으로 암묵 변환되고, 포인터라면 `->`와 `*`로 엔티티에 바로 닿습니다
   (`m->capacity`). 값은 `t.get()`으로 꺼냅니다.
 - 같은 엔티티 타입에 열이 둘 이상이어도 됩니다. 이름이 다르면 다른 열입니다
-  (`FromCol`, `ToCol` 둘 다 `const Node*`).
+  (`cFrom`, `cTo` 둘 다 `const Node*`).
 - **변수 이름에 들어갈 토큰**: 엔티티 포인터 열은 `keyName(const T*)` 함수를 엔티티와 **같은 네임스페이스**에
   두면 그걸 쓰고, 없으면 엔티티의 `primaryKey()`를 씁니다(다음 절, 디버그 빌드는 열마다 한 번 알립니다).
   `std::format`으로 출력되는 값(정수, 문자열)은 훅이 필요 없습니다.
@@ -27,7 +27,7 @@ using PeriodCol  = dreamor::Col<std::size_t, "period">;       // 값이 정수�
 - **키로 찾는 곳은 열 값만 받습니다.** `vYield(m, i, t)`, `yieldPlan(m, i, t)`, `slice(i, t)`, `prev(t)`,
   `in_routes(m, i)`는 키의 열을 선언 순서대로, 또는 집합의 행 하나를 받습니다. `Col`이 값에서 암묵 변환되더라도
   맨 값(`x(2, 1)`, 맨 포인터)과 중괄호(`slice({i, t})`)는 받지 않고, 무엇을 바꾸라는지 한 문장으로 멈춥니다.
-  값이 int인 열 둘이 자리를 바꿔도 조용히 통과하는 일을 막기 위해서입니다. 값에서 시작한다면 `PeriodCol{2}`처럼
+  값이 int인 열 둘이 자리를 바꿔도 조용히 통과하는 일을 막기 위해서입니다. 값에서 시작한다면 `cPeriod{2}`처럼
   감쌉니다.
 
 ## 엔티티 — EntityVector
@@ -42,7 +42,7 @@ inline const std::string& primaryKey(const Machine& m) { return m.name; }     //
 dreamor::EntityVector<Machine> plant;
 const bool inserted = plant.emplace(Machine{"M1", 40.0, 5.0, {}}).second;      // false: M1 was there
 plant.sort().freeze();                                                         // primary-key order; then read only
-const auto sRUN = dreamor::makeSet<MachineCol, PeriodCol>(plant, periods).collect();
+const auto sRUN = dreamor::makeSet<cMachine, cPeriod>(plant, periods).collect();
 if (const Machine* found = plant.find("M1")) {
   plant.modify(found, [](Machine& m) { m.setup = 4.0; });                      // the one way to change one
 }
@@ -72,12 +72,12 @@ const auto sNAME = dreamor::makeSet<열...>(소스...).where(술어).where(술�
 | 소스 | 예 | 뜻 |
 |---|---|---|
 | 컨테이너 | `machines` | 그 열의 값 전부. 원소가 포인터(`std::vector<const Machine*>`), 엔티티 자체(`std::vector<Machine>`), 스마트 포인터(`std::vector<std::unique_ptr<Machine>>`) 어느 쪽이어도 포인터 열이 됩니다 |
-| 종속 소스 | `[](MachineCol m) { return m->items; }` | 앞에서 정해진 열에 따라 달라지는 값들 |
-| 기존 집합 | `makeSet<PeriodCol>(sROUTES, periods)` | 그 집합이 가진 열들을 한꺼번에 채움. 같은 열을 가진 집합끼리는 그 열로 조인 |
+| 종속 소스 | `[](cMachine m) { return m->items; }` | 앞에서 정해진 열에 따라 달라지는 값들 |
+| 기존 집합 | `makeSet<cPeriod>(sROUTES, periods)` | 그 집합이 가진 열들을 한꺼번에 채움. 같은 열을 가진 집합끼리는 그 열로 조인 |
 
 - **AMPL 대응**
-  - `{m in MACHINES, i in ITEMS[m]}` → `makeSet<MachineCol, ItemCol>(machines, items_of).collect()`
-  - `{(m,i) in ROUTES, t in PERIODS: open[i,t]}` → `makeSet<PeriodCol>(sROUTES, periods).where(is_open).collect()`
+  - `{m in MACHINES, i in ITEMS[m]}` → `makeSet<cMachine, cItem>(machines, items_of).collect()`
+  - `{(m,i) in ROUTES, t in PERIODS: open[i,t]}` → `makeSet<cPeriod>(sROUTES, periods).where(is_open).collect()`
   - `{(m,i) in ROUTES, (i,t) in OPEN}` → `makeSet<>(sROUTES, sOPEN).collect()`
 - **같은 열을 가진 집합 소스끼리는 그 열로 조인합니다**(natural join). 나중에 방문하는 집합은 공유 열로 조회하고
   훑지 않으므로 곱을 만들지 않습니다. 비용은 두 집합과 결과의 크기만큼입니다. 한 집합의 열이 다른 집합에 전부
@@ -85,7 +85,7 @@ const auto sNAME = dreamor::makeSet<열...>(소스...).where(술어).where(술�
   `makeSet<...>`에 적은 열은 항상 새 열이므로, 집합 소스의 열을 거기 다시 적으면 컴파일 오류입니다.
 - **집합의 열은 최대 64개입니다.** 집합 source가 채우는 열도 포함입니다. 방문 순서를 계획하는 동안 집합의 열이
   64비트 마스크 하나의 비트이기 때문입니다. 65번째 열은 dreamor 메시지와 함께 컴파일 시점에 막힙니다.
-- **술어는 자기가 읽는 열만 받습니다.** `[](ItemCol i, PeriodCol t)`는 i와 t가 정해지는 즉시 평가되고,
+- **술어는 자기가 읽는 열만 받습니다.** `[](cItem i, cPeriod t)`는 i와 t가 정해지는 즉시 평가되고,
   탈락하면 그 아래 루프 전체를 건너뜁니다. 파라미터 순서와 `.where()` 순서는 자유입니다.
 - 종속 소스는 엔티티가 아니라 **엔티티의 포인터 범위**(`std::vector<const Item*>`, span, view)를 돌려줘야 합니다.
 - 컨테이너 소스는 lvalue여야 합니다(임시 vector 금지).
@@ -96,7 +96,7 @@ const auto sNAME = dreamor::makeSet<열...>(소스...).where(술어).where(술�
   만들지 않습니다), VarTable의 키 하나에는 변수가 정확히 하나입니다.
 - 결과 행 순서는 생성 순서이며, 어떤 열이 가장 빨리 변하는지는 고정이 아닙니다. 순서가 의미를 가지면
   `orderBy`로 정렬하세요.
-- 집합 타입을 적을 때는 `dreamor::SetOf<MachineCol, ItemCol>`을 씁니다.
+- 집합 타입을 적을 때는 `dreamor::SetOf<cMachine, cItem>`을 씁니다.
 
 ## 방문 순서 유도하기
 
@@ -106,15 +106,15 @@ const auto sNAME = dreamor::makeSet<열...>(소스...).where(술어).where(술�
 
 ```cpp
 // {m in MACHINES, i in ITEMS, t in PERIODS: 30 * time[i] <= capacity[m] and demand[i,t] > 0}
-const auto fits_batch = [](MachineCol m, ItemCol i) { return 30 * i->time <= m->capacity; };
-const auto sMAKE = dreamor::makeSet<MachineCol, ItemCol, PeriodCol>(machines, items, periods)
+const auto fits_batch = [](cMachine m, cItem i) { return 30 * i->time <= m->capacity; };
+const auto sMAKE = dreamor::makeSet<cMachine, cItem, cPeriod>(machines, items, periods)
                        .where(fits_batch)
                        .where(is_open)
                        .collect();
 
 // The same rows in two steps: is_open over items x periods alone, then fits_batch over what passed
-const auto sOPEN        = dreamor::makeSet<ItemCol, PeriodCol>(items, periods).where(is_open).collect();
-const auto sMAKE_STAGED = dreamor::makeSet<MachineCol>(machines, sOPEN).where(fits_batch).collect();
+const auto sOPEN        = dreamor::makeSet<cItem, cPeriod>(items, periods).where(is_open).collect();
+const auto sMAKE_STAGED = dreamor::makeSet<cMachine>(machines, sOPEN).where(fits_batch).collect();
 ```
 
 - **같은 집합입니다.** 행도 타입도 같습니다. 집합의 열은 소스 순서대로 오므로 `machines`를 앞에 두면
@@ -151,7 +151,7 @@ const auto sMAKE_STAGED = dreamor::makeSet<MachineCol>(machines, sOPEN).where(fi
 
 ```cpp
 const auto sPEAK_PRODUCE  = sPRODUCE.where(is_peak);                  // 수요가 몰리는 기간의 생산 행
-const auto sMACHINE_ITEM  = sPRODUCE.select<MachineCol, ItemCol>();  // (기계, 품목)만
+const auto sMACHINE_ITEM  = sPRODUCE.select<cMachine, cItem>();  // (기계, 품목)만
 const auto in_routes      = sROUTES.membership();
 const auto orderedPeriods = sPERIODS.ordered();
 if (const auto* prevPeriod = orderedPeriods.prev(t)) { /* 직전 기간 */ }
@@ -165,16 +165,16 @@ if (const auto* prevPeriod = orderedPeriods.prev(t)) { /* 직전 기간 */ }
 나머지는 [공개 API 전체 목록](reference.md#공개-api-전체-목록)에 있습니다.
 
 `membership()`이 돌려주는 `Membership`은 술어 객체라서 직접 불러도 됩니다. 열을 따로
-(`in_routes(MachineCol{m}, ItemCol{i})`) 넘기거나 행 튜플 하나(`in_routes(row)`)를 넘깁니다.
+(`in_routes(cMachine{m}, cItem{i})`) 넘기거나 행 튜플 하나(`in_routes(row)`)를 넘깁니다.
 
 `select(expr)`는 일반형 `setof`입니다. `expr`은 술어처럼 자기가 읽는 열을 받고, 새 행의 열을 돌려줍니다.
-`Col` 하나 또는 그 `std::tuple`입니다. 값은 그 열을 적은 곳에서만 다른 열로 옮겨 갑니다. `ToCol`은 저절로
-`FromCol`이 되지 않으므로, 값 타입이 같은 두 열이 모르는 새 자리를 바꾸는 일은 없습니다.
+`Col` 하나 또는 그 `std::tuple`입니다. 값은 그 열을 적은 곳에서만 다른 열로 옮겨 갑니다. `cTo`은 저절로
+`cFrom`이 되지 않으므로, 값 타입이 같은 두 열이 모르는 새 자리를 바꾸는 일은 없습니다.
 
 ```cpp
 // 모든 (i,j)에 대해 (j,i)
-const auto sREVERSED = sEDGES.select([](FromCol i, ToCol j) { return std::tuple<FromCol, ToCol>{j, i}; });
-const auto sTAILS    = sNODES.select([](NodeCol n) { return FromCol{n}; });  // 노드를 호의 출발점으로
+const auto sREVERSED = sEDGES.select([](cFrom i, cTo j) { return std::tuple<cFrom, cTo>{j, i}; });
+const auto sTAILS    = sNODES.select([](cNode n) { return cFrom{n}; });  // 노드를 호의 출발점으로
 ```
 
 `orderBy`의 key는 행 전체를 받으므로 이 라이브러리에서 유일하게 제네릭 람다(`[](const auto& row)`)를
@@ -183,12 +183,12 @@ const auto sTAILS    = sNODES.select([](NodeCol n) { return FromCol{n}; });  // 
 ## 묶기 — groupBy
 
 ```cpp
-const auto producedByItemPeriod = sPRODUCE.groupBy<ItemCol, PeriodCol>();
+const auto producedByItemPeriod = sPRODUCE.groupBy<cItem, cPeriod>();
 
 for (const auto& [item, period, rows] : producedByItemPeriod) { ... }     // 모든 묶음 (존재하는 키만)
 const auto producingRows = producedByItemPeriod.slice(i, t);            // 특정 키 (없으면 빈 묶음)
 
-for (const auto& [item, period, rows] : sPRODUCE.groupBy<ItemCol, PeriodCol>()) { ... }  // 돌기만 하면 이름 없이도 됨
+for (const auto& [item, period, rows] : sPRODUCE.groupBy<cItem, cPeriod>()) { ... }  // 돌기만 하면 이름 없이도 됨
 ```
 
 - 묶음(`RowSlice`)은 원래 집합의 행을 가리키는 random access 뷰입니다. `producingRows.size()`,
@@ -213,8 +213,8 @@ const dreamor::concert::VarTable<키 열...> vName{env, 집합, lb, ub, type, "N
   `add`나 `create` 같은 건 없습니다.
 - `lb`, `ub`는 각각 **숫자 또는 열 함수**입니다. 함수는 `where`의 술어와 같은 규칙을 따릅니다.
   ```cpp
-  const auto max_possible_qty = [](MachineCol m, ItemCol i) { return m->capacity / i->time; };
-  const dreamor::concert::VarTable<MachineCol, ItemCol, PeriodCol> vYield{env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};
+  const auto max_possible_qty = [](cMachine m, cItem i) { return m->capacity / i->time; };
+  const dreamor::concert::VarTable<cMachine, cItem, cPeriod> vYield{env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};
   ```
 - 생략하면 `lb = 0`, `ub = IloInfinity`, `ILOFLOAT`, 이름 없음.
 - 반연속 변수: `dreamor::concert::VarTable<...> vBatch{dreamor::concert::semiContinuous, env, sBATCH, sclb, ub, ILOFLOAT, "Batch"};`
@@ -239,7 +239,7 @@ const dreamor::concert::VarTable<키 열...> vName{env, 집합, lb, ub, type, "N
 `model.set_upper_bound(vYield(row), 0)`, HiGHS라면 `env.highs().changeColBounds(vYield(row).index(), 0, 0)`).
 
 ```cpp
-const auto in_maintenance = [](MachineCol m, PeriodCol t) { return m->name == "M0" && t.get() == 2; };
+const auto in_maintenance = [](cMachine m, cPeriod t) { return m->name == "M0" && t.get() == 2; };
 for (const auto& row : vYield.keys().where(in_maintenance)) {
   vYield(row).setUB(0);
 }
@@ -260,7 +260,7 @@ VarTable은 복사할 수 없고 이동만 됩니다(복사하면 같은 변수�
 dreamor::concert::sumOf(env, 행들, term).build()                       // IloExpr
 dreamor::concert::sumOf(env, 행들, term).where(p, q).build()           // p AND q 인 행만
 dreamor::concert::sumOf(env, 행들, term).split(p1, p2).build()         // std::array<IloExpr, 2>, 한 번 돌며 여러 합
-dreamor::concert::sumOf<MachineCol>(env, machines, term).build()       // 일반 컨테이너를 한 열 집합처럼
+dreamor::concert::sumOf<cMachine>(env, machines, term).build()       // 일반 컨테이너를 한 열 집합처럼
 ```
 
 - `행들`은 집합 또는 묶음(`RowSlice`)입니다.
@@ -268,7 +268,7 @@ dreamor::concert::sumOf<MachineCol>(env, machines, term).build()       // 일반
   있고, `build()`를 빠뜨린 채 비교·대입·`+=`·목적식에 쓰면 `build()`를 붙이라는 한 문장으로 컴파일이 멈춥니다.
 - term은 읽는 열만 받고 그 행의 항을 돌려줍니다. 계수는 엔티티에서 계산합니다(계수 배열을 따로 두지 않음).
   ```cpp
-  const auto setup_cost = [&](MachineCol m, ItemCol i, PeriodCol t) { return m->setup * vSetup(m, i, t); };
+  const auto setup_cost = [&](cMachine m, cItem i, cPeriod t) { return m->setup * vSetup(m, i, t); };
   ```
 - 계수 없이 변수만 더할 때는 **테이블을 그대로 term으로** 넘깁니다. 조회만 하는 람다가 필요 없습니다.
   ```cpp
@@ -332,7 +332,7 @@ for (const auto& [row, qty] : yieldPlan) { ... } // 집합 순서대로
 
 - 결과(`ValueTable`)는 double만 들고 있어서 `cplex`나 `env`가 끝난 뒤에도 쓸 수 있습니다. 백엔드와 무관한
   같은 타입입니다.
-- `ValueTable`은 집합 위의 데이터, AMPL의 `param {S}`이기도 합니다. `dreamor::ValueTable<MachineCol, PeriodCol>
+- `ValueTable`은 집합 위의 데이터, AMPL의 `param {S}`이기도 합니다. `dreamor::ValueTable<cMachine, cPeriod>
   hours{sRUN, available_hours}`는 `sRUN`의 각 행에 값을 줍니다. 값은 `VarTable`의 bound처럼 숫자이거나 행의 열을
   받는 콜러블이고, 읽는 법은 같습니다(키나 행으로, 집합 밖이면 `std::out_of_range`). 그 자체가 열 콜러블이라서
   콜러블이 들어갈 자리에 그대로 씁니다: `VarTable`의 bound(`VarTable{env, sRUN, 0, hours}`), 다른 `ValueTable`의 값.

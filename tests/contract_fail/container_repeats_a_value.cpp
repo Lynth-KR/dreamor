@@ -5,7 +5,7 @@
 int main() try {
   const std::vector<std::size_t> is{1, 2};
   const std::vector<std::size_t> js{7, 8, 7};
-  return static_cast<int>(dreamor::makeSet<ICol, JCol>(is, js).collect().size());
+  return static_cast<int>(dreamor::makeSet<cI, cJ>(is, js).collect().size());
 } catch (...) {
   return 1;  // no message: the runner reports it
 }

@@ -22,7 +22,7 @@
 //     machines.reserve(rows.size());
 //     for (const auto& r : rows) { machines.emplace(r.code, r.capacity); }   // a key held already stays out
 //     machines.sort().freeze();                                   // by primary key, optional; then read only
-//     makeSet<MachineCol, PeriodCol>(machines, periods)            // a container source, as any
+//     makeSet<cMachine, cPeriod>(machines, periods)            // a container source, as any
 //
 // It is filled, then frozen, then read - the order a model's data goes in:
 //   - Before freeze(): reserve, insert / emplace and sort. insert / emplace return {the element

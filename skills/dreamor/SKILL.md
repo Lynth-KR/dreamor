@@ -44,7 +44,7 @@ Three conventions are prescribed. Use them in generated code:
 
 | Kind | Shape | Example |
 |---|---|---|
-| Column type | PascalCase + `Col` | `MachineCol`, `PeriodCol` |
+| Column type | PascalCase + `Col` | `cMachine`, `cPeriod` |
 | Set | `s` + SCREAMING_SNAKE_CASE | `sPRODUCE` (AMPL `PRODUCE`) |
 | Variable family | `v` + PascalCase | `vYield` (AMPL `Yield`) |
 
@@ -57,13 +57,13 @@ in snake_case (`items_of`, `machine_usage`) and everything else in camelCase (`p
 These are enforced by the compiler or needed for a correct model.
 
 1. **Callables take column types.** Predicates, dependent sources, bounds, and sum terms are written as
-   `[](MachineCol m, PeriodCol t) { ... }`, taking only the columns they read, in any order. dreamor reads the
+   `[](cMachine m, cPeriod t) { ... }`, taking only the columns they read, in any order. dreamor reads the
    parameter types to know which columns to bind, so `[](const Machine* m)`, `[](int t)`, and `[](auto x)` are
    rejected. The one exception is the key of `orderBy`, which takes the whole row (`[](const auto& row)`).
 2. **Lookups take column values in declaration order, or one row.** This covers `vYield(m, i, t)`,
    `yieldPlan(m, i, t)`, `grouped.slice(i, t)`, `orderedPeriods.prev(t)`, `orderedPeriods.next(t, 2)`, and
    `in_routes(m, i)`. Bare values (`vYield(2, 1, 0)`) and braces (`slice({i, t})`) are rejected, because two
-   int-valued columns could otherwise swap places silently. Wrap a raw value: `PeriodCol{2}`.
+   int-valued columns could otherwise swap places silently. Wrap a raw value: `cPeriod{2}`.
 3. **`sumOf(...)` becomes an expression only after `.build()`.**
    - Concert: `dreamor::concert::sumOf(env, rows, term).build()` → `IloExpr`.
    - MathOpt: `dreamor::mathopt::sumOf(rows, term).build()` → `LinearExpression`. It takes no env and no model.
@@ -92,25 +92,25 @@ These are enforced by the compiler or needed for a correct model.
 12. **Concert lifetime.** Call `env.end()` exactly once, last. Never `end()` a VarTable's variables or
     `endElements()` an array holding them. `end()` temporary `IloExpr`s after adding the constraint. None of this
     applies to MathOpt.
-13. **Read columns by name.** Write `std::get<PeriodCol>(row)`, not `std::get<0>(row)`.
+13. **Read columns by name.** Write `std::get<cPeriod>(row)`, not `std::get<0>(row)`.
 
 ## AMPL → dreamor
 
 | AMPL | dreamor |
 |---|---|
-| `set ROUTES := {m in MACHINES, i in ITEMS[m]};` | `const auto sROUTES = dreamor::makeSet<MachineCol, ItemCol>(machines, items_of).collect();` |
-| `set PRODUCE := {(m,i) in ROUTES, t in PERIODS};` | `const auto sPRODUCE = dreamor::makeSet<PeriodCol>(sROUTES, periods).collect();` |
-| `{...: open[i,t]}` | `.where(is_open)` with `[](ItemCol i, PeriodCol t) { ... }` |
-| `setof {(m,i,t) in S} (m,i)` | `S.select<MachineCol, ItemCol>()` |
-| `{(m,i) in ROUTES, (i,t) in OPEN}` | `dreamor::makeSet<>(sROUTES, sOPEN).collect()` (joined on the shared `ItemCol`) |
-| `setof {(i,j) in EDGES} (j,i)` | `sEDGES.select([](FromCol i, ToCol j) { return std::tuple<FromCol, ToCol>{j, i}; })` |
+| `set ROUTES := {m in MACHINES, i in ITEMS[m]};` | `const auto sROUTES = dreamor::makeSet<cMachine, cItem>(machines, items_of).collect();` |
+| `set PRODUCE := {(m,i) in ROUTES, t in PERIODS};` | `const auto sPRODUCE = dreamor::makeSet<cPeriod>(sROUTES, periods).collect();` |
+| `{...: open[i,t]}` | `.where(is_open)` with `[](cItem i, cPeriod t) { ... }` |
+| `setof {(m,i,t) in S} (m,i)` | `S.select<cMachine, cItem>()` |
+| `{(m,i) in ROUTES, (i,t) in OPEN}` | `dreamor::makeSet<>(sROUTES, sOPEN).collect()` (joined on the shared `cItem`) |
+| `setof {(i,j) in EDGES} (j,i)` | `sEDGES.select([](cFrom i, cTo j) { return std::tuple<cFrom, cTo>{j, i}; })` |
 | `(m,i) in ROUTES` | `sROUTES.membership()`, called as `in_routes(m, i)` or passed to `where` |
 | `prev(t)`, `next(t, 2)`, `ord(t)` on an ordered set | `const auto orderedPeriods = sPERIODS.ordered();` then `.prev(t)` (row pointer or `nullptr`), `.next(t, 2)`, `.ord(t)` (0-based optional) |
-| `next(t, S[m])`, the next row within an indexed collection | `const auto periodsOfMachine = sRUN.ordered<MachineCol>();` then `.next(m, t)` (`nullptr` at the end of `m`'s rows) |
-| `var Yield {PRODUCE} >= 0, <= cap[m]/time[i];` | `const dreamor::concert::VarTable<MachineCol, ItemCol, PeriodCol> vYield{env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};` |
+| `next(t, S[m])`, the next row within an indexed collection | `const auto periodsOfMachine = sRUN.ordered<cMachine>();` then `.next(m, t)` (`nullptr` at the end of `m`'s rows) |
+| `var Yield {PRODUCE} >= 0, <= cap[m]/time[i];` | `const dreamor::concert::VarTable<cMachine, cItem, cPeriod> vYield{env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};` |
 | `sum {(m,i,t) in PRODUCE} setup[m] * Setup[m,i,t]` | `dreamor::concert::sumOf(env, sPRODUCE, setup_cost).build()` |
 | `sum {m: (m,i,t) in PRODUCE} Yield[m,i,t]` | `dreamor::concert::sumOf(env, producedByItemPeriod.slice(i, t), vYield).build()` |
-| `subject to C {m in MACHINES, t in PERIODS}: ...` | `for (const auto& [machine, period, rows] : sPRODUCE.groupBy<MachineCol, PeriodCol>()) model.add(...);` |
+| `subject to C {m in MACHINES, t in PERIODS}: ...` | `for (const auto& [machine, period, rows] : sPRODUCE.groupBy<cMachine, cPeriod>()) model.add(...);` |
 
 ## Canonical model (Concert)
 
@@ -124,37 +124,37 @@ struct Machine { std::string name; double capacity, setup; std::vector<const Ite
 inline const std::string& keyName(const Item* i) { return i->name; }      // token in variable names,
 inline const std::string& keyName(const Machine* m) { return m->name; }   // same namespace as the entity
 
-using MachineCol = dreamor::Col<const Machine*, "machine">;
-using ItemCol    = dreamor::Col<const Item*, "item">;
-using PeriodCol  = dreamor::Col<std::size_t, "period">;
+using cMachine = dreamor::Col<const Machine*, "machine">;
+using cItem    = dreamor::Col<const Item*, "item">;
+using cPeriod  = dreamor::Col<std::size_t, "period">;
 
 IloEnv env;
 IloModel model(env);
 
-const auto items_of = [](MachineCol m) { return m->items; };
-const auto sPERIODS = dreamor::makeSet<PeriodCol>(periods).collect();
-const auto sROUTES  = dreamor::makeSet<MachineCol, ItemCol>(machines, items_of).collect();
-const auto sPRODUCE = dreamor::makeSet<PeriodCol>(sROUTES, periods).collect();
-const auto sSTOCK   = dreamor::makeSet<ItemCol, PeriodCol>(items, periods).collect();
+const auto items_of = [](cMachine m) { return m->items; };
+const auto sPERIODS = dreamor::makeSet<cPeriod>(periods).collect();
+const auto sROUTES  = dreamor::makeSet<cMachine, cItem>(machines, items_of).collect();
+const auto sPRODUCE = dreamor::makeSet<cPeriod>(sROUTES, periods).collect();
+const auto sSTOCK   = dreamor::makeSet<cItem, cPeriod>(items, periods).collect();
 
-const auto max_possible_qty = [](MachineCol m, ItemCol i) { return m->capacity / i->time; };
-const dreamor::concert::VarTable<MachineCol, ItemCol, PeriodCol> vYield{env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};
-const dreamor::concert::VarTable<MachineCol, ItemCol, PeriodCol> vSetup{env, sPRODUCE, 0, 1, ILOBOOL, "Setup"};
-const dreamor::concert::VarTable<ItemCol, PeriodCol> vStock{env, sSTOCK, 0, IloInfinity, ILOFLOAT, "Stock"};
+const auto max_possible_qty = [](cMachine m, cItem i) { return m->capacity / i->time; };
+const dreamor::concert::VarTable<cMachine, cItem, cPeriod> vYield{env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};
+const dreamor::concert::VarTable<cMachine, cItem, cPeriod> vSetup{env, sPRODUCE, 0, 1, ILOBOOL, "Setup"};
+const dreamor::concert::VarTable<cItem, cPeriod> vStock{env, sSTOCK, 0, IloInfinity, ILOFLOAT, "Stock"};
 
 // Every (item, period) needs a balance row, even with no producer: iterate the driver set + slice().
 const auto orderedPeriods = sPERIODS.ordered();
-const auto producedByItemPeriod = sPRODUCE.groupBy<ItemCol, PeriodCol>();
+const auto producedByItemPeriod = sPRODUCE.groupBy<cItem, cPeriod>();
 for (const auto& [i, t] : sSTOCK) {
   IloExpr totalInFlow = dreamor::concert::sumOf(env, producedByItemPeriod.slice(i, t), vYield).build();
-  if (const auto* prevPeriod = orderedPeriods.prev(t)) { totalInFlow += vStock(i, std::get<PeriodCol>(*prevPeriod)); }
+  if (const auto* prevPeriod = orderedPeriods.prev(t)) { totalInFlow += vStock(i, std::get<cPeriod>(*prevPeriod)); }
   model.add(totalInFlow - i->demand[t.get()] == vStock(i, t));
   totalInFlow.end();
 }
 
 // One row per existing (machine, period): iterate the Grouped.
-const auto machine_usage = [&](MachineCol m, ItemCol i, PeriodCol t) { return i->time * vYield(m, i, t); };
-for (const auto& [machine, period, rows] : sPRODUCE.groupBy<MachineCol, PeriodCol>()) {
+const auto machine_usage = [&](cMachine m, cItem i, cPeriod t) { return i->time * vYield(m, i, t); };
+for (const auto& [machine, period, rows] : sPRODUCE.groupBy<cMachine, cPeriod>()) {
   IloExpr totalLoad = dreamor::concert::sumOf(env, rows, machine_usage).build();
   model.add(totalLoad <= machine->capacity);
   totalLoad.end();
@@ -164,8 +164,8 @@ for (const auto& [row, yieldVar] : vYield) {
   model.add(yieldVar <= yieldVar.getUB() * vSetup(row));
 }
 
-IloExpr holdingCost = dreamor::concert::sumOf(env, sSTOCK, [&](ItemCol i, PeriodCol t) { return i->hold * vStock(i, t); }).build();
-IloExpr setupCost = dreamor::concert::sumOf(env, sPRODUCE, [&](MachineCol m, ItemCol i, PeriodCol t) { return m->setup * vSetup(m, i, t); }).build();
+IloExpr holdingCost = dreamor::concert::sumOf(env, sSTOCK, [&](cItem i, cPeriod t) { return i->hold * vStock(i, t); }).build();
+IloExpr setupCost = dreamor::concert::sumOf(env, sPRODUCE, [&](cMachine m, cItem i, cPeriod t) { return m->setup * vSetup(m, i, t); }).build();
 IloExpr totalCost = holdingCost + setupCost;
 model.add(IloMinimize(env, totalCost));
 holdingCost.end();
@@ -186,10 +186,10 @@ Only the solver-facing parts change, and they take MathOpt's own notation:
 ```cpp
 namespace math_opt = ::operations_research::math_opt;
 math_opt::Model model("lot sizing");
-const dreamor::mathopt::VarTable<MachineCol, ItemCol, PeriodCol> vYield{model, sPRODUCE, 0, max_possible_qty, /*is_integer=*/false, "Yield"};
-const dreamor::mathopt::VarTable<MachineCol, ItemCol, PeriodCol> vSetup{model, sPRODUCE, 0, 1, true, "Setup"};
+const dreamor::mathopt::VarTable<cMachine, cItem, cPeriod> vYield{model, sPRODUCE, 0, max_possible_qty, /*is_integer=*/false, "Yield"};
+const dreamor::mathopt::VarTable<cMachine, cItem, cPeriod> vSetup{model, sPRODUCE, 0, 1, true, "Setup"};
 
-for (const auto& [machine, period, rows] : sPRODUCE.groupBy<MachineCol, PeriodCol>()) {
+for (const auto& [machine, period, rows] : sPRODUCE.groupBy<cMachine, cPeriod>()) {
   const math_opt::LinearExpression totalLoad = dreamor::mathopt::sumOf(rows, machine_usage).build();
   model.AddLinearConstraint(totalLoad <= machine->capacity);
 }
@@ -211,14 +211,14 @@ HiGHS's own API has no expressions; `dreamor::highs` brings highspy's, under hig
 ```cpp
 namespace hs = dreamor::highs;
 hs::HighsEnv env;   // or HighsEnv env{options}: a HighsOptions, the Highs's before the model reaches it
-const hs::VarTable<MachineCol, ItemCol, PeriodCol> vYield{env, sPRODUCE, 0, max_possible_qty, HighsVarType::kContinuous, "Yield"};
-const hs::VarTable<MachineCol, ItemCol, PeriodCol> vSetup{env, sPRODUCE, 0, 1, HighsVarType::kInteger, "Setup"};
+const hs::VarTable<cMachine, cItem, cPeriod> vYield{env, sPRODUCE, 0, max_possible_qty, HighsVarType::kContinuous, "Yield"};
+const hs::VarTable<cMachine, cItem, cPeriod> vSetup{env, sPRODUCE, 0, 1, HighsVarType::kInteger, "Setup"};
 
-for (const auto& [machine, period, rows] : sPRODUCE.groupBy<MachineCol, PeriodCol>()) {
+for (const auto& [machine, period, rows] : sPRODUCE.groupBy<cMachine, cPeriod>()) {
   hs::addConstr(env, hs::sumOf(rows, machine_usage).build() <= machine->capacity, dreamor::exprName("Cap", machine, period));
 }
 
-const auto setup_cost = [&](MachineCol m, ItemCol i, PeriodCol t) { return m->setup * vSetup(m, i, t); };
+const auto setup_cost = [&](cMachine m, cItem i, cPeriod t) { return m->setup * vSetup(m, i, t); };
 hs::minimize(env, hs::sumOf(sPRODUCE, setup_cost).build());   // setObjective, then run(); returns run()'s HighsStatus
 const auto yieldPlan = vYield.solution(env);                  // std::logic_error if no primal solution
 ```

@@ -63,7 +63,7 @@ struct ValueTableAccess {
 // what each row's value is. Keyed like the set: yieldPlan(keys...) or yieldPlan(row), and
 // range-for over (row, value).
 //
-//     const ValueTable<MachineCol, PeriodCol> hours{sRUN, available_hours};   // param hours {RUN}
+//     const ValueTable<cMachine, cPeriod> hours{sRUN, available_hours};   // param hours {RUN}
 template <typename... Keys>
 class ValueTable {
  public:
@@ -86,7 +86,7 @@ class ValueTable {
   ValueTable(const IndexSet<OtherTup>& /*keys*/, const Value& /*value*/) {
     static_assert(internal::always_false<OtherTup>,
                   "A ValueTable is built on a set with exactly its key columns, in the same order: "
-                  "ValueTable<MachineCol, PeriodCol> takes a SetOf<MachineCol, PeriodCol>. Declare the table in "
+                  "ValueTable<cMachine, cPeriod> takes a SetOf<cMachine, cPeriod>. Declare the table in "
                   "the set's order, or derive a set in the table's order with select<...>().");
   }
 

@@ -63,7 +63,7 @@ struct Dreamor<std::index_sequence<J...>> {
   static std::uint64_t check(const S& set) {
     std::uint64_t sum = 0;
     for (const auto& row : set) {
-      sum += rowCheck(std::array<std::uint32_t, kMaxColumns>{std::get<KCol<J>>(row)->serial...}, kK);
+      sum += rowCheck(std::array<std::uint32_t, kMaxColumns>{std::get<cK<J>>(row)->serial...}, kK);
     }
     return sum;
   }
@@ -72,9 +72,9 @@ struct Dreamor<std::index_sequence<J...>> {
     IloEnv env;
     // A: k1 and the middle columns; B: k1 and the period.
     const auto sA = [&]<std::size_t... M>(std::index_sequence<M...>) {
-      return dreamor::makeSet<KCol<0>, KCol<M + 1>...>(d.k1s, typename G::template ListOf<M + 1>{&d}...).collect();
+      return dreamor::makeSet<cK<0>, cK<M + 1>...>(d.k1s, typename G::template ListOf<M + 1>{&d}...).collect();
     }(std::make_index_sequence<kK - 2>{});
-    const auto sB = dreamor::makeSet<KCol<0>, KCol<kLast>>(d.k1s, typename G::template ListOf<kLast>{&d}).collect();
+    const auto sB = dreamor::makeSet<cK<0>, cK<kLast>>(d.k1s, typename G::template ListOf<kLast>{&d}).collect();
 
     Set sX;
     r.measure("collect", [&] { sX = G::make(d); });

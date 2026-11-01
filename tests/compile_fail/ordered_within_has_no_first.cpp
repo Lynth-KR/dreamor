@@ -2,6 +2,6 @@
 // expect: ordered<Columns...>() orders within each group
 #include "prelude.hpp"
 int main() {
-  const auto byI = IJ().ordered<ICol>();
+  const auto byI = IJ().ordered<cI>();
   static_cast<void>(byI.first());
 }

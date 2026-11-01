@@ -46,9 +46,9 @@
 struct E {
   std::uint32_t id;
 };
-using ACol = dreamor::Col<const E*, "a">;
-using BCol = dreamor::Col<const E*, "b">;
-using CCol = dreamor::Col<const E*, "c">;
+using cA   = dreamor::Col<const E*, "a">;
+using cB   = dreamor::Col<const E*, "b">;
+using cC   = dreamor::Col<const E*, "c">;
 using Ptrs = std::vector<const E*>;
 
 static std::uint64_t g_evals = 0;  // predicate calls, counted in the PLAN_COUNT build only
@@ -72,48 +72,47 @@ struct Dens {
   std::uint64_t d1 = 1, d2 = 1, d3 = 1;
 };
 static auto pAB(std::uint64_t den) {
-  return [den](ACol a, BCol b) { return keep(den, 0x1111, a->id, b->id); };
+  return [den](cA a, cB b) { return keep(den, 0x1111, a->id, b->id); };
 }
 static auto pBC(std::uint64_t den) {
-  return [den](BCol b, CCol c) { return keep(den, 0x2222, b->id, c->id); };
+  return [den](cB b, cC c) { return keep(den, 0x2222, b->id, c->id); };
 }
 static auto pAC(std::uint64_t den) {
-  return [den](ACol a, CCol c) { return keep(den, 0x3333, a->id, c->id); };
+  return [den](cA a, cC c) { return keep(den, 0x3333, a->id, c->id); };
 }
 static auto qA(std::uint64_t den) {
-  return [den](ACol a) { return keep(den, 0x4444, a->id); };
+  return [den](cA a) { return keep(den, 0x4444, a->id); };
 }
 static auto qC(std::uint64_t den) {
-  return [den](CCol c) { return keep(den, 0x5555, c->id); };
+  return [den](cC c) { return keep(den, 0x5555, c->id); };
 }
 
 // The shape's predicates on a builder, each where it can run - or, late, folded into one over
 // A, B and C, so that it runs only once all three are bound.
-using Set = dreamor::SetOf<ACol, BCol, CCol>;
+using Set = dreamor::SetOf<cA, cB, cC>;
 template <typename Builder>
 static Set withPredicates(std::string_view shape, const Dens& d, Builder b, bool late) {
   if (shape == "pair") {
     if (late) {
-      return b.where([p = pBC(d.d1)](ACol, BCol bb, CCol c) { return p(bb, c); }).collect();
+      return b.where([p = pBC(d.d1)](cA, cB bb, cC c) { return p(bb, c); }).collect();
     }
     return b.where(pBC(d.d1)).collect();
   }
   if (shape == "filters") {
     if (late) {
-      return b.where([p = qA(d.d1), q = qC(d.d2)](ACol a, BCol, CCol c) { return p(a) && q(c); }).collect();
+      return b.where([p = qA(d.d1), q = qC(d.d2)](cA a, cB, cC c) { return p(a) && q(c); }).collect();
     }
     return b.where(qA(d.d1)).where(qC(d.d2)).collect();
   }
   if (shape == "chain") {
     if (late) {
-      return b.where([p = pAB(d.d1), q = pBC(d.d2)](ACol a, BCol bb, CCol c) { return p(a, bb) && q(bb, c); })
-          .collect();
+      return b.where([p = pAB(d.d1), q = pBC(d.d2)](cA a, cB bb, cC c) { return p(a, bb) && q(bb, c); }).collect();
     }
     return b.where(pAB(d.d1)).where(pBC(d.d2)).collect();
   }
   if (late) {
     return b
-        .where([p = pAB(d.d1), q = pBC(d.d2), r = pAC(d.d3)](ACol a, BCol bb, CCol c) {
+        .where([p = pAB(d.d1), q = pBC(d.d2), r = pAC(d.d3)](cA a, cB bb, cC c) {
           return p(a, bb) && q(bb, c) && r(a, c);
         })
         .collect();
@@ -138,7 +137,7 @@ static std::string plannedOrder(std::string_view shape, const Dens& d, const Bui
 
 // --- forcing an order ------------------------------------------------------------------------
 template <std::size_t I>
-using ColAt = std::tuple_element_t<I, std::tuple<ACol, BCol, CCol>>;
+using ColAt = std::tuple_element_t<I, std::tuple<cA, cB, cC>>;
 
 // Source I of makeSet<A, B, C>(...) when the visit order is to be X, Y, Z.
 template <std::size_t I, std::size_t X, std::size_t Y, std::size_t Z>
@@ -153,7 +152,7 @@ static decltype(auto) sourceFor(const std::array<Ptrs, 3>& ptrs) {
 }
 template <std::size_t X, std::size_t Y, std::size_t Z>
 static auto forced(const std::array<Ptrs, 3>& ptrs) {
-  return dreamor::makeSet<ACol, BCol, CCol>(
+  return dreamor::makeSet<cA, cB, cC>(
       sourceFor<0, X, Y, Z>(ptrs), sourceFor<1, X, Y, Z>(ptrs), sourceFor<2, X, Y, Z>(ptrs));
 }
 
@@ -176,9 +175,9 @@ template <typename Tup>
 static std::uint64_t checksum(const dreamor::IndexSet<Tup>& set) {
   std::uint64_t sum = 0;
   for (const auto& row : set) {
-    const auto& a = std::get<ACol>(row);
-    const auto& b = std::get<BCol>(row);
-    const auto& c = std::get<CCol>(row);
+    const auto& a = std::get<cA>(row);
+    const auto& b = std::get<cB>(row);
+    const auto& c = std::get<cC>(row);
     sum += mix((std::uint64_t{a->id} << 42) ^ (std::uint64_t{b->id} << 21) ^ c->id);
   }
   return sum + set.size() * 0x9e3779b97f4a7c15ULL;
@@ -229,8 +228,8 @@ int main(int argc, char** argv) {
   };
 
   if (shape == "join") {
-    const auto S = dreamor::makeSet<ACol, BCol>(ptrs[0], ptrs[1]).where(pAB(d.d1)).collect();
-    const auto U = dreamor::makeSet<BCol, CCol>(ptrs[1], ptrs[2]).where(pBC(d.d2)).collect();
+    const auto S = dreamor::makeSet<cA, cB>(ptrs[0], ptrs[1]).where(pAB(d.d1)).collect();
+    const auto U = dreamor::makeSet<cB, cC>(ptrs[1], ptrs[2]).where(pBC(d.d2)).collect();
     if (variant == "SU") {
       time([&] { return dreamor::makeSet<>(S, U).collect(); });
     }
@@ -239,7 +238,7 @@ int main(int argc, char** argv) {
     }
     planned = variant;  // a join is visited in declaration order
   } else {
-    const auto free_builder = dreamor::makeSet<ACol, BCol, CCol>(ptrs[0], ptrs[1], ptrs[2]);
+    const auto free_builder = dreamor::makeSet<cA, cB, cC>(ptrs[0], ptrs[1], ptrs[2]);
     planned                 = plannedOrder(shape, d, free_builder);
     if (variant == "free" || variant == "late") {
       time([&] { return withPredicates(shape, d, free_builder, variant == "late"); });

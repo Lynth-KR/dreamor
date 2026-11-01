@@ -139,9 +139,9 @@ struct Schedule {
 };
 
 // A job is its index in `jobs`; times are integers.
-using JobCol = dreamor::Col<int, "job">;
-using StartCol = dreamor::Col<int, "start">;
-using TimeCol = dreamor::Col<int, "time">;
+using cJob = dreamor::Col<int, "job">;
+using cStart = dreamor::Col<int, "start">;
+using cTime = dreamor::Col<int, "time">;
 
 absl::StatusOr<Schedule> Solve(absl::Span<const Job> jobs,
                                const math_opt::SolverType solver_type) {
@@ -151,23 +151,23 @@ absl::StatusOr<Schedule> Solve(absl::Span<const Job> jobs,
   // set JOBS;
   // set START := {j in JOBS, s in release[j]..T-1};                        (3)
   // set RUNNING := {(j,s) in START, t in s..min(s+p[j], T)-1};
-  const auto starts_of = [&](JobCol j) {
+  const auto starts_of = [&](cJob j) {
     return std::views::iota(jobs[j].release_time, kTimeHorizon);
   };
-  const auto running_at = [&](JobCol j, StartCol s) {
+  const auto running_at = [&](cJob j, cStart s) {
     return std::views::iota(s.get(), std::min(s + jobs[j].processing_time, kTimeHorizon));
   };
-  const auto sJOBS = dreamor::makeSet<JobCol>(job_ids).collect();
-  const auto sSTART = dreamor::makeSet<JobCol, StartCol>(job_ids, starts_of).collect();
-  const auto sRUNNING = dreamor::makeSet<TimeCol>(sSTART, running_at).collect();
+  const auto sJOBS = dreamor::makeSet<cJob>(job_ids).collect();
+  const auto sSTART = dreamor::makeSet<cJob, cStart>(job_ids, starts_of).collect();
+  const auto sRUNNING = dreamor::makeSet<cTime>(sSTART, running_at).collect();
 
   math_opt::Model model;
   // var x {START} binary;  - x[j,s] = 1 if job j starts at time s
-  const dreamor::mathopt::VarTable<JobCol, StartCol> vStart{
+  const dreamor::mathopt::VarTable<cJob, cStart> vStart{
       model, sSTART, 0, 1, /*is_integer=*/true, "x"};
 
   // minimize SumCompletion: sum {(j,s) in START} (s + p[j]) * x[j,s];
-  const auto completion_time = [&](JobCol j, StartCol s) {
+  const auto completion_time = [&](cJob j, cStart s) {
     return (s + jobs[j].processing_time) * vStart(j, s);
   };
   const math_opt::LinearExpression sum_completion_times =
@@ -177,12 +177,12 @@ absl::StatusOr<Schedule> Solve(absl::Span<const Job> jobs,
   // subject to Once {j in JOBS}: sum {(j,s) in START} x[j,s] = 1;            (1)
   // Over JOBS, not over START's groups: a job with no start left would get no
   // row from groupBy and silently vanish from the model; here it gets 0 = 1.
-  const auto startsByJob = sSTART.groupBy<JobCol>();
+  const auto startsByJob = sSTART.groupBy<cJob>();
   for (const auto& [j] : sJOBS) {
     model.AddLinearConstraint(dreamor::mathopt::sumOf(startsByJob.slice(j), vStart).build() == 1.0);
   }
   // subject to OneAtATime {t in TIMES}: sum {(j,s,t) in RUNNING} x[j,s] <= 1;  (2)
-  for (const auto& [t, rows] : sRUNNING.groupBy<TimeCol>()) {
+  for (const auto& [t, rows] : sRUNNING.groupBy<cTime>()) {
     model.AddLinearConstraint(dreamor::mathopt::sumOf(rows, vStart).build() <= 1.0);
   }
 

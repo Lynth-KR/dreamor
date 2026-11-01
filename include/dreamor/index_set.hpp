@@ -4,10 +4,10 @@
 // the way an AMPL set declaration does:
 //
 //     {m in MACHINES, i in ITEMS[m]: fits[m,i]}
-//     makeSet<MachineCol, ItemCol>(machines, items_of).where(fits).collect()
+//     makeSet<cMachine, cItem>(machines, items_of).where(fits).collect()
 //
 //     {(m,i) in ASSIGN, o in ORDERS: orderFits[i,o]}
-//     makeSet<OrderCol>(sASSIGN, orders).where(order_fits).collect()
+//     makeSet<cOrder>(sASSIGN, orders).where(order_fits).collect()
 //
 //     {(m,i) in ASSIGN: early[i]}
 //     sASSIGN.where(early)
@@ -15,11 +15,11 @@
 //     {(m,i,o) in ASSIGN, (i,t) in OPEN}
 //     makeSet<>(sASSIGN, sOPEN).collect()
 //
-// Everything is addressed by column name - `using MachineCol = Col<const Machine*, "machine">;` -
+// Everything is addressed by column name - `using cMachine = Col<const Machine*, "machine">;` -
 // never by position, and that holds for every callable the DSL takes. A predicate's
-// parameters ARE its columns: `[](ItemCol i, OrderCol o)` reads i and o wherever they sit
+// parameters ARE its columns: `[](cItem i, cOrder o)` reads i and o wherever they sit
 // and runs as soon as both are bound, so parameter order and .where() order are both free.
-// A dependent source is the same - `[](ItemCol i)` names the one column it needs.
+// A dependent source is the same - `[](cItem i)` names the one column it needs.
 //
 // Hence the one rule the DSL will not bend on: a callable takes COLUMN types, never the
 // values they wrap. `[](const Item* i)` is rejected. A value type does not identify a
@@ -39,14 +39,14 @@
 // predicates prune earliest, which is not always the order they were declared in.
 //
 // The result is an IndexSet in generation order, which the visit order decides - the
-// tuples are always (MachineCol, ItemCol, OrderCol), but which column varies fastest is not
+// tuples are always (cMachine, cItem, cOrder), but which column varies fastest is not
 // fixed. Where the row order carries meaning, sort it with orderBy().
 //
 // An IndexSet is read-only: begin(), end(), size() for range-for and any read-only
 // algorithm, and no way to edit it. A different set is derived instead -
 // S.where(p), S.orderBy(key), unite(A, B), ... each returns a new
 // set and leaves S as it was. Copies are O(1) and share the rows. Declare sets with
-// SetOf<MachineCol, ItemCol>.
+// SetOf<cMachine, cItem>.
 //
 // A set holds no row twice. That rests on a contract with the caller: every range handed to
 // makeSet - a container, what a dependent source returns - holds no element twice, and an

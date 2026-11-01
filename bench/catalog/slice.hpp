@@ -138,15 +138,15 @@ struct Dreamor<std::index_sequence<J...>> {
   using Table                        = typename G::Table;
 
   struct Even {
-    bool operator()(KCol<kLast> t) const { return group::evenPeriod(t.get()); }
+    bool operator()(cK<kLast> t) const { return group::evenPeriod(t.get()); }
   };
   struct Odd {
-    bool operator()(KCol<kLast> t) const { return !group::evenPeriod(t.get()); }
+    bool operator()(cK<kLast> t) const { return !group::evenPeriod(t.get()); }
   };
   // A term on the row's columns, as a model writes cost[t] * x[...]: x is found from the row being summed.
   struct Coef {
     const Table* x;
-    IloNumExprArg operator()(KCol<J>... c) const {
+    IloNumExprArg operator()(cK<J>... c) const {
       const std::array<const Ent*, kK> e{c.get()...};
       return coefOf(e[kLast]->serial) * (*x)(c...);
     }
@@ -168,22 +168,22 @@ struct Dreamor<std::index_sequence<J...>> {
   template <std::size_t... I>
   static void shape(
       const Driver& dr, std::index_sequence<I...>, const Set& sX, const Table& vX, IloEnv env, Result& r) {
-    using Row = std::tuple<KCol<I>...>;
+    using Row = std::tuple<cK<I>...>;
     std::vector<Row> rows;
     rows.reserve(dr.keys.size());
     [&]<std::size_t... P>(std::index_sequence<P...>) {
       for (const Key& key : dr.keys) {
-        rows.emplace_back(KCol<I>{key[P]}...);
+        rows.emplace_back(cK<I>{key[P]}...);
       }
     }(std::make_index_sequence<sizeof...(I)>{});
     const auto sDriver = dreamor::makeSet<>(rows).collect();
     const auto check   = [](const Row& key) {
-      return keyOf(std::array<std::uint32_t, kMaxColumns>{std::get<KCol<I>>(key)->serial...}, sizeof...(I));
+      return keyOf(std::array<std::uint32_t, kMaxColumns>{std::get<cK<I>>(key)->serial...}, sizeof...(I));
     };
 
-    using Grouped = decltype(sX.template groupBy<KCol<I>...>());
+    using Grouped = decltype(sX.template groupBy<cK<I>...>());
     std::optional<Grouped> groups;
-    r.measure("prep_" + dr.shape, [&] { groups.emplace(sX.template groupBy<KCol<I>...>()); });
+    r.measure("prep_" + dr.shape, [&] { groups.emplace(sX.template groupBy<cK<I>...>()); });
     r.measure("slice_" + dr.shape, [&] {
       std::uint64_t sum = 0;
       for (const auto& key : sDriver) {

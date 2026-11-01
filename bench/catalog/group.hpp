@@ -75,7 +75,7 @@ struct Dreamor<std::index_sequence<J...>> {
   using Table                        = typename G::Table;
 
   struct Even {
-    bool operator()(KCol<kLast> t) const { return evenPeriod(t.get()); }
+    bool operator()(cK<kLast> t) const { return evenPeriod(t.get()); }
   };
 
   static void run(const Data& d, Result& r) {
@@ -102,11 +102,11 @@ struct Dreamor<std::index_sequence<J...>> {
                     IloEnv env,
                     Result& r,
                     bool with_where) {
-    using Grouped = decltype(sX.template groupBy<KCol<I>...>());
+    using Grouped = decltype(sX.template groupBy<cK<I>...>());
     std::optional<Grouped> groups;
-    r.measure("prep_" + name, [&] { groups.emplace(sX.template groupBy<KCol<I>...>()); });
+    r.measure("prep_" + name, [&] { groups.emplace(sX.template groupBy<cK<I>...>()); });
     const auto keyOfGroup = [](const auto& group) {
-      return keyOf(std::array<std::uint32_t, kMaxColumns>{std::get<KCol<I>>(group.key)->serial...}, sizeof...(I));
+      return keyOf(std::array<std::uint32_t, kMaxColumns>{std::get<cK<I>>(group.key)->serial...}, sizeof...(I));
     };
     r.measure("sum_" + name, [&] {
       std::uint64_t check = 0;

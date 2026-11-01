@@ -3,6 +3,6 @@
 #include "prelude.hpp"
 int main() {
   math_opt::Model model;
-  const dreamor::mathopt::VarTable<ICol, JCol> x{model, IJ(), 0, 1};
+  const dreamor::mathopt::VarTable<cI, cJ> x{model, IJ(), 0, 1};
   (void)dreamor::mathopt::sumOf(IJ(), x * 100).build();
 }

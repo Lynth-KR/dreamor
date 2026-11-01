@@ -18,7 +18,7 @@
 //
 //     namespace hs = dreamor::highs;
 //     hs::HighsEnv env;
-//     const hs::VarTable<MachineCol, ItemCol, PeriodCol> vYield{env, sPRODUCE, 0, max_possible_qty,
+//     const hs::VarTable<cMachine, cItem, cPeriod> vYield{env, sPRODUCE, 0, max_possible_qty,
 //                                                               HighsVarType::kContinuous, "Yield"};
 //
 //     const hs::HighsLinearExpression totalLoad = hs::sumOf(rows, machine_usage).build();
@@ -1034,7 +1034,7 @@ namespace dreamor::highs {
 //     options.output_flag = false;
 //     options.time_limit  = 60;
 //     hs::HighsEnv env{options};
-//     const hs::VarTable<MachineCol, ItemCol, PeriodCol> vYield{env, sPRODUCE, 0, max_possible_qty};
+//     const hs::VarTable<cMachine, cItem, cPeriod> vYield{env, sPRODUCE, 0, max_possible_qty};
 //     hs::addConstr(env, hs::sumOf(rows, machine_usage).build() <= capacity);
 //     hs::minimize(env, hs::sumOf(sPRODUCE, unit_cost).build());   // the model reaches the Highs here
 class HighsEnv {

@@ -6,7 +6,7 @@ int main() try {
   const Entity a{0};
   const Entity b{1};
   const std::vector<const Entity*> es{&a, &b, &b};
-  return static_cast<int>(dreamor::makeSet<ECol>(es).collect().size());
+  return static_cast<int>(dreamor::makeSet<cE>(es).collect().size());
 } catch (...) {
   return 1;  // no message: the runner reports it
 }

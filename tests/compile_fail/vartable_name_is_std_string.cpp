@@ -3,5 +3,5 @@
 int main() {
   IloEnv env;
   const std::string name = "x";
-  const dreamor::concert::VarTable<ICol, JCol> x{env, IJ(), 0, 1, ILOFLOAT, name};
+  const dreamor::concert::VarTable<cI, cJ> x{env, IJ(), 0, 1, ILOFLOAT, name};
 }

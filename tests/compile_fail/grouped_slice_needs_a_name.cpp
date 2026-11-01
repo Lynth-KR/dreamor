@@ -2,5 +2,5 @@
 // expect: Name the Grouped first
 #include "prelude.hpp"
 int main() {
-  (void)IJ().groupBy<ICol>().slice(ICol{1});
+  (void)IJ().groupBy<cI>().slice(cI{1});
 }

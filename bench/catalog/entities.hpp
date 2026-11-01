@@ -52,7 +52,7 @@ const K& primaryKey(const Item<K>& item) {
 }
 inline constexpr dreamor::ColumnName kItemName{"item"};
 template <typename K>
-using ItemCol = dreamor::Col<const Item<K>*, kItemName>;
+using cItem = dreamor::Col<const Item<K>*, kItemName>;
 
 inline double tagOf(std::uint32_t serial) {
   return ::tagOf(std::array<std::uint32_t, 1>{serial}, 1, 2);
@@ -108,7 +108,7 @@ Keys<K> makeKeys(std::size_t n, bool random_order, std::uint64_t seed) {
 // --- dreamor ---------------------------------------------------------------------------------
 template <typename K>
 static void runDreamor(const Keys<K>& keys, Result& r) {
-  using Col = ItemCol<K>;
+  using Col = cItem<K>;
   struct Tag {
     double operator()(Col item) const { return tagOf(item->serial); }
   };

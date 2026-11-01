@@ -110,8 +110,8 @@ template <typename Key, typename... Args>
 consteval bool checkTableKey() {
   static_assert(isKey<Key, Args...>(),
                 "Look a variable or value up by the table's key columns, in its declared order - "
-                "vYield(m, i, t) for VarTable<MachineCol, ItemCol, PeriodCol> - or by a row of its set. "
-                "A plain value (2, a raw pointer) is not a column: write PeriodCol{2}.");
+                "vYield(m, i, t) for VarTable<cMachine, cItem, cPeriod> - or by a row of its set. "
+                "A plain value (2, a raw pointer) is not a column: write cPeriod{2}.");
   return isKey<Key, Args...>();
 }
 
@@ -119,8 +119,8 @@ template <typename Key, typename... Args>
 consteval bool checkGroupKey() {
   static_assert(isKey<Key, Args...>(),
                 "Slice by this groupBy's key columns, in its order - byMachinePeriod.slice(m, t) for "
-                "groupBy<MachineCol, PeriodCol>() - or by a key from keyAt(). A plain value (2, a raw "
-                "pointer) is not a column: write PeriodCol{2}.");
+                "groupBy<cMachine, cPeriod>() - or by a key from keyAt(). A plain value (2, a raw "
+                "pointer) is not a column: write cPeriod{2}.");
   return isKey<Key, Args...>();
 }
 
@@ -129,7 +129,7 @@ consteval bool checkOrderedKey() {
   static_assert(isKey<Tup, Args...>(),
                 "Name an element of the ordered set by its columns, in order - orderedPeriods.ord(t) - "
                 "or by a row of the set. A plain value (2, a raw pointer) is not a column: write "
-                "PeriodCol{2}.");
+                "cPeriod{2}.");
   return isKey<Tup, Args...>();
 }
 
@@ -138,7 +138,7 @@ consteval bool checkOrderedStep() {
   static_assert(isKey<Tup, Args...>() || isKeyThenSteps<Tup, Args...>(),
                 "Name an element of the ordered set by its columns, in order, then optionally the steps - "
                 "orderedPeriods.next(t), orderedPeriods.next(t, 2) - or by a row of the set. A plain value "
-                "(2, a raw pointer) is not a column: write PeriodCol{2}.");
+                "(2, a raw pointer) is not a column: write cPeriod{2}.");
   return isKey<Tup, Args...>() || isKeyThenSteps<Tup, Args...>();
 }
 
@@ -146,7 +146,7 @@ template <typename Tup, typename... Args>
 consteval bool checkMembershipKey() {
   static_assert(isKey<Tup, Args...>(),
                 "Ask membership with the set's columns, in order - in_routes(m, i) - or with a row of it. "
-                "A plain value (2, a raw pointer) is not a column: write ItemCol{item}.");
+                "A plain value (2, a raw pointer) is not a column: write cItem{item}.");
   return isKey<Tup, Args...>();
 }
 

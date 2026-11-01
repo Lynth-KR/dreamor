@@ -4,6 +4,6 @@
 int main() {
   hs::HighsEnv env;
   const auto sIJ = IJ();
-  const hs::VarTable<ICol, JCol> x{env, sIJ, 0, 1};
+  const hs::VarTable<cI, cJ> x{env, sIJ, 0, 1};
   hs::addConstr(env, hs::sumOf(sIJ, x) <= 1);
 }

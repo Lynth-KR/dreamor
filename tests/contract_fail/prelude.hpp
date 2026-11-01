@@ -25,6 +25,6 @@ inline std::size_t primaryKey(const Entity& e) {
   return e.id;
 }
 
-using ICol = dreamor::Col<std::size_t, "i">;
-using JCol = dreamor::Col<std::size_t, "j">;
-using ECol = dreamor::Col<const Entity*, "e">;
+using cI = dreamor::Col<std::size_t, "i">;
+using cJ = dreamor::Col<std::size_t, "j">;
+using cE = dreamor::Col<const Entity*, "e">;

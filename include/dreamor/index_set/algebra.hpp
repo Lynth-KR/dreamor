@@ -124,8 +124,8 @@ void appendFiltered(Rows<Tup>& out, const IndexSet<Tup>& from, const IndexSet<Tu
 
 }  // namespace internal
 
-// Projection onto some columns, as a true set: S.select<MachineCol, ItemCol>(). Naming every
-// column in another order reorders the columns: S.select<OrderCol, MachineCol, ItemCol>().
+// Projection onto some columns, as a true set: S.select<cMachine, cItem>(). Naming every
+// column in another order reorders the columns: S.select<cOrder, cMachine, cItem>().
 template <typename Tup>
 template <typename... Columns>
 IndexSet<std::tuple<Columns...>> IndexSet<Tup>::select() const {
@@ -174,11 +174,11 @@ struct SelectedRow<Expr, Tup, true> {
 // The general setof: each row becomes what expr returns - AMPL's setof {(i,j) in EDGES} (j,i).
 // expr takes the columns it reads, as a predicate does, and returns the new row's columns:
 //
-//     sEDGES.select([](FromCol i, ToCol j) { return std::tuple<FromCol, ToCol>{j, i}; })   // reversed edges
-//     sNODES.select([](NodeCol n) { return FromCol{n}; })                                  // a row of one
+//     sEDGES.select([](cFrom i, cTo j) { return std::tuple<cFrom, cTo>{j, i}; })   // reversed edges
+//     sNODES.select([](cNode n) { return cFrom{n}; })                                  // a row of one
 //
-// A value moves into another column only where that column is written out: ToCol does not
-// convert to FromCol on its own, so two columns over one value type cannot trade places
+// A value moves into another column only where that column is written out: cTo does not
+// convert to cFrom on its own, so two columns over one value type cannot trade places
 // unnoticed. As a set, like select<Cols...>(): first occurrence of each row.
 template <typename Tup>
 template <typename Expr>
@@ -188,7 +188,7 @@ auto IndexSet<Tup>::select(Expr expr) const {
   using NewRow   = Selected::type;
   static_assert(Selected::is_row,
                 "select(expr) returns the new row's columns: one Col, or a std::tuple of them - "
-                "`return std::tuple<FromCol, ToCol>{j, i};`. A bare value does not say which column it fills.");
+                "`return std::tuple<cFrom, cTo>{j, i};`. A bare value does not say which column it fills.");
   static_assert(
       !Selected::is_row || internal::allColumnsDistinct<NewRow>(std::make_index_sequence<std::tuple_size_v<NewRow>>{}),
       "select(expr) returns the same column twice. Each column of the new row needs its own type.");
@@ -255,10 +255,10 @@ template <typename Tup>
 // O(1) membership test, so one set can filter another during generation instead of
 // intersecting afterwards:
 //
-//     const auto in_supply = sSUPPLY.membership();       // over (NodeCol, PeriodCol)
-//     makeSet<NodeCol, PeriodCol>(nodes, periods).where(in_supply)
+//     const auto in_supply = sSUPPLY.membership();       // over (cNode, cPeriod)
+//     makeSet<cNode, cPeriod>(nodes, periods).where(in_supply)
 //
-// A membership over fewer columns prunes earlier: one over (NodeCol) alone runs as soon as
+// A membership over fewer columns prunes earlier: one over (cNode) alone runs as soon as
 // the node is bound.
 template <typename Tup>
 class Membership {
@@ -301,7 +301,7 @@ Membership<Tup> IndexSet<Tup>::membership() const {
 // name): a key that falls back on pointer comparison orders by address and varies between
 // runs.
 //
-//     const auto sBY_NAME = sITEMS.orderBy([](const auto& row) { return std::get<ItemCol>(row)->name; });
+//     const auto sBY_NAME = sITEMS.orderBy([](const auto& row) { return std::get<cItem>(row)->name; });
 //
 // The key receives the whole row, so it is the one callable here that may be generic.
 template <typename Tup>

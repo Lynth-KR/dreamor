@@ -85,17 +85,17 @@ struct Dreamor<std::index_sequence<J...>> {
   using Set                          = typename G::Set;
 
   struct InA {
-    bool operator()(KCol<0> a, KCol<kLast> t) const { return inA(a->serial, t->serial); }
+    bool operator()(cK<0> a, cK<kLast> t) const { return inA(a->serial, t->serial); }
   };
   struct InB {
-    bool operator()(KCol<kLast - 1> b, KCol<kLast> t) const { return inB(b->serial, t->serial); }
+    bool operator()(cK<kLast - 1> b, cK<kLast> t) const { return inB(b->serial, t->serial); }
   };
   // B's sources: the same lists, but each k1's periods moved one on.
   template <std::size_t I>
   struct ListOfB {
     const Data* d;
     const std::vector<std::vector<const Ent*>>* moved;
-    std::span<const Ent* const> operator()(KCol<0> k1) const {
+    std::span<const Ent* const> operator()(cK<0> k1) const {
       if constexpr (I == kLast) {
         return (*moved)[k1->serial];
       } else {
@@ -108,7 +108,7 @@ struct Dreamor<std::index_sequence<J...>> {
   static std::uint64_t checkRows(const S& set) {
     std::uint64_t h = 0;
     for (const auto& row : set) {
-      h += keyOf(std::array<std::uint32_t, kMaxColumns>{std::get<KCol<J>>(row)->serial...}, kK);
+      h += keyOf(std::array<std::uint32_t, kMaxColumns>{std::get<cK<J>>(row)->serial...}, kK);
     }
     return h + set.size() * kCountWeight;
   }
@@ -119,7 +119,7 @@ struct Dreamor<std::index_sequence<J...>> {
     r.measure("build", [&] { sX = G::make(d); });
     const Set sA = sX.where(InA{});
     const Set sB = [&]<std::size_t... I>(std::index_sequence<I...>) {
-      auto gen = dreamor::makeSet<KCol<J>...>(d.k1s, ListOfB<I + 1>{&d, &moved}...);
+      auto gen = dreamor::makeSet<cK<J>...>(d.k1s, ListOfB<I + 1>{&d, &moved}...);
       return d.sparse ? gen.where(typename G::Keep{&d}).where(InB{}).collect() : gen.where(InB{}).collect();
     }(std::make_index_sequence<kK - 1>{});
     select(decltype(shifted<1>(std::make_index_sequence<kK - 1>{})){}, sX, r);
@@ -150,11 +150,11 @@ struct Dreamor<std::index_sequence<J...>> {
 
   template <std::size_t... I>
   static void select(std::index_sequence<I...>, const Set& sX, Result& r) {
-    dreamor::SetOf<KCol<I>...> out;
-    r.measure("select", [&] { out = sX.template select<KCol<I>...>(); });
+    dreamor::SetOf<cK<I>...> out;
+    r.measure("select", [&] { out = sX.template select<cK<I>...>(); });
     std::uint64_t h = 0;
     for (const auto& row : out) {
-      h += keyOf(std::array<std::uint32_t, kMaxColumns>{std::get<KCol<I>>(row)->serial...}, sizeof...(I));
+      h += keyOf(std::array<std::uint32_t, kMaxColumns>{std::get<cK<I>>(row)->serial...}, sizeof...(I));
     }
     r.check("select", h + out.size() * kCountWeight);
   }

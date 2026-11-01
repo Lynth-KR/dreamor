@@ -10,13 +10,13 @@ shows them together in one model; the [API reference](reference.md) lists every 
 ## Columns
 
 ```cpp
-using MachineCol = dreamor::Col<const Machine*, "machine">;   // value type + name
-using PeriodCol  = dreamor::Col<std::size_t, "period">;       // the value may be an integer
+using cMachine = dreamor::Col<const Machine*, "machine">;   // value type + name
+using cPeriod  = dreamor::Col<std::size_t, "period">;       // the value may be an integer
 ```
 
 - A `Col` converts implicitly to the value it wraps, and if that value is a pointer, `->` and `*` reach the entity
   directly (`m->capacity`). Get the value out with `t.get()`.
-- One entity type may have more than one column. Different names make different columns (`FromCol` and `ToCol`,
+- One entity type may have more than one column. Different names make different columns (`cFrom` and `cTo`,
   both `const Node*`).
 - **Tokens for variable names**: for an entity-pointer column, a `keyName(const T*)` function placed in the **same
   namespace** as the entity is used, or else the entity's `primaryKey()` (next section; a debug build says so once
@@ -30,7 +30,7 @@ using PeriodCol  = dreamor::Col<std::size_t, "period">;       // the value may b
   `in_routes(m, i)` take the key's columns in declaration order, or one row of the set. Even though `Col` converts
   implicitly from its value, bare values (`x(2, 1)`, a bare pointer) and braces (`slice({i, t})`) are not accepted;
   compilation stops with one sentence telling you what to change. This keeps two int-valued columns from silently
-  passing in swapped positions. If you start from a value, wrap it: `PeriodCol{2}`.
+  passing in swapped positions. If you start from a value, wrap it: `cPeriod{2}`.
 
 ## Entities — EntityVector
 
@@ -44,7 +44,7 @@ inline const std::string& primaryKey(const Machine& m) { return m.name; }     //
 dreamor::EntityVector<Machine> plant;
 const bool inserted = plant.emplace(Machine{"M1", 40.0, 5.0, {}}).second;      // false: M1 was there
 plant.sort().freeze();                                                         // primary-key order; then read only
-const auto sRUN = dreamor::makeSet<MachineCol, PeriodCol>(plant, periods).collect();
+const auto sRUN = dreamor::makeSet<cMachine, cPeriod>(plant, periods).collect();
 if (const Machine* found = plant.find("M1")) {
   plant.modify(found, [](Machine& m) { m.setup = 4.0; });                      // the one way to change one
 }
@@ -74,12 +74,12 @@ Each column of `makeSet<A, B, C>` corresponds to one source. There are three kin
 | Source | Example | Meaning |
 |---|---|---|
 | Container | `machines` | Every value of that column. The elements may be pointers (`std::vector<const Machine*>`), the entities themselves (`std::vector<Machine>`), or smart pointers (`std::vector<std::unique_ptr<Machine>>`); any of them yields a pointer column |
-| Dependent source | `[](MachineCol m) { return m->items; }` | Values that depend on columns already fixed earlier |
-| Existing set | `makeSet<PeriodCol>(sROUTES, periods)` | Fills all of that set's columns at once. Two sets that share a column are joined on it |
+| Dependent source | `[](cMachine m) { return m->items; }` | Values that depend on columns already fixed earlier |
+| Existing set | `makeSet<cPeriod>(sROUTES, periods)` | Fills all of that set's columns at once. Two sets that share a column are joined on it |
 
 - **AMPL correspondence**
-  - `{m in MACHINES, i in ITEMS[m]}` → `makeSet<MachineCol, ItemCol>(machines, items_of).collect()`
-  - `{(m,i) in ROUTES, t in PERIODS: open[i,t]}` → `makeSet<PeriodCol>(sROUTES, periods).where(is_open).collect()`
+  - `{m in MACHINES, i in ITEMS[m]}` → `makeSet<cMachine, cItem>(machines, items_of).collect()`
+  - `{(m,i) in ROUTES, t in PERIODS: open[i,t]}` → `makeSet<cPeriod>(sROUTES, periods).where(is_open).collect()`
   - `{(m,i) in ROUTES, (i,t) in OPEN}` → `makeSet<>(sROUTES, sOPEN).collect()`
 - **Set sources that share a column are joined on it** (a natural join). The one visited second is looked up by the
   shared columns instead of scanned, so the product is never built: the cost is the two sets plus the result. A set
@@ -87,7 +87,7 @@ Each column of `makeSet<A, B, C>` corresponds to one source. There are three kin
   column named in `makeSet<...>` is always new; repeating a set source's column there is a compile error.
 - **A set has at most 64 columns**, the columns of a set source included: while the visit order is planned, a
   set's columns are bits of one 64-bit mask. A 65th stops at compile time on dreamor's own message.
-- **A predicate takes only the columns it reads.** `[](ItemCol i, PeriodCol t)` is evaluated as soon as i and t are
+- **A predicate takes only the columns it reads.** `[](cItem i, cPeriod t)` is evaluated as soon as i and t are
   fixed, and if it fails, the whole loop below is skipped. Parameter order and `.where()` order are free.
 - A dependent source must return a **range of pointers to entities** (`std::vector<const Item*>`, a span, a view),
   not the entities themselves.
@@ -99,7 +99,7 @@ Each column of `makeSet<A, B, C>` corresponds to one source. There are three kin
   operation below makes a repeat - and each key of a VarTable has exactly one variable.
 - Rows come out in generation order, and which column varies fastest is not fixed. If order matters, sort with
   `orderBy`.
-- To spell out a set's type, use `dreamor::SetOf<MachineCol, ItemCol>`.
+- To spell out a set's type, use `dreamor::SetOf<cMachine, cItem>`.
 
 ## Steering the visit order
 
@@ -110,15 +110,15 @@ selective, build that part first, as a set of its own, and hand the set on:
 
 ```cpp
 // {m in MACHINES, i in ITEMS, t in PERIODS: 30 * time[i] <= capacity[m] and demand[i,t] > 0}
-const auto fits_batch = [](MachineCol m, ItemCol i) { return 30 * i->time <= m->capacity; };
-const auto sMAKE = dreamor::makeSet<MachineCol, ItemCol, PeriodCol>(machines, items, periods)
+const auto fits_batch = [](cMachine m, cItem i) { return 30 * i->time <= m->capacity; };
+const auto sMAKE = dreamor::makeSet<cMachine, cItem, cPeriod>(machines, items, periods)
                        .where(fits_batch)
                        .where(is_open)
                        .collect();
 
 // The same rows in two steps: is_open over items x periods alone, then fits_batch over what passed
-const auto sOPEN        = dreamor::makeSet<ItemCol, PeriodCol>(items, periods).where(is_open).collect();
-const auto sMAKE_STAGED = dreamor::makeSet<MachineCol>(machines, sOPEN).where(fits_batch).collect();
+const auto sOPEN        = dreamor::makeSet<cItem, cPeriod>(items, periods).where(is_open).collect();
+const auto sMAKE_STAGED = dreamor::makeSet<cMachine>(machines, sOPEN).where(fits_batch).collect();
 ```
 
 - **The same set.** The rows are the same, and so is the type: a set's columns come in the order of its sources, so
@@ -155,7 +155,7 @@ O(1) and shares the rows.
 
 ```cpp
 const auto sPEAK_PRODUCE  = sPRODUCE.where(is_peak);                  // production rows in peak-demand periods
-const auto sMACHINE_ITEM  = sPRODUCE.select<MachineCol, ItemCol>();  // (machine, item) only
+const auto sMACHINE_ITEM  = sPRODUCE.select<cMachine, cItem>();  // (machine, item) only
 const auto in_routes      = sROUTES.membership();
 const auto orderedPeriods = sPERIODS.ordered();
 if (const auto* prevPeriod = orderedPeriods.prev(t)) { /* the previous period */ }
@@ -170,17 +170,17 @@ and `at()`, positions of the whole set, are not there. The rest is in the
 [public API reference](reference.md#public-api-reference).
 
 The `Membership` returned by `membership()` is a predicate object, so you may also call it directly, passing the
-columns separately (`in_routes(MachineCol{m}, ItemCol{i})`) or a single row tuple (`in_routes(row)`).
+columns separately (`in_routes(cMachine{m}, cItem{i})`) or a single row tuple (`in_routes(row)`).
 
 `select(expr)` is the general `setof`. `expr` takes the columns it reads, as a predicate does, and returns the new
 row's columns: one `Col`, or a `std::tuple` of them. A value moves into another column only where that column is
-written out. `ToCol` does not turn into `FromCol` on its own, so two columns of the same value type cannot trade
+written out. `cTo` does not turn into `cFrom` on its own, so two columns of the same value type cannot trade
 places unnoticed.
 
 ```cpp
 // (j,i) for every (i,j)
-const auto sREVERSED = sEDGES.select([](FromCol i, ToCol j) { return std::tuple<FromCol, ToCol>{j, i}; });
-const auto sTAILS    = sNODES.select([](NodeCol n) { return FromCol{n}; });  // the nodes as arc tails
+const auto sREVERSED = sEDGES.select([](cFrom i, cTo j) { return std::tuple<cFrom, cTo>{j, i}; });
+const auto sTAILS    = sNODES.select([](cNode n) { return cFrom{n}; });  // the nodes as arc tails
 ```
 
 The key of `orderBy` takes the whole row, so it is the only place in this library where a generic lambda
@@ -189,12 +189,12 @@ The key of `orderBy` takes the whole row, so it is the only place in this librar
 ## Grouping — groupBy
 
 ```cpp
-const auto producedByItemPeriod = sPRODUCE.groupBy<ItemCol, PeriodCol>();
+const auto producedByItemPeriod = sPRODUCE.groupBy<cItem, cPeriod>();
 
 for (const auto& [item, period, rows] : producedByItemPeriod) { ... }     // every group (existing keys only)
 const auto producingRows = producedByItemPeriod.slice(i, t);            // a specific key (empty group if absent)
 
-for (const auto& [item, period, rows] : sPRODUCE.groupBy<ItemCol, PeriodCol>()) { ... }  // no name needed if you only iterate
+for (const auto& [item, period, rows] : sPRODUCE.groupBy<cItem, cPeriod>()) { ... }  // no name needed if you only iterate
 ```
 
 - A group (`RowSlice`) is a random-access view onto the original set's rows. `producingRows.size()`,
@@ -221,8 +221,8 @@ const dreamor::concert::VarTable<KeyCols...> vName{env, set, lb, ub, type, "Name
   from key to variable) never changes. There is no `add` or `create`.
 - `lb` and `ub` are each **a number or a column function**. Functions follow the same rule as `where` predicates.
   ```cpp
-  const auto max_possible_qty = [](MachineCol m, ItemCol i) { return m->capacity / i->time; };
-  const dreamor::concert::VarTable<MachineCol, ItemCol, PeriodCol> vYield{env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};
+  const auto max_possible_qty = [](cMachine m, cItem i) { return m->capacity / i->time; };
+  const dreamor::concert::VarTable<cMachine, cItem, cPeriod> vYield{env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};
   ```
 - Defaults when omitted: `lb = 0`, `ub = IloInfinity`, `ILOFLOAT`, no name.
 - Semi-continuous variables: `dreamor::concert::VarTable<...> vBatch{dreamor::concert::semiContinuous, env, sBATCH, sclb, ub, ILOFLOAT, "Batch"};`
@@ -248,7 +248,7 @@ Concert; for MathOpt, `model.set_upper_bound(vYield(row), 0)`; for HiGHS,
 `env.highs().changeColBounds(vYield(row).index(), 0, 0)`).
 
 ```cpp
-const auto in_maintenance = [](MachineCol m, PeriodCol t) { return m->name == "M0" && t.get() == 2; };
+const auto in_maintenance = [](cMachine m, cPeriod t) { return m->name == "M0" && t.get() == 2; };
 for (const auto& row : vYield.keys().where(in_maintenance)) {
   vYield(row).setUB(0);
 }
@@ -269,7 +269,7 @@ A VarTable cannot be copied, only moved (a copy would have two names pointing at
 dreamor::concert::sumOf(env, rows, term).build()                       // IloExpr
 dreamor::concert::sumOf(env, rows, term).where(p, q).build()           // only rows where p AND q
 dreamor::concert::sumOf(env, rows, term).split(p1, p2).build()         // std::array<IloExpr, 2>, several sums in one pass
-dreamor::concert::sumOf<MachineCol>(env, machines, term).build()       // a plain container as a one-column set
+dreamor::concert::sumOf<cMachine>(env, machines, term).build()       // a plain container as a one-column set
 ```
 
 - `rows` is a set or a group (`RowSlice`).
@@ -279,7 +279,7 @@ dreamor::concert::sumOf<MachineCol>(env, machines, term).build()       // a plai
 - A term takes only the columns it reads and returns that row's term. Coefficients are computed from the entities
   (no separate coefficient arrays).
   ```cpp
-  const auto setup_cost = [&](MachineCol m, ItemCol i, PeriodCol t) { return m->setup * vSetup(m, i, t); };
+  const auto setup_cost = [&](cMachine m, cItem i, cPeriod t) { return m->setup * vSetup(m, i, t); };
   ```
 - To add up variables without coefficients, **pass the table itself as the term**. No lookup-only lambda is needed.
   ```cpp
@@ -347,7 +347,7 @@ for (const auto& [row, qty] : yieldPlan) { ... } // in set order
 
 - The result (`ValueTable`) holds only doubles, so it stays usable after `cplex` or `env` has ended. It is the same
   type regardless of backend.
-- A `ValueTable` is also data on a set, AMPL's `param {S}`: `dreamor::ValueTable<MachineCol, PeriodCol>
+- A `ValueTable` is also data on a set, AMPL's `param {S}`: `dreamor::ValueTable<cMachine, cPeriod>
   hours{sRUN, available_hours}` gives each row of `sRUN` a value - a number, or a callable over the row's columns, as
   a `VarTable`'s bounds are - and is read the same way, by key or row, `std::out_of_range` outside the set. It is a
   column callable itself, so it goes where a callable goes: a `VarTable`'s bound (`VarTable{env, sRUN, 0, hours}`),

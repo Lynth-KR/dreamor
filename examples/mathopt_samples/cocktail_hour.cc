@@ -227,8 +227,8 @@ inline const std::string& keyName(const Cocktail* cocktail) { return cocktail->n
 // An ingredient is a name, so its column holds the name itself (a value column,
 // named in variables as Buy_<name>); a cocktail is an entity, so its column
 // points at it.
-using CocktailCol = dreamor::Col<const Cocktail*, "cocktail">;
-using IngredientCol = dreamor::Col<std::string_view, "ingredient">;
+using cCocktail = dreamor::Col<const Cocktail*, "cocktail">;
+using cIngredient = dreamor::Col<std::string_view, "ingredient">;
 
 struct Menu {
   std::vector<std::string> ingredients;
@@ -245,36 +245,36 @@ absl::StatusOr<Menu> SolveForMenu(
 
   // set INGREDIENTS; set COCKTAILS;
   // set RECIPE := {c in COCKTAILS, i in INGREDIENTS_OF[c]};
-  const auto ingredients_of = [](CocktailCol c) {
+  const auto ingredients_of = [](cCocktail c) {
     return std::span<const std::string>(c->ingredients);
   };
-  const auto sINGREDIENTS = dreamor::makeSet<IngredientCol>(kIngredients).collect();
-  const auto sCOCKTAILS = dreamor::makeSet<CocktailCol>(all_cocktails).collect();
+  const auto sINGREDIENTS = dreamor::makeSet<cIngredient>(kIngredients).collect();
+  const auto sCOCKTAILS = dreamor::makeSet<cCocktail>(all_cocktails).collect();
   const auto sRECIPE =
-      dreamor::makeSet<CocktailCol, IngredientCol>(all_cocktails, ingredients_of)
+      dreamor::makeSet<cCocktail, cIngredient>(all_cocktails, ingredients_of)
           .collect();
 
   // var Buy {i in INGREDIENTS} integer, >= (if i in EXISTING then 1),
   //                                     <= (if i in UNAVAILABLE then 0 else 1);
-  const auto already_have = [&](IngredientCol i) {
+  const auto already_have = [&](cIngredient i) {
     return existing_ingredients.contains(i.get()) ? 1.0 : 0.0;
   };
-  const auto can_get = [&](IngredientCol i) {
+  const auto can_get = [&](cIngredient i) {
     return unavailable_ingredients.contains(i.get()) ? 0.0 : 1.0;
   };
   // var Make {c in COCKTAILS} integer, >= (if c in REQUIRED then 1),
   //                                   <= (if c in BLOCKED then 0 else 1);
-  const auto required = [&](CocktailCol c) {
+  const auto required = [&](cCocktail c) {
     return required_cocktails.contains(c->name) ? 1.0 : 0.0;
   };
-  const auto allowed = [&](CocktailCol c) {
+  const auto allowed = [&](cCocktail c) {
     return blocked_cocktails.contains(c->name) ? 0.0 : 1.0;
   };
 
   math_opt::Model model("Cocktail hour");
-  const dreamor::mathopt::VarTable<IngredientCol> vBuy{
+  const dreamor::mathopt::VarTable<cIngredient> vBuy{
       model, sINGREDIENTS, already_have, can_get, /*is_integer=*/true, "Buy"};
-  const dreamor::mathopt::VarTable<CocktailCol> vMake{
+  const dreamor::mathopt::VarTable<cCocktail> vMake{
       model, sCOCKTAILS, required, allowed, /*is_integer=*/true, "Make"};
 
   // subject to Budget: sum {i in INGREDIENTS} Buy[i] <= max_new + card(EXISTING);
@@ -298,12 +298,12 @@ absl::StatusOr<Menu> SolveForMenu(
   Menu menu;
   for (const auto& [row, bought] : vBuy.solution(result)) {
     if (bought > 0.5) {
-      menu.ingredients.emplace_back(std::get<IngredientCol>(row).get());
+      menu.ingredients.emplace_back(std::get<cIngredient>(row).get());
     }
   }
   for (const auto& [row, made] : vMake.solution(result)) {
     if (made > 0.5) {
-      menu.cocktails.push_back(*std::get<CocktailCol>(row).get());
+      menu.cocktails.push_back(*std::get<cCocktail>(row).get());
     }
   }
   return menu;

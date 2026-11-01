@@ -21,10 +21,10 @@
 // One decision variable of a mathematical model, defined over an index set - the C++
 // counterpart of `var Flow {ARCS} >= 0, <= cap[i,j];`:
 //
-//     const auto sARCS = makeSet<FromCol, ToCol>(Nodes, Nodes).where(reachable).collect();
+//     const auto sARCS = makeSet<cFrom, cTo>(Nodes, Nodes).where(reachable).collect();
 //
-//     const VarTable<FromCol, ToCol> vUse{env, sARCS, 0, 1, ILOBOOL, "Use"};
-//     const VarTable<FromCol, ToCol> vFlow{env, sARCS, 0, [](FromCol i, ToCol j) { return cap(i, j); },
+//     const VarTable<cFrom, cTo> vUse{env, sARCS, 0, 1, ILOBOOL, "Use"};
+//     const VarTable<cFrom, cTo> vFlow{env, sARCS, 0, [](cFrom i, cTo j) { return cap(i, j); },
 //                                          ILOFLOAT, "Flow"};
 //
 // It is built once, from its set, and its structure never changes: which index tuples
@@ -33,7 +33,7 @@
 // tighten a bound with vFlow(row).setUB(0) as usual.
 //
 // lb and ub are each a number or a callable over the set's columns, under the same rule as
-// where(): `[](OrderCol o) { return o->quantity(); }`. Names come out as
+// where(): `[](cOrder o) { return o->quantity(); }`. Names come out as
 // "<name>_<key0>_<key1>...", using keyName() where provided; a null name leaves the
 // variables unnamed. VarTable(semiContinuous, env, set, sclb, ub, ...) makes semi-
 // continuous variables instead.
@@ -69,7 +69,7 @@
 //     sumOf(env, sASSIGN, term).build()                    -> IloExpr
 //     sumOf(env, sASSIGN, term).where(p).where(q).build()  -> IloExpr, over rows where p AND q
 //     sumOf(env, sASSIGN, term).split(p1, p2, p3).build()  -> std::array<IloExpr, 3>
-//     sumOf<MachineCol>(env, machines, term).build()       -> IloExpr, over a plain container
+//     sumOf<cMachine>(env, machines, term).build()       -> IloExpr, over a plain container
 //
 // where() narrows, exactly as makeSet's does. split() is the other thing: one sum per
 // predicate, sharing a single traversal - for a set several constraints read differently.
@@ -78,8 +78,8 @@
 // ROWS is an index set - a range of column tuples. The term and every predicate name their
 // columns in their own parameter list, the same way makeSet's callables do:
 //
-//     const auto is_early = [](ItemCol i) { return i->dueDate() < 100; };
-//     const auto weighted_assign = [&vAssign](MachineCol m, ItemCol i) { return cost(m, i) * vAssign(m, i); };
+//     const auto is_early = [](cItem i) { return i->dueDate() < 100; };
+//     const auto weighted_assign = [&vAssign](cMachine m, cItem i) { return cost(m, i) * vAssign(m, i); };
 //     sumOf(env, sASSIGN, weighted_assign).where(is_early).build();
 //
 // So parameter order is free, and a callable takes only the columns it needs. term() runs

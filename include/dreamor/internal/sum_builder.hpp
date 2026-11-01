@@ -404,12 +404,12 @@ class UnbuiltSum {
 // A temporary container is not: views::all owns it, and an owning view cannot be copied, so
 // where() would have nothing to chain from.
 // One explicit column names a plain container's column in place, the way makeSet does:
-//     sumOf<MachineCol>(env, machines, cost)      =  sum {m in MACHINES} cost(m)
+//     sumOf<cMachine>(env, machines, cost)      =  sum {m in MACHINES} cost(m)
 // No column types means the rows are already an index set.
 // sum {m in MACHINES} names both its index and its set, so a plain container takes one column
 // type, exactly as in makeSet. An index set already carries its own, so it takes none:
 //
-//     sum {m in MACHINES} cost(m)         sumOf<MachineCol>(env, machines, cost)
+//     sum {m in MACHINES} cost(m)         sumOf<cMachine>(env, machines, cost)
 //     sum {(m,i) in ASSIGN} cost(m,i)     sumOf(env, sASSIGN, cost)
 //
 // One column at most - a container is one column. For more, build the set with makeSet; a
@@ -427,30 +427,30 @@ template <typename... Columns, typename MakeZero, std::ranges::input_range Rows,
 
   if constexpr (sizeof...(Columns) == 1) {
     static_assert((is_column<Columns> && ...),
-                  "Name the column: sumOf<MachineCol>(env, machines, cost), not "
+                  "Name the column: sumOf<cMachine>(env, machines, cost), not "
                   "sumOf<const Machine*>(env, machines, cost). Declare it once with "
-                  "`using MachineCol = Col<const Machine*, \"machine\">;`.");
+                  "`using cMachine = Col<const Machine*, \"machine\">;`.");
     static_assert(!IsTuple<Element>::value,
                   "These rows already are an index set, and it brings its own column types: "
-                  "sumOf(env, ASSIGN, term), not sumOf<OrderCol>(env, ASSIGN, term).");
+                  "sumOf(env, ASSIGN, term), not sumOf<cOrder>(env, ASSIGN, term).");
     return makeSum(std::move(zero), namedAsOneColumn<Columns...>(std::forward<Rows>(rows)), std::forward<Term>(term));
   } else {
     static_assert(IsTuple<Element>::value,
                   "sumOf takes an index set: a range of column tuples, as makeSet(...)."
                   "collect() returns. To sum over a plain container, name its column: "
-                  "sumOf<MachineCol>(env, machines, cost).");
+                  "sumOf<cMachine>(env, machines, cost).");
     if constexpr (IsTuple<Element>::value) {
       static_assert(allElementsAreColumns<Element>(std::make_index_sequence<std::tuple_size_v<Element>>{}),
                     "These rows are tuples of plain values, not of named columns. Build the "
-                    "set with makeSet<MachineCol, ItemCol>(...), so the term and the predicates "
+                    "set with makeSet<cMachine, cItem>(...), so the term and the predicates "
                     "can name what they read.");
     }
     using Held = decltype(holdTerm(std::forward<Term>(term)));
     checkColumnCallable<Held, Element>();
     auto view = std::views::all(std::forward<Rows>(rows));
     static_assert(std::copy_constructible<decltype(view)>,
-                  "Bind the set to a variable first - `const auto sASSIGN = makeSet<MachineCol, "
-                  "ItemCol>(machines, items).collect();` - then sumOf(env, sASSIGN, term). A "
+                  "Bind the set to a variable first - `const auto sASSIGN = makeSet<cMachine, "
+                  "cItem>(machines, items).collect();` - then sumOf(env, sASSIGN, term). A "
                   "temporary container is held by an owning view, which cannot be copied.");
     return UnbuiltSum<decltype(view), Held, MakeZero>{
         std::move(zero),

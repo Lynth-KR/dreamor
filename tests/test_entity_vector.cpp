@@ -37,8 +37,8 @@ inline auto primaryKey(const Route& r) {
 
 }  // namespace
 
-using MachineCol = dreamor::Col<const Machine*, "machine">;
-using PeriodCol  = dreamor::Col<std::size_t, "period">;
+using cMachine = dreamor::Col<const Machine*, "machine">;
+using cPeriod  = dreamor::Col<std::size_t, "period">;
 
 static_assert(dreamor::Entity<Machine> && dreamor::Entity<Route> && !dreamor::Entity<int>);
 static_assert(!std::is_copy_constructible_v<dreamor::EntityVector<Machine>> &&
@@ -114,11 +114,11 @@ int main() try {
   two.emplace("B", 2.0);
   two.freeze();
   const std::vector<std::size_t> periods{1, 2, 3};
-  const auto sRUN = dreamor::makeSet<MachineCol, PeriodCol>(two, periods).collect();
-  DREAMOR_CHECK(sRUN.size() == 6 && std::get<MachineCol>(*sRUN.begin()).get() == &two.front());
+  const auto sRUN = dreamor::makeSet<cMachine, cPeriod>(two, periods).collect();
+  DREAMOR_CHECK(sRUN.size() == 6 && std::get<cMachine>(*sRUN.begin()).get() == &two.front());
   IloEnv env;
-  const dreamor::concert::VarTable<MachineCol, PeriodCol> vRun{env, sRUN, 0, 1, ILOFLOAT, "run"};
-  DREAMOR_CHECK(std::string{vRun(MachineCol{&two.back()}, PeriodCol{3}).getName()} == "run_B_3");
+  const dreamor::concert::VarTable<cMachine, cPeriod> vRun{env, sRUN, 0, 1, ILOFLOAT, "run"};
+  DREAMOR_CHECK(std::string{vRun(cMachine{&two.back()}, cPeriod{3}).getName()} == "run_B_3");
   env.end();
   return report("entity_vector");
 } catch (...) { return ::uncaught(); }

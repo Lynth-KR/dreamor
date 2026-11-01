@@ -109,7 +109,7 @@ struct PredicatePlacement<std::tuple<Columns...>, ElemTuple> {
 template <typename Pred, typename ElemTuple>
 using PlacementOf = PredicatePlacement<typename ColumnsOfPredicate<Pred>::type, ElemTuple>;
 
-// Placed the same way a predicate is, so ITEMS[m] is `[](MachineCol m)` wherever the machine
+// Placed the same way a predicate is, so ITEMS[m] is `[](cMachine m)` wherever the machine
 // sits. Its columns are also its ordering constraint: the source cannot be visited until
 // every one of them is bound.
 template <typename Source, typename ElemTuple>

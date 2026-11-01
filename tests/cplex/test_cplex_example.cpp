@@ -58,9 +58,9 @@ int main() try {
         const auto yieldPlan = m.vYield.solution(cplex);
         const auto stockPlan = m.vStock.solution(cplex);
 
-        const auto producedByItemPeriod = m.sPRODUCE.groupBy<ItemCol, PeriodCol>();
+        const auto producedByItemPeriod = m.sPRODUCE.groupBy<cItem, cPeriod>();
         for (const auto& [i, t] : m.sSTOCK) {
-          double netFlow = (t.get() > 0 ? stockPlan(i, PeriodCol{t.get() - 1}) : 0.0) - i->demand[t.get()];
+          double netFlow = (t.get() > 0 ? stockPlan(i, cPeriod{t.get() - 1}) : 0.0) - i->demand[t.get()];
           for (const auto& row : producedByItemPeriod.slice(i, t)) {
             netFlow += yieldPlan(row);
           }

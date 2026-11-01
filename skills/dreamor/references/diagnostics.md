@@ -9,13 +9,13 @@ last column.
 
 | Message contains | Cause | Fix | Case |
 |---|---|---|---|
-| `Look a variable or value up by the table's key columns` | `VarTable`/`ValueTable` lookup with bare values, a wrong column, wrong order, or a missing key column | Pass the table's key columns in declaration order, or one row; wrap raw values (`PeriodCol{2}`) | `vartable_call_*`, `valuetable_call_raw_values` |
+| `Look a variable or value up by the table's key columns` | `VarTable`/`ValueTable` lookup with bare values, a wrong column, wrong order, or a missing key column | Pass the table's key columns in declaration order, or one row; wrap raw values (`cPeriod{2}`) | `vartable_call_*`, `valuetable_call_raw_values` |
 | `without braces` | `slice({i, t})` | `slice(i, t)` | `grouped_slice_braced` |
 | `Slice by this groupBy's key columns` | `slice(2, 1)`, or a column that is not a group key | Pass the `groupBy` key columns in order | `grouped_slice_raw_values`, `grouped_slice_wrong_key` |
 | `Name the Grouped first` | `S.groupBy<C>().slice(c)` | `const auto byC = S.groupBy<C>();` then `byC.slice(c)` | `grouped_slice_needs_a_name` |
 | `ordered<Columns...>() orders within each group` | `S.ordered<A>().first()`, `at()`, `last()` | `ord()`, `isFirst()`, `isLast()` within a group, or `S.ordered()` for the whole set | `ordered_within_has_no_first` |
 | `Name the Ordered first` | `S.ordered().prev(t)` | `const auto orderedT = S.ordered();` then `orderedT.prev(t)` | `ordered_needs_a_name` |
-| `Name an element of the ordered set` | `orderedT.prev(1)` | `orderedT.prev(PeriodCol{1})` | `ordered_prev_raw_value` |
+| `Name an element of the ordered set` | `orderedT.prev(1)` | `orderedT.prev(cPeriod{1})` | `ordered_prev_raw_value` |
 | `Ask membership` | `in_ij(1, 2)` | Pass columns or a row | `membership_raw_values` |
 | `EntityVector<T> holds each entity once by its primary key` | `EntityVector<T>` for a `T` with no `primaryKey(const T&)` | Define `primaryKey(const T&)` next to `T`, returning its id, code, or a `std::tuple` of them | `entity_vector_needs_primary_key` |
 | `Take the columns themselves` | A callable takes `int` / `const T*` instead of the column type | Make the parameter the column type | `where_takes_columns`, `bound_takes_columns`, `sumof_term_takes_values` |
@@ -23,14 +23,14 @@ last column.
 | `Cannot read this predicate's parameter list` | A generic lambda as a predicate | Column-typed parameters, or specialize `dreamor::PredicateColumns` | `where_is_not_generic` |
 | `names a column these rows do not have` | A term or bound reads a column absent from the rows | Read only existing columns, or derive a set that has them | `sumof_term_reads_missing_column`, `vartable_bound_reads_missing_column` |
 | `names a column this set does not have` | A `where` predicate reads a column absent from the set | Same | `where_reads_missing_column` |
-| `select(expr) returns the new row's columns` | `expr` returns bare values (`std::tuple{j.get(), i.get()}`), or an empty tuple | Return one `Col` or a `std::tuple` of them: `std::tuple<FromCol, ToCol>{j, i}` | `select_returns_values` |
-| `select(expr) returns the same column twice` | `std::tuple<ICol, ICol>{...}` | Give each column of the new row its own type | `select_returns_column_twice` |
+| `select(expr) returns the new row's columns` | `expr` returns bare values (`std::tuple{j.get(), i.get()}`), or an empty tuple | Return one `Col` or a `std::tuple` of them: `std::tuple<cFrom, cTo>{j, i}` | `select_returns_values` |
+| `select(expr) returns the same column twice` | `std::tuple<cI, cI>{...}` | Give each column of the new row its own type | `select_returns_column_twice` |
 | `select(expr) returns two columns with the same name` | Two returned columns of different value types share a name | Rename one column type | `select_returns_same_name` |
 | `The same column type appears twice` | Two columns of one type: a column named in `makeSet<...>` that a set source also has, or a `Col` type declared twice | Give each column its own type; to join two sets on a column, pass both as set sources | `makeset_column_named_twice` |
-| `This callable takes the same column twice` | A predicate, term, bound or `select(expr)` names one column in two parameters (`[](FromCol a, FromCol b)`) | Give each parameter its own column, or take the column once | `where_takes_column_twice`, `sumof_term_takes_column_twice` |
+| `This callable takes the same column twice` | A predicate, term, bound or `select(expr)` names one column in two parameters (`[](cFrom a, cFrom b)`) | Give each parameter its own column, or take the column once | `where_takes_column_twice`, `sumof_term_takes_column_twice` |
 | `A dependent column takes the same column twice` | `makeSet` dependent source with a repeated column parameter | Same | `makeset_dependent_takes_column_twice` |
-| `names one key column twice` | `VarTable<ICol, ICol>` | Give each key its own column type | `vartable_key_twice` |
-| `No column of this set has that name` | `groupBy<KCol>()` / `select<KCol>()` with a foreign column | Use the set's columns | `groupby_missing_column`, `select_missing_column` |
+| `names one key column twice` | `VarTable<cI, cI>` | Give each key its own column type | `vartable_key_twice` |
+| `No column of this set has that name` | `groupBy<cK>()` / `select<cK>()` with a foreign column | Use the set's columns | `groupby_missing_column`, `select_missing_column` |
 | `A VarTable is built on a set with exactly its key columns` | The table's keys differ from the set's columns or their order | Match the table to the set, or `select<...>()` to reorder | `vartable_key_order_differs_from_set` |
 | `A ValueTable is built on a set with exactly its key columns` | A ValueTable of data whose keys differ from the set's columns or their order | Match the table to the set, or `select<...>()` to reorder | `valuetable_key_order_differs_from_set` |
 | `Scale the sum, not the table` | `100 * vYield` or `vYield * 100` | `100 * sumOf(env, rows, vYield).build()`, or multiply inside a term | `vartable_scaled`, `mathopt/vartable_scaled`, `highs/vartable_scaled` |

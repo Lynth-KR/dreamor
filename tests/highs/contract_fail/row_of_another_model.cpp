@@ -6,8 +6,8 @@ int main() try {
   hs::HighsEnv first;
   hs::HighsEnv second;
   const auto set = sI();
-  const hs::VarTable<ICol> x{first, set, 0, 1};
-  return hs::addConstr(second, x(ICol{1}) <= 1).index();
+  const hs::VarTable<cI> x{first, set, 0, 1};
+  return hs::addConstr(second, x(cI{1}) <= 1).index();
 } catch (...) {
   return 1;  // no message: the runner reports it
 }

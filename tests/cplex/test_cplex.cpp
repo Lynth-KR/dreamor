@@ -16,8 +16,8 @@
 #include "dreamor/concert.hpp"
 #include "dreamor/index_set.hpp"
 #include "float_compare.hpp"
-using ICol = dreamor::Col<std::size_t, "i">;
-using JCol = dreamor::Col<std::size_t, "j">;
+using cI = dreamor::Col<std::size_t, "i">;
+using cJ = dreamor::Col<std::size_t, "j">;
 
 int main() try {
   IloEnv env;
@@ -25,22 +25,22 @@ int main() try {
     const std::vector<std::size_t> I{1, 2, 3, 4};
     const std::vector<std::size_t> J{10, 20, 30};
     const auto IJ =
-        dreamor::makeSet<ICol, JCol>(I, J).where([](ICol i, JCol j) { return (i.get() + j.get()) % 3 != 0; }).collect();
-    const auto II = dreamor::makeSet<ICol>(I).collect();
+        dreamor::makeSet<cI, cJ>(I, J).where([](cI i, cJ j) { return (i.get() + j.get()) % 3 != 0; }).collect();
+    const auto II = dreamor::makeSet<cI>(I).collect();
 
-    const dreamor::concert::VarTable<ICol, JCol> x{env, IJ, 0, 1, ILOBOOL, "x"};
-    const dreamor::concert::VarTable<ICol> slack{
-        env, II, 0, [](ICol i) { return static_cast<double>(i.get()); }, ILOFLOAT, "s"};
-    const dreamor::concert::VarTable<ICol, JCol> sc{dreamor::concert::semiContinuous, env, IJ, 2, 5, ILOFLOAT, "sc"};
-    DREAMOR_CHECK(exactlyEqual(slack(ICol{3}).getUB(), 3));
+    const dreamor::concert::VarTable<cI, cJ> x{env, IJ, 0, 1, ILOBOOL, "x"};
+    const dreamor::concert::VarTable<cI> slack{
+        env, II, 0, [](cI i) { return static_cast<double>(i.get()); }, ILOFLOAT, "s"};
+    const dreamor::concert::VarTable<cI, cJ> sc{dreamor::concert::semiContinuous, env, IJ, 2, 5, ILOFLOAT, "sc"};
+    DREAMOR_CHECK(exactlyEqual(slack(cI{3}).getUB(), 3));
 
     const IloModel model(env);
-    const auto xv  = [&x](ICol i, JCol j) { return x(i, j); };
-    const auto byI = IJ.groupBy<ICol>();
+    const auto xv  = [&x](cI i, cJ j) { return x(i, j); };
+    const auto byI = IJ.groupBy<cI>();
     for (const auto& [i, rows] : byI) {
       model.add(dreamor::concert::sumOf(env, rows, xv).build() <= 1);
     }
-    const auto byJ = IJ.groupBy<JCol>();
+    const auto byJ = IJ.groupBy<cJ>();
     for (const auto& [j, rows] : byJ) {
       model.add(dreamor::concert::sumOf(env, rows, xv).build() <= 2);
     }
@@ -51,11 +51,11 @@ int main() try {
       model.add(v >= 0.5 * dreamor::concert::sumOf(env, byI.slice(row), xv).build());
     }
 
-    IloExpr obj = dreamor::concert::sumOf(env, IJ, [&x](ICol i, JCol j) {
+    IloExpr obj = dreamor::concert::sumOf(env, IJ, [&x](cI i, cJ j) {
                     return static_cast<double>(((i.get() * 7) + j.get()) % 11) * x(i, j);
                   }).build();
-    obj += dreamor::concert::sumOf(env, II, [&slack](ICol i) { return -1.0 * slack(i); }).build();
-    obj += dreamor::concert::sumOf(env, IJ, [&sc](ICol i, JCol j) { return 0.01 * sc(i, j); }).build();
+    obj += dreamor::concert::sumOf(env, II, [&slack](cI i) { return -1.0 * slack(i); }).build();
+    obj += dreamor::concert::sumOf(env, IJ, [&sc](cI i, cJ j) { return 0.01 * sc(i, j); }).build();
     model.add(IloMaximize(env, obj));
     obj.end();
 
@@ -93,8 +93,8 @@ int main() try {
 
     // a quadratic objective built by sumOf: integer least squares, an MIQP
     const IloModel squares(env);
-    const dreamor::concert::VarTable<ICol> fit{env, II, -10, 10, ILOINT, "Fit"};
-    const auto off_target = [&fit](ICol i) {
+    const dreamor::concert::VarTable<cI> fit{env, II, -10, 10, ILOINT, "Fit"};
+    const auto off_target = [&fit](cI i) {
       const double target = 1.4 * static_cast<double>(i.get());
       return (fit(i) - target) * (fit(i) - target);
     };
@@ -106,8 +106,8 @@ int main() try {
     DREAMOR_CHECK(leastSquares.solve());
     DREAMOR_CHECK(leastSquares.getStatus() == IloAlgorithm::Optimal);
     const auto fitPlan = fit.solution(leastSquares);
-    DREAMOR_CHECK(std::abs(fitPlan(ICol{1}) - 1) < 1e-6 && std::abs(fitPlan(ICol{2}) - 3) < 1e-6 &&
-                  std::abs(fitPlan(ICol{3}) - 4) < 1e-6 && std::abs(fitPlan(ICol{4}) - 6) < 1e-6);
+    DREAMOR_CHECK(std::abs(fitPlan(cI{1}) - 1) < 1e-6 && std::abs(fitPlan(cI{2}) - 3) < 1e-6 &&
+                  std::abs(fitPlan(cI{3}) - 4) < 1e-6 && std::abs(fitPlan(cI{4}) - 6) < 1e-6);
     leastSquares.end();
   } catch (const IloException& e) {
     std::fprintf(stderr, "IloException: %s\n", e.getMessage());

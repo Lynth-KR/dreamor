@@ -57,8 +57,8 @@ The port declares the sets, then states each part of the model once:
 
 ```cpp
 const auto sRECIPE =
-    dreamor::makeSet<CocktailCol, IngredientCol>(all_cocktails, ingredients_of).collect();
-const dreamor::mathopt::VarTable<CocktailCol> vMake{
+    dreamor::makeSet<cCocktail, cIngredient>(all_cocktails, ingredients_of).collect();
+const dreamor::mathopt::VarTable<cCocktail> vMake{
     model, sCOCKTAILS, required, allowed, /*is_integer=*/true, "Make"};
 
 for (const auto& [c, i] : sRECIPE) {
@@ -117,10 +117,10 @@ as a set over that set:
 ```cpp
 // set START := {j in JOBS, s in release[j]..T-1};
 // set RUNNING := {(j,s) in START, t in s..min(s+p[j], T)-1};
-const auto sSTART = dreamor::makeSet<JobCol, StartCol>(job_ids, starts_of).collect();
-const auto sRUNNING = dreamor::makeSet<TimeCol>(sSTART, running_at).collect();
+const auto sSTART = dreamor::makeSet<cJob, cStart>(job_ids, starts_of).collect();
+const auto sRUNNING = dreamor::makeSet<cTime>(sSTART, running_at).collect();
 ...
-for (const auto& [t, rows] : sRUNNING.groupBy<TimeCol>()) {
+for (const auto& [t, rows] : sRUNNING.groupBy<cTime>()) {
   model.AddLinearConstraint(dreamor::mathopt::sumOf(rows, vStart).build() <= 1.0);
 }
 ```
@@ -163,12 +163,12 @@ for (int arc_index = 0; arc_index < graph.arcs.size(); ++arc_index) {
 The port groups the arcs by tail and by head, and states the balance per node:
 
 ```cpp
-const auto outOf = sARC_ENDS.groupBy<TailCol>();
-const auto into = sARC_ENDS.groupBy<HeadCol>();
+const auto outOf = sARC_ENDS.groupBy<cTail>();
+const auto into = sARC_ENDS.groupBy<cHead>();
 for (const auto& [n] : sNODES) {
   model->AddLinearConstraint(
-      dreamor::mathopt::sumOf(outOf.slice(TailCol{n.get()}), vFlow).build() -
-          dreamor::mathopt::sumOf(into.slice(HeadCol{n.get()}), vFlow).build() == rhs);
+      dreamor::mathopt::sumOf(outOf.slice(cTail{n.get()}), vFlow).build() -
+          dreamor::mathopt::sumOf(into.slice(cHead{n.get()}), vFlow).build() == rhs);
 }
 ```
 

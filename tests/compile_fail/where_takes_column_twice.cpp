@@ -2,5 +2,5 @@
 // expect: This callable takes the same column twice
 #include "prelude.hpp"
 int main() {
-  (void)IJ().where([](ICol a, ICol b) { return a.get() < b.get(); });
+  (void)IJ().where([](cI a, cI b) { return a.get() < b.get(); });
 }

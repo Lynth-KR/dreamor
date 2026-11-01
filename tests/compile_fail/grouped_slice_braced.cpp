@@ -3,6 +3,6 @@
 #include "prelude.hpp"
 int main() {
   const auto sIJ  = IJ();
-  const auto byIJ = sIJ.groupBy<ICol, JCol>();
-  (void)byIJ.slice({ICol{2}, JCol{1}});
+  const auto byIJ = sIJ.groupBy<cI, cJ>();
+  (void)byIJ.slice({cI{2}, cJ{1}});
 }

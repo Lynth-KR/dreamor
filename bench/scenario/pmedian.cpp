@@ -56,8 +56,8 @@ std::uint32_t keyName(const Location* l) {
 std::uint32_t keyName(const Customer* c) {
   return c->id;
 }
-using LocationCol = dreamor::Col<const Location*, "location">;
-using CustomerCol = dreamor::Col<const Customer*, "customer">;
+using cLocation = dreamor::Col<const Location*, "location">;
+using cCustomer = dreamor::Col<const Customer*, "customer">;
 
 double distance(std::uint32_t location, std::uint32_t at) {
   return location > at ? location - at : at - location;
@@ -89,26 +89,26 @@ Instance makeInstance(std::size_t l, std::size_t c, std::size_t p, std::uint64_t
 void runDreamor(const Instance& in, Result& r) {
   using dreamor::mathopt::sumOf;
   math_opt::Model model;
-  dreamor::SetOf<LocationCol> sLOCATIONS;
-  dreamor::SetOf<CustomerCol> sCUSTOMERS;
-  dreamor::SetOf<LocationCol, CustomerCol> sASSIGN;
+  dreamor::SetOf<cLocation> sLOCATIONS;
+  dreamor::SetOf<cCustomer> sCUSTOMERS;
+  dreamor::SetOf<cLocation, cCustomer> sASSIGN;
   r.measure("sets", [&] {
-    sLOCATIONS = dreamor::makeSet<LocationCol>(in.locations).collect();
-    sCUSTOMERS = dreamor::makeSet<CustomerCol>(in.customers).collect();
-    sASSIGN    = dreamor::makeSet<LocationCol, CustomerCol>(in.locations, in.customers).collect();
+    sLOCATIONS = dreamor::makeSet<cLocation>(in.locations).collect();
+    sCUSTOMERS = dreamor::makeSet<cCustomer>(in.customers).collect();
+    sASSIGN    = dreamor::makeSet<cLocation, cCustomer>(in.locations, in.customers).collect();
   });
-  std::optional<dreamor::mathopt::VarTable<LocationCol>> vY;
-  std::optional<dreamor::mathopt::VarTable<LocationCol, CustomerCol>> vX;
+  std::optional<dreamor::mathopt::VarTable<cLocation>> vY;
+  std::optional<dreamor::mathopt::VarTable<cLocation, cCustomer>> vX;
   r.measure("vars", [&] {
     vY.emplace(model, sLOCATIONS, 0, 1, true);
     vX.emplace(model, sASSIGN, 0, 1);
   });
   r.measure("objective", [&] {
     model.Minimize(
-        sumOf(sASSIGN, [&](LocationCol l, CustomerCol c) { return distance(l->id, c->at) * (*vX)(l, c); }).build());
+        sumOf(sASSIGN, [&](cLocation l, cCustomer c) { return distance(l->id, c->at) * (*vX)(l, c); }).build());
   });
   r.measure("assign", [&] {
-    const auto assignedTo = sASSIGN.groupBy<CustomerCol>();
+    const auto assignedTo = sASSIGN.groupBy<cCustomer>();
     for (const auto& [customer] : sCUSTOMERS) {
       model.AddLinearConstraint(sumOf(assignedTo.slice(customer), *vX).build() == 1.0);
     }
@@ -180,28 +180,28 @@ void runDreamor(const Instance& in, Result& r) {
   using dreamor::concert::sumOf;
   IloEnv env;
   IloModel model(env);
-  dreamor::SetOf<LocationCol> sLOCATIONS;
-  dreamor::SetOf<CustomerCol> sCUSTOMERS;
-  dreamor::SetOf<LocationCol, CustomerCol> sASSIGN;
+  dreamor::SetOf<cLocation> sLOCATIONS;
+  dreamor::SetOf<cCustomer> sCUSTOMERS;
+  dreamor::SetOf<cLocation, cCustomer> sASSIGN;
   r.measure("sets", [&] {
-    sLOCATIONS = dreamor::makeSet<LocationCol>(in.locations).collect();
-    sCUSTOMERS = dreamor::makeSet<CustomerCol>(in.customers).collect();
-    sASSIGN    = dreamor::makeSet<LocationCol, CustomerCol>(in.locations, in.customers).collect();
+    sLOCATIONS = dreamor::makeSet<cLocation>(in.locations).collect();
+    sCUSTOMERS = dreamor::makeSet<cCustomer>(in.customers).collect();
+    sASSIGN    = dreamor::makeSet<cLocation, cCustomer>(in.locations, in.customers).collect();
   });
-  std::optional<dreamor::concert::VarTable<LocationCol>> vY;
-  std::optional<dreamor::concert::VarTable<LocationCol, CustomerCol>> vX;
+  std::optional<dreamor::concert::VarTable<cLocation>> vY;
+  std::optional<dreamor::concert::VarTable<cLocation, cCustomer>> vX;
   r.measure("vars", [&] {
     vY.emplace(env, sLOCATIONS, 0, 1, ILOBOOL);
     vX.emplace(env, sASSIGN, 0, 1, ILOFLOAT);
   });
   r.measure("objective", [&] {
     IloExpr objective =
-        sumOf(env, sASSIGN, [&](LocationCol l, CustomerCol c) { return distance(l->id, c->at) * (*vX)(l, c); }).build();
+        sumOf(env, sASSIGN, [&](cLocation l, cCustomer c) { return distance(l->id, c->at) * (*vX)(l, c); }).build();
     model.add(IloMinimize(env, objective));
     objective.end();
   });
   r.measure("assign", [&] {
-    const auto assignedTo = sASSIGN.groupBy<CustomerCol>();
+    const auto assignedTo = sASSIGN.groupBy<cCustomer>();
     for (const auto& [customer] : sCUSTOMERS) {
       IloExpr assigned = sumOf(env, assignedTo.slice(customer), *vX).build();
       model.add(assigned == 1);

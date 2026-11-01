@@ -4,6 +4,6 @@
 int main() {
   math_opt::Model model;
   const auto sIJ = IJ();
-  const dreamor::mathopt::VarTable<ICol, JCol> x{model, sIJ, 0, 1};
+  const dreamor::mathopt::VarTable<cI, cJ> x{model, sIJ, 0, 1};
   model.AddLinearConstraint(dreamor::mathopt::sumOf(sIJ, x) <= 1);
 }

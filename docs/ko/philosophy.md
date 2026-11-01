@@ -8,7 +8,7 @@ dreamor는 일부러 작게 만든 라이브러리입니다. 이 문서는 dream
 
 ## 설계 원칙
 
-- **열은 이름으로 부릅니다.** 튜플의 몇 번째 자리인지가 아니라 `MachineCol`, `PeriodCol` 같은 열 타입으로
+- **열은 이름으로 부릅니다.** 튜플의 몇 번째 자리인지가 아니라 `cMachine`, `cPeriod` 같은 열 타입으로
   가리킵니다. 술어, 범위 함수, 합의 항(term)은 모두 **자기가 읽는 열을 파라미터로 받는** callable입니다.
 - **집합은 사실입니다.** 한 번 만든 집합은 바꿀 수 없습니다(읽기 전용). 다른 집합이 필요하면
   `where`, `select` 같은 파생으로 새로 만듭니다.
@@ -45,7 +45,7 @@ dreamor는 일부러 작게 만든 라이브러리입니다. 이 문서는 dream
 
 | 대상 | 모양 | 예 | AMPL |
 |---|---|---|---|
-| 열 타입 | PascalCase + `Col` | `MachineCol`, `PeriodCol` | |
+| 열 타입 | PascalCase + `Col` | `cMachine`, `cPeriod` | |
 | 집합 (`SetOf`) | `s` + SCREAMING_SNAKE_CASE | `sPRODUCE`, `sPEAK_PRODUCE` | `PRODUCE` |
 | 변수족 (`VarTable`) | `v` + PascalCase | `vYield`, `vSetup`, `vStock` | `Yield` |
 
@@ -70,7 +70,7 @@ callable을 snake_case(`items_of`, `machine_usage`), 나머지를 camelCase(`tot
 9. `operator()`가 템플릿이라 파라미터로 열을 알 수 없는 함수 객체는 `dreamor::PredicateColumns`를 특수화해서
    읽는 열을 선언하면 술어로 쓸 수 있습니다.
    ```cpp
-   template <> struct dreamor::PredicateColumns<MyFilter> { using type = std::tuple<MachineCol, PeriodCol>; };
+   template <> struct dreamor::PredicateColumns<MyFilter> { using type = std::tuple<cMachine, cPeriod>; };
    ```
 10. 제네릭 코드(`[](const auto& sANY)`)에서 `sANY.select<A>()`처럼 열을 템플릿 인자로 받는 멤버를 부르면
    `sANY.template select<A>()`가 필요합니다. 집합을 구체 타입으로 다루는 권장 방식에서는 생기지 않습니다.

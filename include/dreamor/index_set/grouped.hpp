@@ -147,7 +147,7 @@ struct IsRowSlice<RowSlice<Tup>> : std::true_type {};
 // One group of a Grouped: its key and its rows. It destructures flat - the key's columns
 // first, the rows last - so a loop names what it reads:
 //
-//     for (const auto& [machine, period, rows] : sPRODUCE.groupBy<MachineCol, PeriodCol>()) ...
+//     for (const auto& [machine, period, rows] : sPRODUCE.groupBy<cMachine, cPeriod>()) ...
 //
 // `key` (the whole tuple) and `tuples` are there too. The rows borrow from the Grouped,
 // like slice()'s.
@@ -295,13 +295,13 @@ class Grouped {
   [[nodiscard]] bool empty() const noexcept { return keys_.empty(); }
 
   // The accessors below borrow from this object's storage, so on an rvalue they stop with a
-  // sentence: the object has to be named first, `const auto byMachine = S.groupBy<MachineCol>();`.
+  // sentence: the object has to be named first, `const auto byMachine = S.groupBy<cMachine>();`.
   [[nodiscard]] const Key& keyAt(std::size_t group) const& { return keys_.at(group); }
   template <typename Unused = void>
   [[nodiscard]] const Key& keyAt(std::size_t /*group*/) const&& {
     static_assert(
         internal::always_false<Unused>,
-        "Name the Grouped first - const auto byMachine = S.groupBy<MachineCol>(); - slice(), at() and keyAt() hand out views into it, which would dangle once a temporary is gone. Walking it needs no name: for (... : S.groupBy<MachineCol>()) is fine.");
+        "Name the Grouped first - const auto byMachine = S.groupBy<cMachine>(); - slice(), at() and keyAt() hand out views into it, which would dangle once a temporary is gone. Walking it needs no name: for (... : S.groupBy<cMachine>()) is fine.");
     std::terminate();
   }
 
@@ -315,7 +315,7 @@ class Grouped {
   [[nodiscard]] RowSlice<Tup> at(std::size_t /*group*/) const&& {
     static_assert(
         internal::always_false<Unused>,
-        "Name the Grouped first - const auto byMachine = S.groupBy<MachineCol>(); - slice(), at() and keyAt() hand out views into it, which would dangle once a temporary is gone. Walking it needs no name: for (... : S.groupBy<MachineCol>()) is fine.");
+        "Name the Grouped first - const auto byMachine = S.groupBy<cMachine>(); - slice(), at() and keyAt() hand out views into it, which would dangle once a temporary is gone. Walking it needs no name: for (... : S.groupBy<cMachine>()) is fine.");
     std::terminate();
   }
 
@@ -335,7 +335,7 @@ class Grouped {
   RowSlice<Tup> slice(const Args&... /*key*/) const&& {
     static_assert(
         internal::always_false<Args...>,
-        "Name the Grouped first - const auto byMachine = S.groupBy<MachineCol>(); - slice(), at() and keyAt() hand out views into it, which would dangle once a temporary is gone. Walking it needs no name: for (... : S.groupBy<MachineCol>()) is fine.");
+        "Name the Grouped first - const auto byMachine = S.groupBy<cMachine>(); - slice(), at() and keyAt() hand out views into it, which would dangle once a temporary is gone. Walking it needs no name: for (... : S.groupBy<cMachine>()) is fine.");
     std::terminate();
   }
   template <typename... Args>
@@ -430,7 +430,7 @@ class Grouped {
   ::dreamor::general::FlatIndex<Key> index_;  // Key -> group number, over keys_.
 };
 
-// S.groupBy<ItemCol>() groups by the item column; S.groupBy<MachineCol, OrderCol>() by two.
+// S.groupBy<cItem>() groups by the item column; S.groupBy<cMachine, cOrder>() by two.
 template <typename Tup>
 template <typename... Columns>
 Grouped<Tup, Columns...> IndexSet<Tup>::groupBy() const {

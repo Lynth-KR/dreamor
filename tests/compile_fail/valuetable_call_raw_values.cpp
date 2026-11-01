@@ -8,7 +8,7 @@ struct Algo {
 };
 int main() {
   IloEnv env;
-  const dreamor::concert::VarTable<ICol, JCol> x{env, IJ()};
+  const dreamor::concert::VarTable<cI, cJ> x{env, IJ()};
   const auto plan = x.solution(Algo{env});
   (void)plan(2, 1);
 }

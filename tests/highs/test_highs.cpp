@@ -20,8 +20,8 @@
 
 namespace hs = dreamor::highs;
 
-using ICol = dreamor::Col<std::size_t, "i">;
-using JCol = dreamor::Col<std::size_t, "j">;
+using cI = dreamor::Col<std::size_t, "i">;
+using cJ = dreamor::Col<std::size_t, "j">;
 
 namespace {
 
@@ -72,24 +72,24 @@ static void varTable() {
   const Highs& highs = quiet(env);
   const std::vector<std::size_t> I{3, 1, 2};
   const std::vector<std::size_t> J{10, 20};
-  const auto IJ = dreamor::makeSet<ICol, JCol>(I, J).collect();
+  const auto IJ = dreamor::makeSet<cI, cJ>(I, J).collect();
 
-  static_assert(!std::is_copy_constructible_v<hs::VarTable<ICol, JCol>>);
-  static_assert(std::is_nothrow_move_constructible_v<hs::VarTable<ICol, JCol>>);
-  static_assert(!std::is_default_constructible_v<hs::VarTable<ICol, JCol>>);
+  static_assert(!std::is_copy_constructible_v<hs::VarTable<cI, cJ>>);
+  static_assert(std::is_nothrow_move_constructible_v<hs::VarTable<cI, cJ>>);
+  static_assert(!std::is_default_constructible_v<hs::VarTable<cI, cJ>>);
 
   // numbers, integer, names
-  const hs::VarTable<ICol, JCol> x{env, IJ, 0, 1, HighsVarType::kInteger, "x"};
+  const hs::VarTable<cI, cJ> x{env, IJ, 0, 1, HighsVarType::kInteger, "x"};
   DREAMOR_CHECK(x.size() == 6 && highs.getNumCol() == 6 && x.keys().begin() == IJ.begin());
-  DREAMOR_CHECK(x.contains(ICol{1}, JCol{20}) && !x.contains(ICol{9}, JCol{9}));
-  DREAMOR_CHECK_THROWS(std::out_of_range, x(ICol{9}, JCol{9}));
-  DREAMOR_CHECK_THROWS(std::out_of_range, x(std::tuple{ICol{9}, JCol{9}}));
-  DREAMOR_CHECK(colName(highs, x(ICol{1}, JCol{20}).index()) == "x_1_20");
+  DREAMOR_CHECK(x.contains(cI{1}, cJ{20}) && !x.contains(cI{9}, cJ{9}));
+  DREAMOR_CHECK_THROWS(std::out_of_range, x(cI{9}, cJ{9}));
+  DREAMOR_CHECK_THROWS(std::out_of_range, x(std::tuple{cI{9}, cJ{9}}));
+  DREAMOR_CHECK(colName(highs, x(cI{1}, cJ{20}).index()) == "x_1_20");
   const auto at = [](hs::HighsVar v) { return static_cast<std::size_t>(v.index()); };
-  DREAMOR_CHECK(exactlyEqual(highs.getLp().col_lower_[at(x(ICol{3}, JCol{10}))], 0) &&
-                exactlyEqual(highs.getLp().col_upper_[at(x(ICol{3}, JCol{10}))], 1));
-  DREAMOR_CHECK(highs.getLp().integrality_[at(x(ICol{3}, JCol{10}))] == HighsVarType::kInteger);
-  DREAMOR_CHECK(&x(ICol{3}, JCol{10}).env() == &env);
+  DREAMOR_CHECK(exactlyEqual(highs.getLp().col_lower_[at(x(cI{3}, cJ{10}))], 0) &&
+                exactlyEqual(highs.getLp().col_upper_[at(x(cI{3}, cJ{10}))], 1));
+  DREAMOR_CHECK(highs.getLp().integrality_[at(x(cI{3}, cJ{10}))] == HighsVarType::kInteger);
+  DREAMOR_CHECK(&x(cI{3}, cJ{10}).env() == &env);
 
   // iteration: (row, var) in set order, which is the column order
   std::size_t n = 0;
@@ -101,47 +101,47 @@ static void varTable() {
   DREAMOR_CHECK(n == 6);
 
   // callable bounds, continuous, and the columns follow on
-  const hs::VarTable<ICol, JCol> y{env,
-                                   IJ,
-                                   [](ICol i) { return -static_cast<double>(i.get()); },
-                                   [](ICol i, JCol j) { return i.get() * j.get(); },
-                                   HighsVarType::kContinuous,
-                                   "y"};
-  DREAMOR_CHECK(exactlyEqual(highs.getLp().col_lower_[at(y(ICol{2}, JCol{20}))], -2) &&
-                exactlyEqual(highs.getLp().col_upper_[at(y(ICol{2}, JCol{20}))], 40));
-  DREAMOR_CHECK(highs.getLp().integrality_[at(y(ICol{2}, JCol{20}))] == HighsVarType::kContinuous);
-  DREAMOR_CHECK(y(ICol{3}, JCol{10}).index() == 6);
+  const hs::VarTable<cI, cJ> y{env,
+                               IJ,
+                               [](cI i) { return -static_cast<double>(i.get()); },
+                               [](cI i, cJ j) { return i.get() * j.get(); },
+                               HighsVarType::kContinuous,
+                               "y"};
+  DREAMOR_CHECK(exactlyEqual(highs.getLp().col_lower_[at(y(cI{2}, cJ{20}))], -2) &&
+                exactlyEqual(highs.getLp().col_upper_[at(y(cI{2}, cJ{20}))], 40));
+  DREAMOR_CHECK(highs.getLp().integrality_[at(y(cI{2}, cJ{20}))] == HighsVarType::kContinuous);
+  DREAMOR_CHECK(y(cI{3}, cJ{10}).index() == 6);
 
   // defaults, unnamed
-  const hs::VarTable<ICol, JCol> z{env, IJ};
-  DREAMOR_CHECK(exactlyEqual(highs.getLp().col_lower_[at(z(ICol{3}, JCol{20}))], 0) &&
-                exactlyEqual(highs.getLp().col_upper_[at(z(ICol{3}, JCol{20}))], kHighsInf));
-  DREAMOR_CHECK(colName(highs, z(ICol{3}, JCol{20}).index()).empty());
+  const hs::VarTable<cI, cJ> z{env, IJ};
+  DREAMOR_CHECK(exactlyEqual(highs.getLp().col_lower_[at(z(cI{3}, cJ{20}))], 0) &&
+                exactlyEqual(highs.getLp().col_upper_[at(z(cI{3}, cJ{20}))], kHighsInf));
+  DREAMOR_CHECK(colName(highs, z(cI{3}, cJ{20}).index()).empty());
 
   // HiGHS's other types go through as given
-  const hs::VarTable<ICol, JCol> s{env, IJ, 2, 5, HighsVarType::kSemiContinuous};
-  DREAMOR_CHECK(highs.getLp().integrality_[at(s(ICol{1}, JCol{10}))] == HighsVarType::kSemiContinuous);
+  const hs::VarTable<cI, cJ> s{env, IJ, 2, 5, HighsVarType::kSemiContinuous};
+  DREAMOR_CHECK(highs.getLp().integrality_[at(s(cI{1}, cJ{10}))] == HighsVarType::kSemiContinuous);
 
   // an empty set adds no column
-  const auto none        = IJ.where([](ICol i) { return i.get() > 100; });
+  const auto none        = IJ.where([](cI i) { return i.get() > 100; });
   const HighsInt columns = highs.getNumCol();
-  const hs::VarTable<ICol, JCol> e{env, none, 0, 1};
+  const hs::VarTable<cI, cJ> e{env, none, 0, 1};
   DREAMOR_CHECK(e.size() == 0 && e.begin() == e.end() && highs.getNumCol() == columns);
 
   // move keeps lookups working
-  hs::VarTable<ICol, JCol> moved{env, IJ, 0, 1, HighsVarType::kContinuous, "w"};
-  const auto before = moved(ICol{1}, JCol{10});
-  const hs::VarTable<ICol, JCol> moved2{std::move(moved)};
-  DREAMOR_CHECK(moved2(ICol{1}, JCol{10}).index() == before.index());
+  hs::VarTable<cI, cJ> moved{env, IJ, 0, 1, HighsVarType::kContinuous, "w"};
+  const auto before = moved(cI{1}, cJ{10});
+  const hs::VarTable<cI, cJ> moved2{std::move(moved)};
+  DREAMOR_CHECK(moved2(cI{1}, cJ{10}).index() == before.index());
 }
 
 static void expressions() {
   hs::HighsEnv env;
   const Highs& highs = quiet(env);
   const std::vector<std::size_t> I{1, 2};
-  const hs::VarTable<ICol> v{env, dreamor::makeSet<ICol>(I).collect(), -10, 10};
-  const hs::HighsVar x = v(ICol{1});
-  const hs::HighsVar y = v(ICol{2});
+  const hs::VarTable<cI> v{env, dreamor::makeSet<cI>(I).collect(), -10, 10};
+  const hs::HighsVar x = v(cI{1});
+  const hs::HighsVar y = v(cI{2});
 
   // what each operation makes
   static_assert(std::is_same_v<decltype(3 * x), hs::HighsLinearTerm>);
@@ -225,16 +225,16 @@ static void objective() {
   hs::HighsEnv env;
   const Highs& highs = quiet(env);
   const std::vector<std::size_t> I{1, 2};
-  const hs::VarTable<ICol> v{env, dreamor::makeSet<ICol>(I).collect(), -10, 10};
-  const hs::HighsVar x = v(ICol{1});
-  const hs::HighsVar y = v(ICol{2});
+  const hs::VarTable<cI> v{env, dreamor::makeSet<cI>(I).collect(), -10, 10};
+  const hs::HighsVar x = v(cI{1});
+  const hs::HighsVar y = v(cI{2});
   hs::addConstr(env, x + y >= 1);
 
   DREAMOR_CHECK(hs::minimize(env, (x - y) * (x - y) + (x - 2) * (x - 2) + y * y) == HighsStatus::kOk);
   DREAMOR_CHECK(highs.getModelStatus() == HighsModelStatus::kOptimal);
   DREAMOR_CHECK(std::abs(highs.getInfo().objective_function_value - (4.0 / 3.0)) < 1e-6);
   const auto plan = v.solution(env);
-  DREAMOR_CHECK(std::abs(plan(ICol{1}) - (4.0 / 3.0)) < 1e-6 && std::abs(plan(ICol{2}) - (2.0 / 3.0)) < 1e-6);
+  DREAMOR_CHECK(std::abs(plan(cI{1}) - (4.0 / 3.0)) < 1e-6 && std::abs(plan(cI{2}) - (2.0 / 3.0)) < 1e-6);
   DREAMOR_CHECK(highs.getModel().hessian_.dim_ == 2);
 
   // the same objective from repeated, unordered terms: x*y and y*x merge into one entry
@@ -265,21 +265,20 @@ static void sum() {
   hs::HighsEnv env;  // sums alone: the Highs is never reached
   const std::vector<std::size_t> I{1, 2, 3};
   const std::vector<std::size_t> J{10, 20};
-  const auto IJ = dreamor::makeSet<ICol, JCol>(I, J).collect();
-  const hs::VarTable<ICol, JCol> x{env, IJ, 0, 1, HighsVarType::kInteger, "x"};
-  const auto var      = [&x](ICol i, JCol j) { return x(i, j); };
-  const auto weighted = [&x](ICol i, JCol j) { return static_cast<double>(i.get()) * x(i, j); };
+  const auto IJ = dreamor::makeSet<cI, cJ>(I, J).collect();
+  const hs::VarTable<cI, cJ> x{env, IJ, 0, 1, HighsVarType::kInteger, "x"};
+  const auto var      = [&x](cI i, cJ j) { return x(i, j); };
+  const auto weighted = [&x](cI i, cJ j) { return static_cast<double>(i.get()) * x(i, j); };
 
   DREAMOR_CHECK(hs::sumOf(IJ, var).build().size() == 6);
-  DREAMOR_CHECK(hs::sumOf(IJ, var).where([](ICol i) { return i.get() > 1; }).build().size() == 4);
+  DREAMOR_CHECK(hs::sumOf(IJ, var).where([](cI i) { return i.get() > 1; }).build().size() == 4);
 
-  const auto byJ = IJ.groupBy<JCol>();
+  const auto byJ = IJ.groupBy<cJ>();
   for (const auto& [j, rows] : byJ) {
     DREAMOR_CHECK(hs::sumOf(rows, var).build().size() == 3);
   }
 
-  const auto sums =
-      hs::sumOf(IJ, weighted).split([](JCol j) { return j.get() == 10; }, [](JCol) { return true; }).build();
+  const auto sums = hs::sumOf(IJ, weighted).split([](cJ j) { return j.get() == 10; }, [](cJ) { return true; }).build();
   DREAMOR_CHECK(sums[0].size() == 3 && sums[1].size() == 6);
   double coef = 0;
   for (const double c : sums[0].coefficients()) {
@@ -289,10 +288,10 @@ static void sum() {
 
   // a table is itself a term
   DREAMOR_CHECK(hs::sumOf(IJ, x).build().size() == 6);
-  DREAMOR_CHECK(hs::sumOf(IJ, x).where([](ICol i) { return i.get() > 1; }).build().size() == 4);
+  DREAMOR_CHECK(hs::sumOf(IJ, x).where([](cI i) { return i.get() > 1; }).build().size() == 4);
 
   // an empty sum is the zero expression
-  const auto empty = hs::sumOf(IJ, var).where([](ICol) { return false; }).build();
+  const auto empty = hs::sumOf(IJ, var).where([](cI) { return false; }).build();
   DREAMOR_CHECK(empty.size() == 0 && isExactlyZero(empty.constant()));
   // no term on either side, so no model: the product is the constants' alone
   const hs::HighsQuadraticExpression constants = (empty + 2) * (empty + 3);
@@ -300,12 +299,12 @@ static void sum() {
   DREAMOR_CHECK(exactlyEqual(constants.linear().constant(), 6));
 
   // a plain container as a one-column set
-  const hs::VarTable<ICol> y{env, dreamor::makeSet<ICol>(I).collect(), 0, 1};
-  DREAMOR_CHECK(hs::sumOf<ICol>(I, [&y](ICol i) { return y(i); }).build().size() == 3);
+  const hs::VarTable<cI> y{env, dreamor::makeSet<cI>(I).collect(), 0, 1};
+  DREAMOR_CHECK(hs::sumOf<cI>(I, [&y](cI i) { return y(i); }).build().size() == 3);
 
   // linear terms make a HighsLinearExpression, quadratic ones a HighsQuadraticExpression
   static_assert(std::is_same_v<decltype(hs::sumOf(IJ, weighted).build()), hs::HighsLinearExpression>);
-  const auto square    = [&x](ICol i, JCol j) { return static_cast<double>(i.get()) * x(i, j) * x(i, j); };
+  const auto square    = [&x](cI i, cJ j) { return static_cast<double>(i.get()) * x(i, j) * x(i, j); };
   const auto quadratic = hs::sumOf(IJ, square).build();
   static_assert(std::is_same_v<std::remove_const_t<decltype(quadratic)>, hs::HighsQuadraticExpression>);
   DREAMOR_CHECK(quadratic.first().size() == 6 && quadratic.linear().size() == 0);
@@ -316,10 +315,10 @@ static void sum() {
   DREAMOR_CHECK(exactlyEqual(squareCoef, 2 * (1 + 2 + 3)));
 
   // a quadratic expression term, under where() and split(); (x - 1)^2 appends -x twice, unmerged
-  const auto deviation = [&x](ICol i, JCol j) { return (x(i, j) - 1) * (x(i, j) - 1); };
+  const auto deviation = [&x](cI i, cJ j) { return (x(i, j) - 1) * (x(i, j) - 1); };
   const auto parts     = hs::sumOf(IJ, deviation)
-                             .where([](ICol i) { return i.get() > 1; })
-                             .split([](JCol j) { return j.get() == 10; }, [](JCol) { return true; })
+                             .where([](cI i) { return i.get() > 1; })
+                             .split([](cJ j) { return j.get() == 10; }, [](cJ) { return true; })
                              .build();
   static_assert(std::is_same_v<std::remove_cvref_t<decltype(parts[0])>, hs::HighsQuadraticExpression>);
   DREAMOR_CHECK(parts[0].first().size() == 2 && parts[1].first().size() == 4);
@@ -331,19 +330,19 @@ static void solution() {
   hs::HighsEnv env;
   Highs& highs = quiet(env);
   const std::vector<std::size_t> I{1, 2, 3};
-  const auto sI = dreamor::makeSet<ICol>(I).collect();
-  const hs::VarTable<ICol> vPick{env, sI, 0, 1, HighsVarType::kInteger, "Pick"};
+  const auto sI = dreamor::makeSet<cI>(I).collect();
+  const hs::VarTable<cI> vPick{env, sI, 0, 1, HighsVarType::kInteger, "Pick"};
   DREAMOR_CHECK_THROWS(std::logic_error, vPick.solution(env));  // not run yet
 
   hs::addConstr(env, hs::sumOf(sI, vPick).build() <= 2);
-  const auto value = [&vPick](ICol i) { return static_cast<double>(i.get()) * vPick(i); };
+  const auto value = [&vPick](cI i) { return static_cast<double>(i.get()) * vPick(i); };
   DREAMOR_CHECK(hs::maximize(env, hs::sumOf(sI, value).build()) == HighsStatus::kOk);
   const auto pickPlan = vPick.solution(env);
-  DREAMOR_CHECK(pickPlan.size() == 3 && std::abs(pickPlan(ICol{1})) < 1e-6 && std::abs(pickPlan(ICol{3}) - 1) < 1e-6);
-  DREAMOR_CHECK_THROWS(std::out_of_range, pickPlan(ICol{9}));
+  DREAMOR_CHECK(pickPlan.size() == 3 && std::abs(pickPlan(cI{1})) < 1e-6 && std::abs(pickPlan(cI{3}) - 1) < 1e-6);
+  DREAMOR_CHECK_THROWS(std::out_of_range, pickPlan(cI{9}));
 
   // no primal solution: a clear exception instead of a stale col_value
-  hs::addConstr(env, vPick(ICol{1}) >= 2);
+  hs::addConstr(env, vPick(cI{1}) >= 2);
   highs.run();
   DREAMOR_CHECK(highs.getModelStatus() == HighsModelStatus::kInfeasible);
   DREAMOR_CHECK_THROWS(std::logic_error, vPick.solution(env));
@@ -354,17 +353,17 @@ static void collected() {
   // columns, the merged rows, the names given (and the empty ones), the objective with its Hessian.
   hs::HighsEnv env;
   const std::vector<std::size_t> I{1, 2};
-  const auto sI = dreamor::makeSet<ICol>(I).collect();
-  const hs::VarTable<ICol> x{env, sI, 0, 10, HighsVarType::kContinuous, "x"};
-  const hs::VarTable<ICol> u{env, sI, -1, 1};
-  const hs::HighsVar x1 = x(ICol{1});
-  const hs::HighsVar x2 = x(ICol{2});
-  const hs::HighsVar u1 = u(ICol{1});
-  const hs::HighsVar u2 = u(ICol{2});
+  const auto sI = dreamor::makeSet<cI>(I).collect();
+  const hs::VarTable<cI> x{env, sI, 0, 10, HighsVarType::kContinuous, "x"};
+  const hs::VarTable<cI> u{env, sI, -1, 1};
+  const hs::HighsVar x1 = x(cI{1});
+  const hs::HighsVar x2 = x(cI{2});
+  const hs::HighsVar u1 = u(cI{1});
+  const hs::HighsVar u2 = u(cI{2});
   DREAMOR_CHECK(hs::addConstr(env, x1 + x1 + u2 <= 7, "twice").index() == 0);
   DREAMOR_CHECK(hs::addConstr(env, (1 <= x2 - u1) <= 3).index() == 1);
   hs::setObjective(env, (x1 - 1) * (x1 - 1) + u2, ObjSense::kMinimize);
-  const hs::VarTable<ICol> late{env, sI, 0, 1};  // after the objective: no cost, no square
+  const hs::VarTable<cI> late{env, sI, 0, 1};  // after the objective: no cost, no square
 
   const Highs& highs = env.highs();  // the model reaches the Highs here
   const HighsLp& lp  = highs.getLp();
@@ -394,22 +393,22 @@ static void collected() {
   DREAMOR_CHECK(isExactlyZero(others));
 
   // from here on, what is written goes to the Highs as it is written
-  hs::addConstr(env, late(ICol{1}) >= 1, "after");
+  hs::addConstr(env, late(cI{1}) >= 1, "after");
   DREAMOR_CHECK(highs.getNumRow() == 3);
   Highs& solver = env.highs();
   solver.setOptionValue("output_flag", false);
   DREAMOR_CHECK(solver.run() == HighsStatus::kOk && solver.getModelStatus() == HighsModelStatus::kOptimal);
   const auto plan = x.solution(env);
-  DREAMOR_CHECK(std::abs(plan(ICol{1}) - 1) < 1e-6 && std::abs(late.solution(env)(ICol{1}) - 1) < 1e-6);
+  DREAMOR_CHECK(std::abs(plan(cI{1}) - 1) < 1e-6 && std::abs(late.solution(env)(cI{1}) - 1) < 1e-6);
 
   // a name after unnamed columns and rows: the ones before it stay empty
   hs::HighsEnv later;
-  const hs::VarTable<ICol> before{later, sI};
-  const hs::VarTable<ICol> named{later, sI, 0, 1, HighsVarType::kContinuous, "n"};
-  hs::addConstr(later, before(ICol{1}) <= 1);
-  hs::addConstr(later, before(ICol{2}) <= 1);
-  hs::addConstr(later, named(ICol{1}) <= 1, "third");
-  hs::addConstr(later, named(ICol{2}) <= 1);
+  const hs::VarTable<cI> before{later, sI};
+  const hs::VarTable<cI> named{later, sI, 0, 1, HighsVarType::kContinuous, "n"};
+  hs::addConstr(later, before(cI{1}) <= 1);
+  hs::addConstr(later, before(cI{2}) <= 1);
+  hs::addConstr(later, named(cI{1}) <= 1, "third");
+  hs::addConstr(later, named(cI{2}) <= 1);
   const HighsLp& laterLp = later.highs().getLp();
   DREAMOR_CHECK(laterLp.col_names_.size() == 4 && laterLp.col_names_[1].empty() && laterLp.col_names_[2] == "n_1");
   DREAMOR_CHECK(laterLp.row_names_.size() == 4 && laterLp.row_names_[0].empty() && laterLp.row_names_[2] == "third" &&
@@ -417,9 +416,9 @@ static void collected() {
 
   // a model with no name at all passes none; the column types go as given
   hs::HighsEnv unnamed;
-  const hs::VarTable<ICol> v{unnamed, sI, 0, 3, HighsVarType::kInteger};
-  const hs::VarTable<ICol> c{unnamed, sI};
-  hs::addConstr(unnamed, v(ICol{1}) + c(ICol{2}) <= 1);
+  const hs::VarTable<cI> v{unnamed, sI, 0, 3, HighsVarType::kInteger};
+  const hs::VarTable<cI> c{unnamed, sI};
+  hs::addConstr(unnamed, v(cI{1}) + c(cI{2}) <= 1);
   const HighsLp& unnamedLp = unnamed.highs().getLp();
   DREAMOR_CHECK(unnamedLp.col_names_.empty() && unnamedLp.row_names_.empty());
   DREAMOR_CHECK(unnamedLp.integrality_[0] == HighsVarType::kInteger &&
@@ -430,9 +429,9 @@ static void collected() {
   options.output_flag = false;
   options.time_limit  = 7;
   hs::HighsEnv configured{options};
-  const hs::VarTable<ICol> t{configured, sI, 0, 1};
-  hs::addConstr(configured, t(ICol{1}) + t(ICol{2}) >= 1);
-  DREAMOR_CHECK(hs::minimize(configured, t(ICol{1}) + 2 * t(ICol{2})) == HighsStatus::kOk);
+  const hs::VarTable<cI> t{configured, sI, 0, 1};
+  hs::addConstr(configured, t(cI{1}) + t(cI{2}) >= 1);
+  DREAMOR_CHECK(hs::minimize(configured, t(cI{1}) + 2 * t(cI{2})) == HighsStatus::kOk);
   DREAMOR_CHECK(exactlyEqual(configured.highs().getOptions().time_limit, 7) &&
                 !configured.highs().getOptions().output_flag);
   DREAMOR_CHECK(std::abs(configured.highs().getInfo().objective_function_value - 1) < 1e-9);
@@ -440,7 +439,7 @@ static void collected() {
   // a Highs reached before anything is written passes nothing, and the model goes to it as written
   hs::HighsEnv early;
   early.highs().setOptionValue("output_flag", false);
-  const hs::VarTable<ICol> w{early, sI, 0, 1, HighsVarType::kContinuous, "w"};
+  const hs::VarTable<cI> w{early, sI, 0, 1, HighsVarType::kContinuous, "w"};
   DREAMOR_CHECK(early.highs().getNumCol() == 2 && colName(early.highs(), 1) == "w_2");
 }
 
@@ -449,10 +448,10 @@ static void errors() {
   hs::HighsEnv env;
   quiet(env);
   const std::vector<std::size_t> I{1};
-  const auto sI = dreamor::makeSet<ICol>(I).collect();
+  const auto sI = dreamor::makeSet<cI>(I).collect();
   bool thrown   = false;
   try {
-    const hs::VarTable<ICol> bad{env, sI, std::numeric_limits<double>::quiet_NaN(), 1};
+    const hs::VarTable<cI> bad{env, sI, std::numeric_limits<double>::quiet_NaN(), 1};
   } catch (const hs::HighsError& error) {
     thrown = error.status() == HighsStatus::kError && std::string{error.call()} == "addVars";
   }
@@ -460,7 +459,7 @@ static void errors() {
 
   // collected, the same column reaches HiGHS when the Highs is reached: the error is passModel's
   hs::HighsEnv collecting;
-  const hs::VarTable<ICol> later{collecting, sI, std::numeric_limits<double>::quiet_NaN(), 1};
+  const hs::VarTable<cI> later{collecting, sI, std::numeric_limits<double>::quiet_NaN(), 1};
   bool passed = false;
   try {
     static_cast<void>(collecting.highs());
@@ -493,9 +492,9 @@ inline const std::string& keyName(const Machine* m) {
 }  // namespace lot
 }  // namespace
 
-using MachineCol = dreamor::Col<const lot::Machine*, "machine">;
-using ItemCol    = dreamor::Col<const lot::Item*, "item">;
-using PeriodCol  = dreamor::Col<std::size_t, "period">;
+using cMachine = dreamor::Col<const lot::Machine*, "machine">;
+using cItem    = dreamor::Col<const lot::Item*, "item">;
+using cPeriod  = dreamor::Col<std::size_t, "period">;
 
 // README.md (Backends) and highs.hpp's comments, as written there, on one machine making two items in
 // two periods. Only the lines marked "test only" are not theirs.
@@ -505,16 +504,16 @@ static void docs() {
   const lot::Machine m1{"M1", 10.0, {&a, &b}};
   const std::vector<const lot::Machine*> machines{&m1};
   const std::vector<std::size_t> periods{1, 2};
-  const auto items_of         = [](MachineCol m) -> const std::vector<const lot::Item*>& { return m->items; };
-  const auto sPRODUCE         = dreamor::makeSet<MachineCol, ItemCol, PeriodCol>(machines, items_of, periods).collect();
-  const auto max_possible_qty = [](MachineCol m, ItemCol i) { return m->capacity / i->time; };
-  const auto producedByMachinePeriod = sPRODUCE.groupBy<MachineCol, PeriodCol>();
+  const auto items_of         = [](cMachine m) -> const std::vector<const lot::Item*>& { return m->items; };
+  const auto sPRODUCE         = dreamor::makeSet<cMachine, cItem, cPeriod>(machines, items_of, periods).collect();
+  const auto max_possible_qty = [](cMachine m, cItem i) { return m->capacity / i->time; };
+  const auto producedByMachinePeriod = sPRODUCE.groupBy<cMachine, cPeriod>();
 
   {  // README.md, Backends
     hs::HighsEnv env;
-    const hs::VarTable<MachineCol, ItemCol, PeriodCol> vYield{
+    const hs::VarTable<cMachine, cItem, cPeriod> vYield{
         env, sPRODUCE, 0, max_possible_qty, HighsVarType::kContinuous, "Yield"};
-    const auto machine_usage = [&](MachineCol m, ItemCol i, PeriodCol t) { return i->time * vYield(m, i, t); };
+    const auto machine_usage = [&](cMachine m, cItem i, cPeriod t) { return i->time * vYield(m, i, t); };
 
     for (const auto& [machine, period, rows] : producedByMachinePeriod) {
       hs::addConstr(env, hs::sumOf(rows, machine_usage).build() <= machine->capacity);
@@ -528,10 +527,10 @@ static void docs() {
   }
   {  // highs.hpp, at the top
     hs::HighsEnv env;
-    const hs::VarTable<MachineCol, ItemCol, PeriodCol> vYield{
+    const hs::VarTable<cMachine, cItem, cPeriod> vYield{
         env, sPRODUCE, 0, max_possible_qty, HighsVarType::kContinuous, "Yield"};
-    const auto machine_usage = [&](MachineCol m, ItemCol i, PeriodCol t) { return i->time * vYield(m, i, t); };
-    const auto unit_cost     = [&](MachineCol m, ItemCol i, PeriodCol t) { return -i->cost * vYield(m, i, t); };
+    const auto machine_usage = [&](cMachine m, cItem i, cPeriod t) { return i->time * vYield(m, i, t); };
+    const auto unit_cost     = [&](cMachine m, cItem i, cPeriod t) { return -i->cost * vYield(m, i, t); };
     for (const auto& [machine, period, rows] : producedByMachinePeriod) {
       const hs::HighsLinearExpression totalLoad = hs::sumOf(rows, machine_usage).build();
       hs::addConstr(env, totalLoad <= machine->capacity);
@@ -541,8 +540,8 @@ static void docs() {
     hs::minimize(env, hs::sumOf(sPRODUCE, unit_cost).build());  // sets the objective, then run()
     const auto yieldPlan = vYield.solution(env);
     // the most valuable per unit of time: A, 2 a unit at 1 hour, fills each period's 10 hours
-    DREAMOR_CHECK(exactlyEqual(yieldPlan(MachineCol{&m1}, ItemCol{&a}, PeriodCol{1}), 10.0));
-    DREAMOR_CHECK(isExactlyZero(yieldPlan(MachineCol{&m1}, ItemCol{&b}, PeriodCol{2})));
+    DREAMOR_CHECK(exactlyEqual(yieldPlan(cMachine{&m1}, cItem{&a}, cPeriod{1}), 10.0));
+    DREAMOR_CHECK(isExactlyZero(yieldPlan(cMachine{&m1}, cItem{&b}, cPeriod{2})));
   }
   {  // highs.hpp, HighsEnv
     const auto& rows      = sPRODUCE;
@@ -551,9 +550,9 @@ static void docs() {
     options.output_flag = false;
     options.time_limit  = 60;
     hs::HighsEnv env{options};
-    const hs::VarTable<MachineCol, ItemCol, PeriodCol> vYield{env, sPRODUCE, 0, max_possible_qty};
-    const auto machine_usage = [&](MachineCol m, ItemCol i, PeriodCol t) { return i->time * vYield(m, i, t); };
-    const auto unit_cost     = [&](MachineCol m, ItemCol i, PeriodCol t) { return -i->cost * vYield(m, i, t); };
+    const hs::VarTable<cMachine, cItem, cPeriod> vYield{env, sPRODUCE, 0, max_possible_qty};
+    const auto machine_usage = [&](cMachine m, cItem i, cPeriod t) { return i->time * vYield(m, i, t); };
+    const auto unit_cost     = [&](cMachine m, cItem i, cPeriod t) { return -i->cost * vYield(m, i, t); };
     hs::addConstr(env, hs::sumOf(rows, machine_usage).build() <= capacity);
     hs::minimize(env, hs::sumOf(sPRODUCE, unit_cost).build());  // the model reaches the Highs here
     DREAMOR_CHECK(env.highs().getModelStatus() == HighsModelStatus::kOptimal);
@@ -570,26 +569,25 @@ static void longRows() {
     for (std::size_t i = 0; i < I.size(); ++i) {
       I[i] = i;
     }
-    const auto sI = dreamor::makeSet<ICol>(I).collect();
-    const hs::VarTable<ICol> x{env, sI};
+    const auto sI = dreamor::makeSet<cI>(I).collect();
+    const hs::VarTable<cI> x{env, sI};
     if (passed) { (void)env.highs(); }
     // x3, x0..x11, x3 again, x5 cancelled: 14 terms, 11 columns
-    hs::HighsLinearExpression sum = 2 * x(ICol{3});
+    hs::HighsLinearExpression sum = 2 * x(cI{3});
     for (std::size_t i = 0; i < I.size(); ++i) {
-      sum += x(ICol{i});
+      sum += x(cI{i});
     }
-    sum += x(ICol{3});
-    sum -= x(ICol{5});
+    sum += x(cI{3});
+    sum -= x(cI{5});
     hs::addConstr(env, sum <= 1);
-    hs::addConstr(env, x(ICol{7}) + x(ICol{2}) + x(ICol{7}) - x(ICol{2}) >= 0);  // short: x7 twice, x2 cancelled
+    hs::addConstr(env, x(cI{7}) + x(cI{2}) + x(cI{7}) - x(cI{2}) >= 0);  // short: x7 twice, x2 cancelled
     const Highs& highs = env.highs();
     const Row wide     = rowOf(highs, 0);
-    DREAMOR_CHECK(wide.index.size() == 11 && exactlyEqual(coefficientOf(wide, x(ICol{0})), 1));
-    DREAMOR_CHECK(exactlyEqual(coefficientOf(wide, x(ICol{3})), 4) &&
-                  exactlyEqual(coefficientOf(wide, x(ICol{11})), 1));
-    DREAMOR_CHECK(isExactlyZero(coefficientOf(wide, x(ICol{5}))));
+    DREAMOR_CHECK(wide.index.size() == 11 && exactlyEqual(coefficientOf(wide, x(cI{0})), 1));
+    DREAMOR_CHECK(exactlyEqual(coefficientOf(wide, x(cI{3})), 4) && exactlyEqual(coefficientOf(wide, x(cI{11})), 1));
+    DREAMOR_CHECK(isExactlyZero(coefficientOf(wide, x(cI{5}))));
     const Row narrow = rowOf(highs, 1);
-    DREAMOR_CHECK(narrow.index.size() == 1 && exactlyEqual(coefficientOf(narrow, x(ICol{7})), 2));
+    DREAMOR_CHECK(narrow.index.size() == 1 && exactlyEqual(coefficientOf(narrow, x(cI{7})), 2));
   }
 }
 

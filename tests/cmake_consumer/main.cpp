@@ -6,14 +6,14 @@
 
 #include "dreamor/index_set.hpp"
 
-using ICol = dreamor::Col<std::size_t, "i">;
-using JCol = dreamor::Col<std::size_t, "j">;
+using cI = dreamor::Col<std::size_t, "i">;
+using cJ = dreamor::Col<std::size_t, "j">;
 
 int main() {
   const std::vector<std::size_t> I{1, 2, 3}, J{10, 20};
-  const auto sIJ     = dreamor::makeSet<ICol, JCol>(I, J).where([](ICol i) { return i.get() != 2; }).collect();
+  const auto sIJ     = dreamor::makeSet<cI, cJ>(I, J).where([](cI i) { return i.get() != 2; }).collect();
   std::size_t walked = 0;
-  for (const auto& [i, rows] : sIJ.groupBy<ICol>()) {
+  for (const auto& [i, rows] : sIJ.groupBy<cI>()) {
     walked += rows.size();
   }
   const bool ok = sIJ.size() == 4 && walked == 4;
