@@ -59,7 +59,7 @@ for (const auto& [machine, period, rows] : producedByMachinePeriod) {
 | [OR-Tools 샘플](examples/mathopt_samples/README.ko.md) | Google의 MathOpt 샘플 세 개를 dreamor로 옮긴 것, 원본과 나란히 |
 | [벤치마크](bench/README.md) | dreamor의 속도를 손코딩과 비교해 재는 방법과 결과 (영어) |
 | [기여하기](CONTRIBUTING.ko.md) | 버그 신고, 기능 제안, 빌드와 테스트, 변경이 들어가는 과정 |
-| [변경 이력](CHANGELOG.md) | 릴리스마다 바뀐 것 (영어) |
+| [릴리스](https://github.com/Lynth-KR/dreamor/releases) | 릴리스마다 바뀐 것 (영어) |
 
 ## 백엔드
 

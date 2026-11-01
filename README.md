@@ -60,7 +60,7 @@ dreamor](examples/mathopt_samples/README.md), each next to the original.
 | [OR-Tools samples](examples/mathopt_samples/README.md) | Three of Google's MathOpt samples ported to dreamor, each beside the original |
 | [Benchmarks](bench/README.md) | How dreamor's speed is measured against hand-written code, and the results |
 | [Contributing](CONTRIBUTING.md) | Reporting a bug, proposing a feature, building and testing, and how a change gets in |
-| [Changelog](CHANGELOG.md) | What changed in each release |
+| [Releases](https://github.com/Lynth-KR/dreamor/releases) | What changed in each release |
 
 ## Backends
 
