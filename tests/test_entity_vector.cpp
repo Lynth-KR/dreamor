@@ -119,6 +119,27 @@ int main() try {
   IloEnv env;
   const dreamor::concert::VarTable<cMachine, cPeriod> vRun{env, sRUN, 0, 1, ILOFLOAT, "run"};
   DREAMOR_CHECK(std::string{vRun(cMachine{&two.back()}, cPeriod{3}).getName()} == "run_B_3");
+
+  // a set of the whole EntityVector, in order: an entity's row by its address. Each lookup gives what
+  // the row gives, on that set and on one that skips an entity (looked up as before), and an entity of
+  // another EntityVector, or one the set skips, is not in it
+  dreamor::EntityVector<Machine> many;
+  for (std::size_t i = 0; i < 100; ++i) {
+    many.emplace("M" + std::to_string(i), static_cast<double>(i));
+  }
+  many.freeze();
+  const auto sALL  = dreamor::makeSet<cMachine>(many).collect();
+  const auto sSOME = dreamor::makeSet<cMachine>(many).where([](cMachine m) { return m->code != "M50"; }).collect();
+  const dreamor::ValueTable<cMachine> capAll{sALL, [](cMachine m) { return m->capacity; }};
+  const dreamor::ValueTable<cMachine> capSome{sSOME, [](cMachine m) { return m->capacity; }};
+  bool byAddress = true;
+  for (const Machine& m : many) {
+    byAddress = byAddress && exactlyEqual(capAll(cMachine{&m}), m.capacity);
+    byAddress = byAddress &&
+                (m.code == "M50" ? !capSome.contains(cMachine{&m}) : exactlyEqual(capSome(cMachine{&m}), m.capacity));
+  }
+  DREAMOR_CHECK(byAddress);
+  DREAMOR_CHECK(!capAll.contains(cMachine{&two.front()}) && !capAll.contains(cMachine{nullptr}));
   env.end();
   return report("entity_vector");
 } catch (...) { return ::uncaught(); }

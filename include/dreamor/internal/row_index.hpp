@@ -24,6 +24,7 @@
 #include <memory>
 #include <mutex>
 #include <stdexcept>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -94,6 +95,14 @@ class RowIndex {
     if (rows.size() >= std::numeric_limits<std::uint32_t>::max()) {
       throw std::length_error("VarTable: more than 2^32 - 2 index tuples.");
     }
+    if constexpr (kOneEntity) {
+      if (rows.empty()) { return; }
+      const auto first = std::bit_cast<std::uintptr_t>(std::get<0>(rows.front()).get());
+      for (std::size_t i = 0; i < rows.size(); ++i) {
+        if (std::bit_cast<std::uintptr_t>(std::get<0>(rows[i]).get()) != first + (i * kEntitySize)) { return; }
+      }
+      first_ = first;
+    }
   }
 
   // A key as a caller writes it - its columns, or one row - to its position, without
@@ -103,13 +112,18 @@ class RowIndex {
   //   - columns: they are copies, so the row they came from is the one sumOf published, if
   //     any - see currentRow() - or else the row the last lookup found, or the one either side
   //     of it - see lastRows().
-  // Which of the two applies is known at compile time.
+  // Which of the two applies is known at compile time. And a set whose one column points at the
+  // elements of an array, all of them in order - a frozen EntityVector taken whole - finds an
+  // entity's row by its address alone, as hand-written code takes values[i].
   template <typename... Args>
   [[nodiscard]] std::size_t find(const Rows<Key>& rows, const Args&... key) const {
     if constexpr (isExactRow<Key, Args...>()) {
       const std::size_t at = positionOf(rows, std::addressof(key...));
       return at != kNotFound ? at : built(rows).find(key..., rowsAt(rows));
     } else {
+      if constexpr (kOneEntity && sizeof...(Args) == 1) {
+        if (first_ != 0) { return entityPosition(rows, key...); }
+      }
       const std::size_t at = positionOf(rows, currentRow());
       if (at != kNotFound && holds(rows[at], key...)) { return at; }
       return findByColumns(rows, key...);
@@ -117,6 +131,34 @@ class RowIndex {
   }
 
  private:
+  // One column of pointers to complete objects: its rows may be an array's elements, in order.
+  [[nodiscard]] static consteval bool oneEntity() {
+    if constexpr (std::tuple_size_v<Key> == 1) {
+      using Value = std::tuple_element_t<0, Key>::Value;
+      if constexpr (std::is_pointer_v<Value>) {
+        return requires { sizeof(std::remove_pointer_t<Value>); };
+      }
+    }
+    return false;
+  }
+  static constexpr bool kOneEntity         = oneEntity();
+  static constexpr std::size_t kEntitySize = [] {
+    if constexpr (kOneEntity) {
+      return sizeof(std::remove_pointer_t<typename std::tuple_element_t<0, Key>::Value>);
+    } else {
+      return std::size_t{1};
+    }
+  }();
+
+  // An entity's row when the rows are an array's elements in order: its offset from the first,
+  // or kNotFound for an address that is not one of them.
+  template <typename Column>
+  [[nodiscard]] std::size_t entityPosition(const Rows<Key>& rows, const Column& key) const {
+    const std::uintptr_t offset = std::bit_cast<std::uintptr_t>(key.get()) - first_;
+    const std::size_t at        = offset / kEntitySize;
+    return offset % kEntitySize == 0 && at < rows.size() ? at : kNotFound;
+  }
+
   // The position of the row an address falls in, or kNotFound when it is not inside rows.
   // std::less<> orders pointers into different arrays too. Inside the range, a row sumOf published
   // or one handed in is one of rows' elements; a hint of lastRows() need not be: the hints are every
@@ -227,6 +269,7 @@ class RowIndex {
   mutable std::once_flag once_;
   mutable std::atomic<bool> ready_{false};
   mutable ::dreamor::general::FlatIndex<Key> index_;
+  std::uintptr_t first_ = 0;  // the first row's entity when the rows are an array's elements in order, else 0
 };
 
 // Iterates (row, X) pairs: a set's rows beside their X, in the same order. Cursor walks the X: a
