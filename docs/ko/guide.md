@@ -67,11 +67,12 @@ if (const Machine* found = plant.find("M1")) {
 const auto sNAME = dreamor::makeSet<열...>(소스...).where(술어).where(술어)...collect();
 ```
 
-`makeSet<A, B, C>`의 열 하나하나에 소스가 하나씩 대응합니다. 소스는 세 종류입니다.
+`makeSet<A, B, C>`의 열 하나하나에 소스가 하나씩 대응합니다. 소스는 네 종류입니다.
 
 | 소스 | 예 | 뜻 |
 |---|---|---|
 | 컨테이너 | `machines` | 그 열의 값 전부. 원소가 포인터(`std::vector<const Machine*>`), 엔티티 자체(`std::vector<Machine>`), 스마트 포인터(`std::vector<std::unique_ptr<Machine>>`) 어느 쪽이어도 포인터 열이 됩니다 |
+| 구간 | `dreamor::interval::closed(1, T)` | 1부터 T까지의 정수. `open`, `closedOpen`, `openClosed`는 한쪽 끝이나 양 끝을 뺍니다. 값은 열의 정수 타입이 됩니다 |
 | 종속 소스 | `[](cMachine m) { return m->items; }` | 앞에서 정해진 열에 따라 달라지는 값들 |
 | 기존 집합 | `makeSet<cPeriod>(sROUTES, periods)` | 그 집합이 가진 열들을 한꺼번에 채움. 같은 열을 가진 집합끼리는 그 열로 조인 |
 
@@ -79,6 +80,7 @@ const auto sNAME = dreamor::makeSet<열...>(소스...).where(술어).where(술�
   - `{m in MACHINES, i in ITEMS[m]}` → `makeSet<cMachine, cItem>(machines, items_of).collect()`
   - `{(m,i) in ROUTES, t in PERIODS: open[i,t]}` → `makeSet<cPeriod>(sROUTES, periods).where(is_open).collect()`
   - `{(m,i) in ROUTES, (i,t) in OPEN}` → `makeSet<>(sROUTES, sOPEN).collect()`
+  - `{m in MACHINES, t in 1..T}` → `makeSet<cMachine, cPeriod>(machines, dreamor::interval::closed(1, T)).collect()`
 - **같은 열을 가진 집합 소스끼리는 그 열로 조인합니다**(natural join). 나중에 방문하는 집합은 공유 열로 조회하고
   훑지 않으므로 곱을 만들지 않습니다. 비용은 두 집합과 결과의 크기만큼입니다. 한 집합의 열이 다른 집합에 전부
   들어 있으면 그 집합을 거르는 것과 같아서 `sROUTES.where(sOPEN.membership())`과 같은 행이 나옵니다.
@@ -88,7 +90,7 @@ const auto sNAME = dreamor::makeSet<열...>(소스...).where(술어).where(술�
 - **술어는 자기가 읽는 열만 받습니다.** `[](cItem i, cPeriod t)`는 i와 t가 정해지는 즉시 평가되고,
   탈락하면 그 아래 루프 전체를 건너뜁니다. 파라미터 순서와 `.where()` 순서는 자유입니다.
 - 종속 소스는 엔티티가 아니라 **엔티티의 포인터 범위**(`std::vector<const Item*>`, span, view)를 돌려줘야 합니다.
-- 컨테이너 소스는 lvalue여야 합니다(임시 vector 금지).
+- 컨테이너 소스는 lvalue여야 합니다(임시 vector 금지). 구간은 그대로 넘깁니다.
 - **어떤 소스도 같은 원소를 두 번 담지 않습니다**: 컨테이너, 의존 소스가 돌려주는 범위, 집합 모두. 엔티티는 객체
   하나이고 컨테이너 하나가 담으므로, 머신 하나에 객체가 둘이면 그것도 반복입니다(엔티티는 `EntityVector`가
   지켜 줍니다). 표준 라이브러리처럼 이것은 전제조건이고, 어기면 미정의 동작입니다. 디버그 빌드(`NDEBUG` 없음)는

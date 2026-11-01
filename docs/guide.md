@@ -69,11 +69,12 @@ if (const Machine* found = plant.find("M1")) {
 const auto sNAME = dreamor::makeSet<Cols...>(sources...).where(predicate).where(predicate)...collect();
 ```
 
-Each column of `makeSet<A, B, C>` corresponds to one source. There are three kinds of source.
+Each column of `makeSet<A, B, C>` corresponds to one source. There are four kinds of source.
 
 | Source | Example | Meaning |
 |---|---|---|
 | Container | `machines` | Every value of that column. The elements may be pointers (`std::vector<const Machine*>`), the entities themselves (`std::vector<Machine>`), or smart pointers (`std::vector<std::unique_ptr<Machine>>`); any of them yields a pointer column |
+| Interval | `dreamor::interval::closed(1, T)` | The integers from 1 to T; `open`, `closedOpen` and `openClosed` leave out an end or both. The values take the column's integer type |
 | Dependent source | `[](cMachine m) { return m->items; }` | Values that depend on columns already fixed earlier |
 | Existing set | `makeSet<cPeriod>(sROUTES, periods)` | Fills all of that set's columns at once. Two sets that share a column are joined on it |
 
@@ -81,6 +82,7 @@ Each column of `makeSet<A, B, C>` corresponds to one source. There are three kin
   - `{m in MACHINES, i in ITEMS[m]}` → `makeSet<cMachine, cItem>(machines, items_of).collect()`
   - `{(m,i) in ROUTES, t in PERIODS: open[i,t]}` → `makeSet<cPeriod>(sROUTES, periods).where(is_open).collect()`
   - `{(m,i) in ROUTES, (i,t) in OPEN}` → `makeSet<>(sROUTES, sOPEN).collect()`
+  - `{m in MACHINES, t in 1..T}` → `makeSet<cMachine, cPeriod>(machines, dreamor::interval::closed(1, T)).collect()`
 - **Set sources that share a column are joined on it** (a natural join). The one visited second is looked up by the
   shared columns instead of scanned, so the product is never built: the cost is the two sets plus the result. A set
   whose columns all lie in another one filters it, with the same rows as `sROUTES.where(sOPEN.membership())`. A
@@ -91,7 +93,7 @@ Each column of `makeSet<A, B, C>` corresponds to one source. There are three kin
   fixed, and if it fails, the whole loop below is skipped. Parameter order and `.where()` order are free.
 - A dependent source must return a **range of pointers to entities** (`std::vector<const Item*>`, a span, a view),
   not the entities themselves.
-- A container source must be an lvalue (no temporary vectors).
+- A container source must be an lvalue (no temporary vectors); an interval is handed over as it is.
 - **No source holds an element twice**: a container, the range a dependent source returns, a set. An entity is one
   object, held by one container, so two objects for one machine are a repeat too (`EntityVector` keeps that for
   entities). This is a precondition, as in the standard library: breaking it is undefined behavior, and a debug build

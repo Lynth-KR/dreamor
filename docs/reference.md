@@ -19,6 +19,8 @@ Every public type and function, by header. The [guide](guide.md) explains them i
 | | |
 |---|---|
 | `makeSet<Cols...>(sources...)` | Set builder |
+| `interval::closed(first, last)` | Source: the integers `[first, last]`, AMPL's `first..last`; empty when the ends cross (`interval.hpp`) |
+| `interval::open`, `interval::closedOpen`, `interval::openClosed` | The same for `(first, last)`, `[first, last)`, `(first, last]` |
 | Builder `.where(p)` | Adds one predicate (call repeatedly for several) |
 | Builder `.collect()` | Finalizes into an `IndexSet` |
 

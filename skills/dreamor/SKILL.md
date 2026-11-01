@@ -84,7 +84,8 @@ These are enforced by the compiler or needed for a correct model.
     constraint (including keys with no rows), iterate the driver set and call `slice()`. A missing key gives an
     empty slice, whose sum is 0.
 11. **Sources.** A dependent source returns a range of *pointers* (`std::vector<const Item*>`, a span, a view). A
-    container source must be an lvalue. No source holds an element twice, and an entity is one object in one
+    container source must be an lvalue; an integer range is `dreamor::interval::closed(first, last)` (or `open`,
+    `closedOpen`, `openClosed`), passed as it is. No source holds an element twice, and an entity is one object in one
     container: a precondition (undefined behavior if broken) that keeps every set free of repeated rows.
     `dreamor::EntityVector<T>` keeps it for entities: define `primaryKey(const T&)` next to `T`; fill it
     (`reserve`, `insert`/`emplace` returning `{element, inserted}` as `std::set` does, `sort()` or `sort(comp)`),

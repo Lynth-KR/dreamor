@@ -619,10 +619,11 @@ template <typename... Columns, typename... Sources>
 [[nodiscard]] auto makeSet(Sources&&... sources) {
   static_assert(sizeof...(Sources) > 0, "makeSet needs at least one source.");
   static_assert(((internal::sourceKindOf<std::remove_reference_t<Sources>>() == internal::SourceKind::kDependent ||
-                  std::is_lvalue_reference_v<Sources>) &&
+                  std::is_lvalue_reference_v<Sources> || internal::yieldsValues<std::remove_reference_t<Sources>>()) &&
                  ...),
                 "A container source must be a named variable, not a temporary: the tuples "
-                "hold pointers into it, so it has to outlive the set.");
+                "hold pointers into it, so it has to outlive the set. A range of numbers needs none: "
+                "interval::closed(first, last).");
   static_assert(((internal::sourceKindOf<std::remove_reference_t<Sources>>() != internal::SourceKind::kDependent ||
                   internal::no_indirect_call<std::remove_cvref_t<Sources>>) &&
                  ...),

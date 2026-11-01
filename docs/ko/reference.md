@@ -19,6 +19,8 @@
 | | |
 |---|---|
 | `makeSet<Cols...>(sources...)` | 집합 빌더 |
+| `interval::closed(first, last)` | 소스: 정수 `[first, last]`, AMPL의 `first..last`. 양 끝이 엇갈리면 비어 있음 (`interval.hpp`) |
+| `interval::open`, `interval::closedOpen`, `interval::openClosed` | 같은 것을 `(first, last)`, `[first, last)`, `(first, last]`로 |
 | 빌더 `.where(p)` | 술어 하나 추가 (여러 개면 이어서 호출) |
 | 빌더 `.collect()` | `IndexSet`으로 확정 |
 

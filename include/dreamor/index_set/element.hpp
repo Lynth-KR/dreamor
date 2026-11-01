@@ -110,6 +110,17 @@ struct BuildElemStep<false, Acc, Joined, Cols, Source, Rest...>
                 typename SplitFront<Cols>::tail,
                 Rest...> {};
 
+// A view whose elements come by value - an interval, a transform that makes them - holds
+// nothing a row could point into, so it may be handed to makeSet as a temporary.
+template <typename Source>
+[[nodiscard]] consteval bool yieldsValues() {
+  if constexpr (std::ranges::view<Source>) {
+    return !std::is_reference_v<std::ranges::range_reference_t<Source>>;
+  } else {
+    return false;
+  }
+}
+
 // Ranges as a view over the caller's container, functions by value.
 template <typename Source>
 [[nodiscard]] auto holdSource(Source&& source) {

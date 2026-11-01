@@ -61,6 +61,7 @@ dreamor::makeSet<Cols...>(sources...)   // one source per column; a set source c
 | Source | Example | Meaning |
 |---|---|---|
 | Container (lvalue) | `machines` | Every value; elements may be pointers, entities, or smart pointers — all give a pointer column |
+| Interval | `dreamor::interval::closed(1, T)` | The integers 1..T (AMPL's `1..T`); `open`, `closedOpen`, `openClosed` leave out an end or both; values take the column's integer type; passed as a temporary |
 | Dependent source | `[](cMachine m) { return m->items; }` | Values depending on earlier columns; must return a range of pointers |
 | Existing set | `makeSet<cPeriod>(sROUTES, periods)` | Fills that set's columns at once. Set sources sharing a column are joined on it (`makeSet<>(sROUTES, sOPEN)`): the later one is looked up, not scanned. A column named in `makeSet<...>` is always new |
 

@@ -12,6 +12,7 @@
 #pragma once
 
 #include <array>
+#include <concepts>
 #include <cstddef>
 #include <functional>
 #include <memory>
@@ -21,6 +22,7 @@
 #include <utility>
 
 #include "dreamor/general/tuple_hash.hpp"
+#include "dreamor/logger/logger_light.hpp"
 
 namespace dreamor {
 
@@ -110,8 +112,30 @@ struct IsColumn<Col<T, Name>> : std::true_type {};
 template <typename Column>
 concept is_column = IsColumn<Column>::value;
 
+// A value of an interval (interval.hpp), in the type its ends met in. It takes the integer
+// type of the column it fills, so `interval::closed(0, 160)` fills a std::size_t column.
+template <std::integral T>
+struct IntervalPoint {
+  T value;
+};
+template <typename T>
+struct IsIntervalPoint : std::false_type {};
+template <typename T>
+struct IsIntervalPoint<IntervalPoint<T>> : std::true_type {};
+
+template <typename Value, typename T>
+[[nodiscard]] Value intervalValueAs(T value) {
+  static_assert(std::integral<Value>, "An interval fills an integer column.");
+#ifndef NDEBUG
+  if (!std::in_range<Value>(value)) {
+    DREAMOR_DEBUG_FATAL("interval: a value the column's integer type cannot hold - a broken contract.");
+  }
+#endif
+  return static_cast<Value>(value);
+}
+
 // Entities, raw pointers and smart pointers all reduce to a pointer column; plain values
-// are taken as they are.
+// are taken as they are, and an interval's value as the column's integer type.
 template <typename Column, typename Element>
 [[nodiscard]] Column toColumn(Element& element) {
   using Value = Column::Value;
@@ -125,6 +149,8 @@ template <typename Column, typename Element>
     } else {
       return Column{static_cast<Value>(std::addressof(element))};
     }
+  } else if constexpr (IsIntervalPoint<std::remove_cvref_t<Element>>::value) {
+    return Column{intervalValueAs<Value>(element.value)};
   } else {
     return Column{element};
   }
