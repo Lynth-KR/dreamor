@@ -27,13 +27,15 @@ contributor knows what a change has to keep.
   exactly one variable per key. This is a precondition, as in the standard library: a debug build checks it and
   stops on a sentence naming the source; a release build does not pay for the check.
 - **The solver's API stays the solver's.** dreamor builds index sets, variable families and sums. Constraints,
-  objectives, solving, bounds after construction and duals are written in Concert's or MathOpt's own notation, so
-  everything you know about your solver still applies and nothing stands between you and it.
+  objectives, solving, bounds after construction and duals are written in the notation of the solver API each
+  backend stands on - Concert's, MathOpt's, highspy's for HiGHS - so everything you know about your solver still
+  applies and nothing stands between you and it.
 - **A mistake stops at compile time, in one sentence.** Misuse - a callable that takes the wrong columns, a sum used
   before `build()`, a lookup with bare values - is rejected by the compiler with one sentence saying what to write
   instead, not with a page of template errors.
 - **The standard library is the precedent.** Where the C++ standard library made a similar decision, dreamor
-  follows it: an insert that may not insert returns `std::pair<iterator, bool>`, as `std::set::emplace` does; checks
+  follows it: an insert that may not insert returns the element and whether it went in, as `std::set::emplace` does
+  (by its address, the handle that lasts in an `EntityVector`: `std::pair<const T*, bool>`); checks
   that only debug builds pay for work as libstdc++'s assertions do; member types are named as containers name them.
 - **Speed is measured, not claimed.** Claims about performance rest on designed experiments against hand-written
   code ([benchmarks](../bench/README.md)), and an optimization rests on a guarantee dreamor makes - a contract, the
@@ -85,8 +87,8 @@ everything else in camelCase (`totalInFlow`, `yieldPlan`).
 
 | Not done | Reason / alternative |
 |---|---|
-| Constraint tables (storing constraints per key, key-based constraint names) | Most constraints are added once and never looked up again. If needed, use the solver API (Concert `IloRange` + `setName`, MathOpt `AddLinearConstraint(expr, name)`) |
-| Reading duals / reduced costs by key | A rare task. Use the solver API when needed (Concert `getDuals`, MathOpt `dual_values()`, etc.) |
+| Constraint tables (storing constraints per key) | Most constraints are added once and never looked up again. A row is named by its keys with `exprName`, as `VarTable` names variables, and added through the solver API (Concert `IloRange` + `setName`, MathOpt `AddLinearConstraint(expr, name)`, HiGHS `addConstr(env, row, name)`) |
+| Reading duals / reduced costs by key | A rare task. Use the solver API when needed (Concert `getDuals`, MathOpt `dual_values()`, HiGHS `getSolution().row_dual`, etc.) |
 | Appending variables (column generation) | Structure is immutable. New columns mean a new set + a new VarTable |
 | Pipe syntax (`S \| where(p)`) | No second way to do the same thing |
 | Coefficient arrays (`IloScalProd` style) | Coefficients are computed from entities in the term |

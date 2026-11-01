@@ -375,6 +375,33 @@ HiGHS의 자체 C++ API는 모형을 통째로(`passModel`) 받거나 한 번에
 - 실패한 HiGHS 호출은 호출 이름과 `HighsStatus`를 담은 `HighsError`를 던집니다. HiGHS가 거부하는 모형은 처음
   닿을 때(`"passModel"`) 던집니다.
 
+## 큰 모형: Transparent Huge Pages
+
+**팁: 큰 모형이라면 THP를 켜세요.** 0이 아닌 계수가 수백만 개인 모형은 솔버가 시작하기 전까지의 시간 중 상당 부분을
+페이지 폴트에 씁니다. 채우는 배열의 4 KiB 페이지마다 처음 닿을 때 폴트가 한 번씩 나고, 페이지마다 TLB 항목을
+하나씩 차지합니다. Huge page(2 MiB)는 그 수백 개를 한 번에 처리합니다. 리눅스는 이를
+`/sys/kernel/mm/transparent_hugepage/enabled`로 정합니다. `always`면 큰 할당은 모두 받고, `madvise`(Ubuntu의
+기본값)면 요청한 메모리만 받습니다. glibc의 `malloc`은 다음처럼 알려 주면 자기 힙에 요청합니다.
+
+```sh
+GLIBC_TUNABLES=glibc.malloc.hugetlb=1 ./model
+```
+
+p-median 20,000곳(열 2,000,000개)에서, 실행을 시작해 솔버가 시작하기까지, 페이지 폴트는 약 30분의 1로 줄었고
+시간은 모형을 무엇으로 썼든 3분의 1에서 3분의 2 가까이 줄었습니다(GCC 13, AMD Ryzen 7 5700X, Linux 7.0,
+`madvise`).
+
+| 모형을 쓴 방법 | THP 끔 | THP 켬 |
+|---|---|---|
+| CPLEX Callable Library, 배열 | 362 ms | 134 ms |
+| Concert, 손으로 | 1,258 ms | 842 ms |
+| HiGHS, 배열과 `passModel` 한 번 | 1,635 ms | 908 ms |
+| `dreamor::highs` | 1,738 ms | 1,003 ms |
+
+CPLEX도 HiGHS도 스스로 huge page를 요청하지 않습니다. 둘의 큰 배열도 같은 `malloc`에서 옵니다. 이 문서의 다른
+측정과 `bench/` 아래의 측정은 기본값대로 THP를 끈 상태입니다. 손대지 않은 기계에서도 그대로 성립하도록 하기
+위해서입니다.
+
 ## 열이 많은 집합의 컴파일 비용
 
 N열 집합을 만들고, 거르고, 묶고, `VarTable`을 올리고, 합을 내는 TU 하나를

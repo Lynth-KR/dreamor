@@ -13,6 +13,7 @@
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-FFD43B?style=flat-square&logo=cplusplus&logoColor=white&labelColor=1D2433)](#quick-start)
 [![CPLEX Concert](https://img.shields.io/badge/backend-CPLEX%20Concert-FFD43B?style=flat-square&labelColor=1D2433)](#backends)
 [![OR-Tools MathOpt](https://img.shields.io/badge/backend-OR--Tools%20MathOpt-FFD43B?style=flat-square&labelColor=1D2433)](#backends)
+[![HiGHS](https://img.shields.io/badge/backend-HiGHS-FFD43B?style=flat-square&labelColor=1D2433)](#backends)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-FFD43B?style=flat-square&labelColor=1D2433)](LICENSE)
 
 [Quick start](#quick-start)&emsp;[Building sets](docs/guide.md#building-sets--makeset)&emsp;[VarTable](docs/guide.md#variable-families--vartable)&emsp;[Sums](docs/guide.md#sums--sumof)&emsp;[OR-Tools samples](examples/mathopt_samples/README.md)&emsp;[Public API](docs/reference.md#public-api-reference)
@@ -266,10 +267,11 @@ for (const auto& [row, qty] : yieldPlan) {
 
 The full example lives in `examples/`. Data, columns, and sets are in a single solver-independent file,
 `production_planning_sets.hpp`; on top of it sit the same model written for Concert, `production_planning.hpp` (run:
-`production_planning.cpp`), and for MathOpt, `production_planning_mathopt.hpp` (run:
-`production_planning_mathopt.cpp`, HiGHS). `tests/mathopt/test_cross_backend.cpp` checks that the two models build
-the same constraints. A comparison version of the same model written with only `std::map` and Concert is
-`production_planning_plain.hpp`.
+`production_planning.cpp`), for MathOpt, `production_planning_mathopt.hpp` (run: `production_planning_mathopt.cpp`,
+HiGHS), and for HiGHS, `production_planning_highs.hpp` (run: `production_planning_highs.cpp`).
+`tests/mathopt/test_cross_backend.cpp` and `tests/highs/test_cross_backend.cpp` check that each builds the
+constraints the Concert model does. A comparison version of the same model written with only `std::map` and Concert
+is `production_planning_plain.hpp`.
 
 [`examples/mathopt_samples/`](examples/mathopt_samples/README.md) has three of OR-Tools' own MathOpt samples
 (`cocktail_hour`, `time_indexed_scheduling`, `lagrangian_relaxation`) ported to dreamor, with a walkthrough of
@@ -295,9 +297,9 @@ layers:
   entities - against hand-written arms (hash maps, direct arrays, sorting, `std::map`) over the
   shapes data takes and the ways models reach it, without a solver.
 - `bench/scenario/`: whole models built end to end by dreamor and by hand, up to the moment the
-  solver starts on them, through CPLEX and MathOpt: p-median, the model the modeling-language
-  benchmarks use, and the lot-sizing example as written here, against hand-optimized code and
-  against the usual `std::map` code (`examples/production_planning_plain.hpp`).
+  solver starts on them, through CPLEX, MathOpt and HiGHS's own API: p-median, the model the
+  modeling-language benchmarks use, and the lot-sizing example as written here, against
+  hand-optimized code and against the usual `std::map` code (`examples/production_planning_plain.hpp`).
 
 ```bash
 bench/scenario/build.sh

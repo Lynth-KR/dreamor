@@ -13,6 +13,7 @@
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-FFD43B?style=flat-square&logo=cplusplus&logoColor=white&labelColor=1D2433)](#빠른-시작)
 [![CPLEX Concert](https://img.shields.io/badge/backend-CPLEX%20Concert-FFD43B?style=flat-square&labelColor=1D2433)](#백엔드)
 [![OR-Tools MathOpt](https://img.shields.io/badge/backend-OR--Tools%20MathOpt-FFD43B?style=flat-square&labelColor=1D2433)](#백엔드)
+[![HiGHS](https://img.shields.io/badge/backend-HiGHS-FFD43B?style=flat-square&labelColor=1D2433)](#백엔드)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-FFD43B?style=flat-square&labelColor=1D2433)](LICENSE)
 
 [빠른 시작](#빠른-시작)&emsp;[집합 만들기](docs/ko/guide.md#집합-만들기--makeset)&emsp;[VarTable](docs/ko/guide.md#변수족--vartable)&emsp;[합](docs/ko/guide.md#합--sumof)&emsp;[OR-Tools 예제](examples/mathopt_samples/README.ko.md)&emsp;[공개 API](docs/ko/reference.md#공개-api-전체-목록)
@@ -261,10 +262,11 @@ for (const auto& [row, qty] : yieldPlan) {
 ```
 
 전체 예제는 `examples/`에 있습니다. 데이터·열·집합은 솔버와 무관한 `production_planning_sets.hpp` 하나이고,
-그 위에 같은 모형을 Concert로 쓴 `production_planning.hpp`(실행: `production_planning.cpp`)와 MathOpt로 쓴
-`production_planning_mathopt.hpp`(실행: `production_planning_mathopt.cpp`, HiGHS)가 올라갑니다. 두 모형이
-같은 제약을 만드는지는 `tests/mathopt/test_cross_backend.cpp`가 대조합니다. 같은 모형을 `std::map`과
-Concert만으로 쓴 비교판은 `production_planning_plain.hpp`입니다.
+그 위에 같은 모형을 Concert로 쓴 `production_planning.hpp`(실행: `production_planning.cpp`), MathOpt로 쓴
+`production_planning_mathopt.hpp`(실행: `production_planning_mathopt.cpp`, HiGHS), HiGHS로 쓴
+`production_planning_highs.hpp`(실행: `production_planning_highs.cpp`)가 올라갑니다. 각 모형이 Concert 모형과 같은
+제약을 만드는지는 `tests/mathopt/test_cross_backend.cpp`와 `tests/highs/test_cross_backend.cpp`가 대조합니다. 같은
+모형을 `std::map`과 Concert만으로 쓴 비교판은 `production_planning_plain.hpp`입니다.
 
 [`examples/mathopt_samples/`](examples/mathopt_samples/README.ko.md)에는 OR-Tools가 직접 제공하는 MathOpt 예제
 세 개(`cocktail_hour`, `time_indexed_scheduling`, `lagrangian_relaxation`)를 dreamor로 옮긴 것과, 각각 무엇이
@@ -287,8 +289,8 @@ dreamor가 스스로 쓰는 헤더 두 개로, 모델 코드에서도 쓸 수 �
 
 - `bench/catalog/`: 조회, 묶기, 집합 연산, slice, 생성, 순서, 엔티티 같은 연산 하나하나를 손코딩(해시 맵, 직접 배열,
   정렬, `std::map`)과 비교합니다. 데이터 모양과 모형이 데이터에 닿는 방식을 요인으로 두고, 솔버 없이 잽니다.
-- `bench/scenario/`: 모형 전체를 dreamor와 손코딩으로 끝까지 만들어 솔버가 풀기 시작하는 시점까지 CPLEX와 MathOpt로
-  잽니다. 모델링 언어 벤치마크들이 쓰는 p-median과, 이 저장소의 생산계획 예제를 그대로 씁니다. 손 최적화 코드, 그리고
+- `bench/scenario/`: 모형 전체를 dreamor와 손코딩으로 끝까지 만들어 솔버가 풀기 시작하는 시점까지 CPLEX, MathOpt,
+  HiGHS 자체 API로 잽니다. 모델링 언어 벤치마크들이 쓰는 p-median과, 이 저장소의 생산계획 예제를 그대로 씁니다. 손 최적화 코드, 그리고
   흔히 짜는 `std::map` 코드(`examples/production_planning_plain.hpp`)와 비교합니다.
 
 ```bash

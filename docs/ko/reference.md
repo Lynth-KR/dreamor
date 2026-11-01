@@ -116,8 +116,10 @@
 | `(keys...)`, `(row)`, `contains`, `size`, `keys`, `begin`/`end` | Concert와 같음 (변수는 `HighsVar`) |
 | `solution(env)` | `Highs`의 해 → `ValueTable`; 원문제 해가 없으면 `std::logic_error` |
 | `HighsVar`, `HighsCons` | 열, 행: `index()`, `env()` |
+| `HighsLinearTerm`, `HighsQuadraticTerm` | `3 * x`, `x * y`: 항 하나, 식을 할당하지 않고 만듦; `variable`, `coefficient` (이차 항은 `first`, `second`) |
 | `HighsLinearExpression`, `HighsQuadraticExpression` | 연산자로 만든 식(`+ - *`, 숫자로 `/`); 이차식은 목적함수에만 |
-| `HighsBoundedLinearExpression` | 행: `expr <= b`, `a <= expr`, `expr == b`, `(a <= expr) <= b` |
+| `HighsBoundedLinearExpression` | 행: `expr <= b`, `a <= expr`, `expr == b`, `(a <= expr) <= b`; `lower()`, `upper()` |
+| `HighsLowerBoundedLinearExpression`, `HighsUpperBoundedLinearExpression` | `a <= expr`, `expr <= b`: 다른 쪽 범위를 아직 받을 수 있는 행(`(a <= expr) <= b`) |
 | `addConstr(env, row, name = nullptr)` | 반복된 열을 합쳐 행을 추가 → `HighsCons` |
 | `setObjective(env, objective)`, `setObjective(env, objective, sense)` | 비용, 상수, Hessian(그리고 방향)을 바꿈 |
 | `minimize(env, objective)`, `maximize(env, objective)` | `setObjective` 다음 `run()` → 그 `HighsStatus` |

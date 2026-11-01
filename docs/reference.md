@@ -116,8 +116,10 @@ Every public type and function, by header. The [guide](guide.md) explains them i
 | `(keys...)`, `(row)`, `contains`, `size`, `keys`, `begin`/`end` | Same as Concert (variables are `HighsVar`) |
 | `solution(env)` | The `Highs`'s solution → `ValueTable`; `std::logic_error` if there is no primal solution |
 | `HighsVar`, `HighsCons` | A column, a row: `index()`, `env()` |
+| `HighsLinearTerm`, `HighsQuadraticTerm` | `3 * x`, `x * y`: one term, made with no expression to allocate; `variable`, `coefficient` (a quadratic one `first`, `second`) |
 | `HighsLinearExpression`, `HighsQuadraticExpression` | Expressions in operators (`+ - *`, `/` by a number); a quadratic one is an objective only |
-| `HighsBoundedLinearExpression` | A row: `expr <= b`, `a <= expr`, `expr == b`, `(a <= expr) <= b` |
+| `HighsBoundedLinearExpression` | A row: `expr <= b`, `a <= expr`, `expr == b`, `(a <= expr) <= b`; `lower()`, `upper()` |
+| `HighsLowerBoundedLinearExpression`, `HighsUpperBoundedLinearExpression` | `a <= expr`, `expr <= b`: a row that can still take its other bound (`(a <= expr) <= b`) |
 | `addConstr(env, row, name = nullptr)` | Adds the row, its repeated columns merged → `HighsCons` |
 | `setObjective(env, objective)`, `setObjective(env, objective, sense)` | Replaces the costs, constant and Hessian (and the sense) |
 | `minimize(env, objective)`, `maximize(env, objective)` | `setObjective`, then `run()` → its `HighsStatus` |

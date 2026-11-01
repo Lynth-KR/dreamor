@@ -212,8 +212,10 @@ sumOf<Col>(container, term)
     .where(p...).split(p...).build();    // HighsLinearExpression; HighsQuadraticExpression for a quadratic term
 ```
 
-- `HighsVar`, `HighsCons`: `index()`, `env()`. An objective is a `HighsVar`, a term, a `HighsLinearExpression` or a
-  `HighsQuadraticExpression`; a row (`HighsBoundedLinearExpression`) is not one.
+- `HighsVar`, `HighsCons`: `index()`, `env()`. A term is `HighsLinearTerm` (`3 * x`) or `HighsQuadraticTerm`
+  (`x * y`). An objective is a `HighsVar`, a term, a `HighsLinearExpression` or a `HighsQuadraticExpression`; a row
+  (`HighsBoundedLinearExpression`, or the one-sided `HighsLowerBoundedLinearExpression` /
+  `HighsUpperBoundedLinearExpression` that `a <= expr` / `expr <= b` make) is not one.
 - A quadratic expression is compared to nothing: HiGHS takes quadratic terms only in the objective.
 - `addConstr` and `setObjective` merge repeated columns and drop the ones that cancel.
 - A HiGHS call that fails throws `HighsError` (`call()`, `status()`); a model HiGHS refuses throws from the first

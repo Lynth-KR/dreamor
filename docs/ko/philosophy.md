@@ -26,13 +26,14 @@ dreamor는 일부러 작게 만든 라이브러리입니다. 이 문서는 dream
   정확히 하나 가집니다. 표준 라이브러리처럼 이것은 사전 조건입니다. 디버그 빌드는 이를 검사하고 어느 소스인지
   한 문장으로 알려 주며 멈추고, 릴리스 빌드는 검사 비용을 치르지 않습니다.
 - **솔버 API는 솔버의 것입니다.** dreamor는 인덱스 집합, 변수족, 합을 만듭니다. 제약식, 목적식, 풀기, 생성 후의
-  범위, 쌍대값은 Concert나 MathOpt의 표기 그대로 씁니다. 그래서 솔버에 대해 아는 것이 모두 그대로 통하고, 솔버와
-  사용자 사이를 가로막는 것이 없습니다.
+  범위, 쌍대값은 각 백엔드가 딛고 선 솔버 API의 표기 그대로 씁니다(Concert, MathOpt, HiGHS라면 highspy). 그래서
+  솔버에 대해 아는 것이 모두 그대로 통하고, 솔버와 사용자 사이를 가로막는 것이 없습니다.
 - **실수는 컴파일 시점에 한 문장으로 멈춥니다.** 잘못된 열을 받는 callable, `build()` 전에 쓴 합, 맨값으로 한
   조회 같은 오용은 컴파일러가 거부하고, 무엇을 써야 하는지 한 문장으로 알려 줍니다. 템플릿 에러 한 페이지가
   아닙니다.
 - **표준 라이브러리가 선례입니다.** C++ 표준 라이브러리가 비슷한 결정을 내린 곳에서는 그것을 따릅니다. 넣지 않을
-  수도 있는 삽입은 `std::set::emplace`처럼 `std::pair<iterator, bool>`을 돌려주고, 디버그 빌드만 비용을 치르는
+  수도 있는 삽입은 `std::set::emplace`처럼 원소와 들어갔는지를 돌려주고(`EntityVector`에서는 오래가는 핸들인 주소로:
+  `std::pair<const T*, bool>`), 디버그 빌드만 비용을 치르는
   검사는 libstdc++의 assertion처럼 동작하고, 멤버 타입은 컨테이너가 붙이는 이름을 씁니다.
 - **성능은 주장하지 않고 측정합니다.** 성능에 대한 주장은 손코딩과 비교한 실험계획법 측정([벤치마크](../../bench/README.md))에
   근거하고, 최적화는 벤치마크가 데이터를 뽑는 방식이 아니라 dreamor가 보장하는 성질(계약, 생성 구조)에 기댑니다.
@@ -80,8 +81,8 @@ callable을 snake_case(`items_of`, `machine_usage`), 나머지를 camelCase(`tot
 
 | 하지 않는 것 | 이유 / 대안 |
 |---|---|
-| 제약 테이블(키별 제약 보관, 키 기반 제약 이름) | 제약은 대부분 한 번 넣고 다시 찾지 않습니다. 필요하면 솔버 API로(Concert `IloRange` + `setName`, MathOpt `AddLinearConstraint(식, 이름)`) |
-| 쌍대값·감소비용을 키로 읽기 | 드문 작업. 필요할 때 솔버 API로(Concert `getDuals`, MathOpt `dual_values()` 등) |
+| 제약 테이블(키별 제약 보관) | 제약은 대부분 한 번 넣고 다시 찾지 않습니다. 행 이름은 `VarTable`이 변수 이름을 짓듯 `exprName`으로 키에서 짓고, 솔버 API로 넣습니다(Concert `IloRange` + `setName`, MathOpt `AddLinearConstraint(식, 이름)`, HiGHS `addConstr(env, 행, 이름)`) |
+| 쌍대값·감소비용을 키로 읽기 | 드문 작업. 필요할 때 솔버 API로(Concert `getDuals`, MathOpt `dual_values()`, HiGHS `getSolution().row_dual` 등) |
 | 변수 덧붙이기(열 생성) | 구조 불변. 새 열은 새 집합 + 새 VarTable |
 | 파이프 문법(`S \| where(p)`) | 같은 일에 두 번째 방법을 두지 않음 |
 | 계수 배열(`IloScalProd`식) | 계수는 term에서 엔티티로 계산 |

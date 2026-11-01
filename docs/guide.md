@@ -395,6 +395,33 @@ the model being written and the `Highs` that solves it, and decides when one rea
 - A HiGHS call that fails throws `HighsError`, which carries the call and its `HighsStatus`; a model HiGHS refuses
   throws from that first reach (`"passModel"`).
 
+## Large models: transparent huge pages
+
+**Tip: turn transparent huge pages on for large models.** A model of millions of nonzeros spends much of the time
+before the solver starts in page faults: every 4 KiB page of the arrays it fills is a fault the first time it is
+touched, and every page a TLB entry. Huge pages (2 MiB) take hundreds of those at once. Linux decides it in
+`/sys/kernel/mm/transparent_hugepage/enabled`: under `always` every large allocation gets them, under `madvise`
+(Ubuntu's default) only memory that asks, and glibc's `malloc` asks for its heap when told to:
+
+```sh
+GLIBC_TUNABLES=glibc.malloc.hugetlb=1 ./model
+```
+
+On p-median at 20,000 locations (2,000,000 columns), from the start of the run to the solver's start, it took the
+page faults down about thirtyfold and the time down by a third to nearly two thirds, whatever wrote the model
+(GCC 13, AMD Ryzen 7 5700X, Linux 7.0, `madvise`):
+
+| Model written through | THP off | THP on |
+|---|---|---|
+| CPLEX's Callable Library, arrays | 362 ms | 134 ms |
+| Concert, by hand | 1,258 ms | 842 ms |
+| HiGHS, arrays and one `passModel` | 1,635 ms | 908 ms |
+| `dreamor::highs` | 1,738 ms | 1,003 ms |
+
+Neither CPLEX nor HiGHS asks for huge pages itself; their large arrays come from the same `malloc`. The
+measurements elsewhere in these documents and under `bench/` leave THP off, the default, so that they hold for a
+machine left as it came.
+
 ## Compile cost of wide sets
 
 One translation unit that builds a set of N columns, filters it, groups it, puts a
