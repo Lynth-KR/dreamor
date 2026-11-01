@@ -24,8 +24,10 @@ jobs:
     # Real CPLEX: tests/run_tests.sh --cplex [CPLEX_Studio dir], locally.
     # -O3 -DNDEBUG is CMake's Release: GCC finds more with inlining, and asserts compile away.
     # GCC 13 at -O1 -g is sanitize (g++-13, 1): the same build, instrumented.
-    # The compile_fail cases and the syntax checks depend on the compiler alone, not on OPT or
-    # SAN, so they run once per compiler (checks: 1) and COMPILE_CHECKS=0 skips them elsewhere.
+    # The compile_fail cases, the syntax checks and the tests of the documented code depend on
+    # the compiler alone, not on OPT or SAN, so they run once per compiler (checks: 1) and
+    # COMPILE_CHECKS=0 skips them elsewhere. Clang 18 at -O1 -g runs them alone (units: 0): its
+    # other tests and contract_fail are sanitize (clang++-18, 1), the same build instrumented.
     # The g++-13 entry also installs the CMake package and builds tests/cmake_consumer through
     # find_package(dreamor), with both compilers, as a user would.
     needs: lint
@@ -35,14 +37,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { cxx: g++-13, opt: "-O3 -DNDEBUG", checks: 1 }
-          - { cxx: clang++-18, opt: "-O1 -g", checks: 1 }
-          - { cxx: clang++-18, opt: "-O3 -DNDEBUG", checks: 0 }
+          - { cxx: g++-13, opt: "-O3 -DNDEBUG", checks: 1, units: 1 }
+          - { cxx: clang++-18, opt: "-O1 -g", checks: 1, units: 0 }
+          - { cxx: clang++-18, opt: "-O3 -DNDEBUG", checks: 0, units: 1 }
     steps:
       - uses: actions/checkout@v7
       - name: Clang 18
         run: command -v clang++-18 || (sudo apt-get update && sudo apt-get install -y clang-18)
-      - run: CXX=${{ matrix.cxx }} OPT="${{ matrix.opt }}" COMPILE_CHECKS=${{ matrix.checks }} tests/run_tests.sh
+      - run: >-
+          CXX=${{ matrix.cxx }} OPT="${{ matrix.opt }}" COMPILE_CHECKS=${{ matrix.checks }}
+          UNIT_TESTS=${{ matrix.units }} tests/run_tests.sh
       - name: CMake package
         if: matrix.cxx == 'g++-13'
         run: |

@@ -37,9 +37,12 @@
 #               TSan cannot place its shadow memory and stops before main.
 # JOBS sets how many compiles run at once (default: every core); the tests then run and report
 # one at a time, in a fixed order.
-# COMPILE_CHECKS=0 skips what only the compiler decides - the compile_fail cases and the syntax
-# checks - for a run that repeats them on a compiler already checked: neither OPT nor SAN changes
-# their result.
+# COMPILE_CHECKS=0 skips what only the compiler decides - the compile_fail cases, the syntax
+# checks, and the tests of the documented code (test_readme, test_docs, test_example: the API as
+# the docs write it, on paths the other tests run) - for a run that repeats them on a compiler
+# already checked: neither OPT nor SAN changes their result. UNIT_TESTS=0 skips the other tests
+# and contract_fail, for a run of the compiler's checks alone, beside a sanitizer run of the same
+# compiler and OPT that runs them.
 set -u
 cd "$(dirname "$0")"
 CXX=${CXX:-g++}
@@ -92,11 +95,16 @@ CONTRACT=""
 [ "$MODE" = stub ] && [ -z "${SKIP_CONTRACT:-}" ] && CONTRACT=$(ls contract_fail/*.cpp)
 [ "$MODE" = highs ] && [ -z "${SKIP_CONTRACT:-}" ] && CONTRACT=$(ls highs/contract_fail/*.cpp)
 COMPILE_CHECKS=${COMPILE_CHECKS:-1}
+UNIT_TESTS=${UNIT_TESTS:-1}
+[ "$UNIT_TESTS" = 0 ] && CONTRACT=""
 
 if [ "$MODE" = stub ]; then
   FLAGS="$COMMON -Istub"
   LIBS=""
-  TESTS=$(ls test_*.cpp)
+  DOC_TESTS="test_docs.cpp test_example.cpp test_readme.cpp"
+  TESTS=""
+  [ "$UNIT_TESTS" = 0 ] || TESTS=$(ls test_*.cpp | grep -vxF -e test_docs.cpp -e test_example.cpp -e test_readme.cpp)
+  [ "$COMPILE_CHECKS" = 0 ] || TESTS="$TESTS $DOC_TESTS"
 elif [ "$MODE" = mathopt ]; then
   if [ ! -f "$ORTOOLS/include/ortools/math_opt/cpp/math_opt.h" ] || [ ! -d "$ORTOOLS/lib" ]; then
     echo "OR-Tools not found at $ORTOOLS (pass the directory: ./run_tests.sh --mathopt DIR)"; exit 2

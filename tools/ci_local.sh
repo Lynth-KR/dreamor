@@ -11,9 +11,11 @@
 # signature - in ci-passed/ under the repository's git directory, where tools/hooks/pre-push looks
 # for it before a push to main.
 #
-# ORTOOLS_DIR is the OR-Tools C++ prebuilt CI downloads (v9.15; default /opt/ortools). The jobs
-# run one after another, each on every core; format and tidy first, and nothing else if either
-# fails, as on CI. Logs go to a temporary folder, kept if a job fails.
+# ORTOOLS_DIR is the OR-Tools C++ prebuilt CI downloads (v9.15; default /opt/ortools). Format and
+# tidy run first, and nothing else if either fails, as on CI; then the rest run CI_JOBS at a time
+# (default 4), as CI's runners do, each in a checkout of its own - tests/run_tests.sh builds in the
+# tree - and each compiling JOBS at a time (default: half the cores). Logs go to a temporary folder,
+# kept if a job fails.
 # The jobs are written down twice: change this together with ci.yml.
 set -eu
 cd "$(dirname "$0")/.."
@@ -38,13 +40,13 @@ if [ -n "$missing" ]; then
 fi
 
 work=$(mktemp -d "${TMPDIR:-/tmp}/dreamor-ci.XXXXXX")
-src=$work/src
 logs=$work/logs
 mkdir "$logs"
-git worktree add -q --detach "$src" "$rev"
 failed=
 finish() {
-  git worktree remove --force "$src" 2> /dev/null || true
+  for dir in "$work"/src*; do
+    [ -d "$dir" ] && git worktree remove --force "$dir" 2> /dev/null || true
+  done
   if [ -n "$failed" ]; then
     echo "ci_local: FAILED:$failed - logs in $logs"
   else
@@ -55,34 +57,67 @@ trap finish EXIT
 trap 'failed=" interrupted"; exit 130' INT TERM
 
 echo "ci_local: $(git log -1 --format='%h %s' "$rev")"
-job() {  # job NAME COMMAND: runs COMMAND in the checkout, its output in NAME.log
-  name=$1
-  start=$(date +%s)
-  if (cd "$src" && sh -c "$2") > "$logs/$name.log" 2>&1 < /dev/null; then
-    printf '  %-32s ok      %4ss\n' "$name" "$(($(date +%s) - start))"
-  else
-    printf '  %-32s FAILED  %4ss\n' "$name" "$(($(date +%s) - start))"
-    failed="$failed $name"
+CI_JOBS=${CI_JOBS:-4}
+JOBS=${JOBS:-$(($(nproc) / 2))}
+export ORTOOLS_DIR JOBS
+count=0
+running=""
+# job NAME COMMAND: runs COMMAND in a checkout of its own, in the background, at most CI_JOBS at
+# once; its output in NAME.log, and its line of the summary in <n>.result.
+job() {
+  count=$((count + 1))
+  dir=$work/src$count
+  git worktree add -q --detach "$dir" "$rev"
+  (
+    start=$(date +%s)
+    if (cd "$dir" && sh -c "$2") > "$logs/$1.log" 2>&1 < /dev/null; then
+      verdict=ok
+    else
+      verdict=FAILED
+    fi
+    printf '%s\t%s\t%s\n' "$verdict" "$1" "$(($(date +%s) - start))" > "$logs/$count.result"
+  ) &
+  running="$running $!"
+  # shellcheck disable=SC2086
+  set -- $running
+  if [ $# -ge "$CI_JOBS" ]; then
+    wait "$1" || true
+    shift
+    running="$*"
   fi
 }
-export ORTOOLS_DIR
+# Waits for every job started, then prints their lines in the order they were started.
+report() {
+  for pid in $running; do wait "$pid" || true; done
+  running=""
+  for n in $(seq "${reported:-1}" "$count"); do
+    IFS="$(printf '\t')" read -r verdict name took < "$logs/$n.result"
+    printf '  %-32s %-7s %4ss\n' "$name" "$verdict" "$took"
+    [ "$verdict" = ok ] || failed="$failed $name"
+  done
+  reported=$((count + 1))
+}
 
 job format 'tools/format.sh --check'
 job tidy 'python3 tools/gen_compile_commands.py && tools/tidy.sh'
+report
 [ -z "$failed" ] || exit 1
 
-# GCC 13 at -O1 -g is sanitize (g++-13, 1); the compile-time checks run once per compiler. As on CI.
+# The installed package, for the package and mathopt jobs (CI's package is a step of stub, g++-13).
+job install "cmake -S . -B '$work/build' -DCMAKE_INSTALL_PREFIX='$work/prefix' && cmake --install '$work/build'"
+report
+[ -z "$failed" ] || exit 1
+
+# GCC 13 at -O1 -g is sanitize (g++-13, 1); Clang 18 at -O1 -g runs only the compiler's checks, its other
+# tests being sanitize (clang++-18, 1); the compile-time checks run once per compiler. As on CI.
 job "stub (g++-13, -O3 -DNDEBUG)" "CXX=g++-13 OPT='-O3 -DNDEBUG' tests/run_tests.sh"
-job "stub (clang++-18, -O1 -g)" "CXX=clang++-18 OPT='-O1 -g' tests/run_tests.sh"
+job "stub (clang++-18, -O1 -g)" "CXX=clang++-18 OPT='-O1 -g' UNIT_TESTS=0 tests/run_tests.sh"
 job "stub (clang++-18, -O3 -DNDEBUG)" "CXX=clang++-18 OPT='-O3 -DNDEBUG' COMPILE_CHECKS=0 tests/run_tests.sh"
 job "sanitize (g++-13, 1)" "CXX=g++-13 SAN=1 COMPILE_CHECKS=0 tests/run_tests.sh"
 job "sanitize (clang++-18, 1)" "CXX=clang++-18 SAN=1 COMPILE_CHECKS=0 tests/run_tests.sh"
 job "sanitize (g++-13, thread)" "CXX=g++-13 SAN=thread COMPILE_CHECKS=0 tests/run_tests.sh"
 job gcc-latest "podman run --rm -v \"\$PWD\":/src -w /src $GCC_IMAGE sh -c 'CXX=g++ tests/run_tests.sh'"
 job clang-latest 'CXX=clang++-23 tests/run_tests.sh'
-
-# The installed package, for the package and mathopt jobs (CI's package is a step of stub, g++-13).
-job install "cmake -S . -B '$work/build' -DCMAKE_INSTALL_PREFIX='$work/prefix' && cmake --install '$work/build'"
 for cxx in g++-13 clang++-18; do
   job "mathopt ($cxx)" "CXX=$cxx tests/run_tests.sh --mathopt \"\$ORTOOLS_DIR\" &&
     cmake -S tests/cmake_consumer_mathopt -B '$work/consumer-mathopt-$cxx' -DCMAKE_CXX_COMPILER=$cxx \
@@ -97,6 +132,7 @@ for cxx in g++-13 clang++-18; do
           -DCMAKE_PREFIX_PATH='$work/prefix' &&
     cmake --build '$work/consumer-$cxx' && '$work/consumer-$cxx/consumer'"
 done
+report
 
 [ -z "$failed" ] || exit 1
 passed=$(git rev-parse --git-common-dir)/ci-passed

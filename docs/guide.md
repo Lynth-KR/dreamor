@@ -432,13 +432,13 @@ machine left as it came.
 
 One translation unit that builds a set of N columns, filters it, groups it, puts a
 `VarTable` on it and sums over it (`-std=c++20 -O2 -c` without `NDEBUG`, so with the debug build's contract checks,
-which `-DNDEBUG` compiles out; CPU time and peak memory; AMD Ryzen 7 5700X, WSL2 Ubuntu 24.04, 2026-10-25). `tests/test_arity.cpp` runs 63 and 64 columns on every test run, so a blow-up would show there;
+which `-DNDEBUG` compiles out; CPU time and peak memory; AMD Ryzen 7 5700X, bare metal, boost off, Linux 7.0, 2026-11-01).
 `python3 tools/measure_compile_cost.py [compiler ...]` re-measures the table.
 
 | Columns | g++ 13.3 | clang++ 18.1 | clang++ 23.1 |
 |---|---|---|---|
-| 4 | 3.3 s, 315 MB | 3.0 s, 216 MB | 3.1 s, 230 MB |
-| 16 | 3.8 s, 331 MB | 3.6 s, 246 MB | 3.7 s, 258 MB |
-| 32 | 4.6 s, 390 MB | 4.9 s, 301 MB | 4.7 s, 312 MB |
-| 63 | 7.6 s, 569 MB | 8.8 s, 469 MB | 8.3 s, 474 MB |
-| 64 | 7.8 s, 580 MB | 9.0 s, 477 MB | 8.5 s, 482 MB |
+| 4 | 3.9 s, 323 MB | 3.8 s, 220 MB | 3.8 s, 235 MB |
+| 16 | 4.6 s, 331 MB | 4.7 s, 249 MB | 4.6 s, 261 MB |
+| 32 | 5.6 s, 394 MB | 6.1 s, 305 MB | 6.0 s, 313 MB |
+| 63 | 9.4 s, 574 MB | 11.1 s, 473 MB | 10.6 s, 475 MB |
+| 64 | 9.6 s, 585 MB | 11.4 s, 481 MB | 10.8 s, 484 MB |
