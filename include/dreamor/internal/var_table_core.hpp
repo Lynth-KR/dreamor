@@ -12,8 +12,8 @@
 // row, the variables in the set's order, lookup (operator()) and iteration, the constructor that
 // rejects a set with other key columns, and the traits that make a table a sum term. A backend's
 // VarTable derives from VarTableCore<Var, Keys...> publicly, inherits its constructors
-// (`using Core::Core;`), creates the variables into vars_ in its own constructor, and adds
-// solution() - each in its solver's own terms.
+// (`using Core::Core;`), creates the variables into vars_ in its own constructor - a vector of
+// handles, or what VarStorage<Var> names - and adds solution(), each in its solver's own terms.
 #pragma once
 
 #include <concepts>
@@ -41,6 +41,19 @@ namespace dreamor::internal {
 // What every backend's VarTable derives from, through VarTableCore: the traits below find a
 // table by it.
 struct VarTableBase {};
+
+// Where a backend's variables live, one a row of the set: by default a vector of the solver's
+// handles. A backend whose row's position gives the variable - HiGHS's columns, the table's first
+// plus the position - specializes it, with size(), operator[] and cursorAt(storage, position) for
+// iteration.
+template <typename Var>
+struct VarStorage {
+  using type = std::vector<Var>;
+};
+template <typename Var>
+[[nodiscard]] const Var* cursorAt(const std::vector<Var>& vars, std::size_t at) noexcept {
+  return vars.data() + at;
+}
 
 template <typename Var, typename... Keys>
   requires(sizeof...(Keys) > 0 && (is_nameable<Keys> && ...))
@@ -97,10 +110,8 @@ class VarTableCore : public VarTableBase {
   [[nodiscard]] const IndexSet<Key>& keys() const noexcept { return keys_; }
 
   // (row, variable) pairs in the set's order - the column order the model gets.
-  [[nodiscard]] RowPairIterator<Key, Var> begin() const noexcept { return {rows().data(), vars_.data()}; }
-  [[nodiscard]] RowPairIterator<Key, Var> end() const noexcept {
-    return {rows().data() + rows().size(), vars_.data() + vars_.size()};
-  }
+  [[nodiscard]] auto begin() const noexcept { return Iterator{rows().data(), cursorAt(vars_, 0)}; }
+  [[nodiscard]] auto end() const noexcept { return Iterator{rows().data() + rows().size(), cursorAt(vars_, size())}; }
 
   // Copy is deleted: a variable is a handle, so a copy would quietly alias the same columns
   // under two names. Move is fine - nothing here points at itself.
@@ -174,9 +185,11 @@ class VarTableCore : public VarTableBase {
   }
 
   // NOLINTNEXTLINE(*-non-private-member-variables-in-classes): the backends deriving from this fill it
-  std::vector<Var> vars_;  // vars_[i] is the variable of row i.
+  VarStorage<Var>::type vars_;  // vars_[i] is the variable of row i.
 
  private:
+  using Iterator = RowPairIterator<Key, decltype(cursorAt(std::declval<const typename VarStorage<Var>::type&>(), 0))>;
+
   IndexSet<Key> keys_;                          // Shared; the only copy of the keys.
   std::shared_ptr<const RowIndex<Key>> index_;  // Shared with ValueTables.
 };

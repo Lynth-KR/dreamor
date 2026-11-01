@@ -11,6 +11,7 @@
 #include <set>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include "check.hpp"
@@ -55,11 +56,14 @@ static std::multiset<std::string> highsRows(const Highs& highs) {
   std::vector<HighsInt> index(columns);
   std::vector<double> value(columns);
   for (HighsInt r = 0; r < highs.getNumRow(); ++r) {
-    double lower = 0, upper = 0;
-    HighsInt count = 0, nonzeros = 0, start = 0;
+    double lower      = 0;
+    double upper      = 0;
+    HighsInt count    = 0;
+    HighsInt nonzeros = 0;
+    HighsInt start    = 0;
     highs.getRows(r, r, count, &lower, &upper, nonzeros, &start, index.data(), value.data());
     std::map<std::string, double> terms;
-    for (std::size_t k = 0; k < static_cast<std::size_t>(nonzeros); ++k) {
+    for (std::size_t k = 0; std::cmp_less(k, nonzeros); ++k) {
       std::string name;
       highs.getColName(index[k], name);
       terms[name] += value[k];

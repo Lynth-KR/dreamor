@@ -23,6 +23,7 @@
 #include <memory>
 #include <mutex>
 #include <stdexcept>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -208,18 +209,19 @@ class RowIndex {
   mutable ::dreamor::general::FlatIndex<Key> index_;
 };
 
-// Iterates (row, X) pairs: a set's rows beside a vector of X in the same order.
-template <typename Key, typename X>
+// Iterates (row, X) pairs: a set's rows beside their X, in the same order. Cursor walks the X: a
+// pointer into an array of them, or whatever a table whose X are computed from the position steps.
+template <typename Key, typename Cursor>
 class RowPairIterator {
  public:
   using iterator_concept  = std::forward_iterator_tag;
   using iterator_category = std::forward_iterator_tag;
-  using value_type        = std::pair<const Key&, X>;
+  using value_type        = std::pair<const Key&, std::remove_cvref_t<decltype(*std::declval<const Cursor&>())>>;
   using difference_type   = std::ptrdiff_t;
   using reference         = value_type;
 
   RowPairIterator() = default;
-  RowPairIterator(const Key* row, const X* x) noexcept : row_{row}, x_{x} {}
+  RowPairIterator(const Key* row, Cursor x) noexcept : row_{row}, x_{x} {}
 
   [[nodiscard]] reference operator*() const { return {*row_, *x_}; }
   RowPairIterator& operator++() noexcept {
@@ -233,12 +235,12 @@ class RowPairIterator {
     return before;
   }
   [[nodiscard]] friend bool operator==(const RowPairIterator& a, const RowPairIterator& b) noexcept {
-    return a.x_ == b.x_;
+    return a.row_ == b.row_;
   }
 
  private:
   const Key* row_ = nullptr;
-  const X* x_     = nullptr;
+  Cursor x_{};
 };
 
 // The row index of a set: every table on the set - vYield and vSetup on sPRODUCE, a ValueTable

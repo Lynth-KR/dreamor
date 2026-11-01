@@ -659,18 +659,28 @@ HighsQuadraticExpression operator*(const L& lhs, const R& rhs) {
 // ---------------------------------------------------------------------------------------
 // Sums
 
+// The right operand is added as it is - a variable, a term or a number appends to the left one's
+// expression, with no expression of its own made for it.
 template <typename L, typename R>
   requires LinearOperands<L, R>
 HighsLinearExpression operator+(L&& lhs, R&& rhs) {
   HighsLinearExpression sum = internal::toHighsLinear(std::forward<L>(lhs));
-  sum += internal::toHighsLinear(std::forward<R>(rhs));
+  if constexpr (is_highs_scalar<std::remove_cvref_t<R>>) {
+    sum += static_cast<double>(rhs);
+  } else {
+    sum += std::forward<R>(rhs);
+  }
   return sum;
 }
 template <typename L, typename R>
   requires LinearOperands<L, R>
 HighsLinearExpression operator-(L&& lhs, R&& rhs) {
   HighsLinearExpression difference = internal::toHighsLinear(std::forward<L>(lhs));
-  difference -= internal::toHighsLinear(std::forward<R>(rhs));
+  if constexpr (is_highs_scalar<std::remove_cvref_t<R>>) {
+    difference -= static_cast<double>(rhs);
+  } else {
+    difference -= std::forward<R>(rhs);
+  }
   return difference;
 }
 template <typename L, typename R>
@@ -765,8 +775,8 @@ inline void highsCall(const char* call, HighsStatus status) {
 }
 
 // The per-thread workspace that merges an expression's repeated columns before HiGHS sees
-// them, in time linear in the terms: a column's slot holds its running sum while its stamp
-// equals the current pass. Its arrays grow to the widest model the thread has handed over.
+// them, in time linear in the terms: a column's mark holds where its merged entry is while the
+// mark's pass is the current one. Its arrays grow to the widest model the thread has handed over.
 class HighsWorkspace {
  public:
   static HighsWorkspace& local() {
@@ -774,39 +784,59 @@ class HighsWorkspace {
     return workspace;
   }
 
-  // Merges (indices, coefficients) over a model of `columns` columns into columns() and
-  // values(), in order of first appearance, without the terms that cancel to zero.
+  // Appends (indices, coefficients) over a model of `columns` columns to (to_columns, to_values),
+  // merged, in order of first appearance, without the terms that cancel to zero. A short sum - most
+  // rows - is merged in place, by comparing its terms with those already appended. A longer one is
+  // merged here, through the stamps, and copied over in one insert: appended entry by entry, a large
+  // model's arrays took more page faults (lot sizing at 1700 items: 59.7k against 49.1k).
+  void appendMerged(std::span<const HighsInt> indices,
+                    std::span<const double> coefficients,
+                    std::size_t columns,
+                    std::vector<HighsInt>& to_columns,
+                    std::vector<double>& to_values) {
+    if (indices.size() <= kCompared) {
+      const std::size_t first = to_columns.size();
+      appendCompared(indices, coefficients, to_columns, to_values);
+      dropZeros(to_columns, to_values, first);
+      return;
+    }
+    merge(indices, coefficients, columns);
+    to_columns.insert(to_columns.end(), merged_columns_.begin(), merged_columns_.end());
+    to_values.insert(to_values.end(), merged_values_.begin(), merged_values_.end());
+  }
+
+  // Merges (indices, coefficients) into columns() and values(), as appendMerged does.
   void merge(std::span<const HighsInt> indices, std::span<const double> coefficients, std::size_t columns) {
-    beginPass(columns);
     merged_columns_.clear();
     merged_values_.clear();
-    for (std::size_t k = 0; k < indices.size(); ++k) {
-      const auto column = static_cast<std::size_t>(indices[k]);
-      if (stamps_[column] != pass_) {
-        stamps_[column] = pass_;
-        sums_[column]   = 0.0;
-        merged_columns_.push_back(indices[k]);
-      }
-      sums_[column] += coefficients[k];
+    if (indices.size() <= kCompared) {
+      appendCompared(indices, coefficients, merged_columns_, merged_values_);
+    } else {
+      appendStamped(indices, coefficients, columns);
     }
-    for (const HighsInt column : merged_columns_) {
-      merged_values_.push_back(sums_[static_cast<std::size_t>(column)]);
-    }
-    dropZeros(merged_columns_, merged_values_);
+    dropZeros(merged_columns_, merged_values_, 0);
   }
 
   [[nodiscard]] std::span<const HighsInt> columns() const noexcept { return merged_columns_; }
   [[nodiscard]] std::span<const double> values() const noexcept { return merged_values_; }
 
-  // The objective's costs: every column's, zero where the expression has none.
+  // The objective's costs: every column's, zero where the expression has none. A cost array has a
+  // slot for every column, so a repeated column sums in its slot and one that cancels is a cost of
+  // zero: nothing to merge.
   [[nodiscard]] std::span<const double> costs(const dreamor::highs::HighsLinearExpression& objective,
                                               std::size_t columns) {
-    merge(objective.indices(), objective.coefficients(), columns);
-    costs_.assign(columns, 0.0);
-    for (std::size_t k = 0; k < merged_columns_.size(); ++k) {
-      costs_[static_cast<std::size_t>(merged_columns_[k])] = merged_values_[k];
-    }
+    fillCosts(objective, columns, costs_);
     return costs_;
+  }
+  static void fillCosts(const dreamor::highs::HighsLinearExpression& objective,
+                        std::size_t columns,
+                        std::vector<double>& costs) {
+    costs.assign(columns, 0.0);
+    const std::span<const HighsInt> indices    = objective.indices();
+    const std::span<const double> coefficients = objective.coefficients();
+    for (std::size_t k = 0; k < indices.size(); ++k) {
+      costs[static_cast<std::size_t>(indices[k])] += coefficients[k];
+    }
   }
 
   // The Hessian of the quadratic terms, lower triangle, column-wise, as passHessian takes it:
@@ -863,20 +893,61 @@ class HighsWorkspace {
   }
 
  private:
-  void beginPass(std::size_t columns) {
-    if (sums_.size() < columns) {
-      sums_.resize(columns, 0.0);
-      stamps_.resize(columns, 0);
+  // Each term added to the entry of its column among those appended from to_columns' end on, or
+  // appended: a few comparisons a term.
+  static void appendCompared(std::span<const HighsInt> indices,
+                             std::span<const double> coefficients,
+                             std::vector<HighsInt>& to_columns,
+                             std::vector<double>& to_values) {
+    const std::size_t first = to_columns.size();
+    for (std::size_t k = 0; k < indices.size(); ++k) {
+      std::size_t at = first;
+      while (at < to_columns.size() && to_columns[at] != indices[k]) {
+        ++at;
+      }
+      if (at == to_columns.size()) {
+        to_columns.push_back(indices[k]);
+        to_values.push_back(coefficients[k]);
+      } else {
+        to_values[at] += coefficients[k];
+      }
     }
-    if (++pass_ == 0) {  // wrapped around: no slot may look current
-      std::ranges::fill(stamps_, 0U);
+  }
+
+  // Each term added to its column's entry in merged_*, found through the column's mark while the
+  // mark's pass is the current one: one read a term, however long the sum. A mark is the pass in
+  // its high half and the slot - where the column's entry is - in its low half, so a column costs
+  // 8 bytes of workspace, not a stamp's 4 and a slot's 8 apart.
+  void appendStamped(std::span<const HighsInt> indices, std::span<const double> coefficients, std::size_t columns) {
+    if (indices.size() > std::numeric_limits<std::uint32_t>::max()) {
+      throw std::length_error("dreamor::highs: more terms in one sum than a mark's slot counts.");
+    }
+    beginPass(columns);
+    const std::uint64_t current = std::uint64_t{pass_} << kSlotBits;
+    for (std::size_t k = 0; k < indices.size(); ++k) {
+      std::uint64_t& mark = marks_[static_cast<std::size_t>(indices[k])];
+      if ((mark >> kSlotBits) != pass_) {
+        mark = current | merged_columns_.size();
+        merged_columns_.push_back(indices[k]);
+        merged_values_.push_back(coefficients[k]);
+      } else {
+        merged_values_[mark & kSlotMask] += coefficients[k];
+      }
+    }
+  }
+
+  void beginPass(std::size_t columns) {
+    if (marks_.size() < columns) { marks_.resize(columns, 0); }
+    if (++pass_ == 0) {  // wrapped around: no mark may look current
+      std::ranges::fill(marks_, 0U);
       pass_ = 1;
     }
   }
 
-  static void dropZeros(std::vector<HighsInt>& columns, std::vector<double>& values) {
-    std::size_t kept = 0;
-    for (std::size_t k = 0; k < columns.size(); ++k) {
+  // Drops the zeros among the entries from `first` on.
+  static void dropZeros(std::vector<HighsInt>& columns, std::vector<double>& values, std::size_t first) {
+    std::size_t kept = first;
+    for (std::size_t k = first; k < columns.size(); ++k) {
       if (std::fpclassify(values[k]) != FP_ZERO) {
         columns[kept] = columns[k];
         values[kept]  = values[k];
@@ -905,9 +976,14 @@ class HighsWorkspace {
 
   // c x_i^2 is Q_ii = 2c: HiGHS's objective halves x'Qx.
   static constexpr double kDiagonalScale = 2.0;
+  // The longest sum merged by comparing its terms: up to this, the comparisons cost less than the
+  // stamps' scattered reads of a large model.
+  static constexpr std::size_t kCompared = 8;
 
-  std::vector<double> sums_;
-  std::vector<std::uint32_t> stamps_;
+  static constexpr unsigned kSlotBits      = 32;
+  static constexpr std::uint64_t kSlotMask = (std::uint64_t{1} << kSlotBits) - 1;
+
+  std::vector<std::uint64_t> marks_;  // a column's pass << kSlotBits | its slot
   std::uint32_t pass_{0};
   std::vector<HighsInt> merged_columns_;
   std::vector<double> merged_values_;
@@ -1010,9 +1086,9 @@ class HighsEnv {
     lp.num_row_           = internal::highsCount(lp.row_lower_.size());
     lp.a_matrix_.num_col_ = lp.num_col_;
     lp.a_matrix_.num_row_ = lp.num_row_;
-    if (!named_) {
-      lp.col_names_.clear();
-      lp.row_names_.clear();
+    if (named_) {  // every column and row a name, as HiGHS takes them: the unnamed ones empty
+      lp.col_names_.resize(lp.col_cost_.size());
+      lp.row_names_.resize(lp.row_lower_.size());
     }
     // Columns added after a quadratic objective have no squares: the Hessian reaches them empty.
     HighsHessian& hessian = model_.hessian_;
@@ -1025,7 +1101,10 @@ class HighsEnv {
     internal::highsCall("passModel", highs_.passModel(std::move(model)));
   }
 
-  mutable HighsModel model_;  // until passed: what was written, its matrix row-wise
+  // Until passed: what was written, its matrix row-wise. The names hold no slot for a column or row
+  // until one is named: 32 bytes of empty std::string a row, for a model that names none, is most of
+  // the memory a row costs.
+  mutable HighsModel model_;
   mutable Highs highs_;
   mutable bool passed_{false};
   bool named_{false};  // a column or row of model_ has a name
@@ -1044,14 +1123,16 @@ struct HighsEnvAccess {
     return env.passed_ ? env.highs_.getNumCol() : static_cast<HighsInt>(env.model_.lp_.col_cost_.size());
   }
 
-  // Columns with these bounds and one type; returns the first one's index.
-  static HighsInt addColumns(HighsEnv& env,
-                             std::span<const double> lower,
-                             std::span<const double> upper,
-                             HighsVarType type) {
-    const HighsInt first    = numCol(env);
-    const std::size_t count = lower.size();
+  // `count` columns of one type, their bounds written by bounds(lower, upper) - straight into the
+  // collected model's arrays, or into arrays for one addVars once it is passed; returns the first
+  // one's index.
+  template <typename Bounds>
+  static HighsInt addColumns(HighsEnv& env, std::size_t count, HighsVarType type, const Bounds& bounds) {
+    const HighsInt first = numCol(env);
     if (env.passed_) {
+      std::vector<double> lower(count);
+      std::vector<double> upper(count);
+      bounds(std::span<double>{lower}, std::span<double>{upper});
       highsCall("addVars", env.highs_.addVars(highsCount(count), lower.data(), upper.data()));
       if (type != HighsVarType::kContinuous) {
         const std::vector<HighsVarType> types(count, type);
@@ -1060,12 +1141,13 @@ struct HighsEnvAccess {
       }
       return first;
     }
-    HighsLp& lp = env.model_.lp_;
-    lp.col_lower_.insert(lp.col_lower_.end(), lower.begin(), lower.end());
-    lp.col_upper_.insert(lp.col_upper_.end(), upper.begin(), upper.end());
-    lp.col_cost_.resize(lp.col_cost_.size() + count, 0.0);
-    lp.integrality_.resize(lp.integrality_.size() + count, type);
-    lp.col_names_.resize(lp.col_names_.size() + count);
+    HighsLp& lp             = env.model_.lp_;
+    const std::size_t begin = lp.col_lower_.size();
+    lp.col_lower_.resize(begin + count);
+    lp.col_upper_.resize(begin + count);
+    bounds(std::span<double>{lp.col_lower_}.subspan(begin), std::span<double>{lp.col_upper_}.subspan(begin));
+    lp.col_cost_.resize(begin + count, 0.0);
+    lp.integrality_.resize(begin + count, type);
     return first;
   }
 
@@ -1074,25 +1156,34 @@ struct HighsEnvAccess {
       highsCall("passColName", env.highs_.passColName(column, name));
       return;
     }
-    env.model_.lp_.col_names_[static_cast<std::size_t>(column)] = name;
-    env.named_                                                  = true;
+    std::vector<std::string>& names = env.model_.lp_.col_names_;
+    if (names.size() <= static_cast<std::size_t>(column)) { names.resize(env.model_.lp_.col_cost_.size()); }
+    names[static_cast<std::size_t>(column)] = name;
+    env.named_                              = true;
   }
 
-  // A row of merged columns; returns its index.
-  static HighsInt addRow(
-      HighsEnv& env, double lower, double upper, std::span<const HighsInt> columns, std::span<const double> values) {
+  // A row, its repeated columns merged; returns its index. Collected, the merged terms go straight
+  // into the model's row-wise matrix.
+  static HighsInt addRow(HighsEnv& env,
+                         double lower,
+                         double upper,
+                         std::span<const HighsInt> indices,
+                         std::span<const double> coefficients) {
+    HighsWorkspace& workspace = HighsWorkspace::local();
+    const auto columns        = static_cast<std::size_t>(numCol(env));
     if (env.passed_) {
-      highsCall("addRow", env.highs_.addRow(lower, upper, highsCount(columns.size()), columns.data(), values.data()));
+      workspace.merge(indices, coefficients, columns);
+      const std::span<const HighsInt> merged = workspace.columns();
+      highsCall("addRow",
+                env.highs_.addRow(lower, upper, highsCount(merged.size()), merged.data(), workspace.values().data()));
       return env.highs_.getNumRow() - 1;
     }
     HighsLp& lp             = env.model_.lp_;
     HighsSparseMatrix& rows = lp.a_matrix_;
-    rows.index_.insert(rows.index_.end(), columns.begin(), columns.end());
-    rows.value_.insert(rows.value_.end(), values.begin(), values.end());
+    workspace.appendMerged(indices, coefficients, columns, rows.index_, rows.value_);
     rows.start_.push_back(highsCount(rows.index_.size()));
     lp.row_lower_.push_back(lower);
     lp.row_upper_.push_back(upper);
-    lp.row_names_.emplace_back();
     return highsCount(lp.row_lower_.size()) - 1;
   }
 
@@ -1101,8 +1192,10 @@ struct HighsEnvAccess {
       highsCall("passRowName", env.highs_.passRowName(row, name));
       return;
     }
-    env.model_.lp_.row_names_[static_cast<std::size_t>(row)] = name;
-    env.named_                                               = true;
+    std::vector<std::string>& names = env.model_.lp_.row_names_;
+    if (names.size() <= static_cast<std::size_t>(row)) { names.resize(env.model_.lp_.row_lower_.size()); }
+    names[static_cast<std::size_t>(row)] = name;
+    env.named_                           = true;
   }
 
   // The objective: every column's cost (zero where it has none), the constant, and the Hessian - built
@@ -1115,10 +1208,7 @@ struct HighsEnvAccess {
     HighsWorkspace& workspace = HighsWorkspace::local();
     if (!env.passed_) {
       HighsModel& model = env.model_;
-      if (columns > 0) {
-        const std::span<const double> costs = workspace.costs(linear, columns);
-        model.lp_.col_cost_.assign(costs.begin(), costs.end());
-      }
+      if (columns > 0) { HighsWorkspace::fillCosts(linear, columns, model.lp_.col_cost_); }
       model.lp_.offset_ = linear.constant();
       model.hessian_    = HighsHessian{};
       if (squares != nullptr) {
@@ -1166,6 +1256,56 @@ struct HighsEnvAccess {
 
 }  // namespace dreamor::internal
 
+namespace dreamor::highs {}  // namespace dreamor::highs
+
+namespace dreamor::internal {
+
+// A HiGHS table's variables: its columns are added in one go, so a row's variable is the first
+// column plus the row's position, and nothing is kept a variable - 16 bytes a row, as a vector of
+// HighsVar would.
+class HighsColumns {
+ public:
+  HighsColumns() = default;
+  HighsColumns(HighsInt first, const dreamor::highs::HighsEnv& env, std::size_t count) noexcept
+      : first_{first}, env_{&env}, count_{count} {}
+
+  [[nodiscard]] std::size_t size() const noexcept { return count_; }
+  [[nodiscard]] dreamor::highs::HighsVar operator[](std::size_t at) const noexcept {
+    return {first_ + static_cast<HighsInt>(at), *env_};
+  }
+
+  // A position among the columns, stepped as a pointer is.
+  class Cursor {
+   public:
+    Cursor() = default;
+    Cursor(HighsInt column, const dreamor::highs::HighsEnv* env) noexcept : column_{column}, env_{env} {}
+    [[nodiscard]] dreamor::highs::HighsVar operator*() const noexcept { return {column_, *env_}; }
+    Cursor& operator++() noexcept {
+      ++column_;
+      return *this;
+    }
+
+   private:
+    HighsInt column_{0};
+    const dreamor::highs::HighsEnv* env_{nullptr};
+  };
+  [[nodiscard]] friend Cursor cursorAt(const HighsColumns& columns, std::size_t at) noexcept {
+    return {columns.first_ + static_cast<HighsInt>(at), columns.env_};
+  }
+
+ private:
+  HighsInt first_{0};
+  const dreamor::highs::HighsEnv* env_{nullptr};
+  std::size_t count_{0};
+};
+
+template <>
+struct VarStorage<dreamor::highs::HighsVar> {
+  using type = HighsColumns;
+};
+
+}  // namespace dreamor::internal
+
 namespace dreamor::highs {
 
 template <typename... Keys>
@@ -1195,25 +1335,21 @@ class VarTable : public internal::VarTableCore<HighsVar, Keys...> {
       : Core{set} {
     internal::checkBound<Lb, Key>();
     internal::checkBound<Ub, Key>();
-    const std::size_t count = this->rows().size();
+    const std::vector<Key>& rows = this->rows();
+    const std::size_t count      = rows.size();
     if (count == 0) { return; }
-    std::vector<double> lower;
-    std::vector<double> upper;
-    lower.reserve(count);
-    upper.reserve(count);
-    for (const Key& row : this->rows()) {
-      lower.push_back(internal::boundOf(lb, row));
-      upper.push_back(internal::boundOf(ub, row));
-    }
-    const HighsInt first = internal::HighsEnvAccess::addColumns(env, lower, upper, type);
-    typename Core::NameBuilder names{name};
-    this->vars_.reserve(count);
-    for (const Key& row : this->rows()) {
-      const HighsVar variable{first + internal::highsCount(this->vars_.size()), env};
-      if (const char* const variable_name = Core::nameOf(names, row); variable_name != nullptr) {
-        internal::HighsEnvAccess::nameColumn(env, variable.index(), variable_name);
+    const auto bounds = [&](std::span<double> lower, std::span<double> upper) {
+      for (std::size_t i = 0; i < count; ++i) {
+        lower[i] = internal::boundOf(lb, rows[i]);
+        upper[i] = internal::boundOf(ub, rows[i]);
       }
-      this->vars_.push_back(variable);
+    };
+    const HighsInt first = internal::HighsEnvAccess::addColumns(env, count, type, bounds);
+    this->vars_          = internal::HighsColumns{first, env, count};
+    typename Core::NameBuilder names{name};
+    if (!names.enabled()) { return; }
+    for (std::size_t i = 0; i < count; ++i) {
+      internal::HighsEnvAccess::nameColumn(env, first + static_cast<HighsInt>(i), Core::nameOf(names, rows[i]));
     }
   }
 
@@ -1229,9 +1365,9 @@ class VarTable : public internal::VarTableCore<HighsVar, Keys...> {
     }
     std::vector<double> values;
     values.reserve(this->vars_.size());
-    for (const HighsVar& variable : this->vars_) {
-      internal::checkHighsModel(&variable.env(), env, "VarTable::solution");
-      values.push_back(solved.col_value[static_cast<std::size_t>(variable.index())]);
+    if (this->vars_.size() > 0) { internal::checkHighsModel(&this->vars_[0].env(), env, "VarTable::solution"); }
+    for (std::size_t i = 0; i < this->vars_.size(); ++i) {
+      values.push_back(solved.col_value[static_cast<std::size_t>(this->vars_[i].index())]);
     }
     return this->valueTable(std::move(values));
   }
@@ -1244,17 +1380,21 @@ template <typename Row>
 HighsCons addConstr(HighsEnv& env, Row&& row, const char* name = nullptr) {
   using Kind = std::remove_cvref_t<Row>;
   if constexpr (is_highs_row<Kind>) {
-    const HighsBoundedLinearExpression bounded{std::forward<Row>(row)};
-    internal::checkHighsModel(internal::HighsModelAccess::of(bounded.expression()), env, "addConstr");
-    internal::HighsWorkspace& workspace = internal::HighsWorkspace::local();
-    workspace.merge(bounded.expression().indices(),
-                    bounded.expression().coefficients(),
-                    static_cast<std::size_t>(internal::HighsEnvAccess::numCol(env)));
-    const HighsCons added{internal::HighsEnvAccess::addRow(
-                              env, bounded.lower(), bounded.upper(), workspace.columns(), workspace.values()),
-                          env};
-    if (name != nullptr) { internal::HighsEnvAccess::nameRow(env, added.index(), name); }
-    return added;
+    // A two-sided row is read where it is; a one-sided one becomes one.
+    const auto add = [&env, name](const HighsBoundedLinearExpression& bounded) {
+      const HighsLinearExpression& expression = bounded.expression();
+      internal::checkHighsModel(internal::HighsModelAccess::of(expression), env, "addConstr");
+      const HighsCons added{internal::HighsEnvAccess::addRow(
+                                env, bounded.lower(), bounded.upper(), expression.indices(), expression.coefficients()),
+                            env};
+      if (name != nullptr) { internal::HighsEnvAccess::nameRow(env, added.index(), name); }
+      return added;
+    };
+    if constexpr (std::same_as<Kind, HighsBoundedLinearExpression>) {
+      return add(row);
+    } else {
+      return add(HighsBoundedLinearExpression{std::forward<Row>(row)});
+    }
   } else {
     static_assert(internal::always_false<Kind>,
                   "addConstr takes a row - an expression with its bounds: addConstr(env, x + y <= 1), or "

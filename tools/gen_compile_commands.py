@@ -16,7 +16,8 @@ Which Concert each file sees:
   - the MathOpt backend, its example, the ported OR-Tools samples (examples/mathopt_samples)
     and tests/mathopt: OR-Tools (plus the stub, which tests/mathopt/test_cross_backend.cpp
     uses for the Concert side);
-  - the HiGHS backend and tests/highs: HiGHS's include/highs;
+  - the HiGHS backend, its example and tests/highs: HiGHS's include/highs (plus the stub, which
+    tests/highs/test_cross_backend.cpp uses for the Concert side);
   - bench/catalog: the benchmarks' lean stub (bench/common/stub), as bench/catalog/build.sh compiles it.
 tests/compile_fail/*.cpp fail to compile on purpose; clangd reports those errors too.
 Warnings are tests/run_tests.sh's STRICT set (without -Werror) for dreamor's own code, and
@@ -82,10 +83,10 @@ else:
     print(f"OR-Tools not found at {ORTOOLS}: MathOpt files get no OR-Tools include path", file=sys.stderr)
     MATHOPT = STUB
 if (HIGHS / "include" / "highs" / "Highs.h").is_file():
-    HIGHS_FLAGS = ["-isystem", str(HIGHS / "include" / "highs")]
+    HIGHS_FLAGS = STUB + ["-isystem", str(HIGHS / "include" / "highs")]
 else:
     print(f"HiGHS not found at {HIGHS}: HiGHS files get no HiGHS include path", file=sys.stderr)
-    HIGHS_FLAGS = []
+    HIGHS_FLAGS = STUB
 
 
 def flags_for(path: Path) -> list[str]:
@@ -94,7 +95,7 @@ def flags_for(path: Path) -> list[str]:
         return MATHOPT
     if rel.startswith("tests/highs/compile_fail/"):
         return HIGHS_FLAGS + [f"-I{ROOT / 'tests' / 'highs' / 'compile_fail'}"]
-    if rel.startswith("tests/highs/") or path.name == "highs.hpp":
+    if rel.startswith("tests/highs/") or "highs" in path.name:
         return HIGHS_FLAGS
     if rel.startswith("bench/"):
         return BENCH

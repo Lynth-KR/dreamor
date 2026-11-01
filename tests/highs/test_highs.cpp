@@ -379,6 +379,8 @@ static void collected() {
   std::string name;
   highs.getRowName(0, name);
   DREAMOR_CHECK(name == "twice");
+  // every column and row has a name once one does, the unnamed ones empty
+  DREAMOR_CHECK(lp.col_names_.size() == 6 && lp.row_names_.size() == 2 && lp.row_names_[1].empty());
   // (x1 - 1)^2 + u2 = x1^2 - 2 x1 + u2 + 1; the Hessian reaches the late columns, empty
   DREAMOR_CHECK(exactlyEqual(lp.col_cost_[0], -2) && exactlyEqual(lp.col_cost_[3], 1) &&
                 isExactlyZero(lp.col_cost_[4]));
@@ -399,6 +401,19 @@ static void collected() {
   DREAMOR_CHECK(solver.run() == HighsStatus::kOk && solver.getModelStatus() == HighsModelStatus::kOptimal);
   const auto plan = x.solution(env);
   DREAMOR_CHECK(std::abs(plan(ICol{1}) - 1) < 1e-6 && std::abs(late.solution(env)(ICol{1}) - 1) < 1e-6);
+
+  // a name after unnamed columns and rows: the ones before it stay empty
+  hs::HighsEnv later;
+  const hs::VarTable<ICol> before{later, sI};
+  const hs::VarTable<ICol> named{later, sI, 0, 1, HighsVarType::kContinuous, "n"};
+  hs::addConstr(later, before(ICol{1}) <= 1);
+  hs::addConstr(later, before(ICol{2}) <= 1);
+  hs::addConstr(later, named(ICol{1}) <= 1, "third");
+  hs::addConstr(later, named(ICol{2}) <= 1);
+  const HighsLp& laterLp = later.highs().getLp();
+  DREAMOR_CHECK(laterLp.col_names_.size() == 4 && laterLp.col_names_[1].empty() && laterLp.col_names_[2] == "n_1");
+  DREAMOR_CHECK(laterLp.row_names_.size() == 4 && laterLp.row_names_[0].empty() && laterLp.row_names_[2] == "third" &&
+                laterLp.row_names_[3].empty());
 
   // a model with no name at all passes none; the column types go as given
   hs::HighsEnv unnamed;
@@ -546,6 +561,38 @@ static void docs() {
   }
 }
 
+// A row longer than a few terms merges through the workspace's stamps, one of a few by comparing its
+// terms: both sum a column's repeats and leave out what cancels, collected and passed.
+static void longRows() {
+  for (const bool passed : {false, true}) {
+    hs::HighsEnv env;
+    std::vector<std::size_t> I(12);
+    for (std::size_t i = 0; i < I.size(); ++i) {
+      I[i] = i;
+    }
+    const auto sI = dreamor::makeSet<ICol>(I).collect();
+    const hs::VarTable<ICol> x{env, sI};
+    if (passed) { (void)env.highs(); }
+    // x3, x0..x11, x3 again, x5 cancelled: 14 terms, 11 columns
+    hs::HighsLinearExpression sum = 2 * x(ICol{3});
+    for (std::size_t i = 0; i < I.size(); ++i) {
+      sum += x(ICol{i});
+    }
+    sum += x(ICol{3});
+    sum -= x(ICol{5});
+    hs::addConstr(env, sum <= 1);
+    hs::addConstr(env, x(ICol{7}) + x(ICol{2}) + x(ICol{7}) - x(ICol{2}) >= 0);  // short: x7 twice, x2 cancelled
+    const Highs& highs = env.highs();
+    const Row wide     = rowOf(highs, 0);
+    DREAMOR_CHECK(wide.index.size() == 11 && exactlyEqual(coefficientOf(wide, x(ICol{0})), 1));
+    DREAMOR_CHECK(exactlyEqual(coefficientOf(wide, x(ICol{3})), 4) &&
+                  exactlyEqual(coefficientOf(wide, x(ICol{11})), 1));
+    DREAMOR_CHECK(isExactlyZero(coefficientOf(wide, x(ICol{5}))));
+    const Row narrow = rowOf(highs, 1);
+    DREAMOR_CHECK(narrow.index.size() == 1 && exactlyEqual(coefficientOf(narrow, x(ICol{7})), 2));
+  }
+}
+
 int main() try {
   varTable();
   expressions();
@@ -553,6 +600,7 @@ int main() try {
   sum();
   solution();
   collected();
+  longRows();
   errors();
   docs();
   return report("highs");

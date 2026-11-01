@@ -115,10 +115,10 @@ class ValueTable {
   }
   [[nodiscard]] std::size_t size() const noexcept { return values_.size(); }
   [[nodiscard]] const IndexSet<Key>& keys() const noexcept { return keys_; }
-  [[nodiscard]] internal::RowPairIterator<Key, double> begin() const noexcept {
+  [[nodiscard]] internal::RowPairIterator<Key, const double*> begin() const noexcept {
     return {rows().data(), values_.data()};
   }
-  [[nodiscard]] internal::RowPairIterator<Key, double> end() const noexcept {
+  [[nodiscard]] internal::RowPairIterator<Key, const double*> end() const noexcept {
     return {rows().data() + rows().size(), values_.data() + values_.size()};
   }
 
