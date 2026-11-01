@@ -54,7 +54,7 @@ WSL2, 컨테이너)는 쓰는 사람이 고르면 됩니다. 최신 컴파일러
 | `tests/run_tests.sh` | 집합 계층과 Concert 백엔드 전부(Concert stub 위에서), 컴파일 실패해야 하는 코드가 거부되는지, CPLEX용 코드의 문법 | 없음 |
 | `tests/run_tests.sh --cplex [DIR]` | 실제 CPLEX로 풀어서 검증, 예제 실행 | CPLEX Studio (`$CPLEX_STUDIO_DIR`, 기본 `/opt/ibm/ILOG/CPLEX_Studio2212`) |
 | `tests/run_tests.sh --mathopt [DIR]` | MathOpt 백엔드를 HiGHS로 풀어서 검증, 예제 실행, 같은 예제를 두 백엔드로 만들어 제약을 대조, 옮겨 온 OR-Tools 예제 실행(SCIP) | OR-Tools C++ 사전 빌드본 (`$ORTOOLS_DIR`, 기본 `/opt/ortools`) |
-| `tests/run_tests.sh --highs [DIR]` | HiGHS 백엔드를 HiGHS로 풀어서 검증, README의 코드를 쓰인 그대로 실행, 컴파일되면 안 되는 코드, 디버그 빌드에서 계약 위반 | HiGHS 설치본 (`$HIGHS_DIR`, 기본 `/opt/highs`); OR-Tools C++ 사전 빌드본도 됨 |
+| `tests/run_tests.sh --highs [DIR]` | HiGHS 백엔드를 HiGHS로 풀어서 검증, README의 코드를 쓰인 그대로 실행, 예제 실행, 같은 예제를 Concert와 HiGHS로 만들어 제약을 대조, 컴파일되면 안 되는 코드, 디버그 빌드에서 계약 위반 | HiGHS 설치본 (`$HIGHS_DIR`, 기본 `/opt/highs`); OR-Tools C++ 사전 빌드본도 됨 |
 
 컴파일되면 안 되는 코드는 `tests/compile_fail/`(Concert), `tests/mathopt/compile_fail/`(MathOpt), `tests/highs/compile_fail/`(HiGHS)에 한 파일씩
 있습니다. 거부되는지만 보지 않고, 파일 맨 위(SPDX 줄 다음)의 `// expect: <문구>`가 컴파일러의 **첫 에러**(와 거기 딸린 note)에

@@ -13,16 +13,18 @@
 #   ./run_tests.sh --highs [DIR]   the HiGHS backend against a HiGHS install at DIR (default
 #                                  $HIGHS_DIR, else /opt/highs): DIR/include/highs and
 #                                  DIR/lib/libhighs. An OR-Tools prebuilt is one too.
-#                                  tests/highs/*.cpp (solving), highs/compile_fail/ and, in a
-#                                  debug build, highs/contract_fail/.
+#                                  tests/highs/*.cpp (solving),
+#                                  examples/production_planning_highs.cpp, highs/compile_fail/
+#                                  and, in a debug build, highs/contract_fail/.
 #
 # Stub mode runs every test_*.cpp, checks that every compile_fail/*.cpp is rejected and that
 # every contract_fail/*.cpp stops on its broken contract (not under -DNDEBUG, which compiles the
 # checks out), and syntax-checks cplex/*.cpp against a stand-in IloCplex. CPLEX mode runs the tests that use
 # only public Concert API (test_index_set and cplex/*.cpp, which solve), builds and runs
 # examples/production_planning.cpp, and checks the compile_fail cases against the real headers.
-# MathOpt mode builds and runs only the MathOpt tests and example; test_cross_backend there
-# also builds the Concert model (on the stub) and compares the two models' constraints.
+# MathOpt mode builds and runs only the MathOpt tests and example, HiGHS mode the HiGHS ones;
+# test_cross_backend in each also builds the Concert model (on the stub) and compares the two
+# models' constraints.
 #
 # CXX overrides the compiler (default g++, C++20). OPT overrides the optimization flags
 # (default -O1 -g; CI also runs -O3 -DNDEBUG). Sanitizers, in stub mode only - the OR-Tools and
@@ -112,9 +114,9 @@ elif [ "$MODE" = highs ]; then
   HIGHS_LIB=$HIGHS/lib
   [ -d "$HIGHS_LIB" ] || HIGHS_LIB=$HIGHS/lib64
   # -isystem: HiGHS's headers are not ours to warn about.
-  FLAGS="$COMMON -isystem $HIGHS/include/highs"
+  FLAGS="$COMMON -Istub -isystem $HIGHS/include/highs"
   LIBS="-L$HIGHS_LIB -Wl,-rpath,$HIGHS_LIB -lhighs"
-  TESTS=$(ls highs/test_*.cpp)
+  TESTS="$(ls highs/test_*.cpp) ../examples/production_planning_highs.cpp"
   echo "HiGHS: $HIGHS"
 else
   ARCH=x86-64_linux
@@ -184,8 +186,9 @@ for t in $TESTS; do
   if ! compiled "$name"; then
     echo "$name: BUILD FAILED (see tests/$BUILD/$name.log)"; status=1; continue
   fi
-  if [ "$name" = production_planning ] || [ "$name" = production_planning_mathopt ]; then
+  if [ "$name" = production_planning ] || [ "$name" = production_planning_mathopt ] || [ "$name" = production_planning_highs ]; then
     label=example; [ "$name" = production_planning_mathopt ] && label=example_mathopt
+    [ "$name" = production_planning_highs ] && label=example_highs
     $RUN "$BUILD/$name" > "$BUILD/$name.out" && printf '%-16s ok  (solved; plan in tests/%s/%s.out)\n' "$label" "$BUILD" "$name" || status=1
   else
     $RUN "$BUILD/$name" || status=1

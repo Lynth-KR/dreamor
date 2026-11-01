@@ -20,7 +20,7 @@ Version 0.4.0, Apache 2.0.
 | `include/dreamor/highs.hpp` | HiGHS backend, on HiGHS's own C++ API |
 | `include/dreamor/internal/` | Shared backend machinery (`var_table_core.hpp`, `row_index.hpp`, `sum_builder.hpp`, `inline_vector.hpp`) |
 | `include/dreamor/general/`, `include/dreamor/logger/` | Utilities (`tuple_hash.hpp`, `flat_index.hpp`, `format_buffer.hpp`, `third_party_headers.hpp`, `logger_light.hpp`) |
-| `examples/` | Lot-sizing example: `production_planning_sets.hpp` (solver-free), `production_planning.hpp` (Concert), `production_planning_mathopt.hpp` (MathOpt), `production_planning_plain.hpp` (without dreamor, for comparison). `mathopt_samples/`: three OR-Tools MathOpt samples ported to dreamor, with a walkthrough of each port (keep Google's license header and the modification notice on these files) |
+| `examples/` | Lot-sizing example: `production_planning_sets.hpp` (solver-free), `production_planning.hpp` (Concert), `production_planning_mathopt.hpp` (MathOpt), `production_planning_highs.hpp` (HiGHS), `production_planning_plain.hpp` (without dreamor, for comparison). `mathopt_samples/`: three OR-Tools MathOpt samples ported to dreamor, with a walkthrough of each port (keep Google's license header and the modification notice on these files) |
 | `tests/` | Framework-free tests, `tests/run_tests.sh`, Concert stub (`tests/stub/`), compile-fail cases |
 | `bench/` | Benchmarks, not run in CI (`bench/README.md`). `bench/catalog/`: layer 1, each operation against hand-written code over data shapes and access patterns, a resolution IV screening design per family (lookups, grouping, set operations, slices, generation, order) and a full design of its own for entities and solution values, against the lean Concert stub. `bench/scenario/`: layer 2, whole models (p-median, the modeling-language benchmarks' model, and the lot-sizing example as written) built by dreamor and by hand up to the solver's start, on the stub, CPLEX and MathOpt. `bench/common/`: the measurement header, the run's JSON result, the lean stub, the machine helpers. `bench/solver/`: how Concert's variable creation meets the caller's code. `bench/plan/`: how `makeSet`'s visit order compares with every other order - a cost model over made-up sets of 3 to 16 sources, and a timed three-source experiment |
 | `skills/dreamor/` | Agent Skill for users writing dreamor code |
@@ -61,7 +61,8 @@ tools/ci_local.sh [REV]              # what CI runs, on one commit checked out a
   `examples/mathopt_samples/`, and `tests/mathopt/compile_fail/`.
   `test_cross_backend.cpp` builds the example on both backends and compares the constraints.
 - **`--highs`** runs `tests/highs/*.cpp` (solving with HiGHS, and the README's and `highs.hpp`'s code as written
-  there), `tests/highs/compile_fail/` and, in a debug build, `tests/highs/contract_fail/`.
+  there), the HiGHS example, `tests/highs/compile_fail/` and, in a debug build, `tests/highs/contract_fail/`.
+  `test_cross_backend.cpp` there builds the example on Concert (the stub) and HiGHS and compares the constraints.
 - **`--cplex`** solves with real CPLEX. CPLEX is not on CI, so run it locally when you touch Concert-facing code
   and have CPLEX available.
 - **Warnings** are what dreamor's own code is held to; the CMake target adds none, so users keep their own flags.
