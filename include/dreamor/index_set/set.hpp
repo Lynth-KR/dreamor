@@ -31,7 +31,7 @@
 namespace dreamor {
 
 template <typename T>
-class EntityVector;  // entity_vector.hpp; only its name is needed here
+class EntityVector;  // dreamor/entity_vector.hpp; only its name is needed here
 
 namespace internal {
 template <typename Row, typename Key>

@@ -38,12 +38,16 @@
 | | |
 |---|---|
 | `primaryKey(const T&)` | `T` 옆의 ADL 훅: 무엇이 그것을 식별하는지(값 또는 `std::tuple`). `dreamor::Entity<T>`가 이를 확인 |
-| `insert(entity)`, `emplace(args...)` | `std::pair<const T*, bool>`: `{그 키의 원소의 주소, 들어갔는지}` |
-| `find(key)` | `const T*`: 그 키의 원소, 없으면 `nullptr` |
-| `contains(key)` | 그 키의 원소가 있는지 |
-| `operator[]`, `at`, `front`, `back`, `begin`, `end`, `cbegin`, `cend`, `size`, `empty` | const 접근, 삽입 순서 |
+| `reserve(n)` | 원소 `n`개의 자리. 넣는 동안 원소가 움직이지 않음. `freeze()` 전 |
+| `insert(entity)`, `emplace(args...)` | `std::pair<const T*, bool>`: `{그 키의 원소의 주소, 들어갔는지}`. 주소는 예약한 용량을 넘어 자라거나 정렬할 때까지 유효. `freeze()` 전 |
+| `sort()`, `sort(comp)` | 기본 키 순서(`std::less`), 또는 `std::sort`처럼 `comp`의 순서. 컨테이너를 돌려줌. `freeze()` 전 |
+| `freeze()`, `frozen()` | 채우기 끝: 이후 읽기만 하며, 원소는 제자리에 있음 |
+| `find(key)` | `const T*`: 그 키의 원소, 없으면 `nullptr`. `freeze()` 후 |
+| `contains(key)` | 그 키의 원소가 있는지. `freeze()` 후 |
+| `operator[]`, `at`, `front`, `back`, `begin`, `end`, `cbegin`, `cend` | const 접근, 컨테이너의 순서. `freeze()` 후 |
+| `size`, `empty` | 언제든 |
 | `value_type`, `key_type`, `size_type`, `const_iterator` (= `iterator`) | 멤버 타입. 표준 컨테이너와 같은 이름이며, `key_type`은 `primaryKey()`가 돌려주는 타입 |
-| `modify(entity, fn)` | 원소 하나에 `fn(T&)`; 키는 바뀌면 안 됨 |
+| `modify(entity, fn)` | 원소 하나에 `fn(T&)`; 키는 바뀌면 안 됨. `freeze()` 후 |
 
 **Membership** (`algebra.hpp`)
 | | |

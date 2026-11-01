@@ -75,6 +75,8 @@ A broken precondition is undefined behavior. A debug build (no `NDEBUG`) checks 
 | `makeSet: source N holds one element twice` | a container source repeats a value or an entity | drop the repeat where the data is read; an entity is one object in one container |
 | `makeSet: source N holds one row twice` | a range of tuples spread into `makeSet` repeats a row | the same, for that range |
 | `makeSet: dependent source N returned one element twice` | a dependent source's range repeats an element for some binding | the same, for that list (e.g. a machine's items) |
+| `EntityVector::<member> before freeze()` | a read (iteration, a set source, `[]`, `find`, `modify`) of an `EntityVector` not frozen yet | call `freeze()` once it is filled |
+| `EntityVector::<member> after freeze()` | `reserve`, `insert`/`emplace` or `sort` on a frozen `EntityVector` | fill and sort before `freeze()`; a set may hold its elements already |
 | `EntityVector::modify: the entity is not one of this container's` | `modify` given a pointer to an object the container does not hold | pass a pointer from this `EntityVector` |
 | `EntityVector::modify: fn changed the entity's primary key` | `fn` changed what `primaryKey` reads | change the fields around the key only; a new key is a new entity |
 | `dreamor::highs: one expression holds variables of two HighsEnvs` | an expression mixes two environments' variables | build each expression from one `HighsEnv`'s tables |

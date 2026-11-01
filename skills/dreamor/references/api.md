@@ -27,19 +27,24 @@ Two columns over the same `T` with different names are different types (`FromCol
 
 ## EntityVector
 
-`index_set/entity_vector.hpp`. A container that holds each entity once by its primary key, declared by ADL next to
+`entity_vector.hpp` (also through `index_set.hpp`). A container that holds each entity once by its primary key, declared by ADL next to
 the type: `inline const std::string& primaryKey(const Machine& m) { return m.name; }` (a composite key returns a
 `std::tuple`). `dreamor::Entity<T>` is that requirement.
 
 | Member | Result |
 |---|---|
-| `insert(entity)`, `emplace(args...)` | `std::pair<const T*, bool>`: the element with that key by its address, whether it went in (as `std::set`) |
-| `find(key)`, `contains(key)` | by primary key; `find` gives the element's address, `nullptr` when absent |
-| `operator[]`, `at`, `front`, `back`, `begin`, `end`, `cbegin`, `cend`, `size`, `empty` | const access, insertion order |
+| `reserve(n)` | room for `n` elements; before `freeze()` |
+| `insert(entity)`, `emplace(args...)` | `std::pair<const T*, bool>`: the element with that key by its address, whether it went in (as `std::set`); the address lasts as a `std::vector` element's does. Before `freeze()` |
+| `sort()`, `sort(comp)` | primary-key order (`std::less`), or `comp`'s as `std::sort` takes it; returns the container. Before `freeze()` |
+| `freeze()`, `frozen()` | done filling; read only from here on |
+| `find(key)`, `contains(key)` | by primary key; `find` gives the element's address, `nullptr` when absent. After `freeze()` |
+| `operator[]`, `at`, `front`, `back`, `begin`, `end`, `cbegin`, `cend` | const access, the container's order. After `freeze()` |
+| `size`, `empty` | any time |
 | `value_type`, `key_type`, `size_type`, `const_iterator` (= `iterator`) | member types, as the standard containers name them; `key_type` is what `primaryKey()` returns |
 | `modify(entity, fn)` | `fn(T&)` on one element in place; the key must not change (debug builds check) |
 
-Elements never move (`std::deque`), nothing is erased, copying is deleted, moving keeps elements in place. A
+Filled, frozen, then read; a debug build stops on either side crossed. Once frozen, elements never move (a
+`std::vector`), nothing is erased, copying is deleted, moving keeps elements in place. A
 container source in `makeSet` like any other. Without `keyName`, an entity column's variables are named by
 `primaryKey` (debug builds log it once per column). Sets are snapshots: `modify` after building does not change them.
 

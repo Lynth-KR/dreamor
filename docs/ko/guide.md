@@ -40,15 +40,20 @@ using PeriodCol  = dreamor::Col<std::size_t, "period">;       // 값이 정수�
 inline const std::string& primaryKey(const Machine& m) { return m.name; }     // found by ADL
 
 dreamor::EntityVector<Machine> plant;
-const auto [first, inserted] = plant.emplace(Machine{"M1", 40.0, 5.0, {}});   // inserted == false: M1 was there
+const bool inserted = plant.emplace(Machine{"M1", 40.0, 5.0, {}}).second;      // false: M1 was there
+plant.sort().freeze();                                                         // primary-key order; then read only
 const auto sRUN = dreamor::makeSet<MachineCol, PeriodCol>(plant, periods).collect();
-plant.modify(first, [](Machine& m) { m.setup = 4.0; });                        // the one way to change one
+if (const Machine* found = plant.find("M1")) {
+  plant.modify(found, [](Machine& m) { m.setup = 4.0; });                      // the one way to change one
+}
 ```
 
-- 읽기는 `std::vector`처럼(인덱스, 삽입 순서 순회, `size()`), 넣기는 `std::set`처럼 합니다. `insert`와 `emplace`는
-  `{그 키의 원소, 들어갔는지}`를, `find(key)`는 그 원소나 null을, `contains(key)`는 있는지를 돌려줍니다. 원소는
-  주소로 줍니다. 반복자는 다음 삽입에서 무효가 되지만 주소는 유지되기 때문입니다.
-- 원소는 움직이지 않고(내부는 `std::deque`) 지우지도 않으므로, 모델에 넘긴 포인터는 계속 그 엔티티를 가리킵니다.
+- 채우고, `freeze()`하고, 읽습니다. 모델의 데이터가 들어가는 순서 그대로입니다. `freeze()` 전에는 `reserve(n)`,
+  `insert`와 `emplace`, `sort()`를 씁니다. `insert`와 `emplace`는 `std::set`처럼 `{그 키의 원소, 들어갔는지}`를
+  돌려주고, 그 원소는 `std::vector`의 원소처럼 예약한 용량을 넘어 자라거나 정렬할 때까지 유효합니다. `sort()`는
+  기본 키 순서로, `sort(comp)`는 `std::sort`처럼 comp의 순서로 정렬합니다. `freeze()` 뒤에는 인덱스, 순회,
+  `find(key)`(그 원소나 null), `contains(key)`, `modify`를 씁니다. 어느 쪽을 어겨도 디버그 빌드가 멈춥니다.
+- `freeze()`한 뒤에는 원소가 움직이지 않고 지우지도 않으므로, 모델에 넘긴 포인터는 계속 그 엔티티를 가리킵니다.
   복사는 막혀 있습니다(복사본은 모든 엔티티의 두 번째 객체입니다). 이동해도 원소는 제자리에 있습니다.
 - 접근은 const입니다. `modify(entity, fn)`이 원소 하나를 제자리에서 바꾸며, 기본 키는 그대로여야 합니다(디버그
   빌드가 확인). 집합은 스냅숏이라 이미 만든 집합이나 모델은 다시 계산되지 않습니다. 그래서 `modify`는 모델을 만든

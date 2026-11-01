@@ -5,6 +5,7 @@
 int main() try {
   dreamor::EntityVector<Entity> entities;
   const auto [first, inserted] = entities.emplace(Entity{1});
+  entities.freeze();
   entities.modify(first, [](Entity& e) { e.id = 2; });
   return inserted ? 0 : 2;
 } catch (...) {

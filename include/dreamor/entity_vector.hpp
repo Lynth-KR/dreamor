@@ -19,17 +19,21 @@
 //     inline auto primaryKey(const Route& r) { return std::tuple{r.plant, r.code}; }   // composite
 //
 //     dreamor::EntityVector<Machine> machines;
-//     const auto [m1, inserted] = machines.emplace("M1", 40.0);   // inserted == false: M1 was there
+//     machines.reserve(rows.size());
+//     for (const auto& r : rows) { machines.emplace(r.code, r.capacity); }   // a key held already stays out
+//     machines.sort().freeze();                                   // by primary key, optional; then read only
 //     makeSet<MachineCol, PeriodCol>(machines, periods)            // a container source, as any
 //
-// It reads like a std::vector and inserts like a std::set:
-//   - insert / emplace return {the element with that key, whether it went in}, as std::set's
-//     do - the element by its address, the handle that lasts. Ignoring the bool is the caller's
-//     business.
-//   - Elements never move: they live in a std::deque, which keeps references valid as it grows,
-//     so a pointer taken into the model stays the entity's. There is no erase, for the same
-//     reason. Its iterators do not last: the deque's are all invalidated by the next insert, so
-//     an iterator is for walking the container, not for holding on to an element.
+// It is filled, then frozen, then read - the order a model's data goes in:
+//   - Before freeze(): reserve, insert / emplace and sort. insert / emplace return {the element
+//     with that key, whether it went in}, as std::set's do; the element lasts as a std::vector's
+//     does, until a growth past the capacity reserved or a sort.
+//   - sort() puts the elements in primary-key order (std::less), sort(comp) in comp's, as
+//     std::sort does: the order every set built on them then follows, whatever order the data
+//     came in.
+//   - After freeze(): reading - iteration, [], find, a set source - and modify. Elements never
+//     move again, so a pointer taken into the model stays the entity's; there is no erase. Each
+//     side of freeze() is a contract a debug build checks.
 //   - Access is const. An element changes only through modify(entity, fn), as in
 //     Boost.MultiIndex: fn gets it mutable, and its primary key must come out the same. Meant
 //     for writing results back once the model is built - sets are snapshots, and a predicate
@@ -38,12 +42,14 @@
 //     they are.
 #pragma once
 
+#include <algorithm>
 #include <concepts>
 #include <cstddef>
-#include <deque>
+#include <functional>
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "dreamor/general/flat_index.hpp"
 #include "dreamor/logger/logger_light.hpp"
@@ -89,7 +95,7 @@ class EntityVector {
 
  public:
   using value_type     = T;
-  using const_iterator = std::deque<T>::const_iterator;
+  using const_iterator = std::vector<T>::const_iterator;
   using iterator       = const_iterator;
   using key_type       = std::remove_cvref_t<internal::PrimaryKeyResult<T>>;  // what primaryKey() returns
   using size_type      = std::size_t;
@@ -101,22 +107,16 @@ class EntityVector {
   EntityVector& operator=(EntityVector&&)      = default;
   ~EntityVector()                              = default;
 
-  [[nodiscard]] const_iterator begin() const noexcept { return items_.cbegin(); }
-  [[nodiscard]] const_iterator end() const noexcept { return items_.cend(); }
-  [[nodiscard]] const_iterator cbegin() const noexcept { return items_.cbegin(); }
-  [[nodiscard]] const_iterator cend() const noexcept { return items_.cend(); }
-  [[nodiscard]] size_type size() const noexcept { return items_.size(); }
-  [[nodiscard]] bool empty() const noexcept { return items_.empty(); }
-  [[nodiscard]] const T& operator[](size_type position) const { return items_[position]; }
-  [[nodiscard]] const T& at(size_type position) const { return items_.at(position); }
-  [[nodiscard]] const T& front() const { return items_.front(); }
-  [[nodiscard]] const T& back() const { return items_.back(); }
+  // Filling: before freeze().
 
-  // {the element with this key, whether it went in}: false when the key was already held,
-  // and the element stays as it was. The element comes as its address, which lasts as long as
-  // the container - an iterator would not outlive the next insert (std::deque's do not), and the
-  // address is what a column of entities holds anyway, as std::vector::emplace_back returns the
-  // element rather than an iterator to it.
+  void reserve(size_type count) {
+    filling("reserve");
+    items_.reserve(count);
+  }
+
+  // {the element with this key, whether it went in}: false when the key was already held, and
+  // the element stays as it was. The element lasts until a growth past the capacity reserved, or
+  // a sort, as a std::vector's does.
   std::pair<const T*, bool> insert(const T& entity) { return emplace(entity); }
   std::pair<const T*, bool> insert(T&& entity) { return emplace(std::move(entity)); }
 
@@ -124,6 +124,7 @@ class EntityVector {
   // element goes again and the container is as it was.
   template <typename... Args>
   std::pair<const T*, bool> emplace(Args&&... args) {
+    filling("emplace");
     items_.emplace_back(std::forward<Args>(args)...);
     const std::size_t entry = items_.size() - 1;
     std::size_t held        = Index::kNotFound;
@@ -140,8 +141,56 @@ class EntityVector {
     return {&items_[entry], true};
   }
 
-  // The element with this key, by its address as insert and emplace give it, or null.
+  // The elements in primary-key order (std::less on what primaryKey() returns), or in comp's -
+  // comp(a, b) true when a goes before b, as std::sort takes it. Elements of equal keys cannot
+  // be: a key is held once.
+  EntityVector& sort() {
+    return sortBy([](const T& a, const T& b) { return std::less<>{}(primaryKey(a), primaryKey(b)); });
+  }
+  template <typename Compare>
+  EntityVector& sort(Compare comp) {
+    return sortBy(std::move(comp));
+  }
+
+  // Done filling: from here on the elements are read, and stay where they are.
+  void freeze() noexcept { frozen_ = true; }
+  [[nodiscard]] bool frozen() const noexcept { return frozen_; }
+
+  [[nodiscard]] size_type size() const noexcept { return items_.size(); }
+  [[nodiscard]] bool empty() const noexcept { return items_.empty(); }
+
+  // Reading: after freeze().
+
+  [[nodiscard]] const_iterator begin() const {
+    reading("iteration");
+    return items_.cbegin();
+  }
+  [[nodiscard]] const_iterator end() const {
+    reading("iteration");
+    return items_.cend();
+  }
+  [[nodiscard]] const_iterator cbegin() const { return begin(); }
+  [[nodiscard]] const_iterator cend() const { return end(); }
+  [[nodiscard]] const T& operator[](size_type position) const {
+    reading("operator[]");
+    return items_[position];
+  }
+  [[nodiscard]] const T& at(size_type position) const {
+    reading("at");
+    return items_.at(position);
+  }
+  [[nodiscard]] const T& front() const {
+    reading("front");
+    return items_.front();
+  }
+  [[nodiscard]] const T& back() const {
+    reading("back");
+    return items_.back();
+  }
+
+  // The element with this key, by its address, or null.
   [[nodiscard]] const T* find(const key_type& key) const {
+    reading("find");
     const std::size_t found = index_.find(asIndexKey(key), keyAt());
     return found == Index::kNotFound ? nullptr : &items_[found];
   }
@@ -151,6 +200,7 @@ class EntityVector {
   // key must not change - both preconditions, checked by a debug build.
   template <typename Fn>
   void modify(const T* entity, Fn fn) {
+    reading("modify");
 #ifndef NDEBUG
     const std::size_t found =
         entity == nullptr ? Index::kNotFound : index_.find(internal::indexKeyOf(*entity), keyAt());
@@ -174,6 +224,34 @@ class EntityVector {
   using IndexKey = decltype(internal::indexKeyOf(std::declval<const T&>()));
   using Index    = ::dreamor::general::FlatIndex<IndexKey>;
 
+  // The two sides of freeze(), checked by a debug build.
+  void filling([[maybe_unused]] const char* what) const {
+#ifndef NDEBUG
+    if (frozen_) {
+      DREAMOR_DEBUG_FATAL("EntityVector::{} after freeze() - a broken contract: a frozen EntityVector is read only.",
+                          what);
+    }
+#endif
+  }
+  void reading([[maybe_unused]] const char* what) const {
+#ifndef NDEBUG
+    if (!frozen_) {
+      DREAMOR_DEBUG_FATAL("EntityVector::{} before freeze() - a broken contract: fill it, freeze it, then read it.",
+                          what);
+    }
+#endif
+  }
+
+  template <typename Compare>
+  EntityVector& sortBy(Compare comp) {
+    filling("sort");
+    std::ranges::sort(items_, comp);
+    Index sorted;  // the entries are the new positions
+    static_cast<void>(sorted.insertAll(0, items_.size(), keyAt()));
+    index_ = std::move(sorted);
+    return *this;
+  }
+
   [[nodiscard]] static IndexKey asIndexKey(const key_type& key) {
     if constexpr (internal::IsStdTuple<key_type>::value) {
       return key;
@@ -186,8 +264,9 @@ class EntityVector {
     return [this](std::size_t entry) { return internal::indexKeyOf(items_[entry]); };
   }
 
-  std::deque<T> items_;
+  std::vector<T> items_;
   Index index_;
+  bool frozen_ = false;  // in every build, so that a debug and a release build agree on the layout
 };
 
 }  // namespace dreamor

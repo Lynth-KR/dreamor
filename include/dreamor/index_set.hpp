@@ -63,9 +63,9 @@
 // Include this for all of it, or one of the headers below for a part.
 #pragma once
 
+#include "dreamor/entity_vector.hpp"
 #include "dreamor/index_set/algebra.hpp"
 #include "dreamor/index_set/column.hpp"
-#include "dreamor/index_set/entity_vector.hpp"
 #include "dreamor/index_set/grouped.hpp"
 #include "dreamor/index_set/indexed.hpp"
 #include "dreamor/index_set/name_token.hpp"

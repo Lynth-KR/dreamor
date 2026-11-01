@@ -35,7 +35,7 @@ contributor knows what a change has to keep.
   instead, not with a page of template errors.
 - **The standard library is the precedent.** Where the C++ standard library made a similar decision, dreamor
   follows it: an insert that may not insert returns the element and whether it went in, as `std::set::emplace` does
-  (by its address, the handle that lasts in an `EntityVector`: `std::pair<const T*, bool>`); checks
+  (by its address in an `EntityVector`: `std::pair<const T*, bool>`), lasting as a `std::vector`'s element does; checks
   that only debug builds pay for work as libstdc++'s assertions do; member types are named as containers name them.
 - **Speed is measured, not claimed.** Claims about performance rest on designed experiments against hand-written
   code ([benchmarks](../bench/README.md)), and an optimization rests on a guarantee dreamor makes - a contract, the

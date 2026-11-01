@@ -225,11 +225,14 @@ int main() try {
   // --- EntityVector
   {
     dreamor::EntityVector<Machine> plant;
-    const auto [first, inserted] = plant.emplace(Machine{"M1", 40.0, 5.0, {}});
-    const auto sRUN              = dreamor::makeSet<MachineCol, PeriodCol>(plant, periods).collect();
-    plant.modify(first, [](Machine& m) { m.setup = 4.0; });
-    DREAMOR_CHECK(inserted && !plant.emplace(Machine{"M1", 1.0, 1.0, {}}).second && sRUN.size() == periods.size() &&
-                  exactlyEqual(plant.front().setup, 4.0));
+    const bool inserted = plant.emplace(Machine{"M1", 40.0, 5.0, {}}).second;
+    const bool again    = plant.emplace(Machine{"M1", 1.0, 1.0, {}}).second;
+    plant.sort().freeze();
+    const auto sRUN = dreamor::makeSet<MachineCol, PeriodCol>(plant, periods).collect();
+    if (const Machine* found = plant.find("M1")) {
+      plant.modify(found, [](Machine& m) { m.setup = 4.0; });
+    }
+    DREAMOR_CHECK(inserted && !again && sRUN.size() == periods.size() && exactlyEqual(plant.front().setup, 4.0));
   }
 
   // --- makeSet: entity / smart-pointer containers, predicates

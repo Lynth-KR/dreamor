@@ -38,12 +38,16 @@ Every public type and function, by header. The [guide](guide.md) explains them i
 | | |
 |---|---|
 | `primaryKey(const T&)` | ADL hook next to `T`: what identifies it (a value or a `std::tuple`). `dreamor::Entity<T>` checks for it |
-| `insert(entity)`, `emplace(args...)` | `std::pair<const T*, bool>`: `{the element with that key, by its address, whether it went in}` |
-| `find(key)` | `const T*`: the element with that key, or `nullptr` |
-| `contains(key)` | Whether an element has that key |
-| `operator[]`, `at`, `front`, `back`, `begin`, `end`, `cbegin`, `cend`, `size`, `empty` | Const access, insertion order |
+| `reserve(n)` | Room for `n` elements, so that none moves while they go in. Before `freeze()` |
+| `insert(entity)`, `emplace(args...)` | `std::pair<const T*, bool>`: `{the element with that key, by its address, whether it went in}`; the address lasts until a growth past the capacity reserved, or a sort. Before `freeze()` |
+| `sort()`, `sort(comp)` | Primary-key order (`std::less`), or `comp`'s as `std::sort` takes it; returns the container. Before `freeze()` |
+| `freeze()`, `frozen()` | Done filling: read only from here on, and the elements stay where they are |
+| `find(key)` | `const T*`: the element with that key, or `nullptr`. After `freeze()` |
+| `contains(key)` | Whether an element has that key. After `freeze()` |
+| `operator[]`, `at`, `front`, `back`, `begin`, `end`, `cbegin`, `cend` | Const access, in the container's order. After `freeze()` |
+| `size`, `empty` | Any time |
 | `value_type`, `key_type`, `size_type`, `const_iterator` (= `iterator`) | Member types, named as the standard containers name them; `key_type` is what `primaryKey()` returns |
-| `modify(entity, fn)` | `fn(T&)` on one element; its key must not change |
+| `modify(entity, fn)` | `fn(T&)` on one element; its key must not change. After `freeze()` |
 
 **Membership** (`algebra.hpp`)
 | | |

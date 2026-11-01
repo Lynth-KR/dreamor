@@ -5,6 +5,7 @@
 int main() try {
   dreamor::EntityVector<Entity> entities;
   entities.emplace(Entity{1});
+  entities.freeze();
   const Entity copy{1};  // the same key, another object
   entities.modify(&copy, [](Entity& e) { e.id = 1; });
   return 0;

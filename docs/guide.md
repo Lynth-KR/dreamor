@@ -42,17 +42,21 @@ declares next to its type, as it does `keyName`:
 inline const std::string& primaryKey(const Machine& m) { return m.name; }     // found by ADL
 
 dreamor::EntityVector<Machine> plant;
-const auto [first, inserted] = plant.emplace(Machine{"M1", 40.0, 5.0, {}});   // inserted == false: M1 was there
+const bool inserted = plant.emplace(Machine{"M1", 40.0, 5.0, {}}).second;      // false: M1 was there
+plant.sort().freeze();                                                         // primary-key order; then read only
 const auto sRUN = dreamor::makeSet<MachineCol, PeriodCol>(plant, periods).collect();
-plant.modify(first, [](Machine& m) { m.setup = 4.0; });                        // the one way to change one
+if (const Machine* found = plant.find("M1")) {
+  plant.modify(found, [](Machine& m) { m.setup = 4.0; });                      // the one way to change one
+}
 ```
 
-- It reads like `std::vector` - indexing, iteration in insertion order, `size()` - and inserts like `std::set`:
-  `insert` and `emplace` return `{the element with that key, whether it went in}`, and `find(key)` the element or
-  null, `contains(key)` whether it is there. An element comes by its address, the handle that lasts: an iterator
-  would not outlive the next insert.
-- Elements never move (a `std::deque` underneath) and nothing is erased, so pointers into the model stay the
-  entity's. Copying is deleted - a copy would be a second object for every entity; moving keeps each in place.
+- It is filled, frozen, then read, the order a model's data goes in. Before `freeze()`: `reserve(n)`; `insert`
+  and `emplace`, which return `{the element with that key, whether it went in}` as `std::set`'s do, the element
+  lasting as a `std::vector`'s does - until a growth past the capacity reserved, or a sort; and `sort()`, in
+  primary-key order, or `sort(comp)`, in comp's as `std::sort` takes it. After `freeze()`: indexing, iteration,
+  `find(key)` (the element or null), `contains(key)` and `modify`. A debug build stops on either side crossed.
+- Once frozen, elements never move and nothing is erased, so pointers into the model stay the entity's. Copying is
+  deleted - a copy would be a second object for every entity; moving keeps each in place.
 - Access is const. `modify(entity, fn)` changes one in place, and its primary key must come out the same (a debug
   build checks). Sets are snapshots: a set or a model already built is not recomputed, so `modify` is for writing
   results back afterwards - which usually belong in a `ValueTable`.

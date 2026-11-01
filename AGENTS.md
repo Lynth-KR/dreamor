@@ -13,7 +13,8 @@ Version 0.4.0, Apache 2.0.
 
 | Path | What |
 |---|---|
-| `include/dreamor/index_set.hpp`, `include/dreamor/index_set/` | Set layer: `Col`, `EntityVector`, `makeSet`, `IndexSet`, `Grouped`, `Ordered`, set algebra. Must not include any solver header |
+| `include/dreamor/index_set.hpp`, `include/dreamor/index_set/` | Set layer: `Col`, `makeSet`, `interval`, `IndexSet`, `Grouped`, `Ordered`, set algebra. `index_set.hpp` brings `EntityVector` too. Must not include any solver header |
+| `include/dreamor/entity_vector.hpp` | `dreamor::EntityVector`, the model's entities, each once by its primary key |
 | `include/dreamor/value_table.hpp` | `dreamor::ValueTable`, shared by every backend |
 | `include/dreamor/concert.hpp` | Concert backend |
 | `include/dreamor/mathopt.hpp` | MathOpt backend |
