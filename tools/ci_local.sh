@@ -119,7 +119,7 @@ job "stub (clang++-18, -O3 -DNDEBUG)" "CXX=clang++-18 OPT='-O3 -DNDEBUG' COMPILE
 job "sanitize (g++-13, 1)" "CXX=g++-13 SAN=1 COMPILE_CHECKS=0 tests/run_tests.sh"
 job "sanitize (clang++-18, 1)" "CXX=clang++-18 SAN=1 COMPILE_CHECKS=0 tests/run_tests.sh"
 job "sanitize (g++-13, thread)" "CXX=g++-13 SAN=thread COMPILE_CHECKS=0 tests/run_tests.sh"
-job gcc-latest "podman run --rm -v \"\$PWD\":/src -w /src $GCC_IMAGE sh -c 'CXX=g++ tests/run_tests.sh'"
+job gcc-latest "podman run --rm -e JOBS -v \"\$PWD\":/src -w /src $GCC_IMAGE sh -c 'CXX=g++ tests/run_tests.sh'"
 job clang-latest 'CXX=clang++-23 tests/run_tests.sh'
 for cxx in g++-13 clang++-18; do
   job "mathopt ($cxx)" "CXX=$cxx tests/run_tests.sh --mathopt \"\$ORTOOLS_DIR\" &&
