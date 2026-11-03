@@ -243,10 +243,11 @@ sumOf<Col>(container, term)
 
 ## ValueTable
 
-`value_table.hpp`, namespace `dreamor`, the same type for every backend: what `solution()` returns, and data on a
-set built by hand.
+`value_table.hpp`, namespace `dreamor`, the same type for every backend: what `solution()` returns, and values on a
+set built by hand - mainly what an algorithm computes from a solve. A parameter is better its entity's field, or a
+named callable when an expression defines it (`docs/philosophy.md`).
 
-- `ValueTable<Keys...>{set, value}` - AMPL's `param {S}`: `value` is a number or a column callable, as a VarTable's
+- `ValueTable<Keys...>{set, value}` - AMPL's `param {S}` where one is wanted: `value` is a number or a column callable, as a VarTable's
   bounds are; the set's columns must be exactly `Keys...`, in order. Shares the set's row index with the tables on it.
 - A ValueTable is a column callable over its keys: pass it as a VarTable's bound or another ValueTable's value
   (`VarTable{env, sRUN, 0, hours}`), no lookup lambda.

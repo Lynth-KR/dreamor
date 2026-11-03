@@ -349,10 +349,13 @@ for (const auto& [row, qty] : yieldPlan) { ... } // 집합 순서대로
 
 - 결과(`ValueTable`)는 double만 들고 있어서 `cplex`나 `env`가 끝난 뒤에도 쓸 수 있습니다. 백엔드와 무관한
   같은 타입입니다.
-- `ValueTable`은 집합 위의 데이터, AMPL의 `param {S}`이기도 합니다. `dreamor::ValueTable<cMachine, cPeriod>
+- `ValueTable`은 집합 위에 직접 만들 수도 있습니다. `dreamor::ValueTable<cMachine, cPeriod>
   hours{sRUN, available_hours}`는 `sRUN`의 각 행에 값을 줍니다. 값은 `VarTable`의 bound처럼 숫자이거나 행의 열을
   받는 콜러블이고, 읽는 법은 같습니다(키나 행으로, 집합 밖이면 `std::out_of_range`). 그 자체가 열 콜러블이라서
   콜러블이 들어갈 자리에 그대로 씁니다: `VarTable`의 bound(`VarTable{env, sRUN, 0, hours}`), 다른 `ValueTable`의 값.
+  그래서 AMPL의 `param {S}`로도 쓸 수 있고 그렇게 쓰는 것을 막지는 않습니다. 다만 파라미터는 엔티티의 필드로,
+  식으로 정의되는 값은 이름 붙인 콜러블로 두는 편이 낫고([철학](philosophy.md#설계-원칙)), `ValueTable`은 주로
+  풀이가 만들어 내는 것과 알고리즘이 그것으로 계산하는 값을 담습니다.
 - 집합에 없는 키로 찾으면(`yieldPlan(row)`) 0 대신 `std::out_of_range`를 던집니다(0이면 "값이 0인 변수"와
   구별되지 않으므로).
 - Concert의 `solution()`은 `getEnv()`와 `getValues(IloNumArray, IloNumVarArray)`가 있는 알고리즘이면 받습니다.

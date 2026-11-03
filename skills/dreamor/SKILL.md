@@ -12,7 +12,7 @@ dreamor is a header-only C++20 layer for algebraic optimization models. It provi
 2. **Variable families** (`VarTable`), one table of solver variables per set.
 3. **Sums** (`sumOf`) over a set or a group.
 
-Variable families and sums are backend-specific. `dreamor::ValueTable` (solution values, or data on a set: `ValueTable<Keys...>{set, value}`) is shared by every backend.
+Variable families and sums are backend-specific. `dreamor::ValueTable` (solution values and what an algorithm computes from them; data on a set is possible, `ValueTable<Keys...>{set, value}`, but a parameter belongs on its entity as a field, or in a named callable when an expression defines it) is shared by every backend.
 
 Everything else — constraints, objectives, solving, duals, parameters — is written in the solver's own API.
 dreamor has no constraint tables, no column generation (tables never grow), and no constraint programming
@@ -110,6 +110,8 @@ These are enforced by the compiler or needed for a correct model.
 | `next(t, S[m])`, the next row within an indexed collection | `const auto periodsOfMachine = sRUN.ordered<cMachine>();` then `.next(m, t)` (`nullptr` at the end of `m`'s rows) |
 | `subject to C {(i,t) in STOCK: ord(t) > 1}: ... Stock[i,prev(t)] ...`, a row only where a neighbour is | `const auto not_first = [&orderedPeriods](cPeriod t) { return !orderedPeriods.isFirst(t); };` then `for (const auto& [i, t] : sSTOCK.where(not_first))`, reading `orderedPeriods.prevOf(t)` (the row itself) in the row: the condition on the loop's set, not an `if` around the row |
 | `(if ord(t) > 1 then Stock[i,prev(t)])`, a term only where a neighbour is | in the row: `if (const auto* prevPeriod = orderedPeriods.prev(t)) { totalInFlow += vStock(i, std::get<cPeriod>(*prevPeriod)); }` |
+| `param cap {MACHINES};` | a field of the entity: `m->capacity` (a value on a relation: make the relation an entity) |
+| `param max_qty {(m,i) in ROUTES} = cap[m] / time[i];` | a named callable: `const auto max_possible_qty = [](cMachine m, cItem i) { return m->capacity / i->time; };` |
 | `var Yield {PRODUCE} >= 0, <= cap[m]/time[i];` | `const dreamor::concert::VarTable<cMachine, cItem, cPeriod> vYield{env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};` |
 | `sum {(m,i,t) in PRODUCE} setup[m] * Setup[m,i,t]` | `dreamor::concert::sumOf(env, sPRODUCE, setup_cost).build()` |
 | `sum {m: (m,i,t) in PRODUCE} Yield[m,i,t]` | `dreamor::concert::sumOf(env, producedByItemPeriod.slice(i, t), vYield).build()` |

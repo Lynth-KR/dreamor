@@ -19,6 +19,14 @@ contributor knows what a change has to keep.
   inside a row, choosing a term, is AMPL's own idiom and is written as one.
 - **One VarTable per variable family.** Which variables exist is decided by that table's set. The VarTable
   constructor is the only place variables are created.
+- **Parameters live on the entities.** A set's rows hold the entities themselves as keys, so a parameter defined as
+  a field of its entity (an array of structs) comes with the key for free: `m->capacity`, not a table looked up by
+  `m`. A value that belongs to a relation makes that relation an entity, and the value its field. A value defined by
+  an expression over each row is a named callable that takes the columns and computes it - AMPL's `param` defined by
+  an expression: `max_possible_qty = [](cMachine m, cItem i) { return m->capacity / i->time; }` is
+  `param max_qty {(m,i) in ROUTES} = cap[m] / time[i]`. A `ValueTable` can hold data on a set, AMPL's `param {S}`,
+  and nothing forbids it; but unless a design has a reason to, dreamor recommends the two above, and keeps
+  `ValueTable` for what a solve produces: solution values, and what an algorithm computes from them between solves.
 - **Clarity is not traded for performance.** Performance work is done only where it adds no concept to the user
   API (internal hashing, set sharing, and so on).
 - **One tool for each job.** Each tool has one job, and no two tools share one - which is also why there is no

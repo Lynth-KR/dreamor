@@ -364,11 +364,14 @@ for (const auto& [row, qty] : yieldPlan) { ... } // in set order
 
 - The result (`ValueTable`) holds only doubles, so it stays usable after `cplex` or `env` has ended. It is the same
   type regardless of backend.
-- A `ValueTable` is also data on a set, AMPL's `param {S}`: `dreamor::ValueTable<cMachine, cPeriod>
+- A `ValueTable` can also be built by hand on a set: `dreamor::ValueTable<cMachine, cPeriod>
   hours{sRUN, available_hours}` gives each row of `sRUN` a value - a number, or a callable over the row's columns, as
   a `VarTable`'s bounds are - and is read the same way, by key or row, `std::out_of_range` outside the set. It is a
   column callable itself, so it goes where a callable goes: a `VarTable`'s bound (`VarTable{env, sRUN, 0, hours}`),
-  another `ValueTable`'s value.
+  another `ValueTable`'s value. That makes it AMPL's `param {S}` too, and nothing forbids that use; but a parameter
+  is better a field of its entity, or a named callable when an expression defines it
+  ([Philosophy](philosophy.md#design-principles)), and a `ValueTable` is mainly for what a solve produces and what
+  an algorithm computes from it.
 - Looking up a key not in the set (`yieldPlan(row)`) throws `std::out_of_range` instead of returning 0 (0 would be
   indistinguishable from "a variable whose value is 0").
 - Concert's `solution()` accepts any algorithm that has `getEnv()` and `getValues(IloNumArray, IloNumVarArray)`. The
