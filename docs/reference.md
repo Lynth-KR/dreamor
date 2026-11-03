@@ -29,7 +29,7 @@ Every public type and function, by header. The [guide](guide.md) explains them i
 |---|---|
 | `IndexSet<std::tuple<Cols...>>`, alias `SetOf<Cols...>` | Read-only set. Default construction (empty set), O(1) copy |
 | `begin()`, `end()`, `size()` | Random-access iteration |
-| `where(p...)`, `orderBy(key)`, `select<Cols...>()`, `select(expr)` | Derivation → `IndexSet` |
+| `where(p...)`, `orderBy(key)`, `orderBy(key, descending)`, `select<Cols...>()`, `select(expr)` | Derivation → `IndexSet` (`ascending`, the default, and `descending` are tag objects in `dreamor`) |
 | `groupBy<Cols...>()` | → `Grouped` |
 | `membership()` | → `Membership` |
 | `ordered()`, `ordered<A...>()` | → `Ordered` over the whole set, or within each group of rows that agree on `A...` |
@@ -80,6 +80,7 @@ Every public type and function, by header. The [guide](guide.md) explains them i
 | `nextOf(...)`, `prevOf(...)` likewise | The neighboring row itself, which must be there - AMPL's `next(t)` on a domain that has it. If it is not, a debug build stops; a release build does not check (UB) |
 | `nextCyclic(...)`, `prevCyclic(...)` | Neighbors that wrap from the end back to the start |
 | `first()`, `last()`, `at(pos)` | First, last, by position (not under `ordered<A...>()`, where `ord`, `isFirst` and `isLast` are within the group) |
+| `first(cols...)`, `last(cols...)` | Under `ordered<A...>()`: the first and last row of the group the columns of `A...` name - AMPL's `first(S[a])`. The group must have a row; if not, a debug build stops |
 | `isFirst(cols...)`, `isLast(cols...)`, `contains(cols...)` | Tests |
 | `size()`, `empty()`, `members()` | Size, the deduplicated set |
 

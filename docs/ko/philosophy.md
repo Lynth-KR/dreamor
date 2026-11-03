@@ -71,7 +71,7 @@ callable을 snake_case(`items_of`, `machine_usage`), 나머지를 camelCase(`tot
 ## 규칙 모음
 
 1. callable(술어, 종속 소스, 범위 함수, 합의 term)은 **열 타입**을 파라미터로 받습니다.
-   `[](const Item* i)`나 `[](auto i)`는 컴파일 오류입니다. 예외는 `orderBy`의 key(행 전체를 받음)뿐입니다.
+   `[](const Item* i)`나 `[](auto i)`는 컴파일 오류입니다. `orderBy`의 key도 마찬가지입니다.
 2. 종속 소스는 엔티티의 **포인터** 범위를 돌려줍니다.
 3. 집합은 읽기 전용입니다. 바꾸지 말고 파생하세요.
 4. 변수족 하나당 VarTable 하나, 그 족의 **전체 집합** 위에. 부분은 `vYield(row)`.

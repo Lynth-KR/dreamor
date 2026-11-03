@@ -59,7 +59,7 @@ These are enforced by the compiler or needed for a correct model.
 1. **Callables take column types.** Predicates, dependent sources, bounds, and sum terms are written as
    `[](cMachine m, cPeriod t) { ... }`, taking only the columns they read, in any order. dreamor reads the
    parameter types to know which columns to bind, so `[](const Machine* m)`, `[](int t)`, and `[](auto x)` are
-   rejected. The one exception is the key of `orderBy`, which takes the whole row (`[](const auto& row)`).
+   rejected - the key of `orderBy` included.
 2. **Lookups take column values in declaration order, or one row.** This covers `vYield(m, i, t)`,
    `yieldPlan(m, i, t)`, `grouped.slice(i, t)`, `orderedPeriods.prev(t)`, `orderedPeriods.next(t, 2)`, and
    `in_routes(m, i)`. Bare values (`vYield(2, 1, 0)`) and braces (`slice({i, t})`) are rejected, because two

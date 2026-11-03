@@ -142,11 +142,11 @@ O(1) and shares the rows.
 | `S.where(p, q)` | Rows that pass every predicate | `{(m,i) in S: p and q}` |
 | `S.select<A, B>()` | Column projection (duplicates removed). Picking every column in a different order reorders the columns | `setof {(m,i,t) in S} (m,i)` |
 | `S.select(expr)` | Each row as `expr` makes it (duplicates removed) | `setof {(i,j) in S} (j,i)` |
-| `S.orderBy(key)` | Stable sort by `key(row)` | |
+| `S.orderBy(key)`, `S.orderBy(key, descending)` | Stable sort by what `key` returns, ascending (the default) or descending ([Ordered sets](#ordered-sets--ordered)) | SQL's `ORDER BY ... ASC`/`DESC`, not AMPL's `ordered by` |
 | `S.groupBy<A>()` | Grouping (next section) | slices |
 | `S.membership()` | O(1) membership predicate, to put in another set's `where` | `(m,i) in S` |
-| `S.ordered()` | ord / next / prev / nextCyclic / prevCyclic | ordered set |
-| `S.ordered<A>()` | the same within each group of rows that agree on `A` | `next(t, S[a])` |
+| `S.ordered()` | Positions and neighbours in the set's order ([Ordered sets](#ordered-sets--ordered)) | an ordered set |
+| `S.ordered<A>()` | The same within each group of rows that agree on `A` | `next(t, S[a])` |
 
 | Free function | |
 |---|---|
@@ -159,31 +159,6 @@ O(1) and shares the rows.
 const auto sPEAK_PRODUCE  = sPRODUCE.where(is_peak);                  // production rows in peak-demand periods
 const auto sMACHINE_ITEM  = sPRODUCE.select<cMachine, cItem>();  // (machine, item) only
 const auto in_routes      = sROUTES.membership();
-const auto orderedPeriods = sPERIODS.ordered();
-if (const auto* prevPeriod = orderedPeriods.prev(t)) { /* the previous period */ }
-```
-
-`ordered()` is a positional view (`Ordered`) over the deduplicated set. Positions count from 0. `next`/`prev`/
-`nextCyclic`/`prevCyclic` may take a step count after the element (`next(t, 2)`, negative allowed) and return a
-pointer to the row, or `nullptr` past the boundary or for an element not in the set. `ordered<A>()` does the same
-within each group of rows that agree on `A` - AMPL's `next(t, S[a])` - so a walk stops (or, cyclic, wraps) at its
-group's ends, `ord` is the position within the group and `isFirst`/`isLast` are the group's ends; `first()`, `last()`
-and `at()`, positions of the whole set, are not there. The rest is in the
-[public API reference](reference.md#public-api-reference).
-
-A neighbour decides either a term of a row or whether the row is there at all. A term is the row's own
-if-then-else, as AMPL's `(if ord(t) > 1 then Stock[i,prev(t)])`: the README's inventory balance adds the previous
-period's stock when `prev(t)` gives a row. A row that is there only where a neighbour is runs over that domain,
-as AMPL's `subject to C {(i,t) in STOCK: ord(t) > 1}`: the condition goes into the set the loop runs over, not
-into an `if` around the row, and the row reads its neighbour with `prevOf(t)` / `nextOf(t)`, which return the row
-itself - the domain promises it is there.
-
-```cpp
-const auto not_first = [&orderedPeriods](cPeriod t) { return !orderedPeriods.isFirst(t); };
-for (const auto& [i, t] : sSTOCK.where(not_first)) {  // {(i,t) in STOCK: ord(t) > 1}
-  const cPeriod prevPeriod = std::get<cPeriod>(orderedPeriods.prevOf(t));
-  /* a row on t and prevPeriod */
-}
 ```
 
 The `Membership` returned by `membership()` is a predicate object, so you may also call it directly, passing the
@@ -199,9 +174,6 @@ places unnoticed.
 const auto sREVERSED = sEDGES.select([](cFrom i, cTo j) { return std::tuple<cFrom, cTo>{j, i}; });
 const auto sTAILS    = sNODES.select([](cNode n) { return cFrom{n}; });  // the nodes as arc tails
 ```
-
-The key of `orderBy` takes the whole row, so it is the only place in this library where a generic lambda
-(`[](const auto& row)`) is allowed.
 
 ## Grouping — groupBy
 
@@ -227,6 +199,98 @@ for (const auto& [item, period, rows] : sPRODUCE.groupBy<cItem, cPeriod>()) { ..
   (`sPRODUCE`) does not (an item nobody makes in that period), as in the quick start's inventory balance, write that
   constraint family **by iterating the driver set and calling `slice()`**, not by iterating the `Grouped`. That way
   empty keys get their constraint too.
+
+## Ordered sets — ordered
+
+A set's order is the order its rows were made in. `orderBy` gives it another, and `ordered()` reads it as an ordered
+set: positions, neighbours, ends - AMPL's `ord`, `next`, `first`, over the whole set or within each group of rows.
+
+### The order a set has
+
+Rows come out in generation order, and which column varies fastest is not fixed ([Building sets](#building-sets--makeset)).
+Where the order carries meaning - the periods a stock moves through, the steps a chain climbs - make it explicit:
+build the set from a source in that order, or sort it with `orderBy`, a stable sort by what its key returns, ascending
+by default or `dreamor::descending` - SQL's `ORDER BY ... ASC`/`DESC`.
+
+The key of `orderBy` takes the columns it reads, as a predicate does, and returns what to compare - one value, or a
+`std::tuple` for several. Give it an explicit key (an id, a name): a key that falls back on a pointer orders by address,
+which varies between runs.
+
+```cpp
+const auto name_of       = [](cItem i) { return i->name; };
+const auto sBY_NAME      = sITEMS.orderBy(name_of);                       // ORDER BY name
+const auto sBY_NAME_DOWN = sITEMS.orderBy(name_of, dreamor::descending);  // ORDER BY name DESC
+```
+
+dreamor has no counterpart of AMPL's `ordered by T`, a set that takes its order from another ordered set: sort by a
+key instead. A set of numbers that AMPL would order `by Reals` is, in a model of entities, a set of entities ordered by
+the number they hold - `orderBy(value_of)`, or `orderBy(value_of, dreamor::descending)` for `by reversed Reals`.
+
+### Positions and neighbours — ordered()
+
+```cpp
+const auto orderedPeriods = sPERIODS.ordered();
+orderedPeriods.ord(t);         // ord(t): the 0-based position, or nullopt for a non-member
+orderedPeriods.next(t);        // next(t): a pointer to the next row, nullptr after the last
+orderedPeriods.next(t, 2);     // two steps on; negative steps walk back
+orderedPeriods.prevOf(t);      // prev(t) where the domain promises one: the row itself
+orderedPeriods.nextCyclic(t);  // nextw(t): from the last back to the first
+orderedPeriods.isLast(t);      // ord(t) = card(PERIODS)
+orderedPeriods.first();        // first(PERIODS); last() and at(position) likewise
+```
+
+`ordered()` is a positional view (`Ordered`) over the deduplicated set; positions count from 0. Each neighbour comes
+two ways: `next`/`prev` return a pointer to the row, or `nullptr` past either end or for an element not in the set;
+`nextOf`/`prevOf` return the row itself, for a domain that has the neighbour (below) - a debug build stops if it is
+not there. A lookup names an element by its columns, in order, or by one row of the set. The lookups hand out
+pointers into the `Ordered`, so they work on a named one only (on a temporary they are a compile error).
+
+### Within groups — ordered<A>()
+
+```cpp
+const auto periodsOfMachine = sRUN.ordered<cMachine>();
+periodsOfMachine.next(m, t);    // next(t, S[m]): the period after t among m's, nullptr after m's last
+periodsOfMachine.isLast(m, t);  // ord(t, S[m]) = card(S[m])
+periodsOfMachine.first(m);      // first(S[m]): the row (m, t) of m's first period; last(m) likewise
+```
+
+`ordered<A>()` orders within each group of rows that agree on `A` - AMPL's indexed collection of ordered sets,
+`S[a]`: a row's neighbours are the rows of its own group, in the set's order, so a walk stops (or, cyclic, wraps) at
+its group's ends, `ord` is the position within the group, and `isFirst`/`isLast` are the group's ends. `first(a)` and
+`last(a)` give a group's first and last row; the group must have one (a debug build stops if not - run over the
+groups the set has, `groupBy`). `first()`, `last()` and `at()`, positions of the whole set, are not there.
+
+### A neighbour in a row, or a row where there is one
+
+A neighbour decides either a term of a row or whether the row is there at all. A term is the row's own
+if-then-else, as AMPL's `(if ord(t) > 1 then Stock[i,prev(t)])`: the README's inventory balance adds the previous
+period's stock when `prev(t)` gives a row. A row that is there only where a neighbour is runs over that domain,
+as AMPL's `subject to C {(i,t) in STOCK: ord(t) > 1}`: the condition goes into the set the loop runs over, not
+into an `if` around the row, and the row reads its neighbour with `prevOf(t)` / `nextOf(t)`, which return the row
+itself - the domain promises it is there.
+
+```cpp
+const auto not_first = [&orderedPeriods](cPeriod t) { return !orderedPeriods.isFirst(t); };
+for (const auto& [i, t] : sSTOCK.where(not_first)) {  // {(i,t) in STOCK: ord(t) > 1}
+  const cPeriod prevPeriod = std::get<cPeriod>(orderedPeriods.prevOf(t));
+  /* a row on t and prevPeriod */
+}
+```
+
+### AMPL's ordered sets in dreamor
+
+| AMPL | dreamor (`orderedPeriods`, `periodsOfMachine` as above) |
+|---|---|
+| `set S ordered;` (the data's order) | every set: generation order |
+| `ordered by Reals`, `ordered by reversed Reals` | `S.orderBy(value_of)`, `S.orderBy(value_of, dreamor::descending)` |
+| `ordered by T` | none: sort by a key |
+| `ord(t, S)` (from 1) | `orderedPeriods.ord(t)` (from 0) |
+| `next(t, S)`, `prev(t, S)`, `next(t, S, 2)` | `next(t)`, `prev(t)`, `next(t, 2)` (a pointer); `nextOf(t)`, `prevOf(t)` (the row) |
+| `nextw(t, S)`, `prevw(t, S)` | `nextCyclic(t)`, `prevCyclic(t)` |
+| `first(S)`, `last(S)`, `member(k, S)` | `first()`, `last()`, `at(k - 1)` |
+| `next(t, S[m])`, `ord(t, S[m])` | `periodsOfMachine.next(m, t)`, `periodsOfMachine.ord(m, t)` |
+| `first(S[m])`, `last(S[m])` | `periodsOfMachine.first(m)`, `periodsOfMachine.last(m)` |
+| `{t in S: ord(t) > 1}` | `S.where(not_first)`, with `isFirst` |
 
 ## Variable families — VarTable
 

@@ -73,8 +73,7 @@ everything else in camelCase (`totalInFlow`, `yieldPlan`).
 ## Rules
 
 1. Callables (predicates, dependent sources, bound functions, terms of sums) take **column types** as parameters.
-   `[](const Item* i)` or `[](auto i)` is a compile error. The only exception is the key of `orderBy` (which takes
-   the whole row).
+   `[](const Item* i)` or `[](auto i)` is a compile error - the key of `orderBy` included.
 2. A dependent source returns a range of **pointers** to entities.
 3. Sets are read-only. Derive instead of modifying.
 4. One VarTable per variable family, over the family's **whole set**. Reach parts with `vYield(row)`.

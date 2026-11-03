@@ -11,8 +11,8 @@
 // makeSet leaves unspecified which column varies fastest, so its rows are compared as a
 // multiset. Everything downstream is specified to the row (select / unite / intersect /
 // difference keep first occurrences, groups come in first-appearance order, ordered() is the
-// set order), so the reference runs on the rows dreamor actually produced and the results are
-// compared in order.
+// set order, orderBy() a stable sort), so the reference runs on the rows dreamor actually produced
+// and the results are compared in order.
 //
 // One test per column layout, each its own translation unit - test_differential.cpp and
 // test_differential_*.cpp - so the layouts compile side by side. A lookup by columns tries the
@@ -33,6 +33,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <functional>
 #include <map>
 #include <numeric>
 #include <optional>
@@ -429,6 +430,19 @@ struct Differential {
         DREAMOR_CHECK(same(O.prevCyclic(a, b, c, steps), expected(r, -steps, true)));
       }
     }
+
+    // orderBy(): a stable sort by the key, ascending or descending. The key reads two columns, out of
+    // their declared order, and compares by index - the values' own order differs by layout. Five
+    // values a column leave many rows with one key, so stability shows both ways.
+    const auto key_of   = [](B b, C c) { return std::tuple{indexOf(c), indexOf(b)}; };
+    const auto plainKey = [](const Row& r) { return std::tuple{std::get<2>(r), std::get<1>(r)}; };
+    std::vector<Row> up = s;
+    std::ranges::stable_sort(up, std::ranges::less{}, plainKey);
+    std::vector<Row> down = s;
+    std::ranges::stable_sort(down, std::ranges::greater{}, plainKey);
+    DREAMOR_CHECK(rowsOf(S.orderBy(key_of)) == up);
+    DREAMOR_CHECK(rowsOf(S.orderBy(key_of, dreamor::ascending)) == up);
+    DREAMOR_CHECK(rowsOf(S.orderBy(key_of, dreamor::descending)) == down);
 
     // sumOf: one term per row, narrowed by where(), one sum per split() predicate - a row may land
     // in both.

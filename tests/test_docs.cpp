@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <iterator>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -103,9 +104,12 @@ int main() try {
   const auto in_supply = sMACHINE_ITEMS.membership();
   DREAMOR_CHECK(sUNIQUE.size() == 3 && in_supply(cMachine{machines[1]}, cItem{items[0]}) &&
                 !in_supply(cMachine{machines[1]}, cItem{items[1]}));
-  const auto sITEMS   = makeSet<cItem>(items).collect();
-  const auto sBY_NAME = sITEMS.orderBy([](const auto& row) { return std::get<cItem>(row)->name; });
+  const auto sITEMS        = makeSet<cItem>(items).collect();
+  const auto name_of       = [](cItem i) { return i->name; };
+  const auto sBY_NAME      = sITEMS.orderBy(name_of);
+  const auto sBY_NAME_DOWN = sITEMS.orderBy(name_of, dreamor::descending);
   DREAMOR_CHECK(std::get<cItem>(*sBY_NAME.begin())->name == "I1");
+  DREAMOR_CHECK(std::get<cItem>(*sBY_NAME_DOWN.begin())->name == std::get<cItem>(*std::prev(sBY_NAME.end()))->name);
   const auto sEDGES = makeSet<cFrom, cTo>(Nodes, Nodes).where([](cFrom i, cTo j) { return i->id < j->id; }).collect();
   const auto sREVERSED = sEDGES.select([](cFrom i, cTo j) { return std::tuple<cFrom, cTo>{j, i}; });
   const auto sNODES    = makeSet<cNode>(Nodes).collect();

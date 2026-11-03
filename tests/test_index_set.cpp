@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <iterator>
 #include <ranges>
 #include <stdexcept>
 #include <tuple>
@@ -45,9 +46,19 @@ int main() try {
       std::ranges::equal(IJ.where(even, big), dreamor::makeSet<cI, cJ>(I, J).where(even).where(big).collect()));
   DREAMOR_CHECK(IJ.size() == 12);
 
-  // orderBy: stable, key over the whole row
-  const auto sorted = II.orderBy([](const auto& t) { return std::get<cI>(t).get(); });
+  // orderBy: stable, the key on the columns it reads; ascending by default, or descending
+  const auto i_of   = [](cI i) { return i.get(); };
+  const auto sorted = II.orderBy(i_of);
   DREAMOR_CHECK(std::get<cI>(*sorted.begin()).get() == 1 && std::get<cI>(*II.begin()).get() == 3);
+  DREAMOR_CHECK(std::ranges::equal(II.orderBy(i_of, dreamor::ascending), sorted));
+  const auto down = II.orderBy(i_of, dreamor::descending);
+  DREAMOR_CHECK(std::get<cI>(*down.begin()).get() == 4 && std::get<cI>(*std::prev(down.end())).get() == 1);
+  // stable both ways: rows with one key keep the set's order (each i's j stay 10, 20, 30)
+  const auto byJDown = IJ.orderBy([](cJ j) { return j.get(); }, dreamor::descending);
+  DREAMOR_CHECK(*byJDown.begin() == std::tuple{cI{3}, cJ{30}} &&
+                *std::next(byJDown.begin()) == std::tuple{cI{1}, cJ{30}});
+  const auto byIJ = IJ.orderBy([](cI i, cJ j) { return std::tuple{i.get(), j.get()}; });  // a key over two columns
+  DREAMOR_CHECK(*byIJ.begin() == std::tuple{cI{1}, cJ{10}} && *std::prev(byIJ.end()) == std::tuple{cI{4}, cJ{30}});
 
   // select: projection as a set, and column reorder
   DREAMOR_CHECK(IJ.select<cJ>().size() == 3);
@@ -133,6 +144,12 @@ int main() try {
     DREAMOR_CHECK(withinI.next(cJ{40}, cI{1}) == nullptr && !withinI.contains(cJ{40}, cI{1}) &&
                   withinI.contains(*after));
     DREAMOR_CHECK(withinI.size() == 6 && withinI.members() == rowsJI);
+    // first(S[i]) and last(S[i]): a group's ends, named by its key
+    DREAMOR_CHECK(withinI.first(cI{1}) == std::tuple{cJ{10}, cI{1}} &&
+                  withinI.last(cI{1}) == std::tuple{cJ{30}, cI{1}});
+    DREAMOR_CHECK(withinI.first(cI{2}) == std::tuple{cJ{10}, cI{2}} &&
+                  withinI.last(cI{2}) == std::tuple{cJ{30}, cI{2}});
+    DREAMOR_CHECK(withinI.isFirst(withinI.first(cI{2})) && withinI.isLast(withinI.last(cI{1})));
     const auto alone = rowsJI.ordered<cJ, cI>();  // every row its own group
     DREAMOR_CHECK(alone.next(cJ{10}, cI{1}) == nullptr && alone.isFirst(cJ{10}, cI{1}));
   }
@@ -143,8 +160,7 @@ int main() try {
   DREAMOR_CHECK(dreamor::difference(IJ, IJ.where(even)).size() == 6);
 
   // equality: the same rows, in any order; order is std::ranges::equal's business
-  const auto reversed =
-      IJ.orderBy([](const auto& row) { return -static_cast<std::ptrdiff_t>(std::get<cI>(row).get()); });
+  const auto reversed = IJ.orderBy(i_of, dreamor::descending);
   DREAMOR_CHECK(reversed == IJ && IJ == reversed && !std::ranges::equal(reversed, IJ));
   DREAMOR_CHECK(IJ == IJ && dreamor::unite(IJ.where(even), dreamor::difference(IJ, IJ.where(even))) == IJ);
   DREAMOR_CHECK(IJ != IJ.where(even) && IJ.where(even) != dreamor::difference(IJ, IJ.where(even)));

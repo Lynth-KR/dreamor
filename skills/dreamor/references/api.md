@@ -82,7 +82,7 @@ random-access, default-constructible (empty), O(1) copy sharing rows.
 | `where(p...)` | `IndexSet` of rows passing all predicates | `{(m,i) in S: p and q}` |
 | `select<Cols...>()` | `IndexSet`, projection, duplicates removed; all columns in another order = reorder | `setof {...} (m,i)` |
 | `select(expr)` | `IndexSet` of what `expr` returns per row (one `Col` or a `std::tuple` of them), duplicates removed. `expr` takes the columns it reads; a value changes column only where the new column is written: `std::tuple<cFrom, cTo>{j, i}` | `setof {(i,j) in S} (j,i)` |
-| `orderBy(key)` | `IndexSet`, stable sort by `key(row)`; the only place a generic lambda is allowed | |
+| `orderBy(key)`, `orderBy(key, descending)` | `IndexSet`, stable sort by what `key` returns - SQL's `ORDER BY`, not AMPL's `ordered by`; the key takes the columns it reads; `dreamor::ascending` is the default | |
 | `groupBy<Cols...>()` | `Grouped` | slices |
 | `membership()` | `Membership` | `(m,i) in S` |
 | `ordered()` | `Ordered` | ordered set |
@@ -116,7 +116,8 @@ random-access view into the set's rows (no copies), valid while the `Grouped` li
 
 `index_set/ordered.hpp`. A positional view over the deduplicated set - or, from `ordered<A...>()`, within each group
 of rows that agree on `A...`: walks stop (cyclic: wrap) at the group's ends, `ord`/`isFirst`/`isLast` are within the
-group, and `first()`/`last()`/`at()` stop on a sentence. Every lookup is on a named `Ordered` only, and accepts either
+group, `first(a...)`/`last(a...)` give a group's first and last row (AMPL's `first(S[a])`), and `first()`/`last()`/`at()`
+stop on a sentence. Every lookup is on a named `Ordered` only, and accepts either
 the columns or one row.
 
 | | |
@@ -125,7 +126,8 @@ the columns or one row.
 | `next(cols...)`, `next(cols..., steps)`, `prev(...)` | `const Row*`, `nullptr` past the boundary or for a non-member; negative steps walk backwards |
 | `nextOf(...)`, `prevOf(...)` | `const Row&`, the neighbour itself, which must be there (a domain filtered with `isFirst` / `isLast`); a debug build stops if it is not, a release build does not check |
 | `nextCyclic(...)`, `prevCyclic(...)` | wrap from the end to the start |
-| `first()`, `last()`, `at(pos)` | rows |
+| `first()`, `last()`, `at(pos)` | rows (the whole set only) |
+| `first(cols...)`, `last(cols...)` | under `ordered<A...>()`, the group's first and last row; the group must have one (a debug build stops if not) |
 | `isFirst(cols...)`, `isLast(cols...)`, `contains(cols...)` | tests |
 | `size()`, `empty()`, `members()` | size, the deduplicated set |
 

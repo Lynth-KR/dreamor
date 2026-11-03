@@ -138,10 +138,10 @@ const auto sMAKE_STAGED = dreamor::makeSet<cMachine>(machines, sOPEN).where(fits
 | `S.where(p, q)` | 술어를 모두 통과한 행 | `{(m,i) in S: p and q}` |
 | `S.select<A, B>()` | 열 투영(중복 제거). 모든 열을 다른 순서로 고르면 열 순서 바꾸기 | `setof {(m,i,t) in S} (m,i)` |
 | `S.select(expr)` | 행마다 `expr`이 만든 행(중복 제거) | `setof {(i,j) in S} (j,i)` |
-| `S.orderBy(key)` | `key(row)`로 안정 정렬 | |
+| `S.orderBy(key)`, `S.orderBy(key, descending)` | `key`가 돌려주는 값으로 안정 정렬, 오름차순(기본) 또는 내림차순([순서 집합](#순서-집합--ordered)) | SQL의 `ORDER BY ... ASC`/`DESC`. AMPL의 `ordered by`가 아님 |
 | `S.groupBy<A>()` | 묶기 (다음 절) | 슬라이스 |
 | `S.membership()` | O(1) 소속 판정 술어. 다른 집합의 `where`에 넣음 | `(m,i) in S` |
-| `S.ordered()` | ord / next / prev / nextCyclic / prevCyclic | ordered set |
+| `S.ordered()` | 집합의 순서에서 위치와 이웃([순서 집합](#순서-집합--ordered)) | ordered set |
 | `S.ordered<A>()` | `A`가 같은 행끼리의 그룹마다 같은 일 | `next(t, S[a])` |
 
 | 자유 함수 | |
@@ -155,30 +155,6 @@ const auto sMAKE_STAGED = dreamor::makeSet<cMachine>(machines, sOPEN).where(fits
 const auto sPEAK_PRODUCE  = sPRODUCE.where(is_peak);                  // 수요가 몰리는 기간의 생산 행
 const auto sMACHINE_ITEM  = sPRODUCE.select<cMachine, cItem>();  // (기계, 품목)만
 const auto in_routes      = sROUTES.membership();
-const auto orderedPeriods = sPERIODS.ordered();
-if (const auto* prevPeriod = orderedPeriods.prev(t)) { /* 직전 기간 */ }
-```
-
-`ordered()`는 중복을 없앤 집합 위의 위치 뷰(`Ordered`)입니다. 위치는 0부터 셉니다. `next`/`prev`/
-`nextCyclic`/`prevCyclic`는 원소 뒤에 걸음 수를 받을 수 있고(`next(t, 2)`, 음수 가능) 행의 포인터를 돌려주며,
-경계를 넘거나 집합에 없는 원소면 `nullptr`입니다. `ordered<A>()`는 같은 일을 `A`가 같은 행끼리의 그룹 안에서 합니다
-(AMPL의 `next(t, S[a])`). 그래서 이동은 그룹 끝에서 멈추고(cyclic이면 그룹 안에서 돌고), `ord`는 그룹 안의 위치,
-`isFirst`/`isLast`는 그룹의 양 끝입니다. 집합 전체의 위치를 뜻하는 `first()`, `last()`, `at()`은 없습니다.
-나머지는 [공개 API 전체 목록](reference.md#공개-api-전체-목록)에 있습니다.
-
-이웃이 정하는 것은 행의 항 하나이거나, 행이 있는지 자체입니다. 항은 행 안의 if-then-else로 씁니다. AMPL의
-`(if ord(t) > 1 then Stock[i,prev(t)])`와 같고, README의 재고 균형식이 `prev(t)`가 행을 줄 때 직전 기간의 재고를
-더하는 것이 이 경우입니다. 이웃이 있을 때만 있는 행은 그 정의역 위를 돕니다. AMPL의
-`subject to C {(i,t) in STOCK: ord(t) > 1}`처럼, 조건은 루프가 도는 집합에 들어가고 행을 감싸는 `if`가 되지
-않습니다. 행은 이웃을 `prevOf(t)` / `nextOf(t)`로 읽습니다. 정의역이 이웃이 있다고 약속하므로 이 둘은 행 자체를
-돌려줍니다.
-
-```cpp
-const auto not_first = [&orderedPeriods](cPeriod t) { return !orderedPeriods.isFirst(t); };
-for (const auto& [i, t] : sSTOCK.where(not_first)) {  // {(i,t) in STOCK: ord(t) > 1}
-  const cPeriod prevPeriod = std::get<cPeriod>(orderedPeriods.prevOf(t));
-  /* t와 prevPeriod에 걸친 행 */
-}
 ```
 
 `membership()`이 돌려주는 `Membership`은 술어 객체라서 직접 불러도 됩니다. 열을 따로
@@ -193,9 +169,6 @@ for (const auto& [i, t] : sSTOCK.where(not_first)) {  // {(i,t) in STOCK: ord(t)
 const auto sREVERSED = sEDGES.select([](cFrom i, cTo j) { return std::tuple<cFrom, cTo>{j, i}; });
 const auto sTAILS    = sNODES.select([](cNode n) { return cFrom{n}; });  // 노드를 호의 출발점으로
 ```
-
-`orderBy`의 key는 행 전체를 받으므로 이 라이브러리에서 유일하게 제네릭 람다(`[](const auto& row)`)를
-쓸 수 있는 자리입니다.
 
 ## 묶기 — groupBy
 
@@ -219,6 +192,97 @@ for (const auto& [item, period, rows] : sPRODUCE.groupBy<cItem, cPeriod>()) { ..
 - **`Grouped`를 돌면 존재하는 키만 돕니다.** 빠른 시작의 재고 균형처럼 드라이버 집합(`sSTOCK`)에는 있는데 이
   집합(`sPRODUCE`)에는 없는 키가 있다면(그 기간에 아무도 만들지 않는 품목), 그 제약족은 `Grouped`를 도는 게 아니라
   **드라이버 집합을 돌면서 `slice()`**로 써야 합니다. 그래야 빈 키에도 제약이 걸립니다.
+
+## 순서 집합 — ordered
+
+집합의 순서는 행이 만들어진 순서입니다. `orderBy`는 다른 순서를 주고, `ordered()`는 그 순서를 순서 집합으로 읽습니다:
+위치, 이웃, 양 끝. AMPL의 `ord`, `next`, `first`이고, 집합 전체에서도, 행의 그룹마다도 됩니다.
+
+### 집합이 가진 순서
+
+행은 만들어진 순서로 나오고, 어느 열이 가장 빨리 바뀌는지는 정해져 있지 않습니다([집합 만들기](#집합-만들기--makeset)).
+순서가 뜻을 가지는 곳(재고가 지나가는 기간, 체인이 오르는 단계)에서는 순서를 드러내세요. 그 순서의 소스로 집합을
+만들거나, `orderBy`로 정렬합니다. `orderBy`는 key가 돌려주는 값으로 하는 안정 정렬이고, 기본은 오름차순,
+`dreamor::descending`이면 내림차순입니다. SQL의 `ORDER BY ... ASC`/`DESC`입니다.
+
+`orderBy`의 key는 술어처럼 자기가 읽는 열을 받고, 비교할 값을 돌려줍니다(하나, 또는 여럿이면 `std::tuple`). 명시적인
+키(id, 이름)를 주세요. 포인터로 떨어지는 키는 주소 순이라 실행마다 달라집니다.
+
+```cpp
+const auto name_of       = [](cItem i) { return i->name; };
+const auto sBY_NAME      = sITEMS.orderBy(name_of);                       // ORDER BY name
+const auto sBY_NAME_DOWN = sITEMS.orderBy(name_of, dreamor::descending);  // ORDER BY name DESC
+```
+
+AMPL의 `ordered by T`(다른 순서 집합에서 순서를 물려받는 집합)에 대응하는 것은 dreamor에 없습니다. key로 정렬하세요.
+AMPL이 `by Reals`로 정렬할 숫자 집합은, 엔티티의 모델에서는 자기가 든 숫자로 정렬한 엔티티 집합입니다.
+`orderBy(value_of)`, `by reversed Reals`면 `orderBy(value_of, dreamor::descending)`.
+
+### 위치와 이웃 — ordered()
+
+```cpp
+const auto orderedPeriods = sPERIODS.ordered();
+orderedPeriods.ord(t);         // ord(t): 0부터 센 위치, 집합에 없으면 nullopt
+orderedPeriods.next(t);        // next(t): 다음 행의 포인터, 마지막 뒤에서는 nullptr
+orderedPeriods.next(t, 2);     // 두 걸음 앞; 음수면 뒤로
+orderedPeriods.prevOf(t);      // 정의역이 있다고 약속한 prev(t): 행 자체
+orderedPeriods.nextCyclic(t);  // nextw(t): 마지막에서 처음으로
+orderedPeriods.isLast(t);      // ord(t) = card(PERIODS)
+orderedPeriods.first();        // first(PERIODS); last()와 at(position)도 같은 꼴
+```
+
+`ordered()`는 중복을 없앤 집합 위의 위치 뷰(`Ordered`)이고, 위치는 0부터 셉니다. 이웃은 두 꼴로 얻습니다.
+`next`/`prev`는 행의 포인터를 돌려주고, 양 끝을 넘거나 집합에 없는 원소면 `nullptr`입니다. `nextOf`/`prevOf`는
+이웃이 있는 정의역(아래)을 위한 것으로 행 자체를 돌려주며, 이웃이 없으면 debug 빌드가 멈춥니다. 원소는 열을 순서대로
+주거나 집합의 행 하나로 가리킵니다. 조회는 `Ordered` 안을 가리키는 포인터를 내주므로 이름 붙인 객체에서만 됩니다(임시
+객체에서는 컴파일 오류).
+
+### 그룹 안에서 — ordered<A>()
+
+```cpp
+const auto periodsOfMachine = sRUN.ordered<cMachine>();
+periodsOfMachine.next(m, t);    // next(t, S[m]): m의 기간 가운데 t 다음, m의 마지막 뒤에서는 nullptr
+periodsOfMachine.isLast(m, t);  // ord(t, S[m]) = card(S[m])
+periodsOfMachine.first(m);      // first(S[m]): m의 첫 기간의 행 (m, t); last(m)도 같은 꼴
+```
+
+`ordered<A>()`는 `A`가 같은 행끼리의 그룹마다 순서를 줍니다. AMPL의 색인된 순서 집합 모음 `S[a]`입니다. 행의 이웃은
+자기 그룹의 행들이고 순서는 집합의 순서라, 이동은 그룹 끝에서 멈추고(cyclic이면 그룹 안에서 돌고), `ord`는 그룹 안의
+위치, `isFirst`/`isLast`는 그룹의 양 끝입니다. `first(a)`와 `last(a)`는 그룹의 첫 행과 끝 행을 주며, 그 그룹에 행이
+있어야 합니다(없으면 debug 빌드가 멈춤. 집합에 있는 그룹 위를 도세요, `groupBy`). 집합 전체의 위치를 뜻하는
+`first()`, `last()`, `at()`은 없습니다.
+
+### 행 안의 이웃, 또는 이웃이 있는 곳의 행
+
+이웃이 정하는 것은 행의 항 하나이거나, 행이 있는지 자체입니다. 항은 행 안의 if-then-else로 씁니다. AMPL의
+`(if ord(t) > 1 then Stock[i,prev(t)])`와 같고, README의 재고 균형식이 `prev(t)`가 행을 줄 때 직전 기간의 재고를
+더하는 것이 이 경우입니다. 이웃이 있을 때만 있는 행은 그 정의역 위를 돕니다. AMPL의
+`subject to C {(i,t) in STOCK: ord(t) > 1}`처럼, 조건은 루프가 도는 집합에 들어가고 행을 감싸는 `if`가 되지
+않습니다. 행은 이웃을 `prevOf(t)` / `nextOf(t)`로 읽습니다. 정의역이 이웃이 있다고 약속하므로 이 둘은 행 자체를
+돌려줍니다.
+
+```cpp
+const auto not_first = [&orderedPeriods](cPeriod t) { return !orderedPeriods.isFirst(t); };
+for (const auto& [i, t] : sSTOCK.where(not_first)) {  // {(i,t) in STOCK: ord(t) > 1}
+  const cPeriod prevPeriod = std::get<cPeriod>(orderedPeriods.prevOf(t));
+  /* t와 prevPeriod에 걸친 행 */
+}
+```
+
+### AMPL의 순서 집합을 dreamor로
+
+| AMPL | dreamor (`orderedPeriods`, `periodsOfMachine`은 위와 같음) |
+|---|---|
+| `set S ordered;` (데이터의 순서) | 모든 집합: 생성 순서 |
+| `ordered by Reals`, `ordered by reversed Reals` | `S.orderBy(value_of)`, `S.orderBy(value_of, dreamor::descending)` |
+| `ordered by T` | 없음: key로 정렬 |
+| `ord(t, S)` (1부터) | `orderedPeriods.ord(t)` (0부터) |
+| `next(t, S)`, `prev(t, S)`, `next(t, S, 2)` | `next(t)`, `prev(t)`, `next(t, 2)` (포인터); `nextOf(t)`, `prevOf(t)` (행) |
+| `nextw(t, S)`, `prevw(t, S)` | `nextCyclic(t)`, `prevCyclic(t)` |
+| `first(S)`, `last(S)`, `member(k, S)` | `first()`, `last()`, `at(k - 1)` |
+| `next(t, S[m])`, `ord(t, S[m])` | `periodsOfMachine.next(m, t)`, `periodsOfMachine.ord(m, t)` |
+| `first(S[m])`, `last(S[m])` | `periodsOfMachine.first(m)`, `periodsOfMachine.last(m)` |
+| `{t in S: ord(t) > 1}` | `S.where(not_first)`, `isFirst`로 |
 
 ## 변수족 — VarTable
 

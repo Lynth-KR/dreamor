@@ -15,8 +15,8 @@
 #pragma once
 
 #include <algorithm>  // IWYU pragma: keep // For std::ranges::stable_sort
-#include <concepts>
 #include <cstddef>
+#include <functional>  // IWYU pragma: keep // For std::ranges::less and greater
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -300,20 +300,30 @@ Membership<Tup> IndexSet<Tup>::membership() const {
   return Membership<Tup>{*this};
 }
 
-// Stable reordering into "<key>-major" traversal order. Pass an explicit key (an id, a
-// name): a key that falls back on pointer comparison orders by address and varies between
-// runs.
+// Stable reordering by a key - SQL's ORDER BY: ascending, or descending with
+// orderBy(key, descending). The key takes the columns it reads, as a predicate does, and returns
+// what to compare. Pass an explicit key (an id, a name): a key that falls back on pointer
+// comparison orders by address and varies between runs.
 //
-//     const auto sBY_NAME = sITEMS.orderBy([](const auto& row) { return std::get<cItem>(row)->name; });
-//
-// The key receives the whole row, so it is the one callable here that may be generic.
+//     const auto name_of       = [](cItem i) { return i->name; };
+//     const auto sBY_NAME      = sITEMS.orderBy(name_of);                       // ORDER BY name
+//     const auto sBY_NAME_DOWN = sITEMS.orderBy(name_of, dreamor::descending);  // ORDER BY name DESC
 template <typename Tup>
-template <typename Key>
-IndexSet<Tup> IndexSet<Tup>::orderBy(Key key) const {
-  static_assert(std::invocable<Key&, const Tup&>, "orderBy(key): key(row) must be callable with a row of this set.");
-  internal::Rows<Tup> rows{begin(), end()};
-  std::ranges::stable_sort(rows, {}, key);
-  return internal::SetAccess::make(std::move(rows));
+template <typename Key, typename Direction>
+IndexSet<Tup> IndexSet<Tup>::orderBy(Key key, Direction /*direction*/) const {
+  internal::checkColumnCallable<Key, Tup>();
+  static_assert(std::is_same_v<Direction, Ascending> || std::is_same_v<Direction, Descending>,
+                "orderBy(key, direction): the direction is dreamor::ascending or dreamor::descending.");
+  if constexpr (internal::ColumnsOfPredicate<Key>::known && internal::PlacementOf<Key, Tup>::all_named &&
+                internal::PlacementOf<Key, Tup>::all_present) {
+    using Compare = std::conditional_t<std::is_same_v<Direction, Descending>, std::ranges::greater, std::ranges::less>;
+    const auto key_of = [&key](const Tup& row) { return internal::callColumnsOf(key, row); };
+    internal::Rows<Tup> rows{begin(), end()};
+    std::ranges::stable_sort(rows, Compare{}, key_of);
+    return internal::SetAccess::make(std::move(rows));
+  } else {
+    return IndexSet<Tup>{};
+  }
 }
 
 }  // namespace dreamor

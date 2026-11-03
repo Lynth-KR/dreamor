@@ -136,6 +136,15 @@ consteval bool checkOrderedKey() {
   return isKey<Tup, Args...>();
 }
 
+template <typename Key, typename... Args>
+consteval bool checkOrderedGroup() {
+  static_assert(isKey<Key, Args...>(),
+                "Name the group by the columns ordered<Columns...>() groups by, in order - "
+                "periodsOfMachine.first(m) for ordered<cMachine>(). A plain value (2, a raw pointer) is not a "
+                "column: write cMachine{2}.");
+  return isKey<Key, Args...>();
+}
+
 template <typename Tup, typename... Args>
 consteval bool checkOrderedStep() {
   static_assert(isKey<Tup, Args...>() || isKeyThenSteps<Tup, Args...>(),

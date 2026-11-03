@@ -16,7 +16,7 @@
 // functions; each returns a new set and leaves S as it was:
 //
 //     S.where(p, q)              rows passing every predicate     {(m,i) in S: p and q}
-//     S.orderBy(key)             stable reorder by key
+//     S.orderBy(key)             stable reorder by key (descending: orderBy(key, descending))
 //     S.select<cMachine, ...>()   projection (or column reorder), as a set
 //     S.select(expr)             each row as expr makes it, as a set   setof {(i,j) in S} (j,i)
 //     S.groupBy<cOrder>()       Grouped: walk groups, slice by key
@@ -54,6 +54,12 @@ template <typename Tup, typename... Within>
 class Ordered;
 template <typename Tup>
 class Membership;
+
+// The order orderBy sorts in: ascending, the default, or descending - SQL's ASC and DESC.
+inline constexpr struct Ascending {
+} ascending{};  // NOLINT(readability-identifier-naming): a public tag object, named like std::in_place
+inline constexpr struct Descending {
+} descending{};  // NOLINT(readability-identifier-naming): a public tag object, named like std::in_place
 
 // SetOf<cMachine, cItem> reads as the set it declares.
 template <typename... Columns>
@@ -140,8 +146,8 @@ class IndexSet : public std::ranges::view_base {
   // --- Derivations (defined in set.hpp, algebra.hpp, grouped.hpp, ordered.hpp) ----------
   template <typename... Preds>
   [[nodiscard]] IndexSet where(Preds... preds) const;
-  template <typename Key>
-  [[nodiscard]] IndexSet orderBy(Key key) const;
+  template <typename Key, typename Direction = Ascending>
+  [[nodiscard]] IndexSet orderBy(Key key, Direction direction = {}) const;
   template <typename... Columns>
   [[nodiscard]] IndexSet<std::tuple<Columns...>> select() const;
   template <typename Expr>

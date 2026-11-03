@@ -29,7 +29,7 @@
 |---|---|
 | `IndexSet<std::tuple<Cols...>>`, 별칭 `SetOf<Cols...>` | 읽기 전용 집합. 기본 생성(빈 집합), 복사 O(1) |
 | `begin()`, `end()`, `size()` | random access 순회 |
-| `where(p...)`, `orderBy(key)`, `select<Cols...>()`, `select(expr)` | 파생 → `IndexSet` |
+| `where(p...)`, `orderBy(key)`, `orderBy(key, descending)`, `select<Cols...>()`, `select(expr)` | 파생 → `IndexSet` (`ascending`(기본)과 `descending`은 `dreamor`의 태그 객체) |
 | `groupBy<Cols...>()` | → `Grouped` |
 | `membership()` | → `Membership` |
 | `ordered()`, `ordered<A...>()` | → 집합 전체, 또는 `A...`가 같은 행끼리의 그룹마다의 `Ordered` |
@@ -80,6 +80,7 @@
 | `nextOf(...)`, `prevOf(...)` 같은 꼴 | 이웃 행 자체. 이웃이 있어야 함(이웃이 있는 정의역 위의 AMPL `next(t)`). 없으면 debug 빌드는 멈춤, release 빌드는 무검사(UB) |
 | `nextCyclic(...)`, `prevCyclic(...)` | 끝에서 처음으로 돌아가는 이웃 |
 | `first()`, `last()`, `at(pos)` | 처음, 끝, 위치로 (`ordered<A...>()`에는 없음. 거기서 `ord`, `isFirst`, `isLast`는 그룹 안 기준) |
+| `first(열...)`, `last(열...)` | `ordered<A...>()`에서: `A...`의 열이 가리키는 그룹의 첫 행과 끝 행(AMPL의 `first(S[a])`). 그 그룹에 행이 있어야 함. 없으면 debug 빌드가 멈춤 |
 | `isFirst(열...)`, `isLast(열...)`, `contains(열...)` | 판정 |
 | `size()`, `empty()`, `members()` | 크기, 중복 제거된 집합 |
 
