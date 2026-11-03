@@ -14,7 +14,7 @@
 [![CPLEX Concert](https://img.shields.io/badge/backend-CPLEX%20Concert-FFD43B?style=flat-square&labelColor=1D2433)](#백엔드)
 [![OR-Tools MathOpt](https://img.shields.io/badge/backend-OR--Tools%20MathOpt-FFD43B?style=flat-square&labelColor=1D2433)](#백엔드)
 [![HiGHS](https://img.shields.io/badge/backend-HiGHS-FFD43B?style=flat-square&labelColor=1D2433)](#백엔드)
-[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-FFD43B?style=flat-square&labelColor=1D2433)](LICENSE)
+[![License: MPL 2.0](https://img.shields.io/badge/license-MPL%202.0-FFD43B?style=flat-square&labelColor=1D2433)](LICENSE)
 
 [빠른 시작](#빠른-시작)&emsp;[집합 만들기](docs/ko/guide.md#집합-만들기--makeset)&emsp;[VarTable](docs/ko/guide.md#변수족--vartable)&emsp;[합](docs/ko/guide.md#합--sumof)&emsp;[OR-Tools 예제](examples/mathopt_samples/README.ko.md)&emsp;[공개 API](docs/ko/reference.md#공개-api-전체-목록)
 
@@ -318,4 +318,8 @@ dreamor를 만드는 데 큰 도움을 준 Anthropic의 Claude에게 감사드�
 
 ## 라이선스
 
-[Apache License 2.0](LICENSE)
+[Mozilla Public License 2.0](LICENSE). 파일 단위 카피레프트입니다. 고친 dreamor 파일은 MPL로 남고, dreamor가 든
+프로그램을 배포할 때는 받는 사람에게 dreamor의 소스를 얻을 곳을 알려야 합니다. 고치지 않은 파일은 이 저장소, 고친
+파일은 고친 판입니다. 직접 쓴 파일과 dreamor를 쓰는 프로그램의 라이선스는 자유입니다. 0.5.0까지의 릴리스는 Apache License
+2.0으로 나왔습니다. `examples/mathopt_samples/`에 옮긴 OR-Tools 예제는 Google의 Apache License 2.0을
+따릅니다([NOTICE](NOTICE)).

@@ -1,5 +1,8 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: MPL-2.0
+# This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+# not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#
 # Builds build/catalog against the dreamor headers in ../../include, build/catalog_hand without them, both on
 # the lean Concert stub in ../common/stub. CXX picks the compiler (default g++; GCC 13+ or Clang 18+).
 # LAYOUTS=n also builds every binary once per repetition, under build/layout/<rep>/, each with a code layout

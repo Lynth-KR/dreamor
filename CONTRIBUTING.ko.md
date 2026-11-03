@@ -112,7 +112,7 @@ OR-Tools 경로는 위의 환경 변수로), 저장소의 `.clangd`와 `.vscode/
   its left set`이나 `docs: ...`처럼 쓰고, 본문에는 근거를, 성능 변경이라면 수치를 적습니다.
 - **모든 커밋에 서명해 주세요**(Developer Certificate of Origin). `git commit -s`로 커밋하면
   `Signed-off-by: 이름 <메일>` 줄이 붙고, 이로써 [DCO](https://developercertificate.org/)를 확인하는 것입니다. 즉
-  그 변경을 직접 썼거나, 프로젝트의 라이선스(Apache 2.0)로 낼 권리가 있다는 뜻입니다. 서명이 없는 커밋이 든 PR은
+  그 변경을 직접 썼거나, 프로젝트의 라이선스(MPL 2.0)로 낼 권리가 있다는 뜻입니다. 서명이 없는 커밋이 든 PR은
   합칠 수 없습니다.
 - **CI**는 모든 PR에서 돕니다. 포맷, clang-tidy, GCC 13과 16, Clang 18과 23의 테스트, sanitizer, MathOpt 백엔드,
   CMake 패키지를 확인합니다. CPLEX는 CI에 없으니, Concert 쪽 코드를 건드렸고 CPLEX가 있다면

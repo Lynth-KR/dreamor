@@ -1,4 +1,7 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MPL-2.0
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+// not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
 // The same lot-sizing model as production_planning.hpp, written with plain Concert and
 // std::map - the way it is usually done without index sets, on the data alone and with no part of
 // the library. Kept for comparison (and the tests check both build the same model).

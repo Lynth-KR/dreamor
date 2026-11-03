@@ -1,4 +1,7 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MPL-2.0
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+// not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
 // The same lot-sizing model built on both backends - Concert (the stub, tests/stub) and
 // HiGHS - must have the same variables and the same constraints: each constraint as
 // lower <= sum(coef * variable) <= upper, variables identified by name, compared as a multiset.

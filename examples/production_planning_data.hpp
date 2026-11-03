@@ -1,4 +1,7 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MPL-2.0
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+// not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
 // The lot-sizing example's data (production_planning_sets.hpp states the model): items, machines
 // and the instance generator, with no part of the library - the plain model and the benchmark's
 // hand-written arms build on it alone.

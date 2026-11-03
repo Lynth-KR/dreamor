@@ -118,7 +118,7 @@ this page is not enough.
   its left set` or `docs: ...`, and a body with the reasoning and, for a performance change, the numbers.
 - **Sign off every commit** (Developer Certificate of Origin). `git commit -s` adds a line
   `Signed-off-by: Your Name <you@example.com>`, by which you certify the [DCO](https://developercertificate.org/):
-  that you wrote the change or have the right to submit it under the project's license, Apache 2.0. A pull request
+  that you wrote the change or have the right to submit it under the project's license, MPL 2.0. A pull request
   whose commits are not signed off cannot be merged.
 - **CI** runs on every pull request: formatting, clang-tidy, the tests on GCC 13, 16 and Clang 18, 23, the
   sanitizers, the MathOpt backend, and the CMake package. CPLEX is not on CI; if you touch Concert-facing code and

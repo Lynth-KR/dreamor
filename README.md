@@ -14,7 +14,7 @@
 [![CPLEX Concert](https://img.shields.io/badge/backend-CPLEX%20Concert-FFD43B?style=flat-square&labelColor=1D2433)](#backends)
 [![OR-Tools MathOpt](https://img.shields.io/badge/backend-OR--Tools%20MathOpt-FFD43B?style=flat-square&labelColor=1D2433)](#backends)
 [![HiGHS](https://img.shields.io/badge/backend-HiGHS-FFD43B?style=flat-square&labelColor=1D2433)](#backends)
-[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-FFD43B?style=flat-square&labelColor=1D2433)](LICENSE)
+[![License: MPL 2.0](https://img.shields.io/badge/license-MPL%202.0-FFD43B?style=flat-square&labelColor=1D2433)](LICENSE)
 
 [Quick start](#quick-start)&emsp;[Building sets](docs/guide.md#building-sets--makeset)&emsp;[VarTable](docs/guide.md#variable-families--vartable)&emsp;[Sums](docs/guide.md#sums--sumof)&emsp;[OR-Tools samples](examples/mathopt_samples/README.md)&emsp;[Public API](docs/reference.md#public-api-reference)
 
@@ -327,4 +327,9 @@ design and the decisions behind it are the author's.
 
 ## License
 
-[Apache License 2.0](LICENSE)
+[Mozilla Public License 2.0](LICENSE), copyleft by file: a file of dreamor that you change stays under the MPL, and
+a program you distribute with dreamor in it tells its recipients where to get dreamor's source - this repository for
+the files you left as they are, your version of those you changed. Your own files, and the program that uses
+dreamor, are yours to license.
+Releases up to and including 0.5.0 were published under the Apache License 2.0. The OR-Tools samples ported in
+`examples/mathopt_samples/` keep Google's Apache License 2.0 ([NOTICE](NOTICE)).

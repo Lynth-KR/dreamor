@@ -1,4 +1,7 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MPL-2.0
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+// not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
 // general::AlignedVector on its own, and the sets every derivation makes: their rows start on a
 // cache line's boundary.
 #include <bit>

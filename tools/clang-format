@@ -1,5 +1,8 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: MPL-2.0
+# This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+# not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#
 # clang-format at the version tools/format.sh pins, run through uvx, for an editor that wants one
 # executable: point its clang-format path here (e.g. VS Code's clang-format.executable) and
 # format-on-save matches CI. Arguments go to clang-format as they are.

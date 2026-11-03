@@ -1,4 +1,7 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MPL-2.0
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+// not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
 // File: binding.hpp
 // Which columns a callable is bound to. A predicate or a dependent source names its columns
 // in its own parameter list; this reads them off &Pred::operator() and resolves each to a

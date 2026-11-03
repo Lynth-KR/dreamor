@@ -1,4 +1,6 @@
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: MPL-2.0
+# This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+# not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """Compares two MPS files as LPs, by what they mean rather than how a writer spells them: the same named rows and
 columns, each column's bounds, integrality and cost, each row's bounds and coefficients, every number within a
 relative 1e-12. A row may be written either way round - a >= b as a - b >= 0 or as b - a <= 0 - and a writer may

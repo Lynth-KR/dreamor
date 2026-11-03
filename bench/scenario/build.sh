@@ -1,5 +1,8 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: MPL-2.0
+# This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+# not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#
 # Builds every layer-2 scenario (pmedian.cpp, lotsizing.cpp) for each backend found, into build/:
 #   <scenario>_stub     against the lean Concert stub (../common/stub): the containers alone
 #   <scenario>_cplex    against CPLEX Concert at $CPLEX_STUDIO_DIR (default /opt/ibm/ILOG/CPLEX_Studio2212)

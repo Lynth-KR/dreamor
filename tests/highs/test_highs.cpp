@@ -1,4 +1,7 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MPL-2.0
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+// not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
 // The HiGHS backend (run_tests.sh --highs): VarTable and sumOf as test_vartable and test_sum check
 // them for Concert, the expressions and rows of highspy's interface, the objective with its
 // Hessian, small models solved, and the code of README.md and highs.hpp's comments as written there.

@@ -1,4 +1,7 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MPL-2.0
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+// not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
 // scenario/backend.hpp - what a scenario is built against, picked when it is compiled (build.sh):
 // the lean Concert stub (SCENARIO_STUB), CPLEX Concert, OR-Tools MathOpt (SCENARIO_MATHOPT), or
 // HiGHS's own C++ API (SCENARIO_HIGHS); on CPLEX, its Callable Library as well (SCENARIO_CALLABLE).

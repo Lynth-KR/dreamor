@@ -7,7 +7,7 @@ brief.
 dreamor is a header-only C++20 modeling layer: index sets (solver-independent), variable families (`VarTable`), and
 sums (`sumOf`), with three backends, CPLEX Concert (`dreamor::concert`), OR-Tools MathOpt (`dreamor::mathopt`) and
 HiGHS on its own C++ API (`dreamor::highs`).
-Version 0.5.0, Apache 2.0.
+Version 0.5.0, MPL 2.0 (releases up to 0.5.0 were Apache 2.0).
 
 ## Layout
 
@@ -279,8 +279,10 @@ Confirm with `--cplex` when possible.
 
 ## Code style
 
-Every code file starts with `// SPDX-License-Identifier: Apache-2.0` (`#` in Python, shell, and CMake; after the
-`#!` line in scripts); `tools/format.sh` adds it and CI checks it. Each header then has this convention block.
+Every code file starts with `// SPDX-License-Identifier: MPL-2.0` (`#` in Python, shell, and CMake; after the
+`#!` line in scripts), then MPL's Exhibit A notice on the next two lines and a bare comment line before a comment
+that follows, as Eigen's files do; `tools/format.sh` puts all three there and CI checks them. Google's samples in
+`examples/mathopt_samples/` keep their own Apache-2.0 line and header (`examples/mathopt_samples/LICENSE`). Each header then has this convention block.
 Follow it in library code:
 
 - types `PascalCase`;

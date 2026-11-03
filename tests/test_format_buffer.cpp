@@ -1,4 +1,7 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MPL-2.0
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+// not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
 // FormatBuffer: format() is static, on a buffer of the thread's - a const member function names its
 // rows with it, threads name theirs at once, and the name is valid until the thread's next format().
 #include <cstddef>

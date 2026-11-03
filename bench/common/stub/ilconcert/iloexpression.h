@@ -1,4 +1,7 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MPL-2.0
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+// not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
 // Concert stand-in for the container benchmark: no solver behind it, and as cheap as a
 // handle-over-heap-object design can be, so the solver side is the same small constant in
 // every arm (bench/README.md). Not tests/stub: that one stores names and keeps every

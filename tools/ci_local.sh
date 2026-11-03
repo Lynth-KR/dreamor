@@ -1,5 +1,8 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: MPL-2.0
+# This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+# not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#
 # Runs what CI runs (.github/workflows/ci.yml) on this machine, over one commit checked out
 # apart: what a push would publish, not the working tree. It needs every tool CI installs and
 # stops before running anything if one is missing - a partial run is not a pass.

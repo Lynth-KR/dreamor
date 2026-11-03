@@ -1,4 +1,7 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MPL-2.0
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+// not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
 // The code in README.md and docs/guide.md, as written there (with a stand-in IloCplex and small data).
 // If that code changes, change it here too. The comments below name the section it comes from.
 #include <algorithm>

@@ -1,4 +1,7 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MPL-2.0
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+// not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
 // The lot-sizing model of production_planning_sets.hpp, on the HiGHS backend: the same sets, the
 // same constraints as production_planning.hpp, written against HiGHS's own C++ API, in highspy's
 // terms, instead of Concert.

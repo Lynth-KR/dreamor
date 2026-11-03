@@ -1,4 +1,7 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MPL-2.0
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+// not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
 // File: name_token.hpp
 // The token a column contributes to a name: what VarTable writes for each key in
 // "<name>_<key0>_<key1>...", what exprName writes for a row, and what a column prints as under

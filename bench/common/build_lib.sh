@@ -1,4 +1,7 @@
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: MPL-2.0
+# This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+# not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#
 # Sourced by the benchmarks' build.sh: compiles run JOBS at a time, and each repetition's code layout.
 #
 #   spawn <command...>   runs the command in the background, at most $JOBS at once (default: half the cores)

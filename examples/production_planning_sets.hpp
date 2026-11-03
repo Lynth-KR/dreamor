@@ -1,4 +1,7 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MPL-2.0
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+// not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
 // Multi-machine, multi-period lot sizing - the example model of the library. This file holds
 // what does not depend on a solver: the columns and the sets, on the data and instance generator
 // of production_planning_data.hpp. production_planning.hpp (Concert), production_planning_mathopt.hpp

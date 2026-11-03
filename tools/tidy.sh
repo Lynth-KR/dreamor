@@ -1,5 +1,8 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: MPL-2.0
+# This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+# not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#
 # Runs clang-tidy over the library, the tests, and the examples, as .clang-tidy and its
 # per-directory children configure it (tests/stub, the compile_fail cases, the ported samples
 # and bench/ are not checked). Library headers are reported where a test or example includes

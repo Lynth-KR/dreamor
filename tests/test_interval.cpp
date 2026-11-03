@@ -1,4 +1,7 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MPL-2.0
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+// not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
 // interval::closed, open, closedOpen and openClosed as makeSet sources: their values, an interval whose ends cross,
 // the column's integer type whatever the ends', a temporary handed over as it is, beside other sources.
 #include <cstddef>

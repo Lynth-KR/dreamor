@@ -1,4 +1,7 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MPL-2.0
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+// not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
 // Differential test: the set layer and sumOf against a reference written with nothing but the
 // standard library - nested loops, std::set, std::map - over a few hundred small random cases
 // from a fixed seed. The cases lean on the edges: empty sources, one element, every value,

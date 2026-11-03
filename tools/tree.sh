@@ -1,5 +1,8 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: MPL-2.0
+# This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+# not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#
 # Shows the repository as a tree, without anything git ignores (.gitignore,
 # .git/info/exclude, the global excludes file): the tracked files plus the
 # untracked ones git would offer to add - git's own rules, so negations like

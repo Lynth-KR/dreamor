@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: MPL-2.0
+# This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+# not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """Summarizes a catalog run (run.py): prints Markdown and writes summary.md and cells.csv beside it.
 
 A ratio is a hand-written arm's time over dreamor's, so above 1 means dreamor is faster; `best` is

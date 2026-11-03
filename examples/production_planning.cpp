@@ -1,4 +1,7 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MPL-2.0
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+// not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
 // Builds and solves the lot-sizing example, then prints the plan.
 //   tests/run_tests.sh --cplex builds and runs it; by hand, as one command:
 //   g++ -std=c++20 -DIL_STD -Iinclude -isystem $CPLEX/concert/include -isystem $CPLEX/cplex/include

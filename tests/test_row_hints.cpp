@@ -1,4 +1,7 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MPL-2.0
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+// not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
 // A lookup by columns against hints that point anywhere. The hints - the row sumOf published, the
 // rows the thread's last lookups found - are addresses, checked against the key and never trusted:
 // a row of a set gone, of any key, can leave one at any byte of a set that now has its memory. So,

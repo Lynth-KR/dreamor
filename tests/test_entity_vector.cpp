@@ -1,4 +1,7 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MPL-2.0
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+// not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
 // EntityVector: each entity once by its primary key; filled, sorted, frozen, then read; elements that
 // never move once frozen, const access with modify() the one way to change one, and its use as a set
 // source - where a missing keyName() leaves the primary key to name the variables.

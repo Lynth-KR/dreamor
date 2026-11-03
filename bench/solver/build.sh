@@ -1,5 +1,8 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: MPL-2.0
+# This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+# not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#
 # Builds the solver probe (probe.cpp) - not part of the benchmark - for each backend found:
 #   ./probe_stub     against the experiment's Concert stub (../common/stub): the containers alone
 #   ./probe_concert  against CPLEX Concert at $CPLEX_STUDIO_DIR (default /opt/ibm/ILOG/CPLEX_Studio2212)
