@@ -171,6 +171,21 @@ group's ends, `ord` is the position within the group and `isFirst`/`isLast` are 
 and `at()`, positions of the whole set, are not there. The rest is in the
 [public API reference](reference.md#public-api-reference).
 
+A neighbour decides either a term of a row or whether the row is there at all. A term is the row's own
+if-then-else, as AMPL's `(if ord(t) > 1 then Stock[i,prev(t)])`: the README's inventory balance adds the previous
+period's stock when `prev(t)` gives a row. A row that is there only where a neighbour is runs over that domain,
+as AMPL's `subject to C {(i,t) in STOCK: ord(t) > 1}`: the condition goes into the set the loop runs over, not
+into an `if` around the row, and the row reads its neighbour with `prevOf(t)` / `nextOf(t)`, which return the row
+itself - the domain promises it is there.
+
+```cpp
+const auto not_first = [&orderedPeriods](cPeriod t) { return !orderedPeriods.isFirst(t); };
+for (const auto& [i, t] : sSTOCK.where(not_first)) {  // {(i,t) in STOCK: ord(t) > 1}
+  const cPeriod prevPeriod = std::get<cPeriod>(orderedPeriods.prevOf(t));
+  /* a row on t and prevPeriod */
+}
+```
+
 The `Membership` returned by `membership()` is a predicate object, so you may also call it directly, passing the
 columns separately (`in_routes(cMachine{m}, cItem{i})`) or a single row tuple (`in_routes(row)`).
 

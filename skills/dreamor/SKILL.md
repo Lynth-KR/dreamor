@@ -108,6 +108,8 @@ These are enforced by the compiler or needed for a correct model.
 | `(m,i) in ROUTES` | `sROUTES.membership()`, called as `in_routes(m, i)` or passed to `where` |
 | `prev(t)`, `next(t, 2)`, `ord(t)` on an ordered set | `const auto orderedPeriods = sPERIODS.ordered();` then `.prev(t)` (row pointer or `nullptr`), `.next(t, 2)`, `.ord(t)` (0-based optional) |
 | `next(t, S[m])`, the next row within an indexed collection | `const auto periodsOfMachine = sRUN.ordered<cMachine>();` then `.next(m, t)` (`nullptr` at the end of `m`'s rows) |
+| `subject to C {(i,t) in STOCK: ord(t) > 1}: ... Stock[i,prev(t)] ...`, a row only where a neighbour is | `const auto not_first = [&orderedPeriods](cPeriod t) { return !orderedPeriods.isFirst(t); };` then `for (const auto& [i, t] : sSTOCK.where(not_first))`, reading `orderedPeriods.prevOf(t)` (the row itself) in the row: the condition on the loop's set, not an `if` around the row |
+| `(if ord(t) > 1 then Stock[i,prev(t)])`, a term only where a neighbour is | in the row: `if (const auto* prevPeriod = orderedPeriods.prev(t)) { totalInFlow += vStock(i, std::get<cPeriod>(*prevPeriod)); }` |
 | `var Yield {PRODUCE} >= 0, <= cap[m]/time[i];` | `const dreamor::concert::VarTable<cMachine, cItem, cPeriod> vYield{env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};` |
 | `sum {(m,i,t) in PRODUCE} setup[m] * Setup[m,i,t]` | `dreamor::concert::sumOf(env, sPRODUCE, setup_cost).build()` |
 | `sum {m: (m,i,t) in PRODUCE} Yield[m,i,t]` | `dreamor::concert::sumOf(env, producedByItemPeriod.slice(i, t), vYield).build()` |

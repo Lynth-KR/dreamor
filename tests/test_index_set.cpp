@@ -108,6 +108,7 @@ int main() try {
   const auto T          = II.ordered();
   const auto* beforeOne = T.prev(cI{1});
   DREAMOR_CHECK(beforeOne != nullptr && std::get<cI>(*beforeOne).get() == 3 && T.next(cI{4}) == nullptr);
+  DREAMOR_CHECK(&T.prevOf(cI{1}) == beforeOne && &T.nextOf(cI{3}) == T.next(cI{3}));  // the row itself, where it is
 
   // ordered within groups - next(j, S[i]): each i's rows here are interleaved with the other's
   {
@@ -123,6 +124,10 @@ int main() try {
     DREAMOR_CHECK(around != nullptr && *around == std::tuple{cJ{10}, cI{2}});
     DREAMOR_CHECK(behind != nullptr && *behind == std::tuple{cJ{30}, cI{1}});
     DREAMOR_CHECK(withinI.next(cJ{10}, cI{1}, 2) != nullptr && withinI.next(cJ{10}, cI{1}, 3) == nullptr);
+    DREAMOR_CHECK(withinI.nextOf(cJ{10}, cI{1}) == *after &&
+                  withinI.nextOf(cJ{10}, cI{1}, 2) == std::tuple{cJ{30}, cI{1}});
+    DREAMOR_CHECK(withinI.prevOf(cJ{30}, cI{2}, 2) == std::tuple{cJ{10}, cI{2}} &&
+                  withinI.prevOf(*after) == std::tuple{cJ{10}, cI{1}});
     DREAMOR_CHECK(withinI.ord(cJ{20}, cI{2}) == std::optional<std::size_t>{1} && withinI.isFirst(cJ{10}, cI{2}));
     DREAMOR_CHECK(withinI.isLast(cJ{30}, cI{1}) && !withinI.isLast(cJ{20}, cI{1}) && !withinI.isFirst(cJ{20}, cI{1}));
     DREAMOR_CHECK(withinI.next(cJ{40}, cI{1}) == nullptr && !withinI.contains(cJ{40}, cI{1}) &&

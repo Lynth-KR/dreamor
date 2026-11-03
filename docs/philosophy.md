@@ -13,6 +13,10 @@ contributor knows what a change has to keep.
   **take the columns they read as parameters**.
 - **A set is a fact.** Once built, a set cannot be changed (it is read-only). When you need another set, you derive
   a new one with `where`, `select`, and the like.
+- **A family of rows runs over its set.** Which rows a constraint family has is decided by the set its loop runs
+  over, as which variables exist is decided by a VarTable's set. A condition on a row's keys is a `where` on that
+  set - AMPL's `{(i,t) in STOCK: ord(t) > 1}` - not an `if` around the row in the loop's body. An if-then-else
+  inside a row, choosing a term, is AMPL's own idiom and is written as one.
 - **One VarTable per variable family.** Which variables exist is decided by that table's set. The VarTable
   constructor is the only place variables are created.
 - **Clarity is not traded for performance.** Performance work is done only where it adds no concept to the user

@@ -278,6 +278,16 @@ int main() try {
     DREAMOR_CHECK(orderedPeriods.ord(cPeriod{2}) == 2 && orderedPeriods.next(cPeriod{0}, 2) != nullptr &&
                   orderedPeriods.next(cPeriod{0}, 3) == nullptr && orderedPeriods.members().size() == 3);
   }
+  {  // a row only where a neighbour is: the domain filtered, as the guide writes it
+    std::size_t neighbourRows = 0;
+    const auto not_first      = [&orderedPeriods](cPeriod t) { return !orderedPeriods.isFirst(t); };
+    for (const auto& [i, t] : sSTOCK.where(not_first)) {  // {(i,t) in STOCK: ord(t) > 1}
+      const cPeriod prevPeriod = std::get<cPeriod>(orderedPeriods.prevOf(t));
+      DREAMOR_CHECK(i.get() != nullptr && prevPeriod.get() + 1 == t.get());
+      ++neighbourRows;
+    }
+    DREAMOR_CHECK(neighbourRows == 6);  // 3 items, periods 1 and 2
+  }
   {  // select(expr), over a graph of its own
     const std::vector<Node> nodes{{0}, {1}, {2}};
     const auto sNODES = dreamor::makeSet<cNode>(nodes).collect();

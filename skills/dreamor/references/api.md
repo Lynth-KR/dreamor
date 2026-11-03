@@ -123,12 +123,14 @@ the columns or one row.
 |---|---|
 | `ord(cols...)` | `std::optional<std::size_t>`, 0-based, empty if absent |
 | `next(cols...)`, `next(cols..., steps)`, `prev(...)` | `const Row*`, `nullptr` past the boundary or for a non-member; negative steps walk backwards |
+| `nextOf(...)`, `prevOf(...)` | `const Row&`, the neighbour itself, which must be there (a domain filtered with `isFirst` / `isLast`); a debug build stops if it is not, a release build does not check |
 | `nextCyclic(...)`, `prevCyclic(...)` | wrap from the end to the start |
 | `first()`, `last()`, `at(pos)` | rows |
 | `isFirst(cols...)`, `isLast(cols...)`, `contains(cols...)` | tests |
 | `size()`, `empty()`, `members()` | size, the deduplicated set |
 
-Read a column from a returned pointer with `std::get<cPeriod>(*prevPeriod)`.
+Read a column from a returned pointer with `std::get<cPeriod>(*prevPeriod)`, from a returned row with
+`std::get<cPeriod>(orderedPeriods.prevOf(t))`.
 
 ## Membership
 

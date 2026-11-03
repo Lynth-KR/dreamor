@@ -166,6 +166,21 @@ if (const auto* prevPeriod = orderedPeriods.prev(t)) { /* 직전 기간 */ }
 `isFirst`/`isLast`는 그룹의 양 끝입니다. 집합 전체의 위치를 뜻하는 `first()`, `last()`, `at()`은 없습니다.
 나머지는 [공개 API 전체 목록](reference.md#공개-api-전체-목록)에 있습니다.
 
+이웃이 정하는 것은 행의 항 하나이거나, 행이 있는지 자체입니다. 항은 행 안의 if-then-else로 씁니다. AMPL의
+`(if ord(t) > 1 then Stock[i,prev(t)])`와 같고, README의 재고 균형식이 `prev(t)`가 행을 줄 때 직전 기간의 재고를
+더하는 것이 이 경우입니다. 이웃이 있을 때만 있는 행은 그 정의역 위를 돕니다. AMPL의
+`subject to C {(i,t) in STOCK: ord(t) > 1}`처럼, 조건은 루프가 도는 집합에 들어가고 행을 감싸는 `if`가 되지
+않습니다. 행은 이웃을 `prevOf(t)` / `nextOf(t)`로 읽습니다. 정의역이 이웃이 있다고 약속하므로 이 둘은 행 자체를
+돌려줍니다.
+
+```cpp
+const auto not_first = [&orderedPeriods](cPeriod t) { return !orderedPeriods.isFirst(t); };
+for (const auto& [i, t] : sSTOCK.where(not_first)) {  // {(i,t) in STOCK: ord(t) > 1}
+  const cPeriod prevPeriod = std::get<cPeriod>(orderedPeriods.prevOf(t));
+  /* t와 prevPeriod에 걸친 행 */
+}
+```
+
 `membership()`이 돌려주는 `Membership`은 술어 객체라서 직접 불러도 됩니다. 열을 따로
 (`in_routes(cMachine{m}, cItem{i})`) 넘기거나 행 튜플 하나(`in_routes(row)`)를 넘깁니다.
 

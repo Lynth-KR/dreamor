@@ -21,17 +21,23 @@
 #include "dreamor/index_set/grouped.hpp"
 #include "dreamor/index_set/indexed.hpp"
 #include "dreamor/index_set/key_args.hpp"
+#include "dreamor/logger/logger_light.hpp"
 
 namespace dreamor {
 
-// For when an element arrives from somewhere else and you have to reach its neighbour:
+// For when an element arrives from somewhere else and you have to reach its neighbour. A row that is there
+// only where the neighbour is runs over that domain - AMPL's {(i,t) in STOCK: ord(t) > 1} - rather than an
+// if around the row:
 //
 //     const auto orderedPeriods = sPERIODS.ordered();
-//     for (const auto& [item, period] : sSTOCK) {
-//       if (const Tup* prevPeriod = orderedPeriods.prev(period)) {
-//         model.add(vStock(item, period) == vStock(item, std::get<0>(*prevPeriod)) + ...);
-//       }
+//     const auto not_first      = [&orderedPeriods](cPeriod t) { return !orderedPeriods.isFirst(t); };
+//     for (const auto& [item, period] : sSTOCK.where(not_first)) {
+//       const cPeriod prevPeriod = std::get<cPeriod>(orderedPeriods.prevOf(period));
+//       model.add(vStock(item, period) == vStock(item, prevPeriod) + ...);
 //     }
+//
+// A term that only some rows have stays in the row, as AMPL's (if ord(t) > 1 then Stock[i,prev(t)]):
+// prev(t) is nullptr at the first period.
 //
 // Positions are 0-based. Holds the set itself, sharing its rows.
 //
@@ -42,7 +48,8 @@ namespace dreamor {
 // name positions of the whole set, are not there.
 //
 //     const auto periodsOfMachine = sRUN.ordered<cMachine>();
-//     if (const Tup* next = periodsOfMachine.next(m, t)) { ... }   // the period after t among m's
+//     periodsOfMachine.next(m, t)      // the period after t among m's, nullptr after m's last
+//     periodsOfMachine.isLast(m, t)    // ord(t, S[m]) = card(S[m])
 template <typename Tup, typename... Within>
 class Ordered {
   static constexpr bool kWithinGroups = sizeof...(Within) > 0;
@@ -151,6 +158,17 @@ class Ordered {
   [[nodiscard]] const Tup* prev(const Args&... element_and_steps) const& {
     return walk<false, -1>(element_and_steps...);
   }
+  // The row `steps` after or before `element`, which must be there - AMPL's next(t) and prev(t), on a
+  // domain that has them ({t in T: ord(t) > 1}, S.where(not_first) with isFirst). A debug build stops on a
+  // sentence if there is none; a release build does not check, as std::vector's operator[] does not.
+  template <typename... Args>
+  [[nodiscard]] const Tup& nextOf(const Args&... element_and_steps) const& {
+    return neighbourOf(walk<false, 1>(element_and_steps...), "nextOf");
+  }
+  template <typename... Args>
+  [[nodiscard]] const Tup& prevOf(const Args&... element_and_steps) const& {
+    return neighbourOf(walk<false, -1>(element_and_steps...), "prevOf");
+  }
   // Wrapping variants, for cyclic horizons. Only null for a non-member or empty set.
   template <typename... Args>
   [[nodiscard]] const Tup* nextCyclic(const Args&... element_and_steps) const& {
@@ -169,6 +187,20 @@ class Ordered {
   }
   template <typename... Args>
   const Tup* prev(const Args&... /*element_and_steps*/) const&& {
+    static_assert(
+        internal::always_false<Args...>,
+        "Name the Ordered first - const auto orderedPeriods = sPERIODS.ordered(); - its lookups hand out pointers into it, which would dangle once a temporary is gone.");
+    std::terminate();
+  }
+  template <typename... Args>
+  const Tup& nextOf(const Args&... /*element_and_steps*/) const&& {
+    static_assert(
+        internal::always_false<Args...>,
+        "Name the Ordered first - const auto orderedPeriods = sPERIODS.ordered(); - its lookups hand out pointers into it, which would dangle once a temporary is gone.");
+    std::terminate();
+  }
+  template <typename... Args>
+  const Tup& prevOf(const Args&... /*element_and_steps*/) const&& {
     static_assert(
         internal::always_false<Args...>,
         "Name the Ordered first - const auto orderedPeriods = sPERIODS.ordered(); - its lookups hand out pointers into it, which would dangle once a temporary is gone.");
@@ -227,6 +259,16 @@ class Ordered {
   }
   template <typename Unused = void>
   [[nodiscard]] const Tup* prev(internal::BracedKey /*key*/, std::ptrdiff_t /*steps*/ = 1) const {
+    static_assert(internal::always_false<Unused>, DREAMOR_INTERNAL_NO_BRACES_MESSAGE);
+    std::terminate();
+  }
+  template <typename Unused = void>
+  [[nodiscard]] const Tup& nextOf(internal::BracedKey /*key*/, std::ptrdiff_t /*steps*/ = 1) const {
+    static_assert(internal::always_false<Unused>, DREAMOR_INTERNAL_NO_BRACES_MESSAGE);
+    std::terminate();
+  }
+  template <typename Unused = void>
+  [[nodiscard]] const Tup& prevOf(internal::BracedKey /*key*/, std::ptrdiff_t /*steps*/ = 1) const {
     static_assert(internal::always_false<Unused>, DREAMOR_INTERNAL_NO_BRACES_MESSAGE);
     std::terminate();
   }
@@ -294,6 +336,21 @@ class Ordered {
       return nullptr;
     }
     return &rows()[first + static_cast<std::size_t>(target)];
+  }
+
+  // nextOf / prevOf: the row a walk found, which the caller promised is there.
+  [[nodiscard]] static const Tup& neighbourOf(const Tup* row, [[maybe_unused]] const char* what) {
+    if (row == nullptr) {
+      DREAMOR_DEBUG_FATAL(
+          "Ordered::{} has no row to return - a broken contract: the element is past the end of its set or group, or not in it. Run it over a domain that has the neighbour (isFirst, isLast), or use the pointer form, next / prev.",
+          what);
+#if defined(_MSC_VER) && !defined(__clang__)
+      __assume(false);
+#else
+      __builtin_unreachable();
+#endif
+    }
+    return *row;
   }
 
   template <bool Cyclic, std::ptrdiff_t Direction, typename... Args>

@@ -77,6 +77,7 @@
 |---|---|
 | `ord(열...)` | 위치 (`std::optional<std::size_t>`, 없으면 비어 있음). 아래 모두 열 대신 행 하나도 받음 |
 | `next(열...)`, `next(열..., steps)`, `prev(...)` 같은 꼴 | 이웃 행 포인터 또는 `nullptr` |
+| `nextOf(...)`, `prevOf(...)` 같은 꼴 | 이웃 행 자체. 이웃이 있어야 함(이웃이 있는 정의역 위의 AMPL `next(t)`). 없으면 debug 빌드는 멈춤, release 빌드는 무검사(UB) |
 | `nextCyclic(...)`, `prevCyclic(...)` | 끝에서 처음으로 돌아가는 이웃 |
 | `first()`, `last()`, `at(pos)` | 처음, 끝, 위치로 (`ordered<A...>()`에는 없음. 거기서 `ord`, `isFirst`, `isLast`는 그룹 안 기준) |
 | `isFirst(열...)`, `isLast(열...)`, `contains(열...)` | 판정 |

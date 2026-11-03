@@ -77,6 +77,7 @@ Every public type and function, by header. The [guide](guide.md) explains them i
 |---|---|
 | `ord(cols...)` | Position (`std::optional<std::size_t>`, empty if absent). Everything below also takes a single row instead of columns |
 | `next(cols...)`, `next(cols..., steps)`, `prev(...)` likewise | Pointer to the neighboring row, or `nullptr` |
+| `nextOf(...)`, `prevOf(...)` likewise | The neighboring row itself, which must be there - AMPL's `next(t)` on a domain that has it. If it is not, a debug build stops; a release build does not check (UB) |
 | `nextCyclic(...)`, `prevCyclic(...)` | Neighbors that wrap from the end back to the start |
 | `first()`, `last()`, `at(pos)` | First, last, by position (not under `ordered<A...>()`, where `ord`, `isFirst` and `isLast` are within the group) |
 | `isFirst(cols...)`, `isLast(cols...)`, `contains(cols...)` | Tests |
