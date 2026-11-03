@@ -7,7 +7,7 @@ brief.
 dreamor is a header-only C++20 modeling layer: index sets (solver-independent), variable families (`VarTable`), and
 sums (`sumOf`), with three backends, CPLEX Concert (`dreamor::concert`), OR-Tools MathOpt (`dreamor::mathopt`) and
 HiGHS on its own C++ API (`dreamor::highs`).
-Version 0.5.0, MPL 2.0 (releases up to 0.5.0 were Apache 2.0).
+Version 0.6.0, MPL 2.0 (releases up to 0.5.0 were Apache 2.0).
 
 ## Layout
 
@@ -321,7 +321,7 @@ Several documents are mirrored by code, so they change together:
 | A compile-time message | its `// expect:` line and `skills/dreamor/references/diagnostics.md` |
 | What generating a set costs to compile (`set.hpp`, `plan.hpp`) | the compile-cost table in both guides (`docs/guide.md`, `docs/ko/guide.md`): `python3 tools/measure_compile_cost.py` |
 | A CI job (`.github/workflows/ci.yml`) | the same job in `tools/ci_local.sh` |
-| The version | `project(... VERSION ...)` in `CMakeLists.txt` (packages use `SameMinorVersion` compatibility), the `find_package(dreamor 0.5 ...)` lines in the READMEs, and the skill's title |
+| The version | `project(... VERSION ...)` in `CMakeLists.txt` (packages use `SameMinorVersion` compatibility), the `find_package(dreamor 0.6 ...)` lines in the READMEs, and the skill's title |
 
 `compile_commands.json` (from `python3 tools/gen_compile_commands.py`) is machine-specific; do not commit it.
 

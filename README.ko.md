@@ -140,7 +140,7 @@ cmake --install build
 ```
 
 ```cmake
-find_package(dreamor 0.5 CONFIG REQUIRED)
+find_package(dreamor 0.6 CONFIG REQUIRED)
 target_link_libraries(app PRIVATE dreamor::dreamor ortools::ortools)    # dreamor/mathopt.hpp
 target_link_libraries(app PRIVATE dreamor::dreamor highs::highs)        # dreamor/highs.hpp
 target_link_libraries(app PRIVATE dreamor::dreamor <CPLEX 타깃>)         # dreamor/concert.hpp
