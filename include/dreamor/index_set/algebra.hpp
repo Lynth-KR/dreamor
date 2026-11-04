@@ -211,7 +211,7 @@ auto IndexSet<Tup>::select(Expr expr) const {
   }
 }
 
-// A ∪ B: A, then B \ A. Neither holds a row twice, so only A needs an index.
+// A union B: A, then B diff A. Neither holds a row twice, so only A needs an index.
 template <typename Tup>
 [[nodiscard]] IndexSet<Tup> unite(const IndexSet<Tup>& left, const IndexSet<Tup>& right) {
   const auto& left_rows = internal::SetAccess::rows(left);
@@ -222,7 +222,7 @@ template <typename Tup>
   return internal::SetAccess::make(std::move(out));
 }
 
-// A ∩ B
+// A inter B
 template <typename Tup>
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): two sets of one type is what intersecting means
 [[nodiscard]] IndexSet<Tup> intersect(const IndexSet<Tup>& left, const IndexSet<Tup>& right) {

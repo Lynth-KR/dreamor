@@ -134,7 +134,9 @@ at compile time; a HiGHS call that fails throws `HighsError` with its `HighsStat
 ## Install — CMake
 
 It is a header-only library, so there is nothing to build; a single `dreamor::dreamor` target passes on the include
-path and C++20. Link the solver yourself, next to it, according to the backend you use.
+path and C++20. Link the solver yourself, next to it, according to the backend you use. It builds on Linux, on
+Windows with clang-cl and on WebAssembly (Emscripten); its performance is measured and tuned on Linux x86-64
+with libstdc++ alone.
 
 ```bash
 cmake -S . -B build -DCMAKE_INSTALL_PREFIX=<prefix>

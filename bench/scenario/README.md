@@ -140,7 +140,7 @@ and the time to the solver's start across backends.
 ## Results
 
 The reference run on dreamor 0.5.0: AMD Ryzen 7 5700X, bare metal, Linux 7.0, boost off and the `performance`
-governor, pinned to one core; built with GCC 13.3 and with Clang 18.1, `-O2 -DNDEBUG -march=native`; CPLEX 22.1.2,
+governor, pinned to one core; built with GCC 13.3 and with Clang 18.1, both on libstdc++ 13, `-O2 -DNDEBUG -march=native`; CPLEX 22.1.2,
 OR-Tools 9.15 (MathOpt) and the HiGHS 1.12.0 it ships; seed 20261025 (`run.py`'s default); 5 repetitions, each under
 a memory layout and a code layout of its own, every check agreeing. dreamor / each hand-written arm,
 the geometric mean over the sizes, GCC 13 / Clang 18 in each cell; below 1, dreamor is faster. The

@@ -44,8 +44,11 @@ The tests run without a framework, through a single `tests/run_tests.sh`. Choose
 `g++`, C++20).
 
 **Compilers:** GCC 13 or later, Clang 18 or later. CI tests both ends of that range - GCC 13 and 16, Clang 18 and 23 -
-and nothing in between. The platforms are Linux and Windows. On Windows, dreamor builds with clang-cl and the MSVC
-STL, checked by hand, not on CI; MSVC's own compiler (cl.exe) is not supported, and Apple Clang is not tested. Where
+and nothing in between. Performance is measured and tuned on Linux x86-64 with libstdc++ alone. dreamor also builds and
+passes its tests on Windows, with clang-cl on the MSVC STL, checked by hand, not on CI (MSVC's own cl.exe is being
+brought up, not yet checked); and on WebAssembly with Emscripten, on CI (`WASM=1 tests/run_tests.sh` in the
+`emscripten/emsdk` image). Apple Clang is not tested. Code stays portable rather than fast on one platform: no
+intrinsics or inline assembly, and only what every supported standard library has (`AGENTS.md`, "Platforms"). Where
 Linux runs - on the machine, under WSL2, in a container - is yours to choose. To try the newest ones locally: Clang from
 [apt.llvm.org](https://apt.llvm.org/) (`CXX=clang++-23 tests/run_tests.sh`), GCC from its official container image
 (`podman run --rm -v "$PWD":/src -w /src docker.io/library/gcc:16 sh -c 'CXX=g++ tests/run_tests.sh'`; `docker` takes
@@ -67,9 +70,9 @@ prelude compiles; if it fails, the other cases would be meaningless, so it count
 
 CI (GitHub Actions) runs the stub, MathOpt and HiGHS modes with both GCC 13 and Clang 18 (checking the `// expect:`
 text with both compilers), the stub mode again at `-O3 -DNDEBUG`, under AddressSanitizer and
-UndefinedBehaviorSanitizer, under ThreadSanitizer, and with GCC 16 and Clang 23, and goes as far as installing the
-CMake package and consuming it via `find_package` (`tests/cmake_consumer`, `tests/cmake_consumer_mathopt`). CPLEX is
-not on CI, so run `--cplex` locally.
+UndefinedBehaviorSanitizer, under ThreadSanitizer, with GCC 16 and Clang 23, and built for WebAssembly by
+Emscripten, and goes as far as installing the CMake package and consuming it via `find_package`
+(`tests/cmake_consumer`, `tests/cmake_consumer_mathopt`). CPLEX is not on CI, so run `--cplex` locally.
 
 OR-Tools needs no installation: unpack the release's C++ prebuilt anywhere and point to that folder (no CMake needed).
 
@@ -122,7 +125,7 @@ this page is not enough.
   `Signed-off-by: Your Name <you@example.com>`, by which you certify the [DCO](https://developercertificate.org/):
   that you wrote the change or have the right to submit it under the project's license, MPL 2.0. A pull request
   whose commits are not signed off cannot be merged.
-- **CI** runs on every pull request: formatting, clang-tidy, the tests on GCC 13, 16 and Clang 18, 23, the
+- **CI** runs on every pull request: formatting, clang-tidy, the tests on GCC 13, 16, Clang 18, 23 and WebAssembly, the
   sanitizers, the MathOpt backend, and the CMake package. CPLEX is not on CI; if you touch Concert-facing code and
   have CPLEX, run `tests/run_tests.sh --cplex`.
 - The maintainer may squash or reword commits so that the history reads by theme.

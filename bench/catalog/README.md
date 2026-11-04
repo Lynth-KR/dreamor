@@ -198,7 +198,7 @@ python3 report.py ../results/<run>                            # summary.md and c
 
 The reference run of every family on dreamor 0.5.0: AMD Ryzen 7 5700X (32 MB L3), bare metal, Linux
 7.0, boost off and the `performance` governor (3.25 GHz), pinned to one core; built with GCC 13.3 and
-with Clang 18.1, `-O2 -march=native`; resolution VI (32 cells of the six factors for each k and N: k
+with Clang 18.1, both on libstdc++ 13, `-O2 -march=native`; resolution VI (32 cells of the six factors for each k and N: k
 2, 3, 5, 8 - and 1 in lookup and make - and N 1e5, 1e6, 256 cells, 320 in lookup and make; data's
 own full design, 8), 5 repetitions, each under a memory layout and a code layout of its own; 41,720
 runs per compiler, seed 20261025 (`run.py`'s default), no check mismatch. `report.py` writes the rest into each

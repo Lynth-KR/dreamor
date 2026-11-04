@@ -25,6 +25,7 @@ cd "$(dirname "$0")/.."
 rev=$(git rev-parse --verify "${1:-HEAD}^{commit}")
 ORTOOLS_DIR=${ORTOOLS_DIR:-/opt/ortools}
 GCC_IMAGE=docker.io/library/gcc:16
+EMSDK_IMAGE=docker.io/emscripten/emsdk:6.0.13
 
 # The machine: every tool CI installs. uv runs the pinned formatters and clang-tidy (uvx), at the
 # versions tools/format.sh, tools/tidy.sh and ruff.toml pin.
@@ -33,9 +34,11 @@ lack() { missing="$missing  $1\n"; }
 for tool in g++-13 clang++-18 clang++-23 cmake podman python3 uv; do
   command -v "$tool" > /dev/null 2>&1 || lack "$tool"
 done
-if command -v podman > /dev/null 2>&1 && ! podman image exists "$GCC_IMAGE"; then
-  lack "the $GCC_IMAGE image: podman pull $GCC_IMAGE"
-fi
+for image in "$GCC_IMAGE" "$EMSDK_IMAGE"; do
+  if command -v podman > /dev/null 2>&1 && ! podman image exists "$image"; then
+    lack "the $image image: podman pull $image"
+  fi
+done
 [ -f "$ORTOOLS_DIR/include/ortools/math_opt/cpp/math_opt.h" ] || lack "OR-Tools at ORTOOLS_DIR ($ORTOOLS_DIR)"
 if [ -n "$missing" ]; then
   printf 'ci_local: this machine lacks what CI has:\n%b' "$missing" >&2
@@ -121,6 +124,7 @@ job "sanitize (clang++-18, 1)" "CXX=clang++-18 SAN=1 COMPILE_CHECKS=0 tests/run_
 job "sanitize (g++-13, thread)" "CXX=g++-13 SAN=thread COMPILE_CHECKS=0 tests/run_tests.sh"
 job gcc-latest "podman run --rm -e JOBS -v \"\$PWD\":/src -w /src $GCC_IMAGE sh -c 'CXX=g++ tests/run_tests.sh'"
 job clang-latest 'CXX=clang++-23 tests/run_tests.sh'
+job wasm "podman run --rm -e JOBS -v \"\$PWD\":/src -w /src $EMSDK_IMAGE sh -c 'WASM=1 tests/run_tests.sh'"
 for cxx in g++-13 clang++-18; do
   job "mathopt ($cxx)" "CXX=$cxx tests/run_tests.sh --mathopt \"\$ORTOOLS_DIR\" &&
     cmake -S tests/cmake_consumer_mathopt -B '$work/consumer-mathopt-$cxx' -DCMAKE_CXX_COMPILER=$cxx \

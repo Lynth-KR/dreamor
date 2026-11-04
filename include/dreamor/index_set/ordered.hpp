@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "dreamor/general/flat_index.hpp"
+#include "dreamor/general/unreachable.hpp"
 #include "dreamor/index_set/algebra.hpp"
 #include "dreamor/index_set/grouped.hpp"
 #include "dreamor/index_set/indexed.hpp"
@@ -360,11 +361,7 @@ class Ordered {
         DREAMOR_DEBUG_FATAL(
             "Ordered::{} has no row to return - a broken contract: the group has no row in the set. Run it over the groups the set has (groupBy), or check with contains.",
             what);
-#if defined(_MSC_VER) && !defined(__clang__)
-        __assume(false);
-#else
-        __builtin_unreachable();
-#endif
+        general::unreachable();
       }
       return rows()[First ? group_starts_[index] : group_starts_[index + 1] - 1];
     } else {
@@ -411,11 +408,7 @@ class Ordered {
       DREAMOR_DEBUG_FATAL(
           "Ordered::{} has no row to return - a broken contract: the element is past the end of its set or group, or not in it. Run it over a domain that has the neighbour (isFirst, isLast), or use the pointer form, next / prev.",
           what);
-#if defined(_MSC_VER) && !defined(__clang__)
-      __assume(false);
-#else
-      __builtin_unreachable();
-#endif
+      general::unreachable();
     }
     return *row;
   }

@@ -44,9 +44,9 @@ template <typename T>
 struct TupleHash {
   template <typename... Ts>
   [[nodiscard]] std::size_t operator()(const std::tuple<Ts...>& tuple) const noexcept {
-    std::size_t seed = kSeed;
-    std::apply([&seed](const auto&... elements) { ((seed = mix(seed, hashElement(elements))), ...); }, tuple);
-    return seed;
+    std::uint64_t state = kSeed;
+    std::apply([&state](const auto&... elements) { ((state = mix(state, hashElement(elements))), ...); }, tuple);
+    return static_cast<std::size_t>(state);
   }
 
  private:
@@ -68,18 +68,19 @@ struct TupleHash {
   // the mixing there is to do: hashElement hands integers and pointers over as their bits. One
   // multiply per element, so a 3-column key hashes in about two
   // thirds of the time splitmix64 per element took. Without 128-bit integers, splitmix64 below.
-  [[nodiscard]] static std::size_t mix(std::size_t seed, std::size_t value) noexcept {
-    const auto state = static_cast<std::uint64_t>(seed) + static_cast<std::uint64_t>(value);
+  // The state is 64 bits on every platform; where std::size_t is 32 bits (wasm32), the hash is its
+  // low half.
+  [[nodiscard]] static std::uint64_t mix(std::uint64_t seed, std::uint64_t value) noexcept {
+    const std::uint64_t state = seed + value;
 #ifdef __SIZEOF_INT128__
     __extension__ using Wide = unsigned __int128;  // __extension__: not ISO C++, so not a -Wpedantic warning
     const Wide product       = static_cast<Wide>(state) * kMultiplier;
-    return static_cast<std::size_t>(static_cast<std::uint64_t>(product) ^
-                                    static_cast<std::uint64_t>(product >> kWordBits));
+    return static_cast<std::uint64_t>(product) ^ static_cast<std::uint64_t>(product >> kWordBits);
 #else
     std::uint64_t z = state + kMultiplier;
     z               = (z ^ (z >> kSplitShift1)) * kSplitMult1;
     z               = (z ^ (z >> kSplitShift2)) * kSplitMult2;
-    return static_cast<std::size_t>(z ^ (z >> kSplitShift3));
+    return z ^ (z >> kSplitShift3);
 #endif
   }
 };

@@ -338,38 +338,36 @@ class FileSink {
 
 // NOLINTBEGIN(cppcoreguidelines-macro-usage): a log call captures its call site and checks its
 // format string at compile time, and the DEBUG ones vanish under NDEBUG, arguments and all.
-#define DREAMOR_LOG_INFO(fmt, ...) \
-  ::dreamor::logger::detail::log(  \
-      ::dreamor::logger::detail::Level::kInfo, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
+// The format string is the first of __VA_ARGS__, not a parameter of its own: no __VA_OPT__, which
+// MSVC's preprocessor takes only under /Zc:preprocessor.
+#define DREAMOR_LOG_INFO(...) \
+  ::dreamor::logger::detail::log(::dreamor::logger::detail::Level::kInfo, std::source_location::current(), __VA_ARGS__)
 
-#define DREAMOR_LOG_WARNING(fmt, ...) \
-  ::dreamor::logger::detail::log(     \
-      ::dreamor::logger::detail::Level::kWarning, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
+#define DREAMOR_LOG_WARNING(...)  \
+  ::dreamor::logger::detail::log( \
+      ::dreamor::logger::detail::Level::kWarning, std::source_location::current(), __VA_ARGS__)
 
-#define DREAMOR_LOG_ERROR(fmt, ...) \
-  ::dreamor::logger::detail::log(   \
-      ::dreamor::logger::detail::Level::kError, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
+#define DREAMOR_LOG_ERROR(...) \
+  ::dreamor::logger::detail::log(::dreamor::logger::detail::Level::kError, std::source_location::current(), __VA_ARGS__)
 
 // Always fatal in every build (unlike DREAMOR_DEBUG_FATAL). Mirrors CHECK vs
 // DCHECK in glog/Abseil.
-#define DREAMOR_LOG_FATAL(fmt, ...) \
-  ::dreamor::logger::detail::fatal(std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
+#define DREAMOR_LOG_FATAL(...) ::dreamor::logger::detail::fatal(std::source_location::current(), __VA_ARGS__)
 
 #ifndef NDEBUG
-#  define DREAMOR_DEBUG_INFO(fmt, ...) \
-    ::dreamor::logger::detail::log(    \
-        ::dreamor::logger::detail::Level::kInfo, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
+#  define DREAMOR_DEBUG_INFO(...)   \
+    ::dreamor::logger::detail::log( \
+        ::dreamor::logger::detail::Level::kInfo, std::source_location::current(), __VA_ARGS__)
 // Debug-only, non-fatal - mirrors glog's DLOG(ERROR).
-#  define DREAMOR_DEBUG_ERROR(fmt, ...) \
-    ::dreamor::logger::detail::log(     \
-        ::dreamor::logger::detail::Level::kError, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
+#  define DREAMOR_DEBUG_ERROR(...)  \
+    ::dreamor::logger::detail::log( \
+        ::dreamor::logger::detail::Level::kError, std::source_location::current(), __VA_ARGS__)
 // Debug-only AND fatal - mirrors glog's DFATAL, except this vanishes
 // entirely in release rather than downgrading to a plain log.
-#  define DREAMOR_DEBUG_FATAL(fmt, ...) \
-    ::dreamor::logger::detail::fatal(std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
+#  define DREAMOR_DEBUG_FATAL(...) ::dreamor::logger::detail::fatal(std::source_location::current(), __VA_ARGS__)
 #else
-#  define DREAMOR_DEBUG_INFO(fmt, ...) static_cast<void>(0)
-#  define DREAMOR_DEBUG_ERROR(fmt, ...) static_cast<void>(0)
-#  define DREAMOR_DEBUG_FATAL(fmt, ...) static_cast<void>(0)
+#  define DREAMOR_DEBUG_INFO(...) static_cast<void>(0)
+#  define DREAMOR_DEBUG_ERROR(...) static_cast<void>(0)
+#  define DREAMOR_DEBUG_FATAL(...) static_cast<void>(0)
 #endif
 // NOLINTEND(cppcoreguidelines-macro-usage)

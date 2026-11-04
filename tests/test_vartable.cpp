@@ -52,7 +52,8 @@ inline const std::string& keyName(const Thing* thing) {
 template <>
 struct std::formatter<throwing::Token> {
   static constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin(); }
-  static auto format(const throwing::Token& /*token*/, std::format_context& ctx) -> decltype(ctx.out()) {
+  template <typename FormatContext>
+  static auto format(const throwing::Token& /*token*/, FormatContext& ctx) -> decltype(ctx.out()) {
     throw std::runtime_error("this token cannot be formatted");
   }
 };
@@ -241,10 +242,13 @@ int main() try {
   DREAMOR_CHECK(exactlyEqual(values(cI{8}, cJ{20}), 1) && !values.contains(cI{1}, cJ{10}));
   std::vector<std::optional<dreamor::concert::VarTable<cI, cJ>>> onThreads(8);
   {
-    std::vector<std::jthread> threads;
+    std::vector<std::thread> threads;
     threads.reserve(onThreads.size());
     for (auto& slot : onThreads) {
       threads.emplace_back([&slot, &IJ3] { slot.emplace(IloEnv{}, IJ3, 0, 1); });
+    }
+    for (std::thread& thread : threads) {
+      thread.join();
     }
   }
   bool threadsAgree = true;

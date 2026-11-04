@@ -7,12 +7,13 @@
 // keeps -Wfloat-equal on everywhere else, the library included.
 #pragma once
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wfloat-equal"
+#include <functional>
+
+// std::equal_to does the ==: inside the standard library's header, where -Wfloat-equal stays quiet on
+// every compiler, so no compiler's own pragma is needed here.
 [[nodiscard]] constexpr bool exactlyEqual(double a, double b) noexcept {
-  return a == b;
+  return std::equal_to<>{}(a, b);
 }
 [[nodiscard]] constexpr bool isExactlyZero(double x) noexcept {
-  return x == 0.0;
+  return std::equal_to<>{}(x, 0.0);
 }
-#pragma GCC diagnostic pop

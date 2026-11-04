@@ -80,10 +80,13 @@ int main() try {
 
   std::vector<char> whole(kThreads, 0);
   {
-    std::vector<std::jthread> threads;
+    std::vector<std::thread> threads;
     threads.reserve(kThreads);
     for (std::size_t t = 0; t < kThreads; ++t) {
       threads.emplace_back(nameAlone, t, std::ref(whole[t]));
+    }
+    for (std::thread& thread : threads) {
+      thread.join();
     }
   }
   for (const char w : whole) {

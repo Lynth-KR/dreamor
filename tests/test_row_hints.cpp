@@ -246,7 +246,7 @@ bool onThreads(IloEnv env) {
   constexpr std::array<std::size_t, kThreads> kStrides{1, 5, 7, 11, 13, 17, 19, 23};
   std::array<bool, kThreads> agree{};
   {
-    std::vector<std::jthread> threads;
+    std::vector<std::thread> threads;
     threads.reserve(kThreads);
     for (std::size_t t = 0; t < kThreads; ++t) {
       threads.emplace_back([&, t] {
@@ -254,6 +254,9 @@ bool onThreads(IloEnv env) {
         agree.at(t) = finds(xWide, wide, stride) && finds(xDeep, deep, stride) && finds(*xOwn[t], own[t], stride) &&
                       !xWide.contains(S0{16}, S1{0}) && !xDeep.contains(S0{0}, S1{0}, S2{6});
       });
+    }
+    for (std::thread& thread : threads) {
+      thread.join();
     }
   }
   bool all = true;

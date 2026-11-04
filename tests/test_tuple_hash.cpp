@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <string>
 #include <tuple>
 #include <unordered_set>
@@ -39,7 +40,12 @@ bool spreadsLikeRandom(const std::vector<Key>& keys) {
   const double load   = static_cast<double>(keys.size()) / static_cast<double>(slots);
   const double random = (1 - std::exp(-load)) / load;  // expected share for a random hash
   const double share  = static_cast<double>(distinct_slots) / static_cast<double>(keys.size());
-  return hashes.size() == keys.size() && share > 0.98 * random;
+  // Distinct keys, distinct hashes: every one where std::size_t is 64 bits; where it is 32 (wasm32),
+  // about the n^2 / 2^33 pairs a random hash collides on (the birthday bound), and no more than twice that.
+  const auto n          = static_cast<double>(keys.size());
+  const double expected = n * n / std::ldexp(2.0, std::numeric_limits<std::size_t>::digits);
+  const auto collisions = static_cast<double>(keys.size() - hashes.size());
+  return collisions <= 2 * expected && share > 0.98 * random;
 }
 
 }  // namespace

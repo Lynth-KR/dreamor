@@ -38,6 +38,9 @@
 #   SAN=thread  ThreadSanitizer - a build of its own, as it cannot run beside ASan. The tests run
 #               with address randomization off (setarch -R): with the entropy recent kernels use,
 #               TSan cannot place its shadow memory and stops before main.
+# WASM=1 builds for WebAssembly (wasm32) with Emscripten - CXX defaults to em++ - and runs each
+# test under Node.js, in stub mode and without SAN: the emsdk image (docker.io/emscripten/emsdk) has
+# both. It checks that dreamor builds and holds on a 32-bit std::size_t and libc++, not how fast.
 # JOBS sets how many compiles run at once (default: every core); the tests then run and report
 # one at a time, in a fixed order.
 # COMPILE_CHECKS=0 skips what only the compiler decides - the compile_fail cases, the syntax
@@ -48,7 +51,8 @@
 # compiler and OPT that runs them.
 set -u
 cd "$(dirname "$0")"
-CXX=${CXX:-g++}
+WASM=${WASM:-0}
+if [ "$WASM" = 1 ]; then CXX=${CXX:-em++}; else CXX=${CXX:-g++}; fi
 BUILD=build
 MODE=stub
 if [ "${1:-}" = "--cplex" ]; then
@@ -81,6 +85,16 @@ case "${SAN:-}" in
     ;;
   *) echo "SAN=1 (address, undefined, leak) or SAN=thread"; exit 2 ;;
 esac
+if [ "$WASM" = 1 ]; then
+  [ "$MODE" = stub ] && [ -z "${SAN:-}" ] || { echo "WASM runs in stub mode only, without SAN"; exit 2; }
+  # The tests throw and catch (-fwasm-exceptions); some run 8 threads, Web Workers on one shared
+  # memory, started before main (a pool), since a worker cannot start while main waits for it.
+  # NODERAWFS: the files a test writes are the machine's. The -s settings are the linker's, so a
+  # syntax check does not get them.
+  COMMON="$COMMON -fwasm-exceptions -pthread"
+  WASM_LINK="-sPTHREAD_POOL_SIZE=8 -sALLOW_MEMORY_GROWTH -sNODERAWFS"
+  RUN=node
+fi
 # dreamor's own code - the library, the tests, the examples - is held to STRICT: a header
 # that warns here would warn in a user's strict build. The CMake target adds no warning flags.
 # LENIENT is for code that only uses dreamor (the ported OR-Tools samples) and for the
@@ -88,8 +102,14 @@ esac
 STRICT="-Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wundef
         -Wnull-dereference -Wdouble-promotion -Wformat-security -Wmissing-declarations -Wfloat-equal
         -Wcast-align -Wnon-virtual-dtor -Werror"
-case "$CXX" in *clang*) STRICT="$STRICT -Wmissing-prototypes" ;; esac  # C only in GCC
+case "$CXX" in *clang* | *em++*) STRICT="$STRICT -Wmissing-prototypes" ;; esac  # C only in GCC
 LENIENT="-Wall -Wextra"
+# Emscripten's -Wall turns on its own link warnings too, and one says that growing a memory threads
+# share is slow - which the tests' speed under WASM is not about.
+if [ "$WASM" = 1 ]; then
+  STRICT="$STRICT -Wno-pthreads-mem-growth"
+  LENIENT="$LENIENT -Wno-pthreads-mem-growth"
+fi
 JOBS=${JOBS:-$(nproc 2>/dev/null || echo 4)}
 # The cases that break a contract on purpose, for a debug build to stop on: stub mode, and the
 # HiGHS backend's own in HiGHS mode.
@@ -142,6 +162,8 @@ else
   echo "CPLEX Studio: $STUDIO"
 fi
 
+LIBS="$LIBS ${WASM_LINK:-}"
+
 CF=compile_fail
 [ "$MODE" = mathopt ] && CF=mathopt/compile_fail
 [ "$MODE" = highs ] && CF=highs/compile_fail
@@ -155,7 +177,7 @@ CF=compile_fail
 PCH=""
 if [ "$COMPILE_CHECKS" != 0 ]; then
   case "$CXX" in
-    *clang*) pch=$BUILD/cf_prelude.pch; use="-include-pch $pch" ;;
+    *clang* | *em++*) pch=$BUILD/cf_prelude.pch; use="-include-pch $pch" ;;
     *) mkdir -p "$BUILD/cf_pch"; pch=$BUILD/cf_pch/prelude.hpp.gch; use="-include $BUILD/cf_pch/prelude.hpp" ;;
   esac
   $CXX $FLAGS $LENIENT -I$CF -x c++-header "$CF/prelude.hpp" -o "$pch" 2> "$BUILD/cf_pch.log" && PCH=$use

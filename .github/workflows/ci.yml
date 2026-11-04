@@ -104,6 +104,18 @@ jobs:
       - run: wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- 23
       - run: CXX=clang++-23 tests/run_tests.sh
 
+  wasm:
+    # WebAssembly (wasm32) with Emscripten, the tests run under Node.js: a 32-bit std::size_t and
+    # libc++. It checks that dreamor builds and holds there, not how fast - performance is measured
+    # on Linux x86-64 alone. The image pins Emscripten; bump it with the compilers' ceiling.
+    needs: lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    container: emscripten/emsdk:6.0.13
+    steps:
+      - uses: actions/checkout@v7
+      - run: WASM=1 tests/run_tests.sh
+
   mathopt:
     # The MathOpt backend against the OR-Tools C++ prebuilt, solving with HiGHS: unit tests,
     # the example, the Concert-vs-MathOpt comparison of the example's constraints, and the

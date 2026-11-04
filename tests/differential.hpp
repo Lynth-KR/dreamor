@@ -210,13 +210,33 @@ inline std::size_t terms(const IloExpr& e) {
   return e.expr_->terms.size();
 }
 
+// The variable's text, if it is set. The MSVC CRT deprecates getenv, so Windows takes _dupenv_s
+// (logger_light.hpp's isEnvSet does the same).
+[[nodiscard]] inline std::optional<std::string> environmentText(const char* variable) {
+#ifdef _WIN32
+  char* value      = nullptr;
+  std::size_t size = 0;
+  if (_dupenv_s(&value, &size, variable) != 0 || value == nullptr) {
+    std::free(value);
+    return std::nullopt;
+  }
+  std::string text{value};
+  std::free(value);
+  return text;
+#else
+  const char* const value = std::getenv(variable);
+  if (value == nullptr) { return std::nullopt; }
+  return std::string{value};
+#endif
+}
+
 // A number from the environment, if the variable is set; one that does not read as a number
 // stops the run rather than test something other than what was asked.
 template <typename T>
 [[nodiscard]] std::optional<T> fromEnvironment(const char* variable) {
-  const char* const text = std::getenv(variable);
-  if (text == nullptr) { return std::nullopt; }
-  const std::string_view view{text};
+  const std::optional<std::string> text = environmentText(variable);
+  if (!text.has_value()) { return std::nullopt; }
+  const std::string_view view{*text};
   T value{};
   const auto [end, error] = std::from_chars(view.data(), view.data() + view.size(), value);
   if (view.empty() || error != std::errc{} || end != view.data() + view.size()) {

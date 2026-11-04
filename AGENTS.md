@@ -20,7 +20,7 @@ Version 0.6.1, MPL 2.0 (releases up to 0.5.0 were Apache 2.0).
 | `include/dreamor/mathopt.hpp` | MathOpt backend |
 | `include/dreamor/highs.hpp` | HiGHS backend, on HiGHS's own C++ API |
 | `include/dreamor/internal/` | Shared backend machinery (`var_table_core.hpp`, `row_index.hpp`, `sum_builder.hpp`, `inline_vector.hpp`) |
-| `include/dreamor/general/`, `include/dreamor/logger/` | Utilities (`tuple_hash.hpp`, `flat_index.hpp`, `aligned_vector.hpp`, `format_buffer.hpp`, `third_party_headers.hpp`, `logger_light.hpp`) |
+| `include/dreamor/general/`, `include/dreamor/logger/` | Utilities (`tuple_hash.hpp`, `flat_index.hpp`, `aligned_vector.hpp`, `format_buffer.hpp`, `third_party_headers.hpp`, `unreachable.hpp`, `logger_light.hpp`) |
 | `examples/` | Lot-sizing example: `production_planning_data.hpp` (the data, no dreamor), `production_planning_sets.hpp` (columns and sets, solver-free), `production_planning.hpp` (Concert), `production_planning_mathopt.hpp` (MathOpt), `production_planning_highs.hpp` (HiGHS), `production_planning_plain.hpp` (without dreamor, for comparison). `mathopt_samples/`: three OR-Tools MathOpt samples ported to dreamor, with a walkthrough of each port (keep Google's license header and the modification notice on these files) |
 | `tests/` | Framework-free tests, `tests/run_tests.sh`, Concert stub (`tests/stub/`), compile-fail cases |
 | `bench/` | Benchmarks, not run in CI (`bench/README.md`). `bench/catalog/`: layer 1, each operation against hand-written code over data shapes and access patterns, a resolution IV screening design per family (lookups, grouping, set operations, slices, generation, order) and a full design of its own for entities and solution values, against the lean Concert stub. `bench/scenario/`: layer 2, whole models (p-median, the model of the modeling-language benchmarks, and the lot-sizing example as written) built by dreamor and by hand up to the solver's start, on the stub, CPLEX, MathOpt and HiGHS. `bench/common/`: the measurement header, the run's JSON result, the lean stub, the machine helpers, the per-repetition code layouts, `--reuse`, the shared build steps, and an MPS comparison. `bench/solver/`: how Concert's variable creation meets the caller's code. `bench/plan/`: how `makeSet`'s visit order compares with every other order - a cost model over made-up sets of 3 to 16 sources, and a timed three-source experiment |
@@ -48,6 +48,7 @@ SAN=thread tests/run_tests.sh        # ThreadSanitizer, a build of its own (stub
 JOBS=4 tests/run_tests.sh            # parallel compiles; default every core (tests still report in order)
 COMPILE_CHECKS=0 tests/run_tests.sh  # skip compile_fail, syntax checks, documented-code tests: the compiler decides them
 UNIT_TESTS=0 tests/run_tests.sh      # the compiler's checks alone: no other tests, no contract_fail
+WASM=1 tests/run_tests.sh            # WebAssembly with Emscripten, under Node.js (the emsdk image, see "Platforms")
 tools/format.sh                      # clang-format (C++) and ruff (Python) in place; --check changes nothing
 tools/tidy.sh                        # clang-tidy; needs compile_commands.json (tools/gen_compile_commands.py)
 tools/ci_local.sh [REV]              # what CI runs, on one commit checked out apart; records a pass for the hook
@@ -80,20 +81,21 @@ tools/ci_local.sh [REV]              # what CI runs, on one commit checked out a
 - **CI** (`.github/workflows/ci.yml`) runs a lint job (`tools/format.sh --check`, then `tools/tidy.sh`), and once it
   passes: the stub job on Clang 18 at `-O1 -g` and `-O3 -DNDEBUG` and on GCC 13 at `-O3 -DNDEBUG`, a sanitize job
   (`SAN=1` on GCC 13 and Clang 18, `SAN=thread` on GCC 13; GCC 13's `SAN=1` is its `-O1 -g` build), gcc-latest and
-  clang-latest (stub mode on the newest releases), and the MathOpt job on both compilers, which runs the HiGHS
+  clang-latest (stub mode on the newest releases), wasm (stub mode built by Emscripten, run under Node.js), and the
+  MathOpt job on both compilers, which runs the HiGHS
   backend's tests too, on the HiGHS the OR-Tools prebuilt ships. The compile_fail cases and the syntax checks run once
   per compiler; the other jobs set `COMPILE_CHECKS=0`. The GCC 13 stub job and the MathOpt job also install the CMake
   package and build `tests/cmake_consumer` (`tests/cmake_consumer_mathopt`) through `find_package(dreamor)`. CI runs
   on pushes to main and on pull requests, not on a change of Markdown alone; a work branch runs it by hand
   (`gh workflow run tests --ref <branch>`).
 - **Local CI** (`tools/ci_local.sh`) runs the same jobs on this machine, over a commit checked out in a temporary
-  worktree, so it tests what a push publishes and not the working tree. It checks for every tool CI installs first -
-  GCC 13, Clang 18 and 23, podman with the `gcc:16` image, cmake, OR-Tools at `$ORTOOLS_DIR`, and uv (for the
-  pinned formatters and clang-tidy) - and runs nothing if one is missing. A pass is recorded by the commit's tree
-  (in `ci-passed/` under the git directory), and `tools/hooks/pre-push` stops a push to main whose tree has none -
-  it looks the record up rather than running the jobs, so run `tools/ci_local.sh` before pushing, and a commit
-  reworded or signed again keeps its pass. A push that changes Markdown alone needs no record, as CI does not run
-  for one. Turn the hook on per clone with `git config core.hooksPath tools/hooks`.
+  worktree, so it tests what a push publishes and not the working tree. It checks for every tool CI installs first - GCC
+  13, Clang 18 and 23, podman with the `gcc:16` and `emscripten/emsdk` images, cmake, OR-Tools at `$ORTOOLS_DIR`, and uv
+  (for the pinned formatters and clang-tidy) - and runs nothing if one is missing. A pass is recorded by the commit's
+  tree (in `ci-passed/` under the git directory), and `tools/hooks/pre-push` stops a push to main whose tree has none -
+  it looks the record up rather than running the jobs, so run `tools/ci_local.sh` before pushing, and a commit reworded
+  or signed again keeps its pass. A push that changes Markdown alone needs no record, as CI does not run for one. Turn
+  the hook on per clone with `git config core.hooksPath tools/hooks`.
 - **Compiler support** is a range tested at both ends, nothing in between: the floor is GCC 13 / Clang 18 (raising
   it is a decision, not a cleanup), the ceiling the newest releases (GCC 16 from the `gcc:16` image, Clang 23 from
   apt.llvm.org). Bump the ceiling at each major release - GCC every spring, LLVM every March and September - in
@@ -120,14 +122,29 @@ tools/ci_local.sh [REV]              # what CI runs, on one commit checked out a
 - **Done means** default mode passes on both compilers, `--mathopt` passes if you touched anything the MathOpt
   backend or the shared machinery uses, `--highs` passes if you touched anything the HiGHS backend or the shared
   machinery uses, the Windows check passes if you touched platform-dependent code (see
-  "Windows"), `tools/format.sh --check` passes, and `tools/tidy.sh` reports nothing.
+  "Platforms"), `tools/format.sh --check` passes, and `tools/tidy.sh` reports nothing.
 
-## Windows
+## Platforms
 
-Windows is supported through clang-cl, Clang's MSVC-compatible driver, with the MSVC STL and the UCRT, at the same
-floor as Clang (18; Visual Studio 2022 ships 19). MSVC's own compiler, cl.exe, is not supported: do not add code for
-it, and a construct only cl.exe rejects stays.
+Performance is measured, tuned and promised on Linux x86-64 with libstdc++ alone - built by GCC and by Clang, both on
+libstdc++: the benchmarks, the rules under "Optimize for a mechanism", and every figure in the docs are that
+platform's. On LLVM's libc++ dreamor builds and passes its tests, and is not timed. dreamor also builds and passes its tests on Windows with
+clang-cl (Clang's MSVC-compatible driver, at Clang's floor, 18), on the MSVC STL and the UCRT, and on WebAssembly
+(wasm32) with Emscripten; how fast it runs there is not measured. MSVC's own compiler, cl.exe (Visual Studio 2022), is
+being brought up: the code keeps the rules below that cl.exe needs, but no build of it has been checked yet, so
+nothing claims it works.
 
+- **Portable code over one platform's fast path.** No instruction-set intrinsics (`<immintrin.h>`, `_mm_*`), no
+  inline assembly, no target attributes: a gain that one CPU or one compiler alone gets widens the gap between
+  platforms. A compiler extension (`__int128`, `__builtin_*`) lives in one helper with a fallback every supported
+  compiler takes: `TupleHash::mix` (no `__int128` on cl.exe), `general::unreachable()`,
+  `FlatIndex::prefetchForWrite` (no prefetch where there is no builtin).
+- **The standard library's common ground.** Use what every supported implementation has at its floor - libstdc++ 13,
+  libc++ 18, the MSVC STL of Visual Studio 2022 - and nothing that one of them adds or lacks. Where a feature outside
+  that ground has one inside it that does the same at the same speed, take the inside one:
+  - `std::thread` and `join()`, not `std::jthread`, which libc++ 18 has only behind `-fexperimental-library`;
+  - a `std::formatter` whose `format` is a template on its context, not one taking `std::format_context&`, which
+    libc++ 18's `formattable` rejects (it checks with a context of its own).
 - **Platform differences live behind macros, one small helper per difference.** The helper holds the
   `#ifdef _WIN32` / `#else` / `#endif` and its callers do not branch: `isTerminal()`, `isEnvSet()` and `openFile()`
   in `logger/logger_light.hpp` are the pattern. No `#ifdef` inside a function's logic, and no second implementation
@@ -135,7 +152,9 @@ it, and a construct only cl.exe rejects stays.
 - **Choose the macro by what differs.**
   - The operating system or C runtime (POSIX against Win32/UCRT functions, `<unistd.h>` against `<io.h>`): `_WIN32`.
   - The compiler (builtins, pragmas, attributes): `__clang__` and `__GNUC__`, tested before `_MSC_VER`, because
-    clang-cl defines `_MSC_VER` too (`general/third_party_headers.hpp`, `FlatIndex::prefetchForWrite`).
+    clang-cl defines `_MSC_VER` too; cl.exe is the `_MSC_VER` branch (`general/unreachable.hpp`,
+    `general/third_party_headers.hpp`). A `#pragma GCC` or `#pragma clang` outside such a helper is an unknown
+    pragma to cl.exe (C4068), in a test too: `tests/float_compare.hpp` lets `std::equal_to` do its `==` instead.
   - The standard library: no macro. Write code that holds on every implementation.
 - **Rely on the standard, not on libstdc++'s or libc++'s choices.** What breaks under the MSVC STL:
   - an iterator assumed to be a pointer: `std::string_view::begin()` returns a class there, so name the type
@@ -144,12 +163,24 @@ it, and a construct only cl.exe rejects stays.
   - `std::filesystem::path::c_str()` is `const wchar_t*`; pass `path.string().c_str()` to a `const char*`;
   - `long` is 32 bits (LLP64), so `long` and `IloInt` (`__int64`) are different types and a `long` times a Concert
     variable is ambiguous - one more reason for the explicit-size types under "Code style".
+- **cl.exe's preprocessor.** Its default, the traditional one, has no `__VA_OPT__` (`/Zc:preprocessor` is the
+  user's flag to set, not dreamor's): a variadic macro takes `...` alone and passes `__VA_ARGS__` on whole, as the
+  `DREAMOR_LOG_*` macros do with their format string.
+- **Code files are ASCII, comments included.** cl.exe reads a file without a byte-order mark in the system's code
+  page unless the user passes `/utf-8`: on a Korean Windows (CP949) a UTF-8 character is warning C4819 in every
+  build that includes the header. Write math in AMPL's words (`union`, `inter`, `sum {(i,k) in LINKS}`).
+- **A 32-bit `std::size_t` (wasm32).** A value that needs 64 bits says `std::uint64_t`, not `std::size_t`:
+  `TupleHash` keeps a 64-bit state and hands back its low half there.
 - **The MSVC CRT's deprecation warnings count** (`fopen`, `getenv`, ... under `-Wdeprecated-declarations`): a header
   that warns there warns in a user's Windows build. Call the CRT's own spelling in the helper's `_WIN32` branch
   (`_dupenv_s` for `getenv`; `_fsopen` for `fopen`, since `fopen_s` opens the file unshared); never define
   `_CRT_SECURE_NO_WARNINGS` in a header, where it would reach the user's code.
-- **Checking.** Windows is not on CI. Build the default-mode tests (`tests/test_*.cpp` with `-Itests/stub`) with
-  clang-cl and run them: in Visual Studio 2022 with the "C++ Clang tools for Windows" component, or from WSL with
+- **Checking.** WebAssembly is CI's wasm job: the emsdk image at one pinned version (`docker.io/emscripten/emsdk`,
+  in `ci.yml` and `tools/ci_local.sh`), bumped with the compilers' ceiling, its libc++ the only one CI tests.
+  Locally: `podman run --rm -v "$PWD":/src -w /src docker.io/emscripten/emsdk:6.0.13 sh -c 'WASM=1
+  tests/run_tests.sh'`. Windows is not on CI. Build the default-mode tests (`tests/test_*.cpp` with `-Itests/stub`)
+  with cl.exe (`cl /std:c++20 /EHsc`, in a Developer Command Prompt of Visual Studio 2022) and with clang-cl, and run
+  them: clang-cl in Visual Studio 2022 with the "C++ Clang tools for Windows" component, or from WSL with
   `clang-cl-23 --target=x86_64-pc-windows-msvc -fuse-ld=lld-link /std:c++20 /EHsc`, the MSVC STL and the Windows
   SDK's `ucrt`, `um` and `shared` headers under `/mnt/c` given with `/imsvc`, their `lib/x64` directories after
   `/link` with `/libpath:`, and the `.exe` run through WSL interop. The compile_fail and contract_fail cases are not
