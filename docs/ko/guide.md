@@ -43,8 +43,9 @@ dreamor::EntityVector<Machine> plant;
 const bool inserted = plant.emplace(Machine{"M1", 40.0, 5.0, {}}).second;      // false: M1 was there
 plant.sort().freeze();                                                         // primary-key order; then read only
 const auto sRUN = dreamor::makeSet<cMachine, cPeriod>(plant, periods).collect();
+const auto lowerSetup = [](Machine& m) { m.setup = 4.0; };
 if (const Machine* found = plant.find("M1")) {
-  plant.modify(found, [](Machine& m) { m.setup = 4.0; });                      // the one way to change one
+  plant.modify(found, lowerSetup);                                            // the one way to change one
 }
 ```
 

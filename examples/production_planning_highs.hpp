@@ -53,11 +53,10 @@ struct HighsApiModel : Sets {
       addConstr(env, yieldVar <= upper * vSetup(row));
     }
 
-    const HighsLinearExpression holdingCost =
-        dreamor::highs::sumOf(sSTOCK, [&](cItem i, cPeriod t) { return i->hold * vStock(i, t); }).build();
-    const HighsLinearExpression setupCost = dreamor::highs::sumOf(sPRODUCE, [&](cMachine m, cItem i, cPeriod t) {
-                                              return m->setup * vSetup(m, i, t);
-                                            }).build();
+    const auto holding_term = [&](cItem i, cPeriod t) { return i->hold * vStock(i, t); };
+    const auto setup_term   = [&](cMachine m, cItem i, cPeriod t) { return m->setup * vSetup(m, i, t); };
+    const HighsLinearExpression holdingCost = dreamor::highs::sumOf(sSTOCK, holding_term).build();
+    const HighsLinearExpression setupCost   = dreamor::highs::sumOf(sPRODUCE, setup_term).build();
     dreamor::highs::setObjective(env, holdingCost + setupCost, ObjSense::kMinimize);
   }
 };

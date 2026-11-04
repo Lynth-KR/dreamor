@@ -3,7 +3,7 @@
 [English](../philosophy.md) · **한국어**
 
 dreamor는 일부러 작게 만든 라이브러리입니다. 이 문서는 dreamor가 지키는 것을 한곳에 모았습니다. 모든 부분의 바탕이
-되는 원칙, 모형에서 쓰는 이름, 쓰는 규칙, 일부러 하지 않는 것입니다. 사용자는 무엇을 기대할 수 있는지, 기여자는
+되는 원칙, 권하는 이름, 쓰는 규칙, 일부러 하지 않는 것입니다. 사용자는 무엇을 기대할 수 있는지, 기여자는
 변경이 무엇을 지켜야 하는지 여기서 알 수 있습니다.
 
 ## 설계 원칙
@@ -53,42 +53,55 @@ dreamor는 일부러 작게 만든 라이브러리입니다. 이 문서는 dream
 
 ## 이름 짓기
 
-집합과 변수족은 이름 모양을 정해 둡니다. AMPL 모형의 이름 앞에 접두사 하나를 붙인 모양이라, AMPL 주석과
-코드가 접두사만 빼면 그대로 대응합니다.
+dreamor는 이름을 검사하지 않습니다. 모형의 이름은 그 모형을 쓰는 사람의 것입니다. 문서, 예제, 스킬은 집합과 변수족을
+한 가지 모양, 곧 AMPL 모형의 이름 앞에 접두사 하나를 붙인 모양으로 쓰고 이를 권합니다. 그러면 AMPL 주석과 코드가
+접두사만 빼면 그대로 대응하기 때문입니다.
 
 | 대상 | 모양 | 예 | AMPL |
 |---|---|---|---|
-| 열 타입 | PascalCase + `Col` | `cMachine`, `cPeriod` | |
+| 열 타입 | `c` + PascalCase | `cMachine`, `cPeriod` | |
 | 집합 (`SetOf`) | `s` + SCREAMING_SNAKE_CASE | `sPRODUCE`, `sPEAK_PRODUCE` | `PRODUCE` |
 | 변수족 (`VarTable`) | `v` + PascalCase | `vYield`, `vSetup`, `vStock` | `Yield` |
 
 집합에 접두사를 붙이는 것은 대문자만으로 된 이름이 C++에서 매크로나 상수(`ILOFLOAT`, `ILOBOOL`)와 같은
 모양이기 때문입니다.
 
-그 밖의 이름(술어와 term 같은 callable, 식, 묶음, 해 테이블)은 정하지 않습니다. 이 문서의 예제는 열을 받는
-callable을 snake_case(`items_of`, `machine_usage`), 나머지를 camelCase(`totalInFlow`, `yieldPlan`)로 씁니다.
+이 문서의 예제는 열을 받는 callable을 snake_case(`items_of`, `machine_usage`), 나머지를 camelCase(`totalInFlow`,
+`yieldPlan`)로도 씁니다. 이것은 예제의 습관일 뿐 권장은 아닙니다.
 
 ## 규칙 모음
 
+세 가지로 나뉩니다. 컴파일러가 막는 것, dreamor가 믿고 맡기는 것, 권하는 것입니다.
+
+### 금지: 컴파일 오류
+
 1. callable(술어, 종속 소스, 범위 함수, 합의 term)은 **열 타입**을 파라미터로 받습니다.
-   `[](const Item* i)`나 `[](auto i)`는 컴파일 오류입니다. `orderBy`의 key도 마찬가지입니다.
-2. 종속 소스는 엔티티의 **포인터** 범위를 돌려줍니다.
-3. 집합은 읽기 전용입니다. 바꾸지 말고 파생하세요.
-4. 변수족 하나당 VarTable 하나, 그 족의 **전체 집합** 위에. 부분은 `vYield(row)`.
-5. 드라이버 집합의 모든 키에 제약이 필요하면 `Grouped`를 돌지 말고 드라이버를 돌며 `slice()`.
-6. 어떤 소스도 같은 원소를 두 번 담지 않고, 엔티티는 컨테이너 하나에 객체 하나입니다. 그러면 집합도 같은 행을 두 번 담지 않습니다.
-7. 변수를 `end()`하지 않습니다. `env.end()`는 마지막에 한 번.
-8. `Grouped`의 `slice()`/`at()`/`keyAt()`, `Ordered`의 조회는 이름을 붙인 객체에서 씁니다. 묶음은 그 객체가 살아 있는 동안만
-   유효합니다. 돌기만 할 때는 `for (... : S.groupBy<C>())`처럼 임시 객체도 됩니다.
-9. `operator()`가 템플릿이라 파라미터로 열을 알 수 없는 함수 객체는 `dreamor::PredicateColumns`를 특수화해서
-   읽는 열을 선언하면 술어로 쓸 수 있습니다.
+   `[](const Item* i)`나 `[](auto i)`는 컴파일 오류입니다. `orderBy`의 key도 마찬가지입니다. `operator()`가 템플릿이라
+   파라미터로 열을 알 수 없는 함수 객체도, `dreamor::PredicateColumns`를 특수화해서 읽는 열을 선언하면 술어로 쓸 수
+   있습니다.
    ```cpp
    template <> struct dreamor::PredicateColumns<MyFilter> { using type = std::tuple<cMachine, cPeriod>; };
    ```
-10. 제네릭 코드(`[](const auto& sANY)`)에서 `sANY.select<A>()`처럼 열을 템플릿 인자로 받는 멤버를 부르면
-   `sANY.template select<A>()`가 필요합니다. 집합을 구체 타입으로 다루는 권장 방식에서는 생기지 않습니다.
-11. 키로 찾을 때는 열 값을 선언 순서대로 넘깁니다(`vYield(m, i, t)`, `slice(i, t)`, `prev(t)`). 중괄호와 맨 값은
+2. 종속 소스는 엔티티의 **포인터** 범위를 돌려줍니다.
+3. 집합은 읽기 전용입니다. 바꾸지 말고 파생하세요.
+4. 키로 찾을 때는 열 값을 선언 순서대로 넘깁니다(`vYield(m, i, t)`, `slice(i, t)`, `prev(t)`). 중괄호와 맨 값은
    받지 않습니다([열](guide.md#열column) 참고).
+5. `Grouped`의 `slice()`/`at()`/`keyAt()`, `Ordered`의 조회는 이름을 붙인 객체에서 부릅니다. 임시 객체에서는
+   부를 수 없습니다. 돌기만 할 때는 이름이 필요 없습니다: `for (... : S.groupBy<C>())`.
+
+### 계약: 어기면 미정의 동작
+
+6. 어떤 소스도 같은 원소를 두 번 담지 않고, 엔티티는 컨테이너 하나에 객체 하나입니다. 그러면 집합도 같은 행을 두 번
+   담지 않습니다. 디버그 빌드가 이를 검사해, 어느 소스인지 밝히는 한 문장을 내고 멈춥니다.
+7. 묶음, 슬라이스, 행은 그것을 내준 객체가 살아 있는 동안만 유효합니다.
+8. Concert: 변수를 `end()`하지 않고, `env.end()`는 마지막에 한 번.
+
+### 권장
+
+9. 변수족 하나당 VarTable 하나, 그 족의 **전체 집합** 위에. 부분은 `vYield(row)`.
+10. 드라이버 집합의 모든 키에 제약이 필요하면 `Grouped`를 돌지 말고 드라이버를 돌며 `slice()`.
+11. 집합은 구체 타입으로 다룹니다. 제네릭 코드(`[](const auto& sANY)`)에서 `sANY.select<A>()`처럼 열을 템플릿
+    인자로 받는 멤버를 부르면 `sANY.template select<A>()`가 필요합니다.
 
 ## 하지 않는 것
 
@@ -99,6 +112,6 @@ callable을 snake_case(`items_of`, `machine_usage`), 나머지를 camelCase(`tot
 | 변수 덧붙이기(열 생성) | 구조 불변. 새 열은 새 집합 + 새 VarTable |
 | 파이프 문법(`S \| where(p)`) | 같은 일에 두 번째 방법을 두지 않음 |
 | 계수 배열(`IloScalProd`식) | 계수는 term에서 엔티티로 계산 |
-| 변수 중복 생성 검사 | 문서 규칙 4로 대신함 |
+| 변수 중복 생성 검사 | 규칙 6과 9로 대신함 |
 | 제약 프로그래밍(구간 변수, `noOverlap`, 누적 함수) | 대수적 모형 계층의 범위 밖. 집합 계층은 솔버와 무관하므로 CP Optimizer나 CP-SAT로 스케줄링을 짤 때도 `makeSet`, `groupBy`, `ordered()`로 만든 행을 그 API에 그대로 넘겨 쓸 수 있습니다 |
 

@@ -246,8 +246,10 @@ class LotSizing {
 
   // 6) Objective
   void addObjective() {
-    IloExpr holdingCost = dreamor::concert::sumOf(env, sSTOCK, [this](cItem i, cPeriod t) { return i->hold * vStock(i, t); }).build();
-    IloExpr setupCost = dreamor::concert::sumOf(env, sPRODUCE, [this](cMachine m, cItem i, cPeriod t) { return m->setup * vSetup(m, i, t); }).build();
+    const auto holding_term = [this](cItem i, cPeriod t) { return i->hold * vStock(i, t); };
+    const auto setup_term = [this](cMachine m, cItem i, cPeriod t) { return m->setup * vSetup(m, i, t); };
+    IloExpr holdingCost = dreamor::concert::sumOf(env, sSTOCK, holding_term).build();
+    IloExpr setupCost = dreamor::concert::sumOf(env, sPRODUCE, setup_term).build();
     IloExpr totalCost = holdingCost + setupCost;
     model.add(IloMinimize(env, totalCost));
     holdingCost.end();

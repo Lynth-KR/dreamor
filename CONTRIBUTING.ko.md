@@ -89,7 +89,10 @@ OR-Tools 경로는 위의 환경 변수로), 저장소의 `.clangd`와 `.vscode/
   합니다. 도구 버전은 고정되어 있고 스크립트가 `uvx`로 그 버전을 실행하니, [uv](https://docs.astral.sh/uv/)만
   설치하면 됩니다. 에디터의 clang-format 경로를 `tools/clang-format`으로 지정하면 저장할 때도 CI와 같게 포맷됩니다.
   라이브러리 코드는 타입 `PascalCase`, 함수 `camelCase`, 변수 `snake_case`(멤버는 끝에 `_`),
-  상수 `kPascalCase`를 씁니다. 예제와 문서는 [철학](docs/ko/philosophy.md#이름-짓기)의 사용자 규칙을 따릅니다.
+  상수 `kPascalCase`를 씁니다. dreamor를 쓰는 모습을 보여 주는 코드(예제, 문서의 코드)에는 따로 규칙이 있습니다.
+  [철학](docs/ko/philosophy.md#이름-짓기)이 권하는 이름, callable은 인라인으로 쓰지 않고 이름을 붙여 넘기기, AMPL의
+  관용구입니다(`AGENTS.md`의 "Model code in this repository"). 둘 다 이 저장소의 규칙이고, 사용자의 코드는 사용자의
+  것입니다. 개수, 크기, 인덱스는 부호 없는 타입으로 씁니다.
   개수, 크기, 인덱스는 부호 없는 타입입니다.
 - **테스트.** 동작이 바뀌면 테스트도 함께 바꿉니다. 새 컴파일 시점 진단에는 `tests/compile_fail/`에 사례를 더하고,
   `// expect:` 줄에 컴파일러가 가장 먼저 내야 할 문장을 적습니다. GCC 13과 Clang 18 모두에서 성립해야 합니다. 새

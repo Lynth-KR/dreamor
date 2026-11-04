@@ -2,8 +2,8 @@
 
 **English** · [한국어](ko/philosophy.md)
 
-dreamor is small on purpose. This page gathers what it holds to - the principles behind every part, the names a
-model uses, the rules of use, and what it leaves out on purpose - so that a user knows what to expect of it and a
+dreamor is small on purpose. This page gathers what it holds to - the principles behind every part, the names it
+recommends, the rules of use, and what it leaves out on purpose - so that a user knows what to expect of it and a
 contributor knows what a change has to keep.
 
 ## Design principles
@@ -55,44 +55,55 @@ contributor knows what a change has to keep.
 
 ## Naming
 
-Sets and variable families have a fixed name shape: the AMPL model's name with one prefix in front, so the AMPL
-comments and the code match once the prefix is dropped.
+dreamor does not check names: a model's names are its author's. The documentation, the examples and the skill write
+sets and variable families in one shape - the AMPL model's name with one prefix in front - and recommend it, because
+the AMPL comments and the code then match once the prefix is dropped.
 
 | What | Shape | Example | AMPL |
 |---|---|---|---|
-| Column type | PascalCase + `Col` | `cMachine`, `cPeriod` | |
+| Column type | `c` + PascalCase | `cMachine`, `cPeriod` | |
 | Set (`SetOf`) | `s` + SCREAMING_SNAKE_CASE | `sPRODUCE`, `sPEAK_PRODUCE` | `PRODUCE` |
 | Variable family (`VarTable`) | `v` + PascalCase | `vYield`, `vSetup`, `vStock` | `Yield` |
 
 Sets get a prefix because an all-caps name in C++ looks like a macro or a constant (`ILOFLOAT`, `ILOBOOL`).
 
-Other names (callables such as predicates and terms, expressions, groupings, solution tables) are not prescribed.
-The examples in this document write callables that take columns in snake_case (`items_of`, `machine_usage`) and
-everything else in camelCase (`totalInFlow`, `yieldPlan`).
+The examples in this document also write callables that take columns in snake_case (`items_of`, `machine_usage`)
+and everything else in camelCase (`totalInFlow`, `yieldPlan`); that is only their habit, not a recommendation.
 
 ## Rules
 
+Three kinds: what the compiler stops, what dreamor takes on trust, and what it recommends.
+
+### Forbidden: a compile error
+
 1. Callables (predicates, dependent sources, bound functions, terms of sums) take **column types** as parameters.
-   `[](const Item* i)` or `[](auto i)` is a compile error - the key of `orderBy` included.
-2. A dependent source returns a range of **pointers** to entities.
-3. Sets are read-only. Derive instead of modifying.
-4. One VarTable per variable family, over the family's **whole set**. Reach parts with `vYield(row)`.
-5. If every key of the driver set needs a constraint, do not iterate the `Grouped`; iterate the driver and call
-   `slice()`.
-6. No source holds an element twice, and an entity is one object in one container. Sets then hold no row twice.
-7. Do not `end()` variables. `env.end()` once, at the end.
-8. Use `Grouped`'s `slice()`/`at()`/`keyAt()` and `Ordered`'s lookups on named objects. A group is valid only while
-   that object is alive. If you only iterate, a temporary works too, as in `for (... : S.groupBy<C>())`.
-9. A function object whose `operator()` is a template, so that its columns cannot be read from its parameters, can
-   be used as a predicate by specializing `dreamor::PredicateColumns` to declare the columns it reads.
+   `[](const Item* i)` or `[](auto i)` is a compile error - the key of `orderBy` included. A function object whose
+   `operator()` is a template, so that its columns cannot be read from its parameters, can still be a predicate:
+   specialize `dreamor::PredicateColumns` to declare the columns it reads.
    ```cpp
    template <> struct dreamor::PredicateColumns<MyFilter> { using type = std::tuple<cMachine, cPeriod>; };
    ```
-10. In generic code (`[](const auto& sANY)`), calling a member that takes columns as template arguments, such as
-    `sANY.select<A>()`, requires `sANY.template select<A>()`. This does not come up in the recommended style, which
-    handles sets by their concrete types.
-11. Look up by key with column values in declaration order (`vYield(m, i, t)`, `slice(i, t)`, `prev(t)`). Braces and
-    bare values are not accepted (see [Columns](guide.md#columns)).
+2. A dependent source returns a range of **pointers** to entities.
+3. Sets are read-only. Derive instead of modifying.
+4. Look up by key with column values in declaration order (`vYield(m, i, t)`, `slice(i, t)`, `prev(t)`). Braces and
+   bare values are not accepted (see [Columns](guide.md#columns)).
+5. `Grouped`'s `slice()`/`at()`/`keyAt()` and `Ordered`'s lookups are called on a named object, not on a temporary.
+   Only iterating needs no name: `for (... : S.groupBy<C>())`.
+
+### Contract: undefined behavior if broken
+
+6. No source holds an element twice, and an entity is one object in one container. Sets then hold no row twice. A
+   debug build checks it and stops on a sentence naming the source.
+7. A group, a slice or a row is valid only while the object it came from is alive.
+8. Concert: do not `end()` variables, and `env.end()` once, at the end.
+
+### Recommended
+
+9. One VarTable per variable family, over the family's **whole set**. Reach parts with `vYield(row)`.
+10. If every key of the driver set needs a constraint, do not iterate the `Grouped`; iterate the driver and call
+    `slice()`.
+11. Handle sets by their concrete types. In generic code (`[](const auto& sANY)`), calling a member that takes
+    columns as template arguments, such as `sANY.select<A>()`, requires `sANY.template select<A>()`.
 
 ## What dreamor does not do
 
@@ -103,6 +114,6 @@ everything else in camelCase (`totalInFlow`, `yieldPlan`).
 | Appending variables (column generation) | Structure is immutable. New columns mean a new set + a new VarTable |
 | Pipe syntax (`S \| where(p)`) | No second way to do the same thing |
 | Coefficient arrays (`IloScalProd` style) | Coefficients are computed from entities in the term |
-| Checking for duplicate variable creation | Covered by rule 4 instead |
+| Checking for duplicate variable creation | Covered by rules 6 and 9 instead |
 | Constraint programming (interval variables, `noOverlap`, cumulative functions) | Outside the scope of an algebraic modeling layer. The set layer is solver-independent, so when writing scheduling with CP Optimizer or CP-SAT you can still pass rows built with `makeSet`, `groupBy`, and `ordered()` straight to that API |
 

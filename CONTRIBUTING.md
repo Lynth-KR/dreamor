@@ -93,8 +93,10 @@ OR-Tools paths come from the environment variables above), and the repository's 
   report nothing. The versions are pinned, and the scripts run them through `uvx`: install
   [uv](https://docs.astral.sh/uv/) and nothing else; point your editor's clang-format at `tools/clang-format` to
   format on save as CI does. Library code names types `PascalCase`, functions `camelCase`, variables `snake_case`
-  (members with a trailing `_`), constants `kPascalCase`; examples and documentation use the user conventions of the
-  [philosophy](docs/philosophy.md#naming). A count, size or index is never signed.
+  (members with a trailing `_`), constants `kPascalCase`. The code that shows dreamor in use - examples, the code of
+  the documentation - has rules of its own: the names the [philosophy](docs/philosophy.md#naming) recommends, every
+  callable named rather than written inline, AMPL's idioms (`AGENTS.md`, "Model code in this repository"). Both are
+  this repository's rules; a user's code is the user's. A count, size or index is never signed.
 - **Tests.** A change of behavior comes with a test. A new compile-time diagnostic comes with a case in
   `tests/compile_fail/` whose `// expect:` line names the sentence the compiler must print first, on GCC 13 and
   Clang 18 alike; a new debug-build contract check, with a case in `tests/contract_fail/`.

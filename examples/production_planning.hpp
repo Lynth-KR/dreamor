@@ -53,12 +53,11 @@ struct Model : Sets {
       model.add(yieldVar <= yieldVar.getUB() * vSetup(row));
     }
 
-    IloExpr holdingCost =
-        dreamor::concert::sumOf(env, sSTOCK, [&](cItem i, cPeriod t) { return i->hold * vStock(i, t); }).build();
-    IloExpr setupCost = dreamor::concert::sumOf(env, sPRODUCE, [&](cMachine m, cItem i, cPeriod t) {
-                          return m->setup * vSetup(m, i, t);
-                        }).build();
-    IloExpr totalCost = holdingCost + setupCost;
+    const auto holding_term = [&](cItem i, cPeriod t) { return i->hold * vStock(i, t); };
+    const auto setup_term   = [&](cMachine m, cItem i, cPeriod t) { return m->setup * vSetup(m, i, t); };
+    IloExpr holdingCost     = dreamor::concert::sumOf(env, sSTOCK, holding_term).build();
+    IloExpr setupCost       = dreamor::concert::sumOf(env, sPRODUCE, setup_term).build();
+    IloExpr totalCost       = holdingCost + setupCost;
     model.add(IloMinimize(env, totalCost));
     holdingCost.end();
     setupCost.end();

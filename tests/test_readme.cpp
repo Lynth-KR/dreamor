@@ -155,12 +155,11 @@ class LotSizing {
 
   // 6) Objective
   void addObjective() {
-    IloExpr holdingCost =
-        dreamor::concert::sumOf(env, sSTOCK, [this](cItem i, cPeriod t) { return i->hold * vStock(i, t); }).build();
-    IloExpr setupCost = dreamor::concert::sumOf(env, sPRODUCE, [this](cMachine m, cItem i, cPeriod t) {
-                          return m->setup * vSetup(m, i, t);
-                        }).build();
-    IloExpr totalCost = holdingCost + setupCost;
+    const auto holding_term = [this](cItem i, cPeriod t) { return i->hold * vStock(i, t); };
+    const auto setup_term   = [this](cMachine m, cItem i, cPeriod t) { return m->setup * vSetup(m, i, t); };
+    IloExpr holdingCost     = dreamor::concert::sumOf(env, sSTOCK, holding_term).build();
+    IloExpr setupCost       = dreamor::concert::sumOf(env, sPRODUCE, setup_term).build();
+    IloExpr totalCost       = holdingCost + setupCost;
     model.add(IloMinimize(env, totalCost));
     holdingCost.end();
     setupCost.end();
@@ -229,10 +228,9 @@ int main() try {
     const bool inserted = plant.emplace(Machine{"M1", 40.0, 5.0, {}}).second;
     const bool again    = plant.emplace(Machine{"M1", 1.0, 1.0, {}}).second;
     plant.sort().freeze();
-    const auto sRUN = dreamor::makeSet<cMachine, cPeriod>(plant, periods).collect();
-    if (const Machine* found = plant.find("M1")) {
-      plant.modify(found, [](Machine& m) { m.setup = 4.0; });
-    }
+    const auto sRUN       = dreamor::makeSet<cMachine, cPeriod>(plant, periods).collect();
+    const auto lowerSetup = [](Machine& m) { m.setup = 4.0; };
+    if (const Machine* found = plant.find("M1")) { plant.modify(found, lowerSetup); }
     DREAMOR_CHECK(inserted && !again && sRUN.size() == periods.size() && exactlyEqual(plant.front().setup, 4.0));
   }
 

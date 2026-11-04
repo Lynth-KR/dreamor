@@ -54,11 +54,10 @@ struct MathOptModel : Sets {
       model.AddLinearConstraint(yieldVar <= yieldVar.upper_bound() * vSetup(row));
     }
 
-    const LinearExpression holdingCost =
-        dreamor::mathopt::sumOf(sSTOCK, [&](cItem i, cPeriod t) { return i->hold * vStock(i, t); }).build();
-    const LinearExpression setupCost = dreamor::mathopt::sumOf(sPRODUCE, [&](cMachine m, cItem i, cPeriod t) {
-                                         return m->setup * vSetup(m, i, t);
-                                       }).build();
+    const auto holding_term            = [&](cItem i, cPeriod t) { return i->hold * vStock(i, t); };
+    const auto setup_term              = [&](cMachine m, cItem i, cPeriod t) { return m->setup * vSetup(m, i, t); };
+    const LinearExpression holdingCost = dreamor::mathopt::sumOf(sSTOCK, holding_term).build();
+    const LinearExpression setupCost   = dreamor::mathopt::sumOf(sPRODUCE, setup_term).build();
     model.Minimize(holdingCost + setupCost);
   }
 };

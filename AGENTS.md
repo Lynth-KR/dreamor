@@ -289,6 +289,15 @@ Confirm with `--cplex` when possible.
 
 ## Code style
 
+Two sets of rules, both this repository's own: one for the library's code, one for the code that shows dreamor in
+use. Neither binds a user - dreamor cannot check a user's names or style, and its `.clang-tidy` is the repository's,
+not a user's. What the documentation offers users is a recommendation (`docs/philosophy.md`, "Naming").
+
+### Library code
+
+The library (`include/`), the tests, the tools and the benchmarks' harness. `tools/format.sh`, `tools/tidy.sh`
+(`readability-identifier-naming` among its checks) and `STRICT` hold it.
+
 Every code file starts with `// SPDX-License-Identifier: MPL-2.0` (`#` in Python, shell, and CMake; after the
 `#!` line in scripts), then MPL's Exhibit A notice on the next two lines and a bare comment line before a comment
 that follows, as Eigen's files do; `tools/format.sh` puts all three there and CI checks them. Google's samples in
@@ -302,10 +311,38 @@ Follow it in library code:
 - macros `SCREAMING_SNAKE_CASE`, prefixed `DREAMOR_` (a bare `CHECK` collides with Abseil and glog, see
   `tests/check.hpp`).
 
-User-facing examples (README, `docs/`, header comments, examples, skill) follow the user conventions instead:
-- columns `cPascalCase`, sets `sSCREAMING_SNAKE`, variable families `vPascalCase`;
-- callables taking columns in `snake_case`;
-- everything else in `camelCase`.
+Wrap third-party includes (Concert, OR-Tools, HiGHS) in `DREAMOR_BEGIN_THIRD_PARTY_HEADERS` /
+`DREAMOR_END_THIRD_PARTY_HEADERS` from `general/third_party_headers.hpp`. That way `-Wall -Wextra` (or `-Werror`)
+reports only this library's code.
+
+### Model code in this repository
+
+The code that shows dreamor in use: the code blocks of the README and `docs/`, the usage examples in header
+comments, `examples/` (but for the ported `mathopt_samples/`, left as Google wrote them), the skill's examples, and
+the benchmarks' dreamor models. Review holds it; `examples/.clang-tidy` turns the library's naming check off.
+
+- **Names.** Columns `cPascalCase`, sets `sSCREAMING_SNAKE`, variable families `vPascalCase`; callables that take
+  columns in `snake_case`; everything else in `camelCase`.
+- **No inline lambdas.** Name every callable - a local variable, or a `static constexpr` member or namespace-scope
+  constant where there is no local scope (a constructor's member-init list) - and pass it by name: to `where`,
+  `sumOf`, a VarTable's bounds, `EntityVector::modify`.
+- **AMPL's idioms.** A set is defined as AMPL would write it: a relation is data the builder fills once
+  (`ITEMS_OF[m]`), read through a dependent source (`{m in MACHINES, i in ITEMS_OF[m]}`), not a join that looks a
+  key up again; `setof` through `select`. Rows of a set, and functions taking them, use column types (`cMachine`,
+  `std::tuple<cMachine, cItem>` for rows gathered before the set exists); entity fields, primary keys, nullable
+  find results and dreamor's hooks (`keyName`, a dependent source's range) stay `const T*`. Entities are owned by
+  `EntityVector<T>`; a subset is a range of `const T*`. A family of rows runs over its domain: the condition that
+  decides whether a row is there goes into the set the loop runs over (`S.where(not_first)`, AMPL's
+  `{(i,t) in STOCK: ord(t) > 1}`), not an `if` around the row in the body nor a sentinel value standing for "no
+  row"; an if-then-else inside a row, choosing a term, is AMPL's own and stays (`docs/philosophy.md`, "A family of
+  rows runs over its set"). AMPL's idioms are leading cases: not binding syntax, but given substantial weight - what
+  AMPL allows and its models commonly write is fine.
+- **One model per backend.** The examples keep one model per backend side by side
+  (`production_planning*.hpp`), though they repeat each other; they are not folded into one template over a
+  backend trait. The sets are dreamor's and shared (`production_planning_sets.hpp`); each model owns its solver's
+  objects and is built Sets -> VarTables -> Model.
+
+### Both
 
 Primitive types follow the domain, everywhere (library, tests, examples, bench):
 - a count, size, or index is never signed: `std::size_t` by default, a fixed-width `std::uint32_t` (or narrower)
@@ -314,10 +351,6 @@ Primitive types follow the domain, everywhere (library, tests, examples, bench):
 - prefer types whose size is explicit (`std::size_t`, `std::uint32_t`, `std::int16_t`, ...) over `int`, `long`,
   `unsigned`. The exceptions are what the language or a mirrored API fixes: `main(int argc, ...)`,
   `operator++(int)`, the process exit status, `IloInt` in the Concert stubs.
-
-Wrap third-party includes (Concert, OR-Tools) in `DREAMOR_BEGIN_THIRD_PARTY_HEADERS` /
-`DREAMOR_END_THIRD_PARTY_HEADERS` from `general/third_party_headers.hpp`. That way `-Wall -Wextra` (or `-Werror`)
-reports only this library's code.
 
 ## Documentation that mirrors code
 

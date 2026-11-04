@@ -40,21 +40,24 @@ CMake: `find_package(dreamor 0.6 CONFIG REQUIRED)`, then link `dreamor::dreamor`
 
 ## Naming
 
-Three conventions are prescribed. Use them in generated code:
+dreamor checks no names: they are the user's. Follow the user's code. Where it shows no style, use the shapes
+dreamor's documentation recommends, which match an AMPL model's names once the prefix is dropped:
 
 | Kind | Shape | Example |
 |---|---|---|
-| Column type | PascalCase + `Col` | `cMachine`, `cPeriod` |
+| Column type | `c` + PascalCase | `cMachine`, `cPeriod` |
 | Set | `s` + SCREAMING_SNAKE_CASE | `sPRODUCE` (AMPL `PRODUCE`) |
 | Variable family | `v` + PascalCase | `vYield` (AMPL `Yield`) |
 
-Everything else is the user's choice. Unless the user's code shows another style, write callables that take columns
-in snake_case (`items_of`, `machine_usage`) and everything else in camelCase (`producedByMachinePeriod`,
-`yieldPlan`). Prefer self-describing names over single letters.
+and write callables that take columns in snake_case (`items_of`, `machine_usage`) and everything else in camelCase
+(`producedByMachinePeriod`, `yieldPlan`). Prefer self-describing names over single letters.
 
 ## Rules
 
-These are enforced by the compiler or needed for a correct model.
+Three kinds, as in `docs/philosophy.md`: what the compiler rejects, what dreamor takes on trust (undefined behavior
+if broken), and what it recommends.
+
+### Forbidden: a compile error
 
 1. **Callables take column types.** Predicates, dependent sources, bounds, and sum terms are written as
    `[](cMachine m, cPeriod t) { ... }`, taking only the columns they read, in any order. dreamor reads the
@@ -70,31 +73,39 @@ These are enforced by the compiler or needed for a correct model.
    - HiGHS: `dreamor::highs::sumOf(rows, term).build()` → `HighsLinearExpression`. It takes no env either.
 
    `build()` is deliberate, since it lets `.where()`/`.split()` chain; keep it.
-4. **To sum variables without coefficients, pass the table itself as the term.** Write
-   `sumOf(env, rows, vYield)` with no lambda.
-5. **One `VarTable` per variable family, over the family's whole set.** A second table over a subset creates
-   new, unrelated variables. Reach subsets and groups through the one table: `vYield(row)`. Two tables over one set
-   are fine when they are different families (`vYield` and `vSetup` over `sPRODUCE`).
-6. **A table's key columns equal its set's columns, in order.** Reorder a set with `select<...>()` if needed.
-7. **Sets are read-only.** To get a different set, derive one with `where`, `select`, `orderBy`, `unite`,
+4. **A table's key columns equal its set's columns, in order.** Reorder a set with `select<...>()` if needed.
+5. **Sets are read-only.** To get a different set, derive one with `where`, `select`, `orderBy`, `unite`,
    `intersect`, or `difference`.
-8. **Name the object before borrowing from it.** Call `Grouped::slice/at/keyAt` and every `Ordered` lookup on a
+6. **Name the object before borrowing from it.** Call `Grouped::slice/at/keyAt` and every `Ordered` lookup on a
    named variable. Plain iteration of a temporary is fine: `for (const auto& [c, rows] : S.groupBy<C>())`.
-9. **Grouped iteration binds key columns, then rows:** `for (const auto& [machine, period, rows] : grouped)`.
-10. **Iterating a `Grouped` visits only keys present in that set.** If every key of a driver set needs a
-    constraint (including keys with no rows), iterate the driver set and call `slice()`. A missing key gives an
-    empty slice, whose sum is 0.
-11. **Sources.** A dependent source returns a range of *pointers* (`std::vector<const Item*>`, a span, a view). A
-    container source must be an lvalue; an integer range is `dreamor::interval::closed(first, last)` (or `open`,
-    `closedOpen`, `openClosed`), passed as it is. No source holds an element twice, and an entity is one object in one
-    container: a precondition (undefined behavior if broken) that keeps every set free of repeated rows.
-    `dreamor::EntityVector<T>` keeps it for entities: define `primaryKey(const T&)` next to `T`; fill it
-    (`reserve`, `insert`/`emplace` returning `{element, inserted}` as `std::set` does, `sort()` or `sort(comp)`),
-    `freeze()` it, then read it; `modify(entity, fn)` is the only way to change one.
-12. **Concert lifetime.** Call `env.end()` exactly once, last. Never `end()` a VarTable's variables or
+7. **Grouped iteration binds key columns, then rows:** `for (const auto& [machine, period, rows] : grouped)`. Any
+   other number of names is rejected.
+8. **Sources.** A dependent source returns a range of *pointers* (`std::vector<const Item*>`, a span, a view). A
+   container source must be an lvalue; an integer range is `dreamor::interval::closed(first, last)` (or `open`,
+   `closedOpen`, `openClosed`), passed as it is.
+
+### Contract: undefined behavior if broken
+
+9. **A set is a set.** No source holds an element twice, and an entity is one object in one container: a
+   precondition that keeps every set free of repeated rows, which a debug build checks and stops on.
+   `dreamor::EntityVector<T>` keeps it for entities: define `primaryKey(const T&)` next to `T`; fill it
+   (`reserve`, `insert`/`emplace` returning `{element, inserted}` as `std::set` does, `sort()` or `sort(comp)`),
+   `freeze()` it, then read it; `modify(entity, fn)` is the only way to change one.
+10. **Concert lifetime.** Call `env.end()` exactly once, last. Never `end()` a VarTable's variables or
     `endElements()` an array holding them. `end()` temporary `IloExpr`s after adding the constraint. None of this
     applies to MathOpt or HiGHS.
-13. **Read columns by name.** Write `std::get<cPeriod>(row)`, not `std::get<0>(row)`.
+
+### Recommended
+
+11. **One `VarTable` per variable family, over the family's whole set.** A second table over a subset creates
+    new, unrelated variables. Reach subsets and groups through the one table: `vYield(row)`. Two tables over one set
+    are fine when they are different families (`vYield` and `vSetup` over `sPRODUCE`).
+12. **Iterating a `Grouped` visits only keys present in that set.** If every key of a driver set needs a
+    constraint (including keys with no rows), iterate the driver set and call `slice()`. A missing key gives an
+    empty slice, whose sum is 0.
+13. **To sum variables without coefficients, pass the table itself as the term.** Write
+    `sumOf(env, rows, vYield)` with no lambda.
+14. **Read columns by name.** Write `std::get<cPeriod>(row)`, not `std::get<0>(row)`.
 
 ## AMPL → dreamor
 
@@ -170,8 +181,10 @@ for (const auto& [row, yieldVar] : vYield) {
   model.add(yieldVar <= yieldVar.getUB() * vSetup(row));
 }
 
-IloExpr holdingCost = dreamor::concert::sumOf(env, sSTOCK, [&](cItem i, cPeriod t) { return i->hold * vStock(i, t); }).build();
-IloExpr setupCost = dreamor::concert::sumOf(env, sPRODUCE, [&](cMachine m, cItem i, cPeriod t) { return m->setup * vSetup(m, i, t); }).build();
+const auto holding_term = [&](cItem i, cPeriod t) { return i->hold * vStock(i, t); };
+const auto setup_term = [&](cMachine m, cItem i, cPeriod t) { return m->setup * vSetup(m, i, t); };
+IloExpr holdingCost = dreamor::concert::sumOf(env, sSTOCK, holding_term).build();
+IloExpr setupCost = dreamor::concert::sumOf(env, sPRODUCE, setup_term).build();
 IloExpr totalCost = holdingCost + setupCost;
 model.add(IloMinimize(env, totalCost));
 holdingCost.end();
