@@ -26,6 +26,10 @@ rev=$(git rev-parse --verify "${1:-HEAD}^{commit}")
 ORTOOLS_DIR=${ORTOOLS_DIR:-/opt/ortools}
 GCC_IMAGE=docker.io/library/gcc:16
 EMSDK_IMAGE=docker.io/emscripten/emsdk:6.0.13
+# The newest LLVM's libc++, which cannot share a machine with the floor's: an image of its own, built from the
+# commit's Containerfile and named by its content, so a change to the file builds it again.
+LIBCXX_FILE=tools/containers/libcxx-latest.Containerfile
+LIBCXX_IMAGE=localhost/dreamor-libcxx-latest:$(git show "$rev:$LIBCXX_FILE" | sha256sum | cut -c1-12)
 
 # The machine: every tool CI installs. uv runs the pinned formatters and clang-tidy (uvx), at the
 # versions tools/format.sh, tools/tidy.sh and ruff.toml pin.
@@ -40,9 +44,15 @@ for image in "$GCC_IMAGE" "$EMSDK_IMAGE"; do
   fi
 done
 [ -f "$ORTOOLS_DIR/include/ortools/math_opt/cpp/math_opt.h" ] || lack "OR-Tools at ORTOOLS_DIR ($ORTOOLS_DIR)"
+[ -f /usr/lib/llvm-18/include/c++/v1/version ] ||
+  lack "libc++ 18: sudo apt install libc++-18-dev libc++abi-18-dev libunwind-18-dev"
 if [ -n "$missing" ]; then
   printf 'ci_local: this machine lacks what CI has:\n%b' "$missing" >&2
   exit 1
+fi
+if ! podman image exists "$LIBCXX_IMAGE"; then
+  echo "ci_local: building $LIBCXX_IMAGE from $LIBCXX_FILE (once per change of the file)"
+  git show "$rev:$LIBCXX_FILE" | podman build -q -t "$LIBCXX_IMAGE" -f - "$(dirname "$LIBCXX_FILE")" > /dev/null
 fi
 
 work=$(mktemp -d "${TMPDIR:-/tmp}/dreamor-ci.XXXXXX")
@@ -124,6 +134,8 @@ job "sanitize (clang++-18, 1)" "CXX=clang++-18 SAN=1 COMPILE_CHECKS=0 tests/run_
 job "sanitize (g++-13, thread)" "CXX=g++-13 SAN=thread COMPILE_CHECKS=0 tests/run_tests.sh"
 job gcc-latest "podman run --rm -e JOBS -v \"\$PWD\":/src -w /src $GCC_IMAGE sh -c 'CXX=g++ tests/run_tests.sh'"
 job clang-latest 'CXX=clang++-23 tests/run_tests.sh'
+job "libcxx (18)" "CXX=clang++-18 STDLIB=libc++ COMPILE_CHECKS=0 tests/run_tests.sh"
+job "libcxx (latest)" "podman run --rm -e JOBS -v \"\$PWD\":/src -w /src $LIBCXX_IMAGE sh -c 'STDLIB=libc++ COMPILE_CHECKS=0 tests/run_tests.sh'"
 job wasm "podman run --rm -e JOBS -v \"\$PWD\":/src -w /src $EMSDK_IMAGE sh -c 'WASM=1 tests/run_tests.sh'"
 for cxx in g++-13 clang++-18; do
   job "mathopt ($cxx)" "CXX=$cxx tests/run_tests.sh --mathopt \"\$ORTOOLS_DIR\" &&

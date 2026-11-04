@@ -104,10 +104,35 @@ jobs:
       - run: wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- 23
       - run: CXX=clang++-23 tests/run_tests.sh
 
+  libcxx:
+    # The standard library's range, as the compilers': LLVM's libc++ at the floor (Clang 18 and libc++ 18, Ubuntu
+    # 24.04's) and the newest (from apt.llvm.org, bumped with clang-latest). What every supported standard library has
+    # in common holds on it (AGENTS.md, "Platforms"). Unit tests and contract_fail; the compile_fail messages are the
+    # compiler's, checked by the other jobs. Each runner is a fresh machine, so the two libc++ versions, whose
+    # packages conflict, never meet; tools/ci_local.sh runs the newest in an image of its own.
+    needs: lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        llvm: [18, 23]
+    steps:
+      - uses: actions/checkout@v7
+      - name: LLVM ${{ matrix.llvm }} from apt.llvm.org
+        if: matrix.llvm != 18
+        run: wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- ${{ matrix.llvm }}
+      - name: Clang and libc++ ${{ matrix.llvm }}
+        run: >-
+          sudo apt-get update && sudo apt-get install -y clang-${{ matrix.llvm }} libc++-${{ matrix.llvm }}-dev
+          libc++abi-${{ matrix.llvm }}-dev libunwind-${{ matrix.llvm }}-dev
+      - run: CXX=clang++-${{ matrix.llvm }} STDLIB=libc++ COMPILE_CHECKS=0 tests/run_tests.sh
+
   wasm:
     # WebAssembly (wasm32) with Emscripten, the tests run under Node.js: a 32-bit std::size_t and
     # libc++. It checks that dreamor builds and holds there, not how fast - performance is measured
-    # on Linux x86-64 alone. The image pins Emscripten; bump it with the compilers' ceiling.
+    # on Linux x86-64 with libstdc++ alone. Emscripten has no long-term release, so one version is pinned, as
+    # projects pin it; moving it is a tool update, not a bound of support.
     needs: lint
     runs-on: ubuntu-24.04
     timeout-minutes: 20

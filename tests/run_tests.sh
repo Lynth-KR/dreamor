@@ -41,6 +41,9 @@
 # WASM=1 builds for WebAssembly (wasm32) with Emscripten - CXX defaults to em++ - and runs each
 # test under Node.js, in stub mode and without SAN: the emsdk image (docker.io/emscripten/emsdk) has
 # both. It checks that dreamor builds and holds on a 32-bit std::size_t and libc++, not how fast.
+# STDLIB=libc++ builds against LLVM's libc++ rather than the compiler's default (libstdc++ on Linux), in stub mode,
+# with Clang and the libc++ of its LLVM version installed: what every supported standard library has in common
+# holds there too. The solvers' prebuilt libraries are built against libstdc++, so the other modes stay on it.
 # JOBS sets how many compiles run at once (default: every core); the tests then run and report
 # one at a time, in a fixed order.
 # COMPILE_CHECKS=0 skips what only the compiler decides - the compile_fail cases, the syntax
@@ -84,6 +87,14 @@ case "${SAN:-}" in
     RUN="setarch $(uname -m) -R"
     ;;
   *) echo "SAN=1 (address, undefined, leak) or SAN=thread"; exit 2 ;;
+esac
+case "${STDLIB:-}" in
+  "") ;;
+  libc++)
+    [ "$MODE" = stub ] || { echo "STDLIB=libc++ runs in stub mode only: the solvers' libraries use libstdc++"; exit 2; }
+    COMMON="$COMMON -stdlib=libc++"
+    ;;
+  *) echo "STDLIB=libc++, or unset for the compiler's default"; exit 2 ;;
 esac
 if [ "$WASM" = 1 ]; then
   [ "$MODE" = stub ] && [ -z "${SAN:-}" ] || { echo "WASM runs in stub mode only, without SAN"; exit 2; }

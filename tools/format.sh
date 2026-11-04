@@ -78,9 +78,9 @@ scripts='tools/clang-format tools/hooks/pre-push'  # shell scripts without an ex
 # $scripts is a list of paths: expanded unquoted below.
 missing=$(
   spdx // '*.hpp' '*.cpp' '*.cc' '*.h' "$samples"
-  spdx '#' '*.py' '*.sh' '*CMakeLists.txt' '*.cmake' '*.cmake.in' $scripts
+  spdx '#' '*.py' '*.sh' '*CMakeLists.txt' '*.cmake' '*.cmake.in' '*.Containerfile' $scripts
   notice // '*.hpp' '*.cpp' '*.cc' '*.h' "$samples"
-  notice '#' '*.py' '*.sh' '*CMakeLists.txt' '*.cmake' '*.cmake.in' $scripts
+  notice '#' '*.py' '*.sh' '*CMakeLists.txt' '*.cmake' '*.cmake.in' '*.Containerfile' $scripts
 )
 if [ -n "$missing" ]; then
   echo "$missing" >&2

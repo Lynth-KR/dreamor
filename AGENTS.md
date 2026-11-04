@@ -28,7 +28,7 @@ Version 0.6.1, MPL 2.0 (releases up to 0.5.0 were Apache 2.0).
 | `README.md`, `docs/` | User documentation, in English alone (one version to keep true): the README introduces and maps; `docs/philosophy.md` the principles and rules of use, `docs/guide.md` every part in use, `docs/reference.md` the API in tables |
 | `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `NOTICE` | For people contributing, the Contributor Covenant 2.1, how to report a vulnerability privately, the copyright and attribution notice |
 | `cmake/`, `CMakeLists.txt` | `dreamor::dreamor` INTERFACE target and install/package config |
-| `tools/` | `format.sh`, `tidy.sh`, `ci_local.sh`, `hooks/pre-push`, `clang-format` (the pinned one, for an editor), `gen_compile_commands.py`, `gen_arity_tests.py`, `measure_compile_cost.py`, `diagnostics_report.py` (how readable the compiler's errors are for the compile_fail mistakes), `tree.sh` (the repository as a tree, without what git ignores) |
+| `tools/` | `format.sh`, `tidy.sh`, `ci_local.sh`, `hooks/pre-push`, `clang-format` (the pinned one, for an editor), `gen_compile_commands.py`, `gen_arity_tests.py`, `measure_compile_cost.py`, `diagnostics_report.py` (how readable the compiler's errors are for the compile_fail mistakes), `tree.sh` (the repository as a tree, without what git ignores), `containers/` (images `ci_local.sh` builds for itself) |
 | `.github/` | The CI workflow, issue forms and the pull request template |
 | `assets/` | The README's banner and slogan |
 
@@ -46,9 +46,10 @@ OPT="-O3 -DNDEBUG" tests/run_tests.sh # optimization; default -O1 -g
 SAN=1 tests/run_tests.sh             # Address + UndefinedBehavior + Leak sanitizers (stub mode only)
 SAN=thread tests/run_tests.sh        # ThreadSanitizer, a build of its own (stub mode only)
 JOBS=4 tests/run_tests.sh            # parallel compiles; default every core (tests still report in order)
-COMPILE_CHECKS=0 tests/run_tests.sh  # skip compile_fail, syntax checks, documented-code tests: the compiler decides them
+COMPILE_CHECKS=0 tests/run_tests.sh  # skip compile_fail, syntax checks, documented-code tests: compiler-only
 UNIT_TESTS=0 tests/run_tests.sh      # the compiler's checks alone: no other tests, no contract_fail
 WASM=1 tests/run_tests.sh            # WebAssembly with Emscripten, under Node.js (the emsdk image, see "Platforms")
+CXX=clang++-18 STDLIB=libc++ tests/run_tests.sh  # LLVM's libc++ of that Clang's version (stub mode only)
 tools/format.sh                      # clang-format (C++) and ruff (Python) in place; --check changes nothing
 tools/tidy.sh                        # clang-tidy; needs compile_commands.json (tools/gen_compile_commands.py)
 tools/ci_local.sh [REV]              # what CI runs, on one commit checked out apart; records a pass for the hook
@@ -81,27 +82,33 @@ tools/ci_local.sh [REV]              # what CI runs, on one commit checked out a
 - **CI** (`.github/workflows/ci.yml`) runs a lint job (`tools/format.sh --check`, then `tools/tidy.sh`), and once it
   passes: the stub job on Clang 18 at `-O1 -g` and `-O3 -DNDEBUG` and on GCC 13 at `-O3 -DNDEBUG`, a sanitize job
   (`SAN=1` on GCC 13 and Clang 18, `SAN=thread` on GCC 13; GCC 13's `SAN=1` is its `-O1 -g` build), gcc-latest and
-  clang-latest (stub mode on the newest releases), wasm (stub mode built by Emscripten, run under Node.js), and the
-  MathOpt job on both compilers, which runs the HiGHS
-  backend's tests too, on the HiGHS the OR-Tools prebuilt ships. The compile_fail cases and the syntax checks run once
+  clang-latest (stub mode on the newest releases), libcxx (stub mode on LLVM's libc++, 18 and the newest), wasm (stub
+  mode built by Emscripten, run under Node.js), and the MathOpt job on both compilers, which runs the HiGHS backend's
+  tests too, on the HiGHS the OR-Tools prebuilt ships. The compile_fail cases and the syntax checks run once
   per compiler; the other jobs set `COMPILE_CHECKS=0`. The GCC 13 stub job and the MathOpt job also install the CMake
   package and build `tests/cmake_consumer` (`tests/cmake_consumer_mathopt`) through `find_package(dreamor)`. CI runs
   on pushes to main and on pull requests, not on a change of Markdown alone; a work branch runs it by hand
   (`gh workflow run tests --ref <branch>`).
 - **Local CI** (`tools/ci_local.sh`) runs the same jobs on this machine, over a commit checked out in a temporary
-  worktree, so it tests what a push publishes and not the working tree. It checks for every tool CI installs first - GCC
-  13, Clang 18 and 23, podman with the `gcc:16` and `emscripten/emsdk` images, cmake, OR-Tools at `$ORTOOLS_DIR`, and uv
-  (for the pinned formatters and clang-tidy) - and runs nothing if one is missing. A pass is recorded by the commit's
-  tree (in `ci-passed/` under the git directory), and `tools/hooks/pre-push` stops a push to main whose tree has none -
-  it looks the record up rather than running the jobs, so run `tools/ci_local.sh` before pushing, and a commit reworded
-  or signed again keeps its pass. A push that changes Markdown alone needs no record, as CI does not run for one. Turn
-  the hook on per clone with `git config core.hooksPath tools/hooks`.
-- **Compiler support** is a range tested at both ends, nothing in between: the floor is GCC 13 / Clang 18 (raising
-  it is a decision, not a cleanup), the ceiling the newest releases (GCC 16 from the `gcc:16` image, Clang 23 from
-  apt.llvm.org). Bump the ceiling at each major release - GCC every spring, LLVM every March and September - in
-  gcc-latest and clang-latest. A new warning or a changed first error there is what users of that compiler will see:
-  fix it, then bump. Locally: `CXX=clang++-23 tests/run_tests.sh`, and
-  `podman run --rm -v "$PWD":/src -w /src docker.io/library/gcc:16 sh -c 'CXX=g++ tests/run_tests.sh'`.
+  worktree, so it tests what a push publishes and not the working tree. It checks for every tool CI installs first -
+  GCC 13, Clang 18 and 23, libc++ 18, podman with the `gcc:16` and `emscripten/emsdk` images, cmake, OR-Tools at
+  `$ORTOOLS_DIR`, and uv (for the pinned formatters and clang-tidy) - and runs nothing if one is missing. The newest
+  libc++ cannot be installed beside 18 (their packages conflict), so it runs in an image `ci_local.sh` builds from the
+  commit's `tools/containers/libcxx-latest.Containerfile`, named by the file's content, once per change of it. A pass
+  is recorded by the commit's tree (in `ci-passed/` under the git directory), and `tools/hooks/pre-push` stops a push
+  to main whose tree has none - it looks the record up rather than running the jobs, so run `tools/ci_local.sh` before
+  pushing, and a commit reworded or signed again keeps its pass. A push that changes Markdown alone needs no record,
+  as CI does not run for one. Turn the hook on per clone with `git config core.hooksPath tools/hooks`.
+- **Compiler support** is a range tested at both ends, nothing in between: the floor is GCC 13 / Clang 18 (raising it
+  is a decision, not a cleanup), the ceiling the newest releases (GCC 16 from the `gcc:16` image, Clang 23 from
+  apt.llvm.org). The standard library has a range of its own, the same way: libstdc++ through the GCCs, LLVM's libc++
+  from 18 (Clang 18's) to the newest (the libcxx job). Bump the ceiling at each major release - GCC every spring, LLVM
+  every March and September - in gcc-latest and clang-latest, and with an LLVM bump the libcxx job's newest version
+  (`ci.yml`'s matrix and `LLVM_VERSION` in `tools/containers/libcxx-latest.Containerfile`). A new warning or a changed
+  first error there is what users of that compiler will see: fix it, then bump. Emscripten is not a range: it has no
+  long-term release, so the wasm job pins one version, and moving it is a tool update. Locally: `CXX=clang++-23
+  tests/run_tests.sh`, and `podman run --rm -v "$PWD":/src -w /src docker.io/library/gcc:16 sh -c 'CXX=g++
+  tests/run_tests.sh'`.
 - **Formatting** is `.clang-format` (clang-format 23.1.3) and `ruff.toml` (ruff 0.17.1), pinned because output differs
   between versions. The scripts run the pinned versions through `uvx`, so all they need is
   [uv](https://docs.astral.sh/uv/); nothing is installed on PATH, and another project's pins do not collide.
@@ -121,8 +128,8 @@ tools/ci_local.sh [REV]              # what CI runs, on one commit checked out a
   call, and const goes on the right.
 - **Done means** default mode passes on both compilers, `--mathopt` passes if you touched anything the MathOpt
   backend or the shared machinery uses, `--highs` passes if you touched anything the HiGHS backend or the shared
-  machinery uses, the Windows check passes if you touched platform-dependent code (see
-  "Platforms"), `tools/format.sh --check` passes, and `tools/tidy.sh` reports nothing.
+  machinery uses, `WASM=1` passes and the Windows build is checked by hand if you touched platform-dependent code
+  (see "Platforms", "Checking"), `tools/format.sh --check` passes, and `tools/tidy.sh` reports nothing.
 
 ## Platforms
 
@@ -179,8 +186,10 @@ nothing claims it works.
   that warns there warns in a user's Windows build. Call the CRT's own spelling in the helper's `_WIN32` branch
   (`_dupenv_s` for `getenv`; `_fsopen` for `fopen`, since `fopen_s` opens the file unshared); never define
   `_CRT_SECURE_NO_WARNINGS` in a header, where it would reach the user's code.
-- **Checking.** WebAssembly is CI's wasm job: the emsdk image at one pinned version (`docker.io/emscripten/emsdk`,
-  in `ci.yml` and `tools/ci_local.sh`), bumped with the compilers' ceiling, its libc++ the only one CI tests.
+- **Checking.** The standard library's common ground is the libcxx job's (libc++ 18 and the newest) beside the
+  GCC and Clang jobs' libstdc++; the MSVC STL is checked with Windows, below. WebAssembly is CI's wasm job: the emsdk
+  image at one pinned version (`docker.io/emscripten/emsdk:6.0.13`, in `ci.yml` and `tools/ci_local.sh`), for
+  Emscripten whose LLVM and libc++ are 18 or later.
   Locally: `podman run --rm -v "$PWD":/src -w /src docker.io/emscripten/emsdk:6.0.13 sh -c 'WASM=1
   tests/run_tests.sh'`. Windows is not on CI. Build the default-mode tests (`tests/test_*.cpp` with `-Itests/stub`)
   with cl.exe (`cl /std:c++20 /EHsc`, in a Developer Command Prompt of Visual Studio 2022) and with clang-cl, and run
@@ -304,7 +313,8 @@ instead (e.g. `sumOf(...) is not an expression yet: add .build() - ...`). When a
    `tests/highs/compile_fail/`. Each case is one file that starts with the license header, then a
    `// expect: <text>` line, and includes `prelude.hpp`.
 2. The runner requires `<text>` in the compiler's **first** error and its notes, not just a rejection. This must
-   hold on both GCC 13 and Clang 18. Arrange overloads so the dreamor message comes first, not a wall of template
+   hold on both GCC 13 and Clang 18, and on the newest releases and Emscripten's em++, whose jobs check the cases
+   too. Arrange overloads so the dreamor message comes first, not a wall of template
    errors.
 3. `control.cc` in each folder must keep compiling; it proves that a rejection comes from the library.
 4. Update the message table in `skills/dreamor/references/diagnostics.md`.
