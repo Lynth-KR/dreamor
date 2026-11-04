@@ -100,7 +100,8 @@ const auto result = math_opt::Solve(model, math_opt::SolverType::kHighs);
 const auto yieldPlan = vYield.solution(*result);   // std::logic_error if there is no feasible solution
 ```
 
-Semi-continuous variables exist only in Concert, because MathOpt models have none. MathOpt keeps linear and
+Semi-continuous variables are Concert's (the `semiContinuous` constructor) and HiGHS's (`kSemiContinuous` as the
+type); MathOpt models have none. MathOpt keeps linear and
 quadratic expressions apart, so its `sumOf` accumulates into a `LinearExpression`, or into a `QuadraticExpression`
 when the term is quadratic (`x * x`, `(x - 1) * (x - 1)`); Concert's `IloExpr` holds both.
 
@@ -302,7 +303,7 @@ layers:
   hand-optimized code and against the usual `std::map` code (`examples/production_planning_plain.hpp`).
 
 ```bash
-bench/scenario/build.sh
+LAYOUTS=5 bench/scenario/build.sh    # a code layout of its own for each of run.py's 5 repetitions
 cd bench/scenario && python3 run.py --scenario lotsizing && python3 report.py ../results/<run>
 ```
 

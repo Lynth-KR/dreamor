@@ -201,8 +201,8 @@ The reference run of every family on dreamor 0.5.0: AMD Ryzen 7 5700X (32 MB L3)
 with Clang 18.1, `-O2 -march=native`; resolution VI (32 cells of the six factors for each k and N: k
 2, 3, 5, 8 - and 1 in lookup and make - and N 1e5, 1e6, 256 cells, 320 in lookup and make; data's
 own full design, 8), 5 repetitions, each under a memory layout and a code layout of its own; 41,720
-runs per compiler, no check mismatch. Each family's `summary.md` holds the rest: every arm, absolute
-times, the variation between layouts, the factors' effects.
+runs per compiler, seed 20261025 (`run.py`'s default), no check mismatch. `report.py` writes the rest into each
+family's `summary.md`: every arm, absolute times, the variation between layouts, the factors' effects.
 
 A ratio is a hand-written arm's time over dreamor's, the geometric mean over the cells the arm ran in;
 above 1, dreamor is faster. `best` is the fastest hand-written arm in each cell; the usual code is

@@ -67,6 +67,7 @@ These are enforced by the compiler or needed for a correct model.
 3. **`sumOf(...)` becomes an expression only after `.build()`.**
    - Concert: `dreamor::concert::sumOf(env, rows, term).build()` → `IloExpr`.
    - MathOpt: `dreamor::mathopt::sumOf(rows, term).build()` → `LinearExpression`. It takes no env and no model.
+   - HiGHS: `dreamor::highs::sumOf(rows, term).build()` → `HighsLinearExpression`. It takes no env either.
 
    `build()` is deliberate, since it lets `.where()`/`.split()` chain; keep it.
 4. **To sum variables without coefficients, pass the table itself as the term.** Write
@@ -92,7 +93,7 @@ These are enforced by the compiler or needed for a correct model.
     `freeze()` it, then read it; `modify(entity, fn)` is the only way to change one.
 12. **Concert lifetime.** Call `env.end()` exactly once, last. Never `end()` a VarTable's variables or
     `endElements()` an array holding them. `end()` temporary `IloExpr`s after adding the constraint. None of this
-    applies to MathOpt.
+    applies to MathOpt or HiGHS.
 13. **Read columns by name.** Write `std::get<cPeriod>(row)`, not `std::get<0>(row)`.
 
 ## AMPL → dreamor

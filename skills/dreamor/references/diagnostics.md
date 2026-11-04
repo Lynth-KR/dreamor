@@ -35,7 +35,7 @@ last column.
 | `names one key column twice` | `VarTable<cI, cI>` | Give each key its own column type | `vartable_key_twice` |
 | `No column of this set has that name` | `groupBy<cK>()` / `select<cK>()` with a foreign column | Use the set's columns | `groupby_missing_column`, `select_missing_column` |
 | `A VarTable is built on a set with exactly its key columns` | The table's keys differ from the set's columns or their order | Match the table to the set, or `select<...>()` to reorder | `vartable_key_order_differs_from_set` |
-| `A ValueTable is built on a set with exactly its key columns` | A ValueTable of data whose keys differ from the set's columns or their order | Match the table to the set, or `select<...>()` to reorder | `valuetable_key_order_differs_from_set` |
+| `A ValueTable is built on a set with exactly its key columns` | A ValueTable whose keys differ from the set's columns or their order | Match the table to the set, or `select<...>()` to reorder | `valuetable_key_order_differs_from_set` |
 | `Scale the sum, not the table` | `100 * vYield` or `vYield * 100` | `100 * sumOf(env, rows, vYield).build()`, or multiply inside a term | `vartable_scaled`, `mathopt/vartable_scaled`, `highs/vartable_scaled` |
 | `is not an expression yet` | `sumOf(...)` without `.build()` in a comparison, `+=`, or `-` | Add `.build()` | `sumof_without_build`, `sumof_without_build_plus_assign`, `sumof_without_build_reversed`, `mathopt/sumof_without_build`, `highs/sumof_without_build` |
 | `UnbuiltSum` | `sumOf(...)` without `.build()` assigned to an expression or used as an objective | Add `.build()` | `sumof_without_build_assigned`, `sumof_without_build_objective`, `mathopt/sumof_without_build_assigned` |
@@ -48,6 +48,10 @@ last column.
 | `split() once` | `.split(...).split(...)` | One `split` with every predicate | `sumof_split_twice` |
 | `sumOf takes an index set` | `sumOf(env, plainVector, term)` | `sumOf<Col>(env, plainVector, term)`, or build a set | `sumof_container_needs_column` |
 | `Bind the set to a variable first` | `sumOf<Col>(env, std::vector<int>{...}, term)` | Store the container in a named variable | `sumof_container_is_temporary` |
+| `A container source must be a named variable` | `makeSet<C>(std::vector<...>{...})`: a temporary container as a source | Store the container in a named variable that outlives the set; a range of numbers is `interval::closed(first, last)` | `makeset_container_is_temporary` |
+| `A dependent column cannot be a bare function name or a std::function` | A function name or a `std::function` as a dependent source | Pass a lambda or a function object | `makeset_dependent_is_a_function_name`, `makeset_dependent_is_a_std_function` |
+| `An interval counts integers` | `interval::closed(0.0, 160.0)` | Integer ends: `interval::closed(0, 160)` | `interval_ends_are_not_integers` |
+| `An interval fills an integer column` | An interval as the source of a column whose value type is not an integer | Give the column an integer value type | `interval_column_is_not_integer` |
 | `More column types than columns to name` | `makeSet<A, B>(oneSource)` | One source per column (a set source covers all its columns) | `makeset_missing_source` |
 | `Every column needs a name` | `makeSet<int>(...)` | `dreamor::Col<int, "name">` | `makeset_needs_column_types` |
 | `dreamor stops at 64` | A set of more than 64 columns, built at once or by spreading a set into a wider one | Split it into sets that share key columns | `makeset_too_many_columns`, `makeset_too_many_columns_spread` |
@@ -64,7 +68,8 @@ Also rejected, with no pinned message:
 
 | Exception | When |
 |---|---|
-| `std::out_of_range` | `VarTable` or `ValueTable` lookup of a row not in the set (all backends); `Grouped::at`/`keyAt` past the end |
+| `std::out_of_range` | `VarTable` or `ValueTable` lookup of a row not in the set (all backends); `Grouped::at`/`keyAt` and `Ordered::at` past the end |
+| `std::runtime_error` | a name longer than its buffer: `exprName` past 255 chars, `NameBuilder` / `FormatBuffer` past `N - 1` under `OnFormatOverflow::kThrow` |
 | `std::logic_error` | `dreamor::mathopt::VarTable::solution` with no primal feasible solution; `dreamor::highs::VarTable::solution` with no primal solution |
 | `dreamor::highs::HighsError` | a HiGHS call that fails, with `call()` and `status()`; a model HiGHS refuses throws from the first `env.highs()` (`"passModel"`) |
 | `std::length_error` | more than 2^32 − 2 rows in a `VarTable`, a `groupBy`, or anything else that hashes rows (`select`, `unite`, `intersect`, `difference`, `membership`, `ordered`, a join in `makeSet`) |
@@ -82,6 +87,11 @@ A broken precondition is undefined behavior. A debug build (no `NDEBUG`) checks 
 | `EntityVector::<member> after freeze()` | `reserve`, `insert`/`emplace` or `sort` on a frozen `EntityVector` | fill and sort before `freeze()`; a set may hold its elements already |
 | `EntityVector::modify: the entity is not one of this container's` | `modify` given a pointer to an object the container does not hold | pass a pointer from this `EntityVector` |
 | `EntityVector::modify: fn changed the entity's primary key` | `fn` changed what `primaryKey` reads | change the fields around the key only; a new key is a new entity |
+| `Ordered::nextOf has no row to return` (or `prevOf`) | `nextOf`/`prevOf` of the last/first element of its set or group, or of an element not in it | run it over a domain that has the neighbour (`isFirst`, `isLast`), or use the pointer form, `next` / `prev` |
+| `Ordered::first has no row to return` (or `last`) | `first(m)`/`last(m)` of a group with no row in the set | run it over the groups the set has (`groupBy`), or check with `contains` |
+| `interval: closed at its integer type's largest value` | `interval::closed(first, last)` with `last` the type's maximum, which has no one-past-the-end | a wider integer type for the ends |
+| `interval: an end its interval's integer type cannot hold` | an end outside the interval's integer type | ends that fit the type, or a wider type |
+| `interval: a value the column's integer type cannot hold` | an interval's value outside the range of the column's integer type | a column type that holds every value of the interval |
 | `dreamor::highs: one expression holds variables of two HighsEnvs` | an expression mixes two environments' variables | build each expression from one `HighsEnv`'s tables |
 | `dreamor::highs::<call>: the expression's variables belong to another HighsEnv` | a row or an objective handed to an env other than its variables' | hand it to the env its variables belong to |
 

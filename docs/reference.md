@@ -10,7 +10,7 @@ Every public type and function, by header. The [guide](guide.md) explains them i
 | `Col<T, "name">` | Column type. `Col(T)` (implicit), `operator T()`, `get()`, `->` and `*` for pointers, `==`, default construction |
 | `Col<...>::kName` | Column name (`std::string_view`) |
 | `ColumnName` | Type of `Col`'s name template argument (a string literal) |
-| `keyName(Col)` | The column's name token. The value's `keyName` if it has one, else an entity's `primaryKey()`, otherwise the value itself |
+| `keyName(Col)` | The value's `keyName` if it has one, otherwise the value itself. A variable's name and a column under `std::format` take, for an entity pointer with no `keyName`, its entity's `primaryKey()` |
 | `std::formatter<Col<...>>` | A column prints as its name token, so `std::format("Cap_{}_{}", i, j)` names a row the way VarTable names variables. Takes no format spec; a column with no token has none |
 | `std::hash<Col<...>>` | Lets a column be a key of `std::unordered_map` and the like |
 | `PredicateColumns<F>` | Specialization point declaring the columns read by a function object with a template `operator()` |
@@ -79,7 +79,7 @@ Every public type and function, by header. The [guide](guide.md) explains them i
 | `next(cols...)`, `next(cols..., steps)`, `prev(...)` likewise | Pointer to the neighboring row, or `nullptr` |
 | `nextOf(...)`, `prevOf(...)` likewise | The neighboring row itself, which must be there - AMPL's `next(t)` on a domain that has it. If it is not, a debug build stops; a release build does not check (UB) |
 | `nextCyclic(...)`, `prevCyclic(...)` | Neighbors that wrap from the end back to the start |
-| `first()`, `last()`, `at(pos)` | First, last, by position (not under `ordered<A...>()`, where `ord`, `isFirst` and `isLast` are within the group) |
+| `first()`, `last()`, `at(pos)` | First, last, by position (`std::out_of_range` past the end); not under `ordered<A...>()`, where `ord`, `isFirst` and `isLast` are within the group |
 | `first(cols...)`, `last(cols...)` | Under `ordered<A...>()`: the first and last row of the group the columns of `A...` name - AMPL's `first(S[a])`. The group must have a row; if not, a debug build stops |
 | `isFirst(cols...)`, `isLast(cols...)`, `contains(cols...)` | Tests |
 | `size()`, `empty()`, `members()` | Size, the deduplicated set |

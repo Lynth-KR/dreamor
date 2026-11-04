@@ -91,8 +91,8 @@ template <typename T, ColumnName Name>
 }
 
 // With no hook of its own, a column names itself by the value it wraps - so an int or a
-// string column needs no hook at all. An entity pointer still does: it has no formatter,
-// so this yields nothing printable and VarTable rejects the key.
+// string column needs no hook at all. An entity pointer yields the pointer here; a variable's
+// name takes its entity's primaryKey() instead (internal::toNameToken, name_token.hpp).
 template <typename T, ColumnName Name>
   requires(!requires(T value) { keyName(value); })
 [[nodiscard]] T keyName(const Col<T, Name>& column) {

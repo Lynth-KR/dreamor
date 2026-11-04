@@ -62,8 +62,9 @@ WSL2, 컨테이너)는 쓰는 사람이 고르면 됩니다. 최신 컴파일러
 `// expect:`가 없는 케이스는 거부되기만 하면 통과입니다. 같은 폴더의 `control.cc`는 공통 prelude가 정상적으로
 컴파일되는지 확인하는 대조군이며, 이것이 실패하면 나머지 케이스는 의미가 없으므로 실패로 처리합니다.
 
-CI(GitHub Actions)는 stub과 MathOpt를 GCC 13과 Clang 18 양쪽으로 돌리고(두 컴파일러 모두에서 `// expect:` 문구를
-확인), stub을 `-O3 -DNDEBUG`, AddressSanitizer와 UndefinedBehaviorSanitizer, GCC 16과 Clang 23으로 한 번씩 더 돌리고,
+CI(GitHub Actions)는 stub, MathOpt, HiGHS를 GCC 13과 Clang 18 양쪽으로 돌리고(두 컴파일러 모두에서 `// expect:`
+문구를 확인), stub을 `-O3 -DNDEBUG`, AddressSanitizer와 UndefinedBehaviorSanitizer, ThreadSanitizer, GCC 16과
+Clang 23으로 한 번씩 더 돌리고,
 CMake 패키지를 설치해 `find_package`로 가져다 쓰는 것까지 확인합니다(`tests/cmake_consumer`,
 `tests/cmake_consumer_mathopt`). CPLEX는 CI에 없으므로 `--cplex`는 로컬에서 돌립니다.
 

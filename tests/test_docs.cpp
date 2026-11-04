@@ -141,15 +141,15 @@ int main() try {
 
   // value_table.hpp (data on a set) and index_set/ordered.hpp (within groups)
   {
-    using Tup                  = std::tuple<cMachine, cPeriod>;
-    const auto sRUN            = makeSet<cMachine, cPeriod>(machines, periods).collect();
-    const auto available_hours = [](cPeriod t) { return 8.0 + t.get(); };
-    const ValueTable<cMachine, cPeriod> hours{sRUN, available_hours};
+    using Tup            = std::tuple<cMachine, cPeriod>;
+    const auto sRUN      = makeSet<cMachine, cPeriod>(machines, periods).collect();
+    const auto weight_of = [](cPeriod t) { return 8.0 + t.get(); };
+    const ValueTable<cMachine, cPeriod> weight{sRUN, weight_of};
     const auto periodsOfMachine = sRUN.ordered<cMachine>();
     const auto& [m, t]          = *sRUN.begin();
     const Tup* next             = periodsOfMachine.next(m, t);
     DREAMOR_CHECK(next != nullptr && std::get<cMachine>(*next) == m &&
-                  exactlyEqual(hours(*next), 8.0 + std::get<cPeriod>(*next).get()));
+                  exactlyEqual(weight(*next), 8.0 + std::get<cPeriod>(*next).get()));
   }
 
   // index_set/name_token.hpp (a column under std::format)

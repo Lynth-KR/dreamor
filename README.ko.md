@@ -97,7 +97,8 @@ const auto result = math_opt::Solve(model, math_opt::SolverType::kHighs);
 const auto yieldPlan = vYield.solution(*result);   // 가능해가 없으면 std::logic_error
 ```
 
-반연속 변수는 MathOpt 모형에 없어서 Concert에만 있습니다. MathOpt는 일차식과 이차식을 나누어 다루므로, MathOpt의
+반연속 변수는 Concert(`semiContinuous` 생성자)와 HiGHS(타입으로 `kSemiContinuous`)에 있고, MathOpt 모형에는
+없습니다. MathOpt는 일차식과 이차식을 나누어 다루므로, MathOpt의
 `sumOf`는 `LinearExpression`으로 모으고 term이 이차 항이면(`x * x`, `(x - 1) * (x - 1)`) `QuadraticExpression`으로
 모읍니다. Concert의 `IloExpr`는 둘 다 담습니다.
 
@@ -294,7 +295,7 @@ dreamor가 스스로 쓰는 헤더 두 개로, 모델 코드에서도 쓸 수 �
   흔히 짜는 `std::map` 코드(`examples/production_planning_plain.hpp`)와 비교합니다.
 
 ```bash
-bench/scenario/build.sh
+LAYOUTS=5 bench/scenario/build.sh    # run.py의 반복 5회마다 코드 배치를 따로
 cd bench/scenario && python3 run.py --scenario lotsizing && python3 report.py ../results/<run>
 ```
 

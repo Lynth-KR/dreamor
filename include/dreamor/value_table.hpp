@@ -61,12 +61,14 @@ struct ValueTableAccess {
 };
 }  // namespace internal
 
-// A number per row of a set: the values of a VarTable's variables, read in one go by its
-// solution() whatever the backend, or data on a set - AMPL's param {S} - built from the set and
-// what each row's value is. Keyed like the set: yieldPlan(keys...) or yieldPlan(row), and
-// range-for over (row, value).
+// A number per row of a set: mainly what a solve produces - the values of a VarTable's variables,
+// read in one go by its solution() whatever the backend - and what an algorithm computes from them
+// between solves, built from the set and what each row's value is. It can hold data on a set too
+// (AMPL's param {S}), but a parameter is better its entity's field, or a named callable when an
+// expression defines it (docs/philosophy.md). Keyed like the set: yieldPlan(keys...) or
+// yieldPlan(row), and range-for over (row, value).
 //
-//     const ValueTable<cMachine, cPeriod> hours{sRUN, available_hours};   // param hours {RUN}
+//     const ValueTable<cMachine, cPeriod> weight{sRUN, weight_of};   // a heuristic's weights between solves
 template <typename... Keys>
 class ValueTable {
  public:

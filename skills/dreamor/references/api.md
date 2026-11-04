@@ -18,7 +18,7 @@ The headers in `include/dreamor/` are authoritative; the usage examples in their
 | `Col<T, "name">` | Column type. Implicit `Col(T)`, `operator T()`, `get()`, `->` and `*` for pointer `T`, `==`, default construction |
 | `Col<...>::kName` | The name, `std::string_view` |
 | `ColumnName` | Type of the name template argument (a string literal) |
-| `keyName(Col)` | Name token: the value's `keyName` if one is found (same namespace as the entity), else the entity's `primaryKey`, else the value itself (must be `std::format`-able) |
+| `keyName(Col)` | The value's `keyName` if one is found (same namespace as the entity), otherwise the value itself. A variable's name and a column under `std::format` use, for an entity pointer with no `keyName`, the entity's `primaryKey`; the token must be `std::format`-able |
 | `std::formatter<Col<...>>` | A column prints as its name token: `std::format("Cap_{}_{}", i, j)` names a row the way VarTable names variables. No format spec; a column with no token has none |
 | `std::hash<Col<...>>` | Columns can key `std::unordered_map` |
 | `PredicateColumns<F>` | Specialization point: `template <> struct dreamor::PredicateColumns<F> { using type = std::tuple<Cols...>; };` for a function object with a template `operator()` |
@@ -249,8 +249,9 @@ sumOf<Col>(container, term)
 set built by hand - mainly what an algorithm computes from a solve. A parameter is better its entity's field, or a
 named callable when an expression defines it (`docs/philosophy.md`).
 
-- `ValueTable<Keys...>{set, value}` - AMPL's `param {S}` where one is wanted: `value` is a number or a column callable, as a VarTable's
-  bounds are; the set's columns must be exactly `Keys...`, in order. Shares the set's row index with the tables on it.
+- `ValueTable<Keys...>{set, value}` - a table built by hand (AMPL's `param {S}`, where a design has a reason for
+  one): `value` is a number or a column callable, as a VarTable's bounds are; the set's columns must be exactly
+  `Keys...`, in order. Shares the set's row index with the tables on it.
 - A ValueTable is a column callable over its keys: pass it as a VarTable's bound or another ValueTable's value
   (`VarTable{env, sRUN, 0, hours}`), no lookup lambda.
 - `yieldPlan(keys...)`, `yieldPlan(row)` → `double`; `std::out_of_range` if absent (never a silent 0).

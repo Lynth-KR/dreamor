@@ -10,7 +10,7 @@
 | `Col<T, "name">` | 열 타입. `Col(T)`(암묵), `operator T()`, `get()`, 포인터면 `->`, `*`, `==`, 기본 생성 |
 | `Col<...>::kName` | 열 이름 (`std::string_view`) |
 | `ColumnName` | `Col`의 이름 템플릿 인자 타입 (문자열 리터럴) |
-| `keyName(Col)` | 열의 이름 토큰. 값에 `keyName`이 있으면 그것, 없으면 엔티티의 `primaryKey()`, 그것도 없으면 값 자체 |
+| `keyName(Col)` | 값에 `keyName`이 있으면 그것, 없으면 값 자체. 변수 이름과 `std::format`으로 찍은 열은, `keyName` 없는 엔티티 포인터면 그 엔티티의 `primaryKey()`를 씁니다 |
 | `std::formatter<Col<...>>` | 열을 이름 토큰으로 출력. `std::format("Cap_{}_{}", i, j)`로 VarTable이 변수 이름을 짓듯 행 이름을 지을 수 있음. 서식 지정은 받지 않음. 토큰이 없는 열에는 없음 |
 | `std::hash<Col<...>>` | 열을 `std::unordered_map` 키 등으로 쓸 수 있음 |
 | `PredicateColumns<F>` | 템플릿 `operator()` 함수 객체가 읽는 열을 선언하는 특수화 지점 |
@@ -79,7 +79,7 @@
 | `next(열...)`, `next(열..., steps)`, `prev(...)` 같은 꼴 | 이웃 행 포인터 또는 `nullptr` |
 | `nextOf(...)`, `prevOf(...)` 같은 꼴 | 이웃 행 자체. 이웃이 있어야 함(이웃이 있는 정의역 위의 AMPL `next(t)`). 없으면 debug 빌드는 멈춤, release 빌드는 무검사(UB) |
 | `nextCyclic(...)`, `prevCyclic(...)` | 끝에서 처음으로 돌아가는 이웃 |
-| `first()`, `last()`, `at(pos)` | 처음, 끝, 위치로 (`ordered<A...>()`에는 없음. 거기서 `ord`, `isFirst`, `isLast`는 그룹 안 기준) |
+| `first()`, `last()`, `at(pos)` | 처음, 끝, 위치로(범위 밖이면 `std::out_of_range`). `ordered<A...>()`에는 없음. 거기서 `ord`, `isFirst`, `isLast`는 그룹 안 기준 |
 | `first(열...)`, `last(열...)` | `ordered<A...>()`에서: `A...`의 열이 가리키는 그룹의 첫 행과 끝 행(AMPL의 `first(S[a])`). 그 그룹에 행이 있어야 함. 없으면 debug 빌드가 멈춤 |
 | `isFirst(열...)`, `isLast(열...)`, `contains(열...)` | 판정 |
 | `size()`, `empty()`, `members()` | 크기, 중복 제거된 집합 |

@@ -66,10 +66,11 @@ point is that what a user reads before the next error is the intended one-senten
 `// expect:` only have to be rejected. `control.cc` in the same folder is a control case checking that the shared
 prelude compiles; if it fails, the other cases would be meaningless, so it counts as a failure.
 
-CI (GitHub Actions) runs the stub and MathOpt modes with both GCC 13 and Clang 18 (checking the `// expect:` text
-with both compilers), the stub mode again at `-O3 -DNDEBUG`, under AddressSanitizer and UndefinedBehaviorSanitizer,
-and with GCC 16 and Clang 23, and goes as far as installing the CMake package and consuming it via `find_package`
-(`tests/cmake_consumer`, `tests/cmake_consumer_mathopt`). CPLEX is not on CI, so run `--cplex` locally.
+CI (GitHub Actions) runs the stub, MathOpt and HiGHS modes with both GCC 13 and Clang 18 (checking the `// expect:`
+text with both compilers), the stub mode again at `-O3 -DNDEBUG`, under AddressSanitizer and
+UndefinedBehaviorSanitizer, under ThreadSanitizer, and with GCC 16 and Clang 23, and goes as far as installing the
+CMake package and consuming it via `find_package` (`tests/cmake_consumer`, `tests/cmake_consumer_mathopt`). CPLEX is
+not on CI, so run `--cplex` locally.
 
 OR-Tools needs no installation: unpack the release's C++ prebuilt anywhere and point to that folder (no CMake needed).
 

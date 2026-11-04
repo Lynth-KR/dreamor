@@ -20,14 +20,17 @@ Version 0.6.1, MPL 2.0 (releases up to 0.5.0 were Apache 2.0).
 | `include/dreamor/mathopt.hpp` | MathOpt backend |
 | `include/dreamor/highs.hpp` | HiGHS backend, on HiGHS's own C++ API |
 | `include/dreamor/internal/` | Shared backend machinery (`var_table_core.hpp`, `row_index.hpp`, `sum_builder.hpp`, `inline_vector.hpp`) |
-| `include/dreamor/general/`, `include/dreamor/logger/` | Utilities (`tuple_hash.hpp`, `flat_index.hpp`, `format_buffer.hpp`, `third_party_headers.hpp`, `logger_light.hpp`) |
+| `include/dreamor/general/`, `include/dreamor/logger/` | Utilities (`tuple_hash.hpp`, `flat_index.hpp`, `aligned_vector.hpp`, `format_buffer.hpp`, `third_party_headers.hpp`, `logger_light.hpp`) |
 | `examples/` | Lot-sizing example: `production_planning_data.hpp` (the data, no dreamor), `production_planning_sets.hpp` (columns and sets, solver-free), `production_planning.hpp` (Concert), `production_planning_mathopt.hpp` (MathOpt), `production_planning_highs.hpp` (HiGHS), `production_planning_plain.hpp` (without dreamor, for comparison). `mathopt_samples/`: three OR-Tools MathOpt samples ported to dreamor, with a walkthrough of each port (keep Google's license header and the modification notice on these files) |
 | `tests/` | Framework-free tests, `tests/run_tests.sh`, Concert stub (`tests/stub/`), compile-fail cases |
-| `bench/` | Benchmarks, not run in CI (`bench/README.md`). `bench/catalog/`: layer 1, each operation against hand-written code over data shapes and access patterns, a resolution IV screening design per family (lookups, grouping, set operations, slices, generation, order) and a full design of its own for entities and solution values, against the lean Concert stub. `bench/scenario/`: layer 2, whole models (p-median, the modeling-language benchmarks' model, and the lot-sizing example as written) built by dreamor and by hand up to the solver's start, on the stub, CPLEX, MathOpt and HiGHS. `bench/common/`: the measurement header, the run's JSON result, the lean stub, the machine helpers. `bench/solver/`: how Concert's variable creation meets the caller's code. `bench/plan/`: how `makeSet`'s visit order compares with every other order - a cost model over made-up sets of 3 to 16 sources, and a timed three-source experiment |
+| `bench/` | Benchmarks, not run in CI (`bench/README.md`). `bench/catalog/`: layer 1, each operation against hand-written code over data shapes and access patterns, a resolution IV screening design per family (lookups, grouping, set operations, slices, generation, order) and a full design of its own for entities and solution values, against the lean Concert stub. `bench/scenario/`: layer 2, whole models (p-median, the model of the modeling-language benchmarks, and the lot-sizing example as written) built by dreamor and by hand up to the solver's start, on the stub, CPLEX, MathOpt and HiGHS. `bench/common/`: the measurement header, the run's JSON result, the lean stub, the machine helpers, the per-repetition code layouts, `--reuse`, the shared build steps, and an MPS comparison. `bench/solver/`: how Concert's variable creation meets the caller's code. `bench/plan/`: how `makeSet`'s visit order compares with every other order - a cost model over made-up sets of 3 to 16 sources, and a timed three-source experiment |
 | `skills/dreamor/` | Agent Skill for users writing dreamor code |
 | `README.md`, `docs/` | User documentation, English and Korean (`README.ko.md`, `docs/ko/`): the README introduces and maps; `docs/philosophy.md` the principles and rules of use, `docs/guide.md` every part in use, `docs/reference.md` the API in tables |
 | `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `NOTICE` | For people contributing (English and Korean), the Contributor Covenant 2.1, how to report a vulnerability privately, the copyright and attribution notice |
 | `cmake/`, `CMakeLists.txt` | `dreamor::dreamor` INTERFACE target and install/package config |
+| `tools/` | `format.sh`, `tidy.sh`, `ci_local.sh`, `hooks/pre-push`, `clang-format` (the pinned one, for an editor), `gen_compile_commands.py`, `gen_arity_tests.py`, `measure_compile_cost.py`, `diagnostics_report.py` (how readable the compiler's errors are for the compile_fail mistakes), `tree.sh` (the repository as a tree, without what git ignores) |
+| `.github/` | The CI workflow, issue forms and the pull request template |
+| `assets/` | The README's banner and slogan |
 
 ## Build and test
 
@@ -43,7 +46,8 @@ OPT="-O3 -DNDEBUG" tests/run_tests.sh # optimization; default -O1 -g
 SAN=1 tests/run_tests.sh             # Address + UndefinedBehavior + Leak sanitizers (stub mode only)
 SAN=thread tests/run_tests.sh        # ThreadSanitizer, a build of its own (stub mode only)
 JOBS=4 tests/run_tests.sh            # parallel compiles; default every core (tests still report in order)
-COMPILE_CHECKS=0 tests/run_tests.sh  # skip compile_fail and the syntax checks: they depend on the compiler alone
+COMPILE_CHECKS=0 tests/run_tests.sh  # skip compile_fail, syntax checks, documented-code tests: the compiler decides them
+UNIT_TESTS=0 tests/run_tests.sh      # the compiler's checks alone: no other tests, no contract_fail
 tools/format.sh                      # clang-format (C++) and ruff (Python) in place; --check changes nothing
 tools/tidy.sh                        # clang-tidy; needs compile_commands.json (tools/gen_compile_commands.py)
 tools/ci_local.sh [REV]              # what CI runs, on one commit checked out apart; records a pass for the hook
@@ -54,9 +58,11 @@ tools/ci_local.sh [REV]              # what CI runs, on one commit checked out a
   `tests/cplex/*.cpp` and the Concert example.
   - `compile_fail/makeset_too_many_columns*.cpp` pin the 65th column's message. They are generated by
     `tools/gen_arity_tests.py` - edit the script and re-run it, never the files.
-  - `test_differential.cpp`, a stress test, checks the set layer and sumOf against a plain-STL reference over a few hundred random
-    cases from a fixed seed. A change to the semantics of rows (order, repeats, grouping, neighbours) has to change
-    its reference too.
+  - `test_differential*.cpp` (five, one per row layout: `std::size_t` columns, 4- and 8-byte columns in turn,
+    entity pointers, a `std::string` column, `std::uint32_t` columns), a stress test, check the set layer and
+    sumOf against a plain-STL reference (`tests/differential.hpp`) over a few hundred random cases from a fixed
+    seed. A change to the semantics of rows (order, repeats, grouping,
+    neighbours) has to change the reference too.
 - **`--mathopt`** runs `tests/mathopt/*.cpp`, the MathOpt example, the ported samples in
   `examples/mathopt_samples/`, and `tests/mathopt/compile_fail/`.
   `test_cross_backend.cpp` builds the example on both backends and compares the constraints.
@@ -227,7 +233,8 @@ These behave identically on every backend. A change to one is a change to all:
 - a `VarTable` as a sum term.
 
 Backend-only features stay in their backend:
-- Concert only: semi-continuous variables.
+- Concert and HiGHS, not MathOpt (whose models have none): semi-continuous variables - Concert's `semiContinuous`
+  constructor, HiGHS's `kSemiContinuous` and `kSemiInteger` as the type.
 - MathOpt and HiGHS: `std::logic_error` from `solution()` when there is no (primal) solution - MathOpt would
   otherwise CHECK-fail, and HiGHS would hand back the values it left from before.
 - HiGHS only: `HighsEnv`, the model collected and passed to the `Highs` once; a row as a type of its own, so a
@@ -242,9 +249,10 @@ Shared logic belongs in `include/dreamor/internal/`.
 `EntityVector`, `ValueTable`), check with `bench/catalog/build.sh` and `bench/scenario/build.sh`:
 - both still build;
 - every arm still does the same work: a quick run of each family the change reaches
-  (`python3 run.py --family <family> --n-levels 100000 --reps 1` in `bench/catalog/`, then
-  `report.py`) and of a scenario (`python3 run.py --scenario lotsizing --levels 170 --reps 1` in
-  `bench/scenario/`, then `report.py`) report no check mismatch.
+  (`python3 run.py --family <family> --n-levels 100000 --reps 1 --layout off` in `bench/catalog/`, then
+  `report.py`) and of a scenario (`python3 run.py --scenario lotsizing --levels 170 --reps 1 --layout off` in
+  `bench/scenario/`, then `report.py`) report no check mismatch. `--layout off` because `build.sh` builds no
+  per-repetition copies unless `LAYOUTS` is set.
 
 A timing claim compares builds: the catalog's `run.py --builds base=<old>,head=<new>` and `compare.py`
 over the families the change reaches, the whole experiment and not a few cells (see "Optimize for a
@@ -257,8 +265,9 @@ machine.
 Misuse is stopped at compile time with a `static_assert` whose message is one sentence saying what to write
 instead (e.g. `sumOf(...) is not an expression yet: add .build() - ...`). When adding or changing a diagnostic:
 
-1. Add a case to `tests/compile_fail/` (Concert/set layer) or `tests/mathopt/compile_fail/`. Each case is one file
-   that starts with the SPDX line, then a `// expect: <text>` line, and includes `prelude.hpp`.
+1. Add a case to `tests/compile_fail/` (Concert/set layer), `tests/mathopt/compile_fail/` or
+   `tests/highs/compile_fail/`. Each case is one file that starts with the license header, then a
+   `// expect: <text>` line, and includes `prelude.hpp`.
 2. The runner requires `<text>` in the compiler's **first** error and its notes, not just a rejection. This must
    hold on both GCC 13 and Clang 18. Arrange overloads so the dreamor message comes first, not a wall of template
    errors.
@@ -267,7 +276,8 @@ instead (e.g. `sumOf(...) is not an expression yet: add .build() - ...`). When a
 
 A broken contract - a precondition such as "no source holds an element twice" - is undefined behavior, and only a
 debug build checks it: `DREAMOR_DEBUG_FATAL` prints one sentence naming the contract and aborts, as libstdc++'s
-assertions do. Each check has a case in `tests/contract_fail/`: a program that breaks the contract, with the same
+assertions do. Each check has a case in `tests/contract_fail/` (`tests/highs/contract_fail/` for the HiGHS
+backend's own): a program that breaks the contract, with the same
 `// expect: <text>` line, which the runner looks for in what the program prints before it stops.
 
 ## Concert stub
