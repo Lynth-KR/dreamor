@@ -39,8 +39,9 @@
 #               with address randomization off (setarch -R): with the entropy recent kernels use,
 #               TSan cannot place its shadow memory and stops before main.
 # WASM=1 builds for WebAssembly (wasm32) with Emscripten - CXX defaults to em++ - and runs each
-# test under Node.js, in stub mode and without SAN: the emsdk image (docker.io/emscripten/emsdk) has
-# both. It checks that dreamor builds and holds on a 32-bit std::size_t and libc++, not how fast.
+# test under Node.js, in stub mode or with --highs and a HiGHS built by the same Emscripten
+# (tools/containers/build-highs-wasm.sh), without SAN: the emsdk image (docker.io/emscripten/emsdk)
+# has both. It checks that dreamor builds and holds on a 32-bit std::size_t and libc++, not how fast.
 # STDLIB=libc++ builds against LLVM's libc++ rather than the compiler's default (libstdc++ on Linux), in stub mode,
 # with Clang and the libc++ of its LLVM version installed: what every supported standard library has in common
 # holds there too. The solvers' prebuilt libraries are built against libstdc++, so the other modes stay on it.
@@ -97,13 +98,15 @@ case "${STDLIB:-}" in
   *) echo "STDLIB=libc++, or unset for the compiler's default"; exit 2 ;;
 esac
 if [ "$WASM" = 1 ]; then
-  [ "$MODE" = stub ] && [ -z "${SAN:-}" ] || { echo "WASM runs in stub mode only, without SAN"; exit 2; }
+  case $MODE in stub | highs) ;; *) echo "WASM runs in stub mode or with --highs"; exit 2 ;; esac
+  [ -z "${SAN:-}" ] || { echo "WASM runs without SAN"; exit 2; }
   # The tests throw and catch (-fwasm-exceptions); some run 8 threads, Web Workers on one shared
   # memory, started before main (a pool), since a worker cannot start while main waits for it.
-  # NODERAWFS: the files a test writes are the machine's. The -s settings are the linker's, so a
-  # syntax check does not get them.
+  # NODERAWFS: the files a test writes are the machine's. A stack of 8 MB, workers' of 2: HiGHS's
+  # simplex and MIP overflow Emscripten's 64 KB, unchecked, into the memory around it. The -s
+  # settings are the linker's, so a syntax check does not get them.
   COMMON="$COMMON -fwasm-exceptions -pthread"
-  WASM_LINK="-sPTHREAD_POOL_SIZE=8 -sALLOW_MEMORY_GROWTH -sNODERAWFS"
+  WASM_LINK="-sPTHREAD_POOL_SIZE=8 -sALLOW_MEMORY_GROWTH -sNODERAWFS -sSTACK_SIZE=8MB -sDEFAULT_PTHREAD_STACK_SIZE=2MB"
   RUN=node
 fi
 # dreamor's own code - the library, the tests, the examples - is held to STRICT: a header
@@ -159,6 +162,7 @@ elif [ "$MODE" = highs ]; then
   # -isystem: HiGHS's headers are not ours to warn about.
   FLAGS="$COMMON -Istub -isystem $HIGHS/include/highs"
   LIBS="-L$HIGHS_LIB -Wl,-rpath,$HIGHS_LIB -lhighs"
+  [ "$WASM" = 1 ] && LIBS="-L$HIGHS_LIB -lhighs"  # a static library, and wasm-ld has no rpath
   TESTS="$(ls highs/test_*.cpp) ../examples/production_planning_highs.cpp"
   echo "HiGHS: $HIGHS"
 else

@@ -141,6 +141,28 @@ jobs:
       - uses: actions/checkout@v7
       - run: WASM=1 tests/run_tests.sh
 
+  wasm-highs:
+    # The HiGHS backend on WebAssembly: HiGHS built by the wasm job's Emscripten (tools/containers/build-highs-wasm.sh,
+    # which the local CI's image runs too), kept in the cache by the script's content, and the HiGHS mode's tests,
+    # example, compile_fail and contract_fail run under Node.js. A job of its own, so that HiGHS's build stays out of
+    # the wasm job's result.
+    needs: lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container: emscripten/emsdk:6.0.13
+    steps:
+      - uses: actions/checkout@v7
+      - name: HiGHS for wasm, from the cache
+        id: highs
+        uses: actions/cache@v6
+        with:
+          path: /opt/highs
+          key: highs-wasm-emsdk-6.0.13-${{ hashFiles('tools/containers/build-highs-wasm.sh') }}
+      - name: HiGHS for wasm, built
+        if: steps.highs.outputs.cache-hit != 'true'
+        run: sh tools/containers/build-highs-wasm.sh /opt/highs
+      - run: WASM=1 tests/run_tests.sh --highs /opt/highs
+
   mathopt:
     # The MathOpt backend against the OR-Tools C++ prebuilt, solving with HiGHS: unit tests,
     # the example, the Concert-vs-MathOpt comparison of the example's constraints, and the

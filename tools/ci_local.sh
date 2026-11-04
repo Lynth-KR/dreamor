@@ -26,10 +26,17 @@ rev=$(git rev-parse --verify "${1:-HEAD}^{commit}")
 ORTOOLS_DIR=${ORTOOLS_DIR:-/opt/ortools}
 GCC_IMAGE=docker.io/library/gcc:16
 EMSDK_IMAGE=docker.io/emscripten/emsdk:6.0.13
-# The newest LLVM's libc++, which cannot share a machine with the floor's: an image of its own, built from the
-# commit's Containerfile and named by its content, so a change to the file builds it again.
-LIBCXX_FILE=tools/containers/libcxx-latest.Containerfile
-LIBCXX_IMAGE=localhost/dreamor-libcxx-latest:$(git show "$rev:$LIBCXX_FILE" | sha256sum | cut -c1-12)
+# Images this script builds for itself, from the commit's tools/containers/, each named by the content of the files
+# it is built from, so a change to one of them builds it again: the newest LLVM's libc++, which cannot share a
+# machine with the floor's, and HiGHS built by the wasm job's Emscripten.
+image_name() {
+  name=$1
+  shift
+  printf 'localhost/dreamor-%s:%s' "$name" \
+    "$(for f in "$@"; do git rev-parse "$rev:tools/containers/$f"; done | sha256sum | cut -c1-12)"
+}
+LIBCXX_IMAGE=$(image_name libcxx-latest libcxx-latest.Containerfile)
+HIGHS_WASM_IMAGE=$(image_name highs-wasm highs-wasm.Containerfile build-highs-wasm.sh)
 
 # The machine: every tool CI installs. uv runs the pinned formatters and clang-tidy (uvx), at the
 # versions tools/format.sh, tools/tidy.sh and ruff.toml pin.
@@ -50,10 +57,6 @@ if [ -n "$missing" ]; then
   printf 'ci_local: this machine lacks what CI has:\n%b' "$missing" >&2
   exit 1
 fi
-if ! podman image exists "$LIBCXX_IMAGE"; then
-  echo "ci_local: building $LIBCXX_IMAGE from $LIBCXX_FILE (once per change of the file)"
-  git show "$rev:$LIBCXX_FILE" | podman build -q -t "$LIBCXX_IMAGE" -f - "$(dirname "$LIBCXX_FILE")" > /dev/null
-fi
 
 work=$(mktemp -d "${TMPDIR:-/tmp}/dreamor-ci.XXXXXX")
 logs=$work/logs
@@ -73,6 +76,18 @@ trap finish EXIT
 trap 'failed=" interrupted"; exit 130' INT TERM
 
 echo "ci_local: $(git log -1 --format='%h %s' "$rev")"
+# build_image NAME CONTAINERFILE: builds the image NAME from the commit's tools/containers/ unless it exists.
+build_image() {
+  podman image exists "$1" && return 0
+  if [ ! -d "$work/containers" ]; then
+    mkdir "$work/containers"
+    git archive "$rev" tools/containers | tar -x -C "$work/containers"
+  fi
+  echo "ci_local: building $1 (once per change of what it is built from; minutes)"
+  podman build -q -t "$1" -f "$work/containers/tools/containers/$2" "$work/containers/tools/containers" > /dev/null
+}
+build_image "$LIBCXX_IMAGE" libcxx-latest.Containerfile
+build_image "$HIGHS_WASM_IMAGE" highs-wasm.Containerfile
 CI_JOBS=${CI_JOBS:-4}
 JOBS=${JOBS:-$(($(nproc) / 2))}
 export ORTOOLS_DIR JOBS
@@ -137,6 +152,7 @@ job clang-latest 'CXX=clang++-23 tests/run_tests.sh'
 job "libcxx (18)" "CXX=clang++-18 STDLIB=libc++ COMPILE_CHECKS=0 tests/run_tests.sh"
 job "libcxx (latest)" "podman run --rm -e JOBS -v \"\$PWD\":/src -w /src $LIBCXX_IMAGE sh -c 'STDLIB=libc++ COMPILE_CHECKS=0 tests/run_tests.sh'"
 job wasm "podman run --rm -e JOBS -v \"\$PWD\":/src -w /src $EMSDK_IMAGE sh -c 'WASM=1 tests/run_tests.sh'"
+job "wasm (highs)" "podman run --rm -e JOBS -v \"\$PWD\":/src -w /src $HIGHS_WASM_IMAGE sh -c 'WASM=1 tests/run_tests.sh --highs /opt/highs'"
 for cxx in g++-13 clang++-18; do
   job "mathopt ($cxx)" "CXX=$cxx tests/run_tests.sh --mathopt \"\$ORTOOLS_DIR\" &&
     cmake -S tests/cmake_consumer_mathopt -B '$work/consumer-mathopt-$cxx' -DCMAKE_CXX_COMPILER=$cxx \

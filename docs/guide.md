@@ -482,6 +482,8 @@ the model being written and the `Highs` that solves it, and decides when one rea
   another, is a broken contract: a debug build stops on it.
 - A HiGHS call that fails throws `HighsError`, which carries the call and its `HighsStatus`; a model HiGHS refuses
   throws from that first reach (`"passModel"`).
+- **On WebAssembly** (Emscripten), link with a stack of 8 MB (`-sSTACK_SIZE=8MB`, and `-sDEFAULT_PTHREAD_STACK_SIZE=2MB`
+  with threads): HiGHS's simplex and MIP overflow the default of 64 KB, which nothing checks.
 
 ## Large models: transparent huge pages
 

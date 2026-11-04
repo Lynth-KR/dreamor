@@ -83,7 +83,8 @@ tools/ci_local.sh [REV]              # what CI runs, on one commit checked out a
   passes: the stub job on Clang 18 at `-O1 -g` and `-O3 -DNDEBUG` and on GCC 13 at `-O3 -DNDEBUG`, a sanitize job
   (`SAN=1` on GCC 13 and Clang 18, `SAN=thread` on GCC 13; GCC 13's `SAN=1` is its `-O1 -g` build), gcc-latest and
   clang-latest (stub mode on the newest releases), libcxx (stub mode on LLVM's libc++, 18 and the newest), wasm (stub
-  mode built by Emscripten, run under Node.js), and the MathOpt job on both compilers, which runs the HiGHS backend's
+  mode built by Emscripten, run under Node.js), wasm-highs (the HiGHS mode on WebAssembly, against a HiGHS built by
+  the same Emscripten and kept in CI's cache), and the MathOpt job on both compilers, which runs the HiGHS backend's
   tests too, on the HiGHS the OR-Tools prebuilt ships. The compile_fail cases and the syntax checks run once
   per compiler; the other jobs set `COMPILE_CHECKS=0`. The GCC 13 stub job and the MathOpt job also install the CMake
   package and build `tests/cmake_consumer` (`tests/cmake_consumer_mathopt`) through `find_package(dreamor)`. CI runs
@@ -93,8 +94,9 @@ tools/ci_local.sh [REV]              # what CI runs, on one commit checked out a
   worktree, so it tests what a push publishes and not the working tree. It checks for every tool CI installs first -
   GCC 13, Clang 18 and 23, libc++ 18, podman with the `gcc:16` and `emscripten/emsdk` images, cmake, OR-Tools at
   `$ORTOOLS_DIR`, and uv (for the pinned formatters and clang-tidy) - and runs nothing if one is missing. The newest
-  libc++ cannot be installed beside 18 (their packages conflict), so it runs in an image `ci_local.sh` builds from the
-  commit's `tools/containers/libcxx-latest.Containerfile`, named by the file's content, once per change of it. A pass
+  libc++ cannot be installed beside 18 (their packages conflict), so it runs in an image `ci_local.sh` builds, as it
+  builds the wasm-highs job's (Emscripten with HiGHS): from the commit's `tools/containers/`, named by the content of
+  the files each is built from, once per change of them (minutes). A pass
   is recorded by the commit's tree (in `ci-passed/` under the git directory), and `tools/hooks/pre-push` stops a push
   to main whose tree has none - it looks the record up rather than running the jobs, so run `tools/ci_local.sh` before
   pushing, and a commit reworded or signed again keeps its pass. A push that changes Markdown alone needs no record,
@@ -189,7 +191,10 @@ nothing claims it works.
 - **Checking.** The standard library's common ground is the libcxx job's (libc++ 18 and the newest) beside the
   GCC and Clang jobs' libstdc++; the MSVC STL is checked with Windows, below. WebAssembly is CI's wasm job: the emsdk
   image at one pinned version (`docker.io/emscripten/emsdk:6.0.13`, in `ci.yml` and `tools/ci_local.sh`), for
-  Emscripten whose LLVM and libc++ are 18 or later.
+  Emscripten whose LLVM and libc++ are 18 or later; the HiGHS backend there is the wasm-highs job's, with HiGHS
+  built by `tools/containers/build-highs-wasm.sh`. HiGHS's simplex and MIP need a stack of 8 MB there
+  (`-sSTACK_SIZE=8MB`, which `WASM=1` gives the tests): Emscripten's default of 64 KB overflows, unchecked, into
+  the memory around it.
   Locally: `podman run --rm -v "$PWD":/src -w /src docker.io/emscripten/emsdk:6.0.13 sh -c 'WASM=1
   tests/run_tests.sh'`. Windows is not on CI. Build the default-mode tests (`tests/test_*.cpp` with `-Itests/stub`)
   with cl.exe (`cl /std:c++20 /EHsc`, in a Developer Command Prompt of Visual Studio 2022) and with clang-cl, and run
