@@ -25,7 +25,7 @@ Version 0.6.1, MPL 2.0 (releases up to 0.5.0 were Apache 2.0).
 | `tests/` | Framework-free tests, `tests/run_tests.sh`, Concert stub (`tests/stub/`), compile-fail cases |
 | `bench/` | Benchmarks, not run in CI (`bench/README.md`). `bench/catalog/`: layer 1, each operation against hand-written code over data shapes and access patterns, a resolution IV screening design per family (lookups, grouping, set operations, slices, generation, order) and a full design of its own for entities and solution values, against the lean Concert stub. `bench/scenario/`: layer 2, whole models (p-median, the model of the modeling-language benchmarks, and the lot-sizing example as written) built by dreamor and by hand up to the solver's start, on the stub, CPLEX, MathOpt and HiGHS. `bench/common/`: the measurement header, the run's JSON result, the lean stub, the machine helpers, the per-repetition code layouts, `--reuse`, the shared build steps, and an MPS comparison. `bench/solver/`: how Concert's variable creation meets the caller's code. `bench/plan/`: how `makeSet`'s visit order compares with every other order - a cost model over made-up sets of 3 to 16 sources, and a timed three-source experiment |
 | `skills/dreamor/` | Agent Skill for users writing dreamor code |
-| `README.md`, `docs/` | User documentation, in English alone (one version to keep true): the README introduces and maps; `docs/philosophy.md` the principles and rules of use, `docs/guide.md` every part in use, `docs/reference.md` the API in tables |
+| `README.md`, `docs/` | Documentation, in English alone (one version to keep true): the README introduces and maps; `docs/philosophy.md` the principles and rules of use, `docs/guide.md` every part in use, `docs/reference.md` the API in tables; `docs/ci.md` the CI, for people working on dreamor |
 | `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `NOTICE` | For people contributing, the Contributor Covenant 2.1, how to report a vulnerability privately, the copyright and attribution notice |
 | `cmake/`, `CMakeLists.txt` | `dreamor::dreamor` INTERFACE target and install/package config |
 | `tools/` | `format.sh`, `tidy.sh`, `ci_local.sh`, `hooks/pre-push`, `clang-format` (the pinned one, for an editor), `gen_compile_commands.py`, `gen_arity_tests.py`, `measure_compile_cost.py`, `diagnostics_report.py` (how readable the compiler's errors are for the compile_fail mistakes), `tree.sh` (the repository as a tree, without what git ignores), `containers/` (images `ci_local.sh` builds for itself) |
@@ -79,38 +79,18 @@ tools/ci_local.sh [REV]              # what CI runs, on one commit checked out a
   in a user's strict build. The ported samples and the compile_fail cases build with `-Wall -Wextra` only - a
   warning must not become a compile_fail case's first error. Tests compare doubles with `exactlyEqual` /
   `isExactlyZero` from `tests/float_compare.hpp`, never with `==`.
-- **CI** (`.github/workflows/ci.yml`) runs a lint job (`tools/format.sh --check`, then `tools/tidy.sh`), and once it
-  passes: the stub job on Clang 18 at `-O1 -g` and `-O3 -DNDEBUG` and on GCC 13 at `-O3 -DNDEBUG`, a sanitize job
-  (`SAN=1` on GCC 13 and Clang 18, `SAN=thread` on GCC 13; GCC 13's `SAN=1` is its `-O1 -g` build), gcc-latest and
-  clang-latest (stub mode on the newest releases), libcxx (stub mode on LLVM's libc++, 18 and the newest), wasm (stub
-  mode built by Emscripten, run under Node.js), wasm-highs (the HiGHS mode on WebAssembly, against a HiGHS built by
-  the same Emscripten and kept in CI's cache), and the MathOpt job on both compilers, which runs the HiGHS backend's
-  tests too, on the HiGHS the OR-Tools prebuilt ships. The compile_fail cases and the syntax checks run once
-  per compiler; the other jobs set `COMPILE_CHECKS=0`. The GCC 13 stub job and the MathOpt job also install the CMake
-  package and build `tests/cmake_consumer` (`tests/cmake_consumer_mathopt`) through `find_package(dreamor)`. CI runs
-  on pushes to main and on pull requests, not on a change of Markdown alone; a work branch runs it by hand
-  (`gh workflow run tests --ref <branch>`).
-- **Local CI** (`tools/ci_local.sh`) runs the same jobs on this machine, over a commit checked out in a temporary
-  worktree, so it tests what a push publishes and not the working tree. It checks for every tool CI installs first -
-  GCC 13, Clang 18 and 23, libc++ 18, podman with the `gcc:16` and `emscripten/emsdk` images, cmake, OR-Tools at
-  `$ORTOOLS_DIR`, and uv (for the pinned formatters and clang-tidy) - and runs nothing if one is missing. The newest
-  libc++ cannot be installed beside 18 (their packages conflict), so it runs in an image `ci_local.sh` builds, as it
-  builds the wasm-highs job's (Emscripten with HiGHS): from the commit's `tools/containers/`, named by the content of
-  the files each is built from, once per change of them (minutes). A pass
-  is recorded by the commit's tree (in `ci-passed/` under the git directory), and `tools/hooks/pre-push` stops a push
-  to main whose tree has none - it looks the record up rather than running the jobs, so run `tools/ci_local.sh` before
-  pushing, and a commit reworded or signed again keeps its pass. A push that changes Markdown alone needs no record,
-  as CI does not run for one. Turn the hook on per clone with `git config core.hooksPath tools/hooks`.
-- **Compiler support** is a range tested at both ends, nothing in between: the floor is GCC 13 / Clang 18 (raising it
-  is a decision, not a cleanup), the ceiling the newest releases (GCC 16 from the `gcc:16` image, Clang 23 from
-  apt.llvm.org). The standard library has a range of its own, the same way: libstdc++ through the GCCs, LLVM's libc++
-  from 18 (Clang 18's) to the newest (the libcxx job). Bump the ceiling at each major release - GCC every spring, LLVM
-  every March and September - in gcc-latest and clang-latest, and with an LLVM bump the libcxx job's newest version
-  (`ci.yml`'s matrix and `LLVM_VERSION` in `tools/containers/libcxx-latest.Containerfile`). A new warning or a changed
-  first error there is what users of that compiler will see: fix it, then bump. Emscripten is not a range: it has no
-  long-term release, so the wasm job pins one version, and moving it is a tool update. Locally: `CXX=clang++-23
-  tests/run_tests.sh`, and `podman run --rm -v "$PWD":/src -w /src docker.io/library/gcc:16 sh -c 'CXX=g++
-  tests/run_tests.sh'`.
+- **CI** is `docs/ci.md`: the jobs, what they cover, their images and caches, how to bump them, and how to run
+  them locally. It runs on pushes to main and on pull requests, not on a change of Markdown alone; a work branch runs
+  it by hand (`gh workflow run tests --ref <branch>`). A job is written twice - `.github/workflows/ci.yml` and
+  `tools/ci_local.sh` - and described once, in `docs/ci.md`: change the three together.
+- **Local CI** (`tools/ci_local.sh`) runs every job over one commit checked out apart, and records a pass by the
+  commit's tree; `tools/hooks/pre-push` stops a push to main whose tree has none. Run it before pushing to main. Turn
+  the hook on per clone with `git config core.hooksPath tools/hooks`.
+- **Compiler support** is a range tested at both ends, nothing in between: the floor is GCC 13 / Clang 18, with
+  LLVM's libc++ 18 beside libstdc++ (raising it is a decision, not a cleanup); the ceiling is the newest releases,
+  bumped at each major (`docs/ci.md`, "Bumping"). A new warning or a changed first error there is what users of that
+  compiler will see: fix it, then bump. Emscripten is not a range: one version is pinned, and moving it is a tool
+  update.
 - **Formatting** is `.clang-format` (clang-format 23.1.3) and `ruff.toml` (ruff 0.17.1), pinned because output differs
   between versions. The scripts run the pinned versions through `uvx`, so all they need is
   [uv](https://docs.astral.sh/uv/); nothing is installed on PATH, and another project's pins do not collide.
@@ -413,7 +393,7 @@ Several documents are mirrored by code, so they change together:
 | The public API, its defaults, or a runtime exception | `docs/reference.md`, the guide where it explains that part (`docs/guide.md`), `skills/dreamor/SKILL.md`, `skills/dreamor/references/api.md` |
 | A compile-time message | its `// expect:` line and `skills/dreamor/references/diagnostics.md` |
 | What generating a set costs to compile (`set.hpp`, `plan.hpp`) | the compile-cost table in `docs/guide.md`: `python3 tools/measure_compile_cost.py` |
-| A CI job (`.github/workflows/ci.yml`) | the same job in `tools/ci_local.sh` |
+| A CI job (`.github/workflows/ci.yml`) | the same job in `tools/ci_local.sh`, and `docs/ci.md` |
 | The version | `project(... VERSION ...)` in `CMakeLists.txt` (packages use `SameMinorVersion` compatibility), the `find_package(dreamor 0.6 ...)` lines in the READMEs, and the skill's title |
 
 `compile_commands.json` (from `python3 tools/gen_compile_commands.py`) is machine-specific; do not commit it.

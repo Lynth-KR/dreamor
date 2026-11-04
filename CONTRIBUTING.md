@@ -69,11 +69,9 @@ point is that what a user reads before the next error is the intended one-senten
 `// expect:` only have to be rejected. `control.cc` in the same folder is a control case checking that the shared
 prelude compiles; if it fails, the other cases would be meaningless, so it counts as a failure.
 
-CI (GitHub Actions) runs the stub, MathOpt and HiGHS modes with both GCC 13 and Clang 18 (checking the `// expect:`
-text with both compilers), the stub mode again at `-O3 -DNDEBUG`, under AddressSanitizer and
-UndefinedBehaviorSanitizer, under ThreadSanitizer, with GCC 16 and Clang 23, on libc++ 18 and the newest, and built
-for WebAssembly by Emscripten, and goes as far as installing the CMake package and consuming it via `find_package`
-(`tests/cmake_consumer`, `tests/cmake_consumer_mathopt`). CPLEX is not on CI, so run `--cplex` locally.
+CI (GitHub Actions) runs these modes over both ends of the compiler and standard-library range, under the
+sanitizers, on WebAssembly, and through the CMake package: [the CI](docs/ci.md) lists every job and how to run them
+all locally. CPLEX is not on CI, so run `--cplex` locally.
 
 OR-Tools needs no installation: unpack the release's C++ prebuilt anywhere and point to that folder (no CMake needed).
 
@@ -126,9 +124,8 @@ this page is not enough.
   `Signed-off-by: Your Name <you@example.com>`, by which you certify the [DCO](https://developercertificate.org/):
   that you wrote the change or have the right to submit it under the project's license, MPL 2.0. A pull request
   whose commits are not signed off cannot be merged.
-- **CI** runs on every pull request: formatting, clang-tidy, the tests on GCC 13, 16, Clang 18, 23, libc++ and
-  WebAssembly, the sanitizers, the MathOpt backend, and the CMake package. CPLEX is not on CI; if you touch
-  Concert-facing code and have CPLEX, run `tests/run_tests.sh --cplex`.
+- **CI** runs on every pull request ([the jobs](docs/ci.md)). CPLEX is not on CI; if you touch Concert-facing code
+  and have CPLEX, run `tests/run_tests.sh --cplex`.
 - The maintainer may squash or reword commits so that the history reads by theme.
 
 ## Code of conduct
