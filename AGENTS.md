@@ -25,8 +25,8 @@ Version 0.6.1, MPL 2.0 (releases up to 0.5.0 were Apache 2.0).
 | `tests/` | Framework-free tests, `tests/run_tests.sh`, Concert stub (`tests/stub/`), compile-fail cases |
 | `bench/` | Benchmarks, not run in CI (`bench/README.md`). `bench/catalog/`: layer 1, each operation against hand-written code over data shapes and access patterns, a resolution IV screening design per family (lookups, grouping, set operations, slices, generation, order) and a full design of its own for entities and solution values, against the lean Concert stub. `bench/scenario/`: layer 2, whole models (p-median, the model of the modeling-language benchmarks, and the lot-sizing example as written) built by dreamor and by hand up to the solver's start, on the stub, CPLEX, MathOpt and HiGHS. `bench/common/`: the measurement header, the run's JSON result, the lean stub, the machine helpers, the per-repetition code layouts, `--reuse`, the shared build steps, and an MPS comparison. `bench/solver/`: how Concert's variable creation meets the caller's code. `bench/plan/`: how `makeSet`'s visit order compares with every other order - a cost model over made-up sets of 3 to 16 sources, and a timed three-source experiment |
 | `skills/dreamor/` | Agent Skill for users writing dreamor code |
-| `README.md`, `docs/` | User documentation, English and Korean (`README.ko.md`, `docs/ko/`): the README introduces and maps; `docs/philosophy.md` the principles and rules of use, `docs/guide.md` every part in use, `docs/reference.md` the API in tables |
-| `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `NOTICE` | For people contributing (English and Korean), the Contributor Covenant 2.1, how to report a vulnerability privately, the copyright and attribution notice |
+| `README.md`, `docs/` | User documentation, in English alone (one version to keep true): the README introduces and maps; `docs/philosophy.md` the principles and rules of use, `docs/guide.md` every part in use, `docs/reference.md` the API in tables |
+| `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `NOTICE` | For people contributing, the Contributor Covenant 2.1, how to report a vulnerability privately, the copyright and attribution notice |
 | `cmake/`, `CMakeLists.txt` | `dreamor::dreamor` INTERFACE target and install/package config |
 | `tools/` | `format.sh`, `tidy.sh`, `ci_local.sh`, `hooks/pre-push`, `clang-format` (the pinned one, for an editor), `gen_compile_commands.py`, `gen_arity_tests.py`, `measure_compile_cost.py`, `diagnostics_report.py` (how readable the compiler's errors are for the compile_fail mistakes), `tree.sh` (the repository as a tree, without what git ignores) |
 | `.github/` | The CI workflow, issue forms and the pull request template |
@@ -358,11 +358,11 @@ Several documents are mirrored by code, so they change together:
 
 | If you change | Also change |
 |---|---|
-| A code block in `README.md` or `docs/guide.md` | the same block in its Korean version (`README.ko.md`, `docs/ko/guide.md`: code is identical; only prose and comments differ), and `tests/test_readme.cpp`, which compiles that code |
+| A code block in `README.md` or `docs/guide.md` | `tests/test_readme.cpp`, which compiles that code |
 | A usage example in a header comment | `tests/test_docs.cpp`, which compiles those examples |
-| The public API, its defaults, or a runtime exception | `docs/reference.md` and `docs/ko/reference.md`, the guide where it explains that part (`docs/guide.md`, `docs/ko/guide.md`), `skills/dreamor/SKILL.md`, `skills/dreamor/references/api.md` |
+| The public API, its defaults, or a runtime exception | `docs/reference.md`, the guide where it explains that part (`docs/guide.md`), `skills/dreamor/SKILL.md`, `skills/dreamor/references/api.md` |
 | A compile-time message | its `// expect:` line and `skills/dreamor/references/diagnostics.md` |
-| What generating a set costs to compile (`set.hpp`, `plan.hpp`) | the compile-cost table in both guides (`docs/guide.md`, `docs/ko/guide.md`): `python3 tools/measure_compile_cost.py` |
+| What generating a set costs to compile (`set.hpp`, `plan.hpp`) | the compile-cost table in `docs/guide.md`: `python3 tools/measure_compile_cost.py` |
 | A CI job (`.github/workflows/ci.yml`) | the same job in `tools/ci_local.sh` |
 | The version | `project(... VERSION ...)` in `CMakeLists.txt` (packages use `SameMinorVersion` compatibility), the `find_package(dreamor 0.6 ...)` lines in the READMEs, and the skill's title |
 

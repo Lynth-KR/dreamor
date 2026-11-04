@@ -1,6 +1,5 @@
 # Contributing to dreamor
 
-**English** · [한국어](CONTRIBUTING.ko.md)
 
 Thank you for looking. dreamor is maintained by one person ([@Lynth-KR](https://github.com/Lynth-KR)), and bug
 reports, questions, fixes and ideas are all welcome. Issues, pull requests and discussions are written in English.
@@ -102,7 +101,7 @@ OR-Tools paths come from the environment variables above), and the repository's 
   Clang 18 alike; a new debug-build contract check, with a case in `tests/contract_fail/`.
 - **Documentation that mirrors code.** The code in the [guide](docs/guide.md) and the README is compiled by
   `tests/test_readme.cpp`, and the examples in header comments by `tests/test_docs.cpp`: change them together. A
-  change to the public API changes the [API reference](docs/reference.md), its Korean version, and the agent skill
+  change to the public API changes the [API reference](docs/reference.md) and the agent skill
   in `skills/dreamor/`.
 - **Performance.** A claim that something is faster comes with a measurement: the catalog compares two builds of
   the library run by run ([bench/README.md](bench/README.md#checking-a-change)). An optimization has to rest on

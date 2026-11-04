@@ -18,7 +18,6 @@
 
 [Quick start](#quick-start)&emsp;[Building sets](docs/guide.md#building-sets--makeset)&emsp;[VarTable](docs/guide.md#variable-families--vartable)&emsp;[Sums](docs/guide.md#sums--sumof)&emsp;[OR-Tools samples](examples/mathopt_samples/README.md)&emsp;[Public API](docs/reference.md#public-api-reference)
 
-**English** · [한국어](README.ko.md)
 
 </div>
 

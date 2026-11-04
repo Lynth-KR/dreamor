@@ -1,6 +1,5 @@
 # Public API reference
 
-**English** · [한국어](ko/reference.md)
 
 Every public type and function, by header. The [guide](guide.md) explains them in use.
 

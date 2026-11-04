@@ -1,6 +1,5 @@
 # Guide
 
-**English** · [한국어](ko/guide.md)
 
 Every part of dreamor in the order a model uses them: columns and entities, building sets and deriving them,
 grouping, variable families, sums, constraints and solutions. The [README's quick start](../README.md#quick-start)

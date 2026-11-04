@@ -1,6 +1,5 @@
 # OR-Tools MathOpt samples, ported to dreamor
 
-[한국어](README.ko.md)
 
 Three of the C++ samples that ship with OR-Tools MathOpt, rewritten the way dreamor is meant to
 be used. The point is not speed — the instances are tiny — but how the model code changes when

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MPL-2.0
 # This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 # not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""Measures what a wide set costs to compile, for the table in docs/guide.md / docs/ko/guide.md.
+"""Measures what a wide set costs to compile, for the table in docs/guide.md.
 
     python3 tools/measure_compile_cost.py [compiler ...]     (default: g++ clang++)
 

@@ -1,6 +1,5 @@
 # Philosophy
 
-**English** · [한국어](ko/philosophy.md)
 
 dreamor is small on purpose. This page gathers what it holds to - the principles behind every part, the names it
 recommends, the rules of use, and what it leaves out on purpose - so that a user knows what to expect of it and a
