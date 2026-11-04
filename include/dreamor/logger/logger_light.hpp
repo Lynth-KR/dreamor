@@ -42,9 +42,14 @@ inline constexpr std::string_view kColorDim                  = "\033[90m";
 inline constexpr std::array<std::string_view, 3> kLevelColor = {"\033[32m", "\033[33m", "\033[31m"};
 inline constexpr std::array<std::string_view, 3> kLevelTag   = {"INFO", "WARN", "ERROR"};
 
-// Whether `stream` is a terminal; the platforms spell it differently.
+// Whether `stream` is a terminal, to color the output; the platforms spell it differently. Emscripten's
+// isatty() answers yes for its console device wherever the output goes - a browser's console, which prints
+// ANSI codes as text, or a file - so there the answer is no.
 inline bool isTerminal(FILE* stream) noexcept {
-#ifdef _WIN32
+#ifdef __EMSCRIPTEN__
+  static_cast<void>(stream);
+  return false;
+#elif defined(_WIN32)
   return _isatty(_fileno(stream)) != 0;
 #else
   return isatty(fileno(stream)) != 0;
