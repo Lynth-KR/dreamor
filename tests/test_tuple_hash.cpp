@@ -5,10 +5,12 @@
 // general::TupleHash on the keys a model has - integer grids, entity pointers, strings - which
 // std::hash leaves almost as they are: every key gets its own 64-bit hash, and the low bits a
 // FlatIndex indexes by spread over the slots as a random hash's would.
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <random>
 #include <string>
 #include <tuple>
 #include <unordered_set>
@@ -16,6 +18,7 @@
 
 #include "check.hpp"
 #include "dreamor/general/tuple_hash.hpp"
+#include "dreamor/index_set/column.hpp"
 
 namespace {
 
@@ -48,9 +51,61 @@ bool spreadsLikeRandom(const std::vector<Key>& keys) {
   return collisions <= 2 * expected && share > 0.98 * random;
 }
 
+enum class Shift : std::uint8_t { kNight = 3 };
+using cA = dreamor::Col<std::int64_t, "a">;
+using cB = dreamor::Col<std::uint16_t, "b">;
+
+// What every platform must hash these keys to: the 64-bit state, of which a 32-bit std::size_t holds
+// the low half. Integers, enums and columns of them only - std::hash (a string) is each library's own,
+// and a pointer each run's.
+template <typename... Ts>
+bool hashesTo(const std::tuple<Ts...>& key, std::uint64_t expected) {
+  return dreamor::general::TupleHash{}(key) == static_cast<std::size_t>(expected);
+}
+
 }  // namespace
 
 int main() try {
+  // The compiler's wide multiply (unsigned __int128, __umulh) and the one in 32-bit halves agree, bit
+  // for bit: on the edges of the halves, and on random pairs.
+  {
+    using dreamor::general::foldedMultiply;
+    using dreamor::general::foldedMultiplyPortable;
+    constexpr std::array<std::uint64_t, 6> kEdges{
+        0,
+        1,
+        0xffffffffULL,
+        0x100000000ULL,
+        ~std::uint64_t{0},
+        0x9e3779b97f4a7c15ULL,
+    };
+    bool agree = true;
+    for (const std::uint64_t a : kEdges) {
+      for (const std::uint64_t b : kEdges) {
+        agree = agree && foldedMultiply(a, b) == foldedMultiplyPortable(a, b);
+      }
+    }
+    // NOLINTNEXTLINE(bugprone-random-generator-seed): fixed on purpose, every run checks the same pairs
+    std::mt19937_64 random{20261104};
+    for (std::size_t i = 0; i < 100000; ++i) {
+      const std::uint64_t a = random();
+      const std::uint64_t b = random();
+      agree                 = agree && foldedMultiply(a, b) == foldedMultiplyPortable(a, b);
+    }
+    DREAMOR_CHECK(agree);
+  }
+
+  // The same hash on every platform.
+  DREAMOR_CHECK(hashesTo(std::tuple<std::uint64_t>{0}, 0x86b07c27d10d4567ULL));
+  DREAMOR_CHECK(hashesTo(std::tuple<std::int64_t, std::uint32_t>{-1, 7}, 0x8fc42df787a7f58dULL));
+  DREAMOR_CHECK(hashesTo(
+      std::tuple<std::uint64_t, std::uint64_t, std::uint64_t>{std::uint64_t{1} << 40U, 2, 0xdeadbeefcafebabeULL},
+      0xc5edb600197a6459ULL));
+  DREAMOR_CHECK(hashesTo(std::tuple<Shift, std::int32_t>{Shift::kNight, -5}, 0x30a7e0c6fc4f829aULL));
+  // A column hashes as the value it wraps, the 64 bits of it.
+  DREAMOR_CHECK(hashesTo(std::tuple<cA, cB>{cA{-5000000000LL}, cB{9}}, 0xec5bee906a4be5c6ULL));
+  DREAMOR_CHECK(hashesTo(std::tuple<std::int64_t, std::uint16_t>{-5000000000LL, 9}, 0xec5bee906a4be5c6ULL));
+
   // An integer grid: a combine that leaves the high half unmixed put 1e6 of these on 68k hashes.
   std::vector<std::tuple<std::size_t, std::size_t>> grid;
   for (std::size_t i = 0; i < 1000; ++i) {

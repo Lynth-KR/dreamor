@@ -17,6 +17,7 @@
 #include <array>
 #include <concepts>
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string_view>
@@ -218,13 +219,19 @@ consteval void checkColumns() {
 
 }  // namespace internal
 
+// TupleHash takes a column as the value it wraps, in 64 bits: found by argument-dependent lookup, as
+// std::swap's overloads are, and more specialized than general::hashElement's template.
+template <typename T, ColumnName Name>
+[[nodiscard]] constexpr std::uint64_t hashElement(const Col<T, Name>& column) noexcept {
+  return general::hashElement(column.get());
+}
+
 }  // namespace dreamor
 
-// TupleHash hashes a column through std::hash, so a column needs one: its value's, as hashElement
-// takes it.
+// A column in a standard unordered container hashes as its value does.
 template <typename T, dreamor::ColumnName Name>
 struct std::hash<dreamor::Col<T, Name>> {
   [[nodiscard]] std::size_t operator()(dreamor::Col<T, Name> column) const noexcept {
-    return dreamor::general::hashElement(column.get());
+    return static_cast<std::size_t>(dreamor::hashElement(column));
   }
 };

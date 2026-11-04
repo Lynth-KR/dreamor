@@ -134,11 +134,13 @@ clang-cl (Clang's MSVC-compatible driver, at Clang's floor, 18), on the MSVC STL
 being brought up: the code keeps the rules below that cl.exe needs, but no build of it has been checked yet, so
 nothing claims it works.
 
-- **Portable code over one platform's fast path.** No instruction-set intrinsics (`<immintrin.h>`, `_mm_*`), no
-  inline assembly, no target attributes: a gain that one CPU or one compiler alone gets widens the gap between
-  platforms. A compiler extension (`__int128`, `__builtin_*`) lives in one helper with a fallback every supported
-  compiler takes: `TupleHash::mix` (no `__int128` on cl.exe), `general::unreachable()`,
-  `FlatIndex::prefetchForWrite` (no prefetch where there is no builtin).
+- **Portable code over one platform's fast path.** What one instruction set alone has - SIMD (`<immintrin.h>`,
+  `_mm_*`, AVX2), BMI, target attributes, inline assembly - is not used: it splits an algorithm by CPU and widens the
+  gap between platforms. An operation every 64-bit CPU has, which compilers only spell differently, is fine in one
+  helper with a fallback in standard C++ that gives the same result: `general::foldedMultiply` takes the high
+  half of a 64x64 product as `__int128` (GCC, Clang) or `__umulh` (MSVC, `<intrin.h>`), and in 32-bit halves
+  elsewhere (`foldedMultiplyPortable`, which `tests/test_tuple_hash.cpp` holds against the others);
+  `general::unreachable()`; `FlatIndex::prefetchForWrite` (no prefetch where there is no builtin).
 - **The standard library's common ground.** Use what every supported implementation has at its floor - libstdc++ 13,
   libc++ 18, the MSVC STL of Visual Studio 2022 - and nothing that one of them adds or lacks. Where a feature outside
   that ground has one inside it that does the same at the same speed, take the inside one:
@@ -169,8 +171,10 @@ nothing claims it works.
 - **Code files are ASCII, comments included.** cl.exe reads a file without a byte-order mark in the system's code
   page unless the user passes `/utf-8`: on a Korean Windows (CP949) a UTF-8 character is warning C4819 in every
   build that includes the header. Write math in AMPL's words (`union`, `inter`, `sum {(i,k) in LINKS}`).
-- **A 32-bit `std::size_t` (wasm32).** A value that needs 64 bits says `std::uint64_t`, not `std::size_t`:
-  `TupleHash` keeps a 64-bit state and hands back its low half there.
+- **A 32-bit `std::size_t` (wasm32).** A value that needs 64 bits says `std::uint64_t`, not `std::size_t`. A key
+  of integers, enums or columns of them hashes the same on every platform: `hashElement` hands each element over
+  in 64 bits (a column through its own overload, found by argument-dependent lookup), `TupleHash` keeps a 64-bit
+  state and a 32-bit `std::size_t` holds its low half; `tests/test_tuple_hash.cpp` pins a few keys' hashes.
 - **The MSVC CRT's deprecation warnings count** (`fopen`, `getenv`, ... under `-Wdeprecated-declarations`): a header
   that warns there warns in a user's Windows build. Call the CRT's own spelling in the helper's `_WIN32` branch
   (`_dupenv_s` for `getenv`; `_fsopen` for `fopen`, since `fopen_s` opens the file unshared); never define
