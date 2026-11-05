@@ -1,4 +1,4 @@
-# dreamor 0.7 API reference
+# dreamor 0.8 API reference
 
 Contents: [Columns](#columns) · [Building sets](#building-sets) · [IndexSet](#indexset) · [Grouped and RowSlice](#grouped-and-rowslice) ·
 [Ordered](#ordered) · [Membership](#membership) · [Concert backend](#concert-backend-dreamorconcert) ·
