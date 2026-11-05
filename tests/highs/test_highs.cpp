@@ -352,6 +352,33 @@ static void solution() {
   DREAMOR_CHECK_THROWS(std::logic_error, vPick.solution(env));
 }
 
+static void scalar() {
+  // One variable beside a family: min t  s.t.  t >= x(i), x(i) >= i + 1  ->  t = 3. Options alone
+  // reach no model, so everything below is collected until minimize().
+  HighsOptions options;
+  options.output_flag = false;
+  hs::HighsEnv env{options};
+  const std::vector<std::size_t> I{1, 2};
+  const auto sI                = dreamor::makeSet<cI>(I).build();
+  const auto at_least_i_plus_1 = [](cI i) { return static_cast<double>(i.get()) + 1; };
+  const hs::VarTable<cI> x{env, sI, at_least_i_plus_1, 10};
+  const hs::HighsVar t = env.addVariable(0, 100, HighsVarType::kContinuous, "t");
+  for (const auto& row : sI) {
+    hs::addConstr(env, t >= x(row));
+  }
+  DREAMOR_CHECK(hs::minimize(env, t) == HighsStatus::kOk);  // the model reaches the Highs here
+  const Highs& highs = env.highs();
+  DREAMOR_CHECK(highs.getModelStatus() == HighsModelStatus::kOptimal);
+  DREAMOR_CHECK(std::abs(highs.getInfo().objective_function_value - 3) < 1e-6);
+  DREAMOR_CHECK(highs.getLp().col_names_[static_cast<std::size_t>(t.index())] == "t");
+
+  // Once the Highs has the model, a variable goes straight to it, with its type.
+  const HighsInt before = highs.getNumCol();
+  const hs::HighsVar b  = env.addVariable(0, 1, HighsVarType::kInteger, "b");
+  DREAMOR_CHECK(b.index() == before && highs.getNumCol() == before + 1);
+  DREAMOR_CHECK(highs.getLp().integrality_[static_cast<std::size_t>(b.index())] == HighsVarType::kInteger);
+}
+
 static void collected() {
   // What is written before the Highs is reached is collected and reaches it in one passModel: the
   // columns, the merged rows, the names given (and the empty ones), the objective with its Hessian.
@@ -601,6 +628,7 @@ int main() try {
   objective();
   sum();
   solution();
+  scalar();
   collected();
   longRows();
   errors();

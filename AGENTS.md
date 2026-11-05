@@ -205,8 +205,10 @@ Changes must keep these. They are the library's reason to exist, not style prefe
   operations never make a repeat, so a set never holds a row twice and a `VarTable`'s key-to-variable map is
   one-to-one. No user-facing check or deduplication (`distinct`, `assertUnique`); a debug build checks every source
   in `makeSet` (Diagnostics).
-- **One VarTable per variable family.** Variables are created only in the `VarTable` constructor, and a table's
-  structure never changes after construction.
+- **One VarTable per variable family.** A family of variables - variables over a set - is created only in a
+  `VarTable` constructor, and a table's structure never changes after construction. A single variable is the
+  solver's own (`IloNumVar`, MathOpt's `AddVariable`), or `HighsEnv::addVariable` on HiGHS, whose environment
+  collects the model and so owns the call.
 - **No new user-facing concept for performance.** Internal hashing and set sharing are fine; new knobs in the API
   are not.
 - **Optimize for a mechanism, not for the benchmark.** The benchmark's arms, factors, and data are this repository's
@@ -275,7 +277,8 @@ Backend-only features stay in their backend:
   constructor, HiGHS's `kSemiContinuous` and `kSemiInteger` as the type.
 - MathOpt and HiGHS: `std::logic_error` from `solution()` when there is no (primal) solution - MathOpt would
   otherwise CHECK-fail, and HiGHS would hand back the values it left from before.
-- HiGHS only: `HighsEnv`, the model collected and passed to the `Highs` once; a row as a type of its own, so a
+- HiGHS only: `HighsEnv`, the model collected and passed to the `Highs` once, and its `addVariable` for one variable
+  (highspy's); a row as a type of its own, so a
   row given as an objective and a quadratic row stop at compile time; `HighsError` for a HiGHS call that fails.
 
 Shared logic belongs in `include/dreamor/internal/backend/`.

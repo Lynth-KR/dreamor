@@ -37,7 +37,8 @@
 //   (none)                         HighsBoundedLinearExpression   an expression with its bounds: a row
 //   (none)                         HighsQuadraticExpression       objective only, as HiGHS takes it
 //   highs_cons                     HighsCons           a row and its environment
-//   Highs.addVariable              VarTable            a family of variables at once
+//   Highs.addVariable              HighsEnv::addVariable  one variable
+//   (none)                         VarTable            a family of variables over a set, at once
 //   Highs.addConstr(expr, name)    addConstr(env, row, name)
 //   Highs.setObjective(expr, s)    setObjective(env, objective, sense)
 //   Highs.minimize / maximize      minimize(env, objective) / maximize    then run(), as highspy does
@@ -741,7 +742,7 @@ template <typename L, typename R>
 auto operator<=(const L& /*lhs*/, const R& /*rhs*/) {
   static_assert(internal::always_false<L>,
                 "HiGHS takes quadratic terms only in the objective: a row is linear. Put the square in "
-                "setObjective() or minimize(), or bound an epigraph variable with linear rows.");
+                "setObjective() or minimize(), or bound an epigraph variable (env.addVariable()) with linear rows.");
   return false;
 }
 template <typename L, typename R>
@@ -749,7 +750,7 @@ template <typename L, typename R>
 auto operator>=(const L& /*lhs*/, const R& /*rhs*/) {
   static_assert(internal::always_false<L>,
                 "HiGHS takes quadratic terms only in the objective: a row is linear. Put the square in "
-                "setObjective() or minimize(), or bound an epigraph variable with linear rows.");
+                "setObjective() or minimize(), or bound an epigraph variable (env.addVariable()) with linear rows.");
   return false;
 }
 template <typename L, typename R>
@@ -757,7 +758,7 @@ template <typename L, typename R>
 auto operator==(const L& /*lhs*/, const R& /*rhs*/) {
   static_assert(internal::always_false<L>,
                 "HiGHS takes quadratic terms only in the objective: a row is linear. Put the square in "
-                "setObjective() or minimize(), or bound an epigraph variable with linear rows.");
+                "setObjective() or minimize(), or bound an epigraph variable (env.addVariable()) with linear rows.");
   return false;
 }
 
@@ -1068,6 +1069,14 @@ class HighsEnv {
     return highs_;
   }
 
+  // One variable, as highspy's addVariable: lb, ub, type and name as a VarTable takes them, the name as
+  // it is. A family of variables over a set is a VarTable. Collected until the Highs is reached, added to
+  // it after - one column either way.
+  [[nodiscard]] HighsVar addVariable(double lb         = 0,
+                                     double ub         = kHighsInf,
+                                     HighsVarType type = HighsVarType::kContinuous,
+                                     const char* name  = nullptr);
+
  private:
   friend struct detail::HighsEnvAccess;
 
@@ -1260,7 +1269,19 @@ struct HighsEnvAccess {
 
 }  // namespace dreamor::highs::detail
 
-namespace dreamor::highs {}  // namespace dreamor::highs
+namespace dreamor::highs {
+
+inline HighsVar HighsEnv::addVariable(double lb, double ub, HighsVarType type, const char* name) {
+  const auto bounds = [lb, ub](std::span<double> lower, std::span<double> upper) {
+    lower[0] = lb;
+    upper[0] = ub;
+  };
+  const HighsInt column = detail::HighsEnvAccess::addColumns(*this, 1, type, bounds);
+  if (name != nullptr) { detail::HighsEnvAccess::nameColumn(*this, column, name); }
+  return HighsVar{column, *this};
+}
+
+}  // namespace dreamor::highs
 
 namespace dreamor::highs::detail {
 

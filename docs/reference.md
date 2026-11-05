@@ -122,6 +122,7 @@ Every public type and function, by the header that brings it, under `dreamor/`. 
 |---|---|
 | `HighsEnv`, `HighsEnv{options}` | The model as written and the `Highs` that solves it; `options` is a `HighsOptions`, the Highs's before the model reaches it. Neither copied nor moved |
 | `env.highs()` | The `Highs`: the first call hands it the model in one `passModel`, and from then on everything written goes to it as written |
+| `env.addVariable(lb = 0, ub = kHighsInf, type = HighsVarType::kContinuous, name = nullptr)` | One variable, a `HighsVar` (highspy's `addVariable`): an epigraph or a makespan beside the families. A family over a set is a `VarTable` |
 | `VarTable<Keys...>{env, set, lb = 0, ub = kHighsInf, type = HighsVarType::kContinuous, name = nullptr}` | lb, ub are numbers or column functions |
 | `(keys...)`, `(row)`, `contains`, `size`, `keys`, `begin`/`end` | Same as Concert (variables are `HighsVar`) |
 | `solution(env)` | The `Highs`'s solution → `ValueTable`; `std::logic_error` if there is no primal solution |

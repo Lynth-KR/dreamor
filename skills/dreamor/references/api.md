@@ -203,6 +203,8 @@ sumOf<Col>(container, term)
 HighsEnv env;                            // the model as written, and the Highs that solves it; not copied, not moved
 HighsEnv env{options};                   // options: a HighsOptions, the Highs's before the model reaches it
 env.highs();                             // the Highs: the first call hands it the model in one passModel
+env.addVariable(lb = 0, ub = kHighsInf, type = HighsVarType::kContinuous,
+                name = nullptr);         // → HighsVar: one variable (an epigraph, a makespan); a family is a VarTable
 
 VarTable<Keys...>{HighsEnv& env, const IndexSet<Keys...>& set,
                   Lb lb = 0, Ub ub = kHighsInf, HighsVarType type = HighsVarType::kContinuous,
