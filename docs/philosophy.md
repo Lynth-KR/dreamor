@@ -37,6 +37,9 @@ contributor knows what a change has to keep.
   container. dreamor's own operations never make a repeat, so a set never holds a row twice and a `VarTable` has
   exactly one variable per key. This is a precondition, as in the standard library: a debug build checks it and
   stops on a sentence naming the source; a release build does not pay for the check.
+- **A set never owns its sources.** A set owns its rows, never the container they came from: a container handed
+  to `makeSet` is a named object the model keeps, and a temporary one stops at compile time. The entities are the
+  model's, held once in their own container; neither a set nor its builder ever takes a container over.
 - **The solver's API stays the solver's.** dreamor builds index sets, variable families and sums. Constraints,
   objectives, solving, bounds after construction and duals are written in the notation of the solver API each
   backend stands on - Concert's, MathOpt's, highspy's for HiGHS - so everything you know about your solver still
@@ -115,5 +118,6 @@ Three kinds: what the compiler stops, what dreamor takes on trust, and what it r
 | Pipe syntax (`S \| where(p)`) | No second way to do the same thing |
 | Coefficient arrays (`IloScalProd` style) | Coefficients are computed from entities in the term |
 | Checking for duplicate variable creation | Covered by rules 6 and 9 instead |
+| A temporary container as a source (`makeSet<cNode>(std::array{entr, exit})`) | A set never owns its sources. Name the container (`const std::array ends{entr, exit};`), or leave members out with a predicate: AMPL's `INTER diff {entr, exit}` is `sINTER.where(not_end)` |
 | Constraint programming (interval variables, `noOverlap`, cumulative functions) | Outside the scope of an algebraic modeling layer. The set layer is solver-independent, so when writing scheduling with CP Optimizer or CP-SAT you can still pass rows built with `makeSet`, `groupBy`, and `ordered()` straight to that API |
 

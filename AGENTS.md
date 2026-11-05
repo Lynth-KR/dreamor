@@ -257,6 +257,8 @@ Changes must keep these. They are the library's reason to exist, not style prefe
   - column generation;
   - coefficient-array overloads;
   - user-facing duplicate checks or deduplication of sets (see "Sets are sets, by contract");
+  - a set or its builder owning a source container - a temporary container in `makeSet` (`docs/philosophy.md`, "A set
+    never owns its sources");
   - constraint programming (interval variables, `noOverlap`, cumulative functions).
 
 ## Backend parity
