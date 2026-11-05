@@ -160,9 +160,35 @@ class Set {
   // Built by makeSet() and rebuilt by where(); not meant to be spelled out at call sites.
   Set(RangeTuple ranges, PredTuple preds) : ranges_{std::move(ranges)}, preds_{std::move(preds)} {}
 
-  // Neither the parameter order nor the chaining order matters.
+  // One predicate or several, and where() chained: all one AND. Neither the parameter order, the
+  // order of the predicates nor the chaining order matters.
+  template <typename... Preds>
+  [[nodiscard]] auto where(Preds... preds) const {
+    static_assert(sizeof...(Preds) > 0, "where() needs at least one predicate.");
+    (checkPredicate<Preds>(), ...);
+    auto next = std::tuple_cat(preds_, std::make_tuple(std::move(preds)...));
+    return Set<ElemTuple, RangeTuple, decltype(next)>{ranges_, std::move(next)};
+  }
+
+  // Non-const on purpose: views such as filter_view have no const begin(). This is a
+  // one-shot factory call, not an observer.
+  [[nodiscard]] internal::SetFor<ElemTuple> collect() {
+#ifndef NDEBUG
+    internal::SourceChecks checks;
+    checks_ = &checks;
+    checkSources(std::make_index_sequence<kSourceCount>{});
+#endif
+    indexJoins(std::make_index_sequence<kSourceCount>{});
+    internal::Rows<ElemTuple> out;
+    out.reserve(exactRows(std::make_index_sequence<kSourceCount>{}));
+    generate<0, std::index_sequence<>>(out);
+    checks_ = nullptr;
+    return internal::SetAccess::make(std::move(out));
+  }
+
+ private:
   template <typename Pred>
-  [[nodiscard]] auto where(Pred pred) const {
+  static consteval void checkPredicate() {
     static_assert(internal::no_indirect_call<Pred>,
                   "A bare function name decays to a function pointer and std::function "
                   "type-erases; either is an indirect call per candidate tuple. Pass a "
@@ -186,27 +212,8 @@ class Set {
                       std::tuple_size_v<typename internal::ColumnsOfPredicate<Pred>::type> != 0,
                   "The predicate reads no columns, so it would be a constant. Take the "
                   "columns it tests.");
-    auto next = std::tuple_cat(preds_, std::make_tuple(std::move(pred)));
-    return Set<ElemTuple, RangeTuple, decltype(next)>{ranges_, std::move(next)};
   }
 
-  // Non-const on purpose: views such as filter_view have no const begin(). This is a
-  // one-shot factory call, not an observer.
-  [[nodiscard]] internal::SetFor<ElemTuple> collect() {
-#ifndef NDEBUG
-    internal::SourceChecks checks;
-    checks_ = &checks;
-    checkSources(std::make_index_sequence<kSourceCount>{});
-#endif
-    indexJoins(std::make_index_sequence<kSourceCount>{});
-    internal::Rows<ElemTuple> out;
-    out.reserve(exactRows(std::make_index_sequence<kSourceCount>{}));
-    generate<0, std::index_sequence<>>(out);
-    checks_ = nullptr;
-    return internal::SetAccess::make(std::move(out));
-  }
-
- private:
   // How many rows collect() makes, when that is known before it makes them: every source a sized
   // range of its own - no dependent column, no join, no predicate - so the rows are the product of
   // the sources' sizes. Reserved, it spares the vector its doublings, each a copy of every row so

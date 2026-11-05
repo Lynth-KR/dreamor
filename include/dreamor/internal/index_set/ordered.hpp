@@ -118,6 +118,15 @@ class Ordered {
         "Name the Ordered first - const auto orderedPeriods = sPERIODS.ordered(); - its lookups hand out pointers into it, which would dangle once a temporary is gone.");
     std::terminate();
   }
+  // A position, not an element: a column converts to its value, which would be read as a position.
+  template <typename Column>
+    requires internal::is_column<Column>
+  [[nodiscard]] const Tup& at(const Column& /*element*/) const {
+    static_assert(internal::always_false<Column>,
+                  "at() takes a position, 0 to size() - 1, not a column, which would be read as a position. For an "
+                  "element's position, call ord(element).");
+    std::terminate();
+  }
 
   [[nodiscard]] const Tup& first() const& {
     static_assert(

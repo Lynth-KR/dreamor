@@ -324,6 +324,24 @@ class Grouped {
     std::terminate();
   }
 
+  // A group's position, not a key: a column converts to its value, which would be read as a position.
+  template <typename Column>
+    requires internal::is_column<Column>
+  [[nodiscard]] RowSlice<Tup> at(const Column& /*key*/) const {
+    static_assert(internal::always_false<Column>,
+                  "at() and keyAt() take a group's position, 0 to size() - 1, not a column, which would be read as "
+                  "a position. For a key's group, call slice(key).");
+    std::terminate();
+  }
+  template <typename Column>
+    requires internal::is_column<Column>
+  [[nodiscard]] const Key& keyAt(const Column& /*key*/) const {
+    static_assert(internal::always_false<Column>,
+                  "at() and keyAt() take a group's position, 0 to size() - 1, not a column, which would be read as "
+                  "a position. For a key's group, call slice(key).");
+    std::terminate();
+  }
+
   // The rows of a key - byItemPeriod.slice(i, t), or slice(key) with a key from keyAt() - or an
   // empty slice when the key is absent, so callers need no membership check first. The key's
   // columns themselves, in order (see key_args.hpp).

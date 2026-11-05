@@ -22,14 +22,14 @@ Every public type and function, by the header that brings it, under `dreamor/`. 
 | `makeSet<Cols...>(sources...)` | Set builder |
 | `interval::closed(first, last)` | Source: the integers `[first, last]`, AMPL's `first..last`; empty when the ends cross (`interval.hpp`) |
 | `interval::open`, `interval::closedOpen`, `interval::openClosed` | The same for `(first, last)`, `[first, last)`, `(first, last]` |
-| Builder `.where(p)` | Adds one predicate (call repeatedly for several) |
+| Builder `.where(p...)` | Adds predicates, all ANDed; chaining `where` ANDs too |
 | Builder `.collect()` | Finalizes into an `IndexSet` |
 
 **Sets** (`index_set.hpp`)
 | | |
 |---|---|
 | `IndexSet<Cols...>` | Read-only set, its type naming its columns. Default construction (empty set), O(1) copy |
-| `begin()`, `end()`, `size()` | Random-access iteration |
+| `begin()`, `end()`, `size()`, `empty()` | Random-access iteration |
 | `where(p...)`, `orderBy(key)`, `orderBy(key, descending)`, `select<Cols...>()`, `select(expr)` | Derivation → `IndexSet` (`ascending`, the default, and `descending` are tag objects in `dreamor`) |
 | `groupBy<Cols...>()` | → `Grouped` |
 | `membership()` | → `Membership` |
@@ -83,7 +83,7 @@ Every public type and function, by the header that brings it, under `dreamor/`. 
 | `first()`, `last()`, `at(pos)` | First, last, by position (`std::out_of_range` past the end); not under `ordered<A...>()`, where `ord`, `isFirst` and `isLast` are within the group |
 | `first(cols...)`, `last(cols...)` | Under `ordered<A...>()`: the first and last row of the group the columns of `A...` name - AMPL's `first(S[a])`. The group must have a row; if not, a debug build stops |
 | `isFirst(cols...)`, `isLast(cols...)`, `contains(cols...)` | Tests |
-| `size()`, `empty()`, `members()` | Size, the deduplicated set |
+| `size()`, `empty()`, `members()` | Size, the set |
 
 **Variables** (`concert.hpp`, namespace `dreamor::concert`)
 | | |

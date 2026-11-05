@@ -76,6 +76,6 @@ int main() try {
   DREAMOR_CHECK(rowsOnLine(both) && rowsOnLine(common) && rowsOnLine(missing));
   DREAMOR_CHECK(both.size() == IJ.size() && common.size() == kept.size() && missing.size() == IJ.size() - kept.size());
   const dreamor::IndexSet<cI, cJ> none;
-  DREAMOR_CHECK(rowsOnLine(none) && none.size() == 0);
+  DREAMOR_CHECK(rowsOnLine(none) && none.empty());
   return report("aligned_vector");
 } catch (...) { return ::uncaught(); }

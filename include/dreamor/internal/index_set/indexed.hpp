@@ -152,11 +152,12 @@ class IndexSet : public std::ranges::view_base {
   using iterator       = const_iterator;
 
   // Empty. Lets a model declare its sets as members and assign them once they are built.
-  IndexSet() : rows_{empty()} {}
+  IndexSet() : rows_{emptyRows()} {}
 
   [[nodiscard]] const_iterator begin() const noexcept { return internal::SetAccess::rows(*this).begin(); }
   [[nodiscard]] const_iterator end() const noexcept { return internal::SetAccess::rows(*this).end(); }
   [[nodiscard]] std::size_t size() const noexcept { return internal::SetAccess::rows(*this).size(); }
+  [[nodiscard]] bool empty() const noexcept { return size() == 0; }
 
   // --- Derivations (defined in set.hpp, algebra.hpp, grouped.hpp, ordered.hpp) ----------
   template <typename... Preds>
@@ -177,7 +178,7 @@ class IndexSet : public std::ranges::view_base {
   friend struct internal::SetAccess;
   explicit IndexSet(std::shared_ptr<const internal::SetRows<Tup>> rows) : rows_{std::move(rows)} {}
 
-  [[nodiscard]] static const std::shared_ptr<const internal::SetRows<Tup>>& empty() {
+  [[nodiscard]] static const std::shared_ptr<const internal::SetRows<Tup>>& emptyRows() {
     static const auto empty_rows = std::make_shared<const internal::SetRows<Tup>>(internal::Rows<Tup>{});
     return empty_rows;
   }

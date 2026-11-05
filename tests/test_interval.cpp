@@ -41,11 +41,11 @@ int main() try {
       (valuesOf<cPeriod>(dreamor::makeSet<cPeriod>(iv::closed(-2, 1)).collect()) == std::vector{-2, -1, 0, 1}));
 
   // ends that cross, or meet, leave what AMPL leaves: 1..0 is empty, 1..1 is {1}
-  DREAMOR_CHECK(dreamor::makeSet<cPeriod>(iv::closed(1, 0)).collect().size() == 0);
+  DREAMOR_CHECK(dreamor::makeSet<cPeriod>(iv::closed(1, 0)).collect().empty());
   DREAMOR_CHECK(dreamor::makeSet<cPeriod>(iv::closed(1, 1)).collect().size() == 1);
-  DREAMOR_CHECK(dreamor::makeSet<cPeriod>(iv::open(1, 2)).collect().size() == 0);
-  DREAMOR_CHECK(dreamor::makeSet<cPeriod>(iv::closedOpen(3, 3)).collect().size() == 0);
-  DREAMOR_CHECK(dreamor::makeSet<cPeriod>(iv::openClosed(5, 1)).collect().size() == 0);
+  DREAMOR_CHECK(dreamor::makeSet<cPeriod>(iv::open(1, 2)).collect().empty());
+  DREAMOR_CHECK(dreamor::makeSet<cPeriod>(iv::closedOpen(3, 3)).collect().empty());
+  DREAMOR_CHECK(dreamor::makeSet<cPeriod>(iv::openClosed(5, 1)).collect().empty());
 
   // int ends fill a std::size_t or a std::uint8_t column; ends of two types meet in their common one
   constexpr std::size_t kCuts = 161;

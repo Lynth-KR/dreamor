@@ -14,7 +14,8 @@ dreamor is a header-only C++20 layer for algebraic optimization models. It provi
 
 Variable families and sums are backend-specific. `dreamor::ValueTable` (solution values and what an algorithm computes from them; data on a set is possible, `ValueTable<Keys...>{set, value}`, but a parameter belongs on its entity as a field, or in a named callable when an expression defines it) is shared by every backend.
 
-Everything else — constraints, objectives, solving, duals, parameters — is written in the solver's own API.
+Everything else — constraints, objectives, solving, duals, solver parameters (settings: `IloCplex::Param`, MathOpt's
+`SolveParameters`, HiGHS's options) — is written in the solver's own API.
 dreamor has no constraint tables, no column generation (tables never grow), and no constraint programming
 (interval variables, `noOverlap`, cumulative functions). Do not invent API for these.
 
@@ -80,7 +81,8 @@ if broken), and what it recommends.
    named variable. Plain iteration of a temporary is fine: `for (const auto& [c, rows] : S.groupBy<C>())`.
 7. **Grouped iteration binds key columns, then rows:** `for (const auto& [machine, period, rows] : grouped)`. Any
    other number of names is rejected.
-8. **Sources.** A dependent source returns a range of *pointers* (`std::vector<const Item*>`, a span, a view). A
+8. **Sources.** A dependent source of an entity column returns a range of *pointers* (`std::vector<const Item*>`, a
+   span, a view); one of a value column, any range of values (an `interval`, a `std::vector<int>`). A
    container source must be an lvalue; an integer range is `dreamor::interval::closed(first, last)` (or `open`,
    `closedOpen`, `openClosed`), passed as it is.
 

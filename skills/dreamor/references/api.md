@@ -54,7 +54,7 @@ container source in `makeSet` like any other. Without `keyName`, an entity colum
 
 ```cpp
 dreamor::makeSet<Cols...>(sources...)   // one source per column; a set source covers all its columns
-    .where(pred)                        // repeatable; evaluated as soon as its columns are bound
+    .where(p...)                        // ANDed, chainable; each evaluated as soon as its columns are bound
     .collect();                         // → IndexSet<Cols...>
 ```
 
@@ -62,7 +62,7 @@ dreamor::makeSet<Cols...>(sources...)   // one source per column; a set source c
 |---|---|---|
 | Container (lvalue) | `machines` | Every value; elements may be pointers, entities, or smart pointers — all give a pointer column |
 | Interval | `dreamor::interval::closed(1, T)` | The integers 1..T (AMPL's `1..T`); `open`, `closedOpen`, `openClosed` leave out an end or both; values take the column's integer type; passed as a temporary |
-| Dependent source | `[](cMachine m) { return m->items; }` | Values depending on earlier columns; must return a range of pointers |
+| Dependent source | `[](cMachine m) { return m->items; }` | Values depending on earlier columns; for an entity column a range of pointers, for a value column any range |
 | Existing set | `makeSet<cPeriod>(sROUTES, periods)` | Fills that set's columns at once. Set sources sharing a column are joined on it (`makeSet<>(sROUTES, sOPEN)`): the later one is looked up, not scanned. A column named in `makeSet<...>` is always new |
 
 Row order is generation order; which column varies fastest is unspecified. Use `orderBy` when order matters.
@@ -77,7 +77,7 @@ A set has at most 64 columns, spread sources included; 65 stops at compile time.
 
 | Member | Result | AMPL |
 |---|---|---|
-| `begin()`, `end()`, `size()` | iteration | |
+| `begin()`, `end()`, `size()`, `empty()` | iteration | |
 | `where(p...)` | `IndexSet` of rows passing all predicates | `{(m,i) in S: p and q}` |
 | `select<Cols...>()` | `IndexSet`, projection, duplicates removed; all columns in another order = reorder | `setof {...} (m,i)` |
 | `select(expr)` | `IndexSet` of what `expr` returns per row (one `Col` or a `std::tuple` of them), duplicates removed. `expr` takes the columns it reads; a value changes column only where the new column is written: `std::tuple<cFrom, cTo>{j, i}` | `setof {(i,j) in S} (j,i)` |
@@ -113,7 +113,7 @@ random-access view into the set's rows (no copies), valid while the `Grouped` li
 
 ## Ordered
 
-`dreamor/index_set.hpp`. A positional view over the deduplicated set - or, from `ordered<A...>()`, within each group
+`dreamor/index_set.hpp`. A positional view over the set - or, from `ordered<A...>()`, within each group
 of rows that agree on `A...`: walks stop (cyclic: wrap) at the group's ends, `ord`/`isFirst`/`isLast` are within the
 group, `first(a...)`/`last(a...)` give a group's first and last row (AMPL's `first(S[a])`), and `first()`/`last()`/`at()`
 stop on a sentence. Every lookup is on a named `Ordered` only, and accepts either
@@ -128,7 +128,7 @@ the columns or one row.
 | `first()`, `last()`, `at(pos)` | rows (the whole set only) |
 | `first(cols...)`, `last(cols...)` | under `ordered<A...>()`, the group's first and last row; the group must have one (a debug build stops if not) |
 | `isFirst(cols...)`, `isLast(cols...)`, `contains(cols...)` | tests |
-| `size()`, `empty()`, `members()` | size, the deduplicated set |
+| `size()`, `empty()`, `members()` | size, the set |
 
 Read a column from a returned pointer with `std::get<cPeriod>(*prevPeriod)`, from a returned row with
 `std::get<cPeriod>(orderedPeriods.prevOf(t))`.

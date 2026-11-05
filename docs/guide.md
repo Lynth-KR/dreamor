@@ -66,7 +66,7 @@ if (const Machine* found = plant.find("M1")) {
 ## Building sets — makeSet
 
 ```cpp
-const auto sNAME = dreamor::makeSet<Cols...>(sources...).where(predicate).where(predicate)...collect();
+const auto sNAME = dreamor::makeSet<Cols...>(sources...).where(predicates...).collect();
 ```
 
 Each column of `makeSet<A, B, C>` corresponds to one source. There are four kinds of source.
@@ -91,8 +91,10 @@ Each column of `makeSet<A, B, C>` corresponds to one source. There are four kind
   set's columns are bits of one 64-bit mask. A 65th stops at compile time on dreamor's own message.
 - **A predicate takes only the columns it reads.** `[](cItem i, cPeriod t)` is evaluated as soon as i and t are
   fixed, and if it fails, the whole loop below is skipped. Parameter order and `.where()` order are free.
-- A dependent source must return a **range of pointers to entities** (`std::vector<const Item*>`, a span, a view),
-  not the entities themselves.
+- A dependent source of an entity column returns a **range of pointers to entities** (`std::vector<const Item*>`, a
+  span, a view), not the entities themselves: copies would have other addresses than the model's entities. One of a
+  value column returns any range of values: `{t in 1..T, a in t+1..T}` is
+  `makeSet<cT, cA>(interval::closed(1, T), [](cT t) { return interval::closed(t + 1, T); })`.
 - A container source must be an lvalue (no temporary vectors); an interval is handed over as it is.
 - **No source holds an element twice**: a container, the range a dependent source returns, a set. An entity is one
   object, held by one container, so two objects for one machine are a repeat too (`EntityVector` keeps that for
@@ -239,7 +241,7 @@ orderedPeriods.isLast(t);      // ord(t) = card(PERIODS)
 orderedPeriods.first();        // first(PERIODS); last() and at(position) likewise
 ```
 
-`ordered()` is a positional view (`Ordered`) over the deduplicated set; positions count from 0. Each neighbour comes
+`ordered()` is a positional view (`Ordered`) over the set; positions count from 0. Each neighbour comes
 two ways: `next`/`prev` return a pointer to the row, or `nullptr` past either end or for an element not in the set;
 `nextOf`/`prevOf` return the row itself, for a domain that has the neighbour (below) - a debug build stops if it is
 not there. A lookup names an element by its columns, in order, or by one row of the set. The lookups hand out

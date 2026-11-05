@@ -44,6 +44,10 @@ int main() try {
   DREAMOR_CHECK(IJ.where(even, big).size() == 4);
   DREAMOR_CHECK(
       std::ranges::equal(IJ.where(even, big), dreamor::makeSet<cI, cJ>(I, J).where(even).where(big).collect()));
+  // The builder's where() takes several predicates too, the same AND as chaining them.
+  DREAMOR_CHECK(std::ranges::equal(dreamor::makeSet<cI, cJ>(I, J).where(even, big).collect(),
+                                   dreamor::makeSet<cI, cJ>(I, J).where(even).where(big).collect()));
+  DREAMOR_CHECK(!IJ.empty() && dreamor::IndexSet<cI, cJ>{}.empty() && IJ.where(even, big).size() == 4);
   DREAMOR_CHECK(IJ.size() == 12);
 
   // orderBy: stable, the key on the columns it reads; ascending by default, or descending
@@ -165,6 +169,7 @@ int main() try {
   DREAMOR_CHECK(IJ == IJ && dreamor::unite(IJ.where(even), dreamor::difference(IJ, IJ.where(even))) == IJ);
   DREAMOR_CHECK(IJ != IJ.where(even) && IJ.where(even) != dreamor::difference(IJ, IJ.where(even)));
   DREAMOR_CHECK(IJ.where(even).size() == dreamor::difference(IJ, IJ.where(even)).size());  // same size, other rows
+  // NOLINTNEXTLINE(readability-container-size-empty): this tests operator== against the empty set
   DREAMOR_CHECK(IJ.where([](cI) { return false; }) == dreamor::IndexSet<cI, cJ>{});
 
   // the visit order: with no predicate to tell them apart, a dependent source goes before a
@@ -207,6 +212,6 @@ int main() try {
   // no match, no row
   const auto IJ_big = IJ.where(big);
   const auto JK_ten = JK.where([](cJ j) { return j.get() == 10; });
-  DREAMOR_CHECK(dreamor::makeSet<>(IJ_big, JK_ten).collect().size() == 0);
+  DREAMOR_CHECK(dreamor::makeSet<>(IJ_big, JK_ten).collect().empty());
   return report("index_set");
 } catch (...) { return ::uncaught(); }

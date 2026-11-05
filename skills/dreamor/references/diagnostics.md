@@ -13,11 +13,13 @@ last column.
 | `without braces` | `slice({i, t})` | `slice(i, t)` | `grouped_slice_braced` |
 | `Slice by this groupBy's key columns` | `slice(2, 1)`, or a column that is not a group key | Pass the `groupBy` key columns in order | `grouped_slice_raw_values`, `grouped_slice_wrong_key` |
 | `Name the Grouped first` | `S.groupBy<C>().slice(c)` | `const auto byC = S.groupBy<C>();` then `byC.slice(c)` | `grouped_slice_needs_a_name` |
+| `take a group's position, 0 to size() - 1, not a column` | `byI.at(i)` or `byI.keyAt(i)` with a column: it would convert to its value and be read as a position | `byI.slice(i)` for a key's group; `at(g)` with `g` from `0` to `size() - 1` | `grouped_at_takes_a_position` |
 | `ordered<Columns...>() orders within each group` | `S.ordered<A>().first()`, `at()`, `last()` | `first(a)`, `last(a)` for a group's ends, `ord()`, `isFirst()`, `isLast()` within a group, or `S.ordered()` for the whole set | `ordered_within_has_no_first` |
 | `first(m) and last(m) name a group's ends` | `S.ordered().first(a)` | `first()` over the whole set, or `S.ordered<A>().first(a)` | `ordered_whole_set_first_takes_no_group` |
 | `Name the group by the columns ordered<Columns...>() groups by` | `orderedT.first(1)`, or a column that is not a group key | Pass the group's columns in order (`cMachine{1}`) | `ordered_first_raw_value` |
 | `the direction is dreamor::ascending or dreamor::descending` | `S.orderBy(key, true)` | `S.orderBy(key, dreamor::descending)` | `orderby_direction_is_a_tag` |
 | `Name the Ordered first` | `S.ordered().prev(t)` | `const auto orderedT = S.ordered();` then `orderedT.prev(t)` | `ordered_needs_a_name` |
+| `at() takes a position, 0 to size() - 1, not a column` | `orderedPeriods.at(t)` with a column: it would be read as a position | `orderedPeriods.ord(t)` for its position; `at(n)` with a number | `ordered_at_takes_a_position` |
 | `Name an element of the ordered set` | `orderedT.prev(1)` | `orderedT.prev(cPeriod{1})` | `ordered_prev_raw_value` |
 | `Ask membership` | `in_ij(1, 2)` | Pass columns or a row | `membership_raw_values` |
 | `EntityVector<T> holds each entity once by its primary key` | `EntityVector<T>` for a `T` with no `primaryKey(const T&)` | Define `primaryKey(const T&)` next to `T`, returning its id, code, or a `std::tuple` of them | `entity_vector_needs_primary_key` |

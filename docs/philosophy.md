@@ -82,7 +82,8 @@ Three kinds: what the compiler stops, what dreamor takes on trust, and what it r
    ```cpp
    template <> struct dreamor::PredicateColumns<MyFilter> { using type = std::tuple<cMachine, cPeriod>; };
    ```
-2. A dependent source returns a range of **pointers** to entities.
+2. A dependent source that yields entities returns a range of **pointers** to them (or a view over them), not the
+   entities themselves; one that yields values (numbers, strings) returns any range of them.
 3. Sets are read-only. Derive instead of modifying.
 4. Look up by key with column values in declaration order (`vYield(m, i, t)`, `slice(i, t)`, `prev(t)`). Braces and
    bare values are not accepted (see [Columns](guide.md#columns)).
