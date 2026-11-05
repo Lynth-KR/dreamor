@@ -51,6 +51,7 @@
 #include <utility>
 #include <vector>
 
+#include "dreamor/general/inline.hpp"
 #include "dreamor/general/tuple_hash.hpp"
 
 namespace dreamor::general {
@@ -159,9 +160,9 @@ class FlatIndex {
   // tables with tags and without, not one each: two copies make find() too large to inline into
   // its callers, and a short lookup - Ordered's prev(t) - then pays for a call or two.
   template <typename KeyAt>
-  [[nodiscard, gnu::always_inline]] std::pair<std::size_t, bool> seek(const Key& key,
-                                                                      std::size_t hash,
-                                                                      const KeyAt& key_at) const {
+  [[nodiscard]] DREAMOR_INLINE std::pair<std::size_t, bool> seek(const Key& key,
+                                                                 std::size_t hash,
+                                                                 const KeyAt& key_at) const {
     const std::uint32_t tag = tagOf(hash);
     for (std::size_t slot = hash & mask_;; slot = (slot + 1) & mask_) {
       const std::uint32_t held = slots_[slot];
@@ -171,7 +172,7 @@ class FlatIndex {
   }
 
   template <typename KeyAt>
-  [[nodiscard, gnu::always_inline]] std::size_t probe(const Key& key, std::size_t hash, const KeyAt& key_at) const {
+  [[nodiscard]] DREAMOR_INLINE std::size_t probe(const Key& key, std::size_t hash, const KeyAt& key_at) const {
     const auto [slot, found] = seek(key, hash, key_at);
     return found ? (slots_[slot] & entry_mask_) : kNotFound;
   }

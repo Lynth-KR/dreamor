@@ -242,7 +242,7 @@ class Set {
   }
 
   template <std::size_t JustBound, typename BoundCols, typename Pred, typename... Bound>
-  [[nodiscard]] static bool checkOne(const Pred& pred, const Bound&... bound) {
+  [[nodiscard]] static bool checkOne(const Pred& pred, [[maybe_unused]] const Bound&... bound) {
     constexpr std::uint64_t kPred  = internal::PlacementOf<Pred, ElemTuple>::mask;
     constexpr std::uint64_t kBound = internal::maskOfSequence<BoundCols>();
     if constexpr ((kPred & ~kBound) == 0 && ((kPred >> JustBound) & 1U) != 0) {

@@ -29,6 +29,7 @@
 #include <type_traits>  // IWYU pragma: keep // For std::is_integral_v / is_floating_point_v
 #include <utility>      // IWYU pragma: keep // For std::forward
 
+#include "dreamor/general/inline.hpp"
 #include "dreamor/logger/logger_light.hpp"  // IWYU pragma: keep // For DREAMOR_LOG_WARNING
 
 namespace dreamor::general {
@@ -153,7 +154,7 @@ class NameBuilder {
   // Always inlined: a VarTable calls it once a column for every variable, and out of line the call
   // cost about as much as the formatting.
   template <typename Token>
-  [[nodiscard, gnu::always_inline]] std::size_t append(
+  [[nodiscard]] DREAMOR_INLINE std::size_t append(
       std::size_t length,
       const Token& token,
       std::string_view separator = "_") noexcept(Policy == OnFormatOverflow::kLogAndClear) {

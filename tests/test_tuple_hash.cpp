@@ -104,7 +104,8 @@ int main() try {
   DREAMOR_CHECK(hashesTo(std::tuple<Shift, std::int32_t>{Shift::kNight, -5}, 0x30a7e0c6fc4f829aULL));
   // A column hashes as the value it wraps, the 64 bits of it.
   DREAMOR_CHECK(hashesTo(std::tuple<cA, cB>{cA{-5000000000LL}, cB{9}}, 0xec5bee906a4be5c6ULL));
-  DREAMOR_CHECK(hashesTo(std::tuple<std::int64_t, std::uint16_t>{-5000000000LL, 9}, 0xec5bee906a4be5c6ULL));
+  DREAMOR_CHECK(
+      hashesTo(std::tuple<std::int64_t, std::uint16_t>{-5000000000LL, std::uint16_t{9}}, 0xec5bee906a4be5c6ULL));
 
   // An integer grid: a combine that leaves the high half unmixed put 1e6 of these on 68k hashes.
   std::vector<std::tuple<std::size_t, std::size_t>> grid;

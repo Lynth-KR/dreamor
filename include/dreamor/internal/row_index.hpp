@@ -33,6 +33,7 @@
 #include <vector>
 
 #include "dreamor/general/flat_index.hpp"
+#include "dreamor/general/inline.hpp"
 #include "dreamor/index_set/indexed.hpp"
 #include "dreamor/index_set/key_args.hpp"
 #include "dreamor/logger/logger_light.hpp"
@@ -205,7 +206,7 @@ class RowIndex {
   // better across the shapes. Change it for a new idea, measured the same way, rather than for
   // another arrangement of these.
   template <typename... Columns>
-  [[nodiscard, gnu::noinline]] std::size_t findByColumns(const Rows<Key>& rows, const Columns&... key) const {
+  [[nodiscard]] DREAMOR_NOINLINE std::size_t findByColumns(const Rows<Key>& rows, const Columns&... key) const {
     LastRows& hints  = lastRows();
     std::size_t last = positionOf(rows, hints.front().row);
     if (last == kNotFound) {
