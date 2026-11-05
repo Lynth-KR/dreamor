@@ -80,16 +80,33 @@ inline FILE* openFile(const char* path, const char* mode) noexcept {
 #endif
 }
 
-// Per-thread output target (default stderr). thread_local so N threads
-// building N models in parallel each get their own log file with zero
-// cross-talk; a spawned thread always starts at the stderr default.
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables): per-thread state, by design
-inline thread_local FILE* g_output = stderr;
+// The per-thread state below is constinit, a constant. A thread_local with a dynamic initializer runs,
+// under the MSVC ABI (cl.exe and clang-cl), from a TLS callback at the start of every thread - the
+// loader's worker threads too, before the CRT has set up stdio, where _isatty(_fileno(stderr)) is an
+// invalid parameter that ends the process before main. A constant needs no callback.
 
-// Cached per thread on redirect (see setOutput) rather than re-checked via
-// isatty() on every log() call - that syscall showed up as a real cost.
+// Per-thread output target, nullptr standing for stderr (stderr is no constant). thread_local so N
+// threads building N models in parallel each get their own log file with zero cross-talk; a spawned
+// thread always starts at the stderr default.
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables): per-thread state, by design
-inline thread_local bool g_output_is_tty = isTerminal(stderr);
+inline constinit thread_local FILE* g_output = nullptr;
+
+inline FILE* output() noexcept {
+  return g_output != nullptr ? g_output : stderr;
+}
+
+// Whether the target is a terminal: asked on the first line after a thread starts or redirects, then
+// cached rather than re-checked via isatty() on every log() call - that syscall showed up as a real cost.
+enum class Terminal : std::uint8_t { kUnknown, kNo, kYes };
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables): per-thread state, by design
+inline constinit thread_local Terminal g_output_terminal = Terminal::kUnknown;
+
+inline bool outputIsTerminal() noexcept {
+  if (g_output_terminal == Terminal::kUnknown) {
+    g_output_terminal = isTerminal(output()) ? Terminal::kYes : Terminal::kNo;
+  }
+  return g_output_terminal == Terminal::kYes;
+}
 
 // NO_COLOR (https://no-color.org), read once (lazy static, thread-safe init)
 // instead of on every call. Process-wide on purpose: it's an environment
@@ -100,7 +117,7 @@ inline bool noColorRequested() noexcept {
 }
 
 inline bool colorEnabled() noexcept {
-  return !noColorRequested() && g_output_is_tty;
+  return !noColorRequested() && outputIsTerminal();
 }
 
 // steady_clock: durations between build phases matter here, not wall-clock
@@ -239,7 +256,7 @@ inline void log(Level level,
   *out++ = '\n';  // in bounds: the byte reserved above
 
   const auto length  = static_cast<std::size_t>(out - buf.data());
-  FILE* const target = g_output;  // thread_local: no other thread can touch this
+  FILE* const target = output();  // thread_local: no other thread can touch this
   static_cast<void>(std::fwrite(buf.data(), 1, length, target));
   // kError precedes LOG_FATAL's abort() - flush now so it survives a crash.
   if (level == Level::kError) { static_cast<void>(std::fflush(target)); }
@@ -275,18 +292,18 @@ inline Level getLevel() noexcept {
 // still log, close after - typically after flush()). Only affects the
 // calling thread: g_output is thread_local, so there's nothing to lock here.
 inline void setOutput(FILE* target) noexcept {
-  detail::g_output        = target;
-  detail::g_output_is_tty = detail::isTerminal(target);
+  detail::g_output          = target;
+  detail::g_output_terminal = detail::Terminal::kUnknown;
 }
 
 inline FILE* getOutput() noexcept {
-  return detail::g_output;
+  return detail::output();
 }
 
 // Manual flush for kInfo/kWarning lines (kError already flushes itself).
 // Flushes the calling thread's current target only.
 inline void flush() noexcept {
-  static_cast<void>(std::fflush(detail::g_output));
+  static_cast<void>(std::fflush(detail::output()));
 }
 
 // RAII: "log to this file for the rest of this scope."
