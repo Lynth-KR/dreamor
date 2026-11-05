@@ -34,7 +34,7 @@ struct HighsApiModel : Sets {
     const auto orderedPeriods       = sPERIODS.ordered();
     const auto producedByItemPeriod = sPRODUCE.groupBy<cItem, cPeriod>();
     for (const auto& [i, t] : sSTOCK) {
-      HighsLinearExpression totalInFlow = dreamor::highs::sumOf(producedByItemPeriod.slice(i, t), vYield).build();
+      HighsLinearExpression totalInFlow = dreamor::highs::sumExpr(producedByItemPeriod.slice(i, t), vYield).build();
       if (const auto* prevPeriod = orderedPeriods.prev(t)) { totalInFlow += vStock(i, std::get<cPeriod>(*prevPeriod)); }
       const double currentDemand = i->demand[t.get()];
       const auto endingStock     = vStock(i, t);
@@ -44,7 +44,7 @@ struct HighsApiModel : Sets {
     // capacity of each machine in each period
     const auto producedByMachinePeriod = sPRODUCE.groupBy<cMachine, cPeriod>();
     for (const auto& [machine, period, rows] : producedByMachinePeriod) {
-      addConstr(env, dreamor::highs::sumOf(rows, machine_usage).build() <= machine->capacity);
+      addConstr(env, dreamor::highs::sumExpr(rows, machine_usage).build() <= machine->capacity);
     }
 
     // no production without a setup; a HighsVar is an index, so the bound comes from the row
@@ -55,8 +55,8 @@ struct HighsApiModel : Sets {
 
     const auto holding_term = [&](cItem i, cPeriod t) { return i->hold * vStock(i, t); };
     const auto setup_term   = [&](cMachine m, cItem i, cPeriod t) { return m->setup * vSetup(m, i, t); };
-    const HighsLinearExpression holdingCost = dreamor::highs::sumOf(sSTOCK, holding_term).build();
-    const HighsLinearExpression setupCost   = dreamor::highs::sumOf(sPRODUCE, setup_term).build();
+    const HighsLinearExpression holdingCost = dreamor::highs::sumExpr(sSTOCK, holding_term).build();
+    const HighsLinearExpression setupCost   = dreamor::highs::sumExpr(sPRODUCE, setup_term).build();
     dreamor::highs::setObjective(env, holdingCost + setupCost, ObjSense::kMinimize);
   }
 };

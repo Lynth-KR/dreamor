@@ -120,7 +120,7 @@ const auto sSTART = dreamor::makeSet<cJob, cStart>(job_ids, starts_of).build();
 const auto sRUNNING = dreamor::makeSet<cTime>(sSTART, running_at).build();
 ...
 for (const auto& [t, rows] : sRUNNING.groupBy<cTime>()) {
-  model.AddLinearConstraint(dreamor::mathopt::sumOf(rows, vStart).build() <= 1.0);
+  model.AddLinearConstraint(dreamor::mathopt::sumExpr(rows, vStart).build() <= 1.0);
 }
 ```
 
@@ -134,7 +134,7 @@ What changes:
 - **"Each job starts once."** This constraint iterates `JOBS` and calls `slice()`, rather than
   iterating `START`'s groups. A job left with no feasible start would otherwise drop out of the
   model silently; this way it gets `0 = 1`, and the model is infeasible as in the original.
-- **The objective.** It is `sumOf(sSTART, completion_time)`, where `completion_time` reads
+- **The objective.** It is `sumExpr(sSTART, completion_time)`, where `completion_time` reads
   `(s + p[j]) * x[j,s]` off the row's columns.
 
 The port has one fix that is unrelated to dreamor. The original stores the objective with
@@ -166,8 +166,8 @@ const auto outOf = sARC_ENDS.groupBy<cTail>();
 const auto into = sARC_ENDS.groupBy<cHead>();
 for (const auto& [n] : sNODES) {
   model->AddLinearConstraint(
-      dreamor::mathopt::sumOf(outOf.slice(cTail{n.get()}), vFlow).build() -
-          dreamor::mathopt::sumOf(into.slice(cHead{n.get()}), vFlow).build() == rhs);
+      dreamor::mathopt::sumExpr(outOf.slice(cTail{n.get()}), vFlow).build() -
+          dreamor::mathopt::sumExpr(into.slice(cHead{n.get()}), vFlow).build() == rhs);
 }
 ```
 

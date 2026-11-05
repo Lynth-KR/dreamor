@@ -40,7 +40,7 @@
 
 namespace dreamor::internal::inline backend {
 
-// The row sumOf is evaluating its term on, while it does: a hint for a lookup by columns
+// The row sumExpr is evaluating its term on, while it does: a hint for a lookup by columns
 // inside the term - cost(m, i, t) * vYield(m, i, t) - which gets copies of the row's columns
 // and so has lost the row itself. Only ever a hint: a table uses it when the row is one of
 // its own and holds exactly the columns asked for, and hashes otherwise, so a stale or
@@ -52,7 +52,7 @@ namespace dreamor::internal::inline backend {
 }
 
 // Publishes a row for the scope of one term call, and puts back whatever was there - a term
-// may run a sumOf of its own.
+// may run a sumExpr of its own.
 class CurrentRowScope {
  public:
   explicit CurrentRowScope(const void* row) noexcept : saved_{currentRow()} { currentRow() = row; }
@@ -113,7 +113,7 @@ class RowIndex {
   // hashing where the row is known to be one of rows:
   //   - one row handed in by reference: it may be a row of the set the table was built on,
   //     reached by walking that set or one of its groups. Only its address tells.
-  //   - columns: they are copies, so the row they came from is the one sumOf published, if
+  //   - columns: they are copies, so the row they came from is the one sumExpr published, if
   //     any - see currentRow() - or else the row the last lookup found, or the one either side
   //     of it - see lastRows().
   // Which of the two applies is known at compile time. And a set whose one column points at the
@@ -164,7 +164,7 @@ class RowIndex {
   }
 
   // The position of the row an address falls in, or kNotFound when it is not inside rows.
-  // std::less<> orders pointers into different arrays too. Inside the range, a row sumOf published
+  // std::less<> orders pointers into different arrays too. Inside the range, a row sumExpr published
   // or one handed in is one of rows' elements; a hint of lastRows() need not be: the hints are every
   // Key's on the thread, and one left by a set gone can fall inside a row of a set, of another Key,
   // that now has its memory. So the offset is divided in bytes, taking it down to its row's start: a
@@ -190,7 +190,7 @@ class RowIndex {
   // row: a walk over the set starts there, and finds every row after it without the hash.
   // Rows are distinct, so a row that holds the key is the key's row.
   // Out of line, so that find() - the published-row check and a call - stays small enough to
-  // inline into a sumOf term, where the published row answers nearly every lookup.
+  // inline into a sumExpr term, where the published row answers nearly every lookup.
   //
   // Tried against this layout and dropped (measured per lookup shape, and over the catalog's
   // lookup and order families, GCC 13 and Clang 18):

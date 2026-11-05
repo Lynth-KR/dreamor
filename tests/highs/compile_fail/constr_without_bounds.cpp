@@ -8,5 +8,5 @@ int main() {
   hs::HighsEnv env;
   const auto sIJ = IJ();
   const hs::VarTable<cI, cJ> x{env, sIJ, 0, 1};
-  hs::addConstr(env, hs::sumOf(sIJ, x).build());
+  hs::addConstr(env, hs::sumExpr(sIJ, x).build());
 }

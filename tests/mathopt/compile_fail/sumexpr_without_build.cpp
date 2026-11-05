@@ -2,9 +2,11 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// expect: sumOf takes an index set
+// expect: is not an expression yet
 #include "prelude.hpp"
 int main() {
-  IloEnv env;
-  (void)dreamor::concert::sumOf(env, I, [&env](cI i) { return IloExpr(env, i.get()); }).build();
+  math_opt::Model model;
+  const auto sIJ = IJ();
+  const dreamor::mathopt::VarTable<cI, cJ> x{model, sIJ, 0, 1};
+  model.AddLinearConstraint(dreamor::mathopt::sumExpr(sIJ, x) <= 1);
 }

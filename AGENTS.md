@@ -5,7 +5,7 @@ Instructions for coding agents working **on** this repository. For writing model
 brief.
 
 dreamor is a header-only C++20 modeling layer: index sets (solver-independent), variable families (`VarTable`), and
-sums (`sumOf`), with three backends, CPLEX Concert (`dreamor::concert`), OR-Tools MathOpt (`dreamor::mathopt`) and
+sums (`sumExpr`), with three backends, CPLEX Concert (`dreamor::concert`), OR-Tools MathOpt (`dreamor::mathopt`) and
 HiGHS on its own C++ API (`dreamor::highs`).
 Version 0.7.1, MPL 2.0 (releases up to 0.5.0 were Apache 2.0).
 
@@ -57,7 +57,7 @@ tools/ci_local.sh [REV]              # what CI runs, on one commit checked out a
     `tools/gen_arity_tests.py` - edit the script and re-run it, never the files.
   - `test_differential*.cpp` (five, one per row layout: `std::size_t` columns, 4- and 8-byte columns in turn,
     entity pointers, a `std::string` column, `std::uint32_t` columns), a stress test, check the set layer and
-    sumOf against a plain-STL reference (`tests/differential.hpp`) over a few hundred random cases from a fixed
+    sumExpr against a plain-STL reference (`tests/differential.hpp`) over a few hundred random cases from a fixed
     seed. A change to the semantics of rows (order, repeats, grouping,
     neighbours) has to change the reference too.
 - **`--mathopt`** runs `tests/mathopt/*.cpp`, the MathOpt example, the ported samples in
@@ -269,7 +269,7 @@ These behave identically on every backend. A change to one is a change to all:
 - variable names `<name>_<key0>_<key1>...`;
 - `std::out_of_range` for a lookup outside the set;
 - iteration in set order;
-- `sumOf`'s `where()` / `whereEach()` / `build()`, linear or quadratic terms (`build()` gives each solver's expression
+- `sumExpr`'s `where()` / `whereEach()` / `build()`, linear or quadratic terms (`build()` gives each solver's expression
   that holds them: `IloExpr`, MathOpt's `LinearExpression` / `QuadraticExpression`, or HiGHS's
   `HighsLinearExpression` / `HighsQuadraticExpression`);
 - a `VarTable` as a sum term.
@@ -288,7 +288,7 @@ Shared logic belongs in `include/dreamor/internal/backend/`.
 ## Benchmark
 
 `bench/` is not part of the test suite or CI. When a change touches what the benchmarks exercise
-(`makeSet`, `groupBy`, `VarTable` construction or lookup, `sumOf`, the set algebra, `Ordered`,
+(`makeSet`, `groupBy`, `VarTable` construction or lookup, `sumExpr`, the set algebra, `Ordered`,
 `EntityVector`, `ValueTable`), check with `bench/catalog/build.sh` and `bench/scenario/build.sh`:
 - both still build;
 - every arm still does the same work: a quick run of each family the change reaches
@@ -306,7 +306,7 @@ machine.
 ## Diagnostics
 
 Misuse is stopped at compile time with a `static_assert` whose message is one sentence saying what to write
-instead (e.g. `sumOf(...) is not an expression yet: add .build() - ...`). When adding or changing a diagnostic:
+instead (e.g. `sumExpr(...) is not an expression yet: add .build() - ...`). When adding or changing a diagnostic:
 
 1. Add a case to `tests/compile_fail/` (Concert/set layer), `tests/mathopt/compile_fail/` or
    `tests/highs/compile_fail/`. Each case is one file that starts with the license header, then a
@@ -383,7 +383,7 @@ the benchmarks' dreamor models. Review holds it; `examples/.clang-tidy` turns th
   columns in `snake_case`; everything else in `camelCase`.
 - **No inline lambdas.** Name every callable - a local variable, or a `static constexpr` member or namespace-scope
   constant where there is no local scope (a constructor's member-init list) - and pass it by name: to `where`,
-  `sumOf`, a VarTable's bounds, `EntityVector::modify`.
+  `sumExpr`, a VarTable's bounds, `EntityVector::modify`.
 - **AMPL's idioms.** A set is defined as AMPL would write it: a relation is data the builder fills once
   (`ITEMS_OF[m]`), read through a dependent source (`{m in MACHINES, i in ITEMS_OF[m]}`), not a join that looks a
   key up again; `setof` through `select`. Rows of a set, and functions taking them, use column types (`cMachine`,

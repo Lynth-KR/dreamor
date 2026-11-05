@@ -12,7 +12,7 @@
 // (the grouping) and sum_<shape> (one expression a group, x over its rows), and sum_where (one
 // expression an inner group, x over its rows in even periods only).
 //
-// dreamor's groupBy and sumOf are set against hand-written groupings over packed ids: through a
+// dreamor's groupBy and sumExpr are set against hand-written groupings over packed ids: through a
 // std::unordered_map from the group's key to its number, with the identity hash (`identity`) or
 // a mixed one (`mixed`), counting the rows into place (CSR); by sorting (key, row) pairs (`sort`);
 // and the usual code, a std::map from the key's entities to its rows (`map`). The packed arms use
@@ -117,7 +117,7 @@ struct Dreamor<std::index_sequence<J...>> {
     r.measure("sum_" + name, [&] {
       std::uint64_t check = 0;
       for (const auto& group : *groups) {
-        IloExpr e = dreamor::concert::sumOf(env, group.rows, vX).build();
+        IloExpr e = dreamor::concert::sumExpr(env, group.rows, vX).build();
         check += consume(e, keyOfGroup(group));
       }
       r.check("sum_" + name, check);
@@ -126,7 +126,7 @@ struct Dreamor<std::index_sequence<J...>> {
       r.measure("sum_where", [&] {
         std::uint64_t check = 0;
         for (const auto& group : *groups) {
-          IloExpr e = dreamor::concert::sumOf(env, group.rows, vX).where(Even{}).build();
+          IloExpr e = dreamor::concert::sumExpr(env, group.rows, vX).where(Even{}).build();
           check += consume(e, keyOfGroup(group));
         }
         r.check("sum_where", check);

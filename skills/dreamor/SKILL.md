@@ -1,6 +1,6 @@
 ---
 name: dreamor
-description: Write, review, and fix C++ optimization models that use dreamor (index sets, VarTable, sumOf) on CPLEX Concert, OR-Tools MathOpt, or HiGHS. Use this skill whenever code includes "dreamor/..." headers or uses makeSet, IndexSet, groupBy, slice, ordered, VarTable, ValueTable, sumOf, or HighsEnv; whenever the user wants to translate an AMPL-style model (sets, indexed variables, sums, constraint families) into C++ with dreamor; and whenever a compile error mentions dreamor, VarTable, sumOf, UnbuiltSum, or messages such as "Look a variable or value up by the table's key columns" or "is not an expression yet".
+description: Write, review, and fix C++ optimization models that use dreamor (index sets, VarTable, sumExpr) on CPLEX Concert, OR-Tools MathOpt, or HiGHS. Use this skill whenever code includes "dreamor/..." headers or uses makeSet, IndexSet, groupBy, slice, ordered, VarTable, ValueTable, sumExpr, or HighsEnv; whenever the user wants to translate an AMPL-style model (sets, indexed variables, sums, constraint families) into C++ with dreamor; and whenever a compile error mentions dreamor, VarTable, sumExpr, UnbuiltSum, or messages such as "Look a variable or value up by the table's key columns" or "is not an expression yet".
 ---
 
 # dreamor (0.7)
@@ -10,7 +10,7 @@ dreamor is a header-only C++20 layer for algebraic optimization models. It provi
 1. **Index sets**, built like AMPL set declarations. These are solver-independent and come from
    `dreamor/index_set.hpp`.
 2. **Variable families** (`VarTable`), one table of solver variables per set.
-3. **Sums** (`sumOf`) over a set or a group.
+3. **Sums** (`sumExpr`) over a set or a group.
 
 Variable families and sums are backend-specific. `dreamor::ValueTable` (solution values and what an algorithm computes from them; data on a set is possible, `ValueTable<Keys...>{set, value}`, but a parameter belongs on its entity as a field, or in a named callable when an expression defines it) is shared by every backend.
 
@@ -33,7 +33,7 @@ Read further only when needed:
 | `dreamor/mathopt.hpp` | `dreamor::mathopt` | OR-Tools MathOpt (`math_opt::Model`, `math_opt::Solve`) |
 | `dreamor/highs.hpp` | `dreamor::highs` | HiGHS's own C++ API, written as highspy writes it (`HighsEnv`, `addConstr`, `minimize`, `HighsVarType`) |
 
-There is no `dreamor::VarTable` and no `dreamor::sumOf`. Qualify them with the backend namespace, or alias it:
+There is no `dreamor::VarTable` and no `dreamor::sumExpr`. Qualify them with the backend namespace, or alias it:
 `namespace concert = dreamor::concert;`.
 
 CMake: `find_package(dreamor 0.7 CONFIG REQUIRED)`, then link `dreamor::dreamor` plus the solver
@@ -68,10 +68,10 @@ if broken), and what it recommends.
    `yieldPlan(m, i, t)`, `grouped.slice(i, t)`, `orderedPeriods.prev(t)`, `orderedPeriods.next(t, 2)`, and
    `in_routes(m, i)`. Bare values (`vYield(2, 1, 0)`) and braces (`slice({i, t})`) are rejected, because two
    int-valued columns could otherwise swap places silently. Wrap a raw value: `cPeriod{2}`.
-3. **`sumOf(...)` becomes an expression only after `.build()`.**
-   - Concert: `dreamor::concert::sumOf(env, rows, term).build()` → `IloExpr`.
-   - MathOpt: `dreamor::mathopt::sumOf(rows, term).build()` → `LinearExpression`. It takes no env and no model.
-   - HiGHS: `dreamor::highs::sumOf(rows, term).build()` → `HighsLinearExpression`. It takes no env either.
+3. **`sumExpr(...)` becomes an expression only after `.build()`.**
+   - Concert: `dreamor::concert::sumExpr(env, rows, term).build()` → `IloExpr`.
+   - MathOpt: `dreamor::mathopt::sumExpr(rows, term).build()` → `LinearExpression`. It takes no env and no model.
+   - HiGHS: `dreamor::highs::sumExpr(rows, term).build()` → `HighsLinearExpression`. It takes no env either.
 
    `build()` is deliberate, since it lets `.where()`/`.whereEach()` chain; keep it.
 4. **A table's key columns equal its set's columns, in order.** Reorder a set with `select<...>()` if needed.
@@ -106,7 +106,7 @@ if broken), and what it recommends.
     constraint (including keys with no rows), iterate the driver set and call `slice()`. A missing key gives an
     empty slice, whose sum is 0.
 13. **To sum variables without coefficients, pass the table itself as the term.** Write
-    `sumOf(env, rows, vYield)` with no lambda.
+    `sumExpr(env, rows, vYield)` with no lambda.
 14. **Read columns by name.** Write `std::get<cPeriod>(row)`, not `std::get<0>(row)`.
 
 ## AMPL → dreamor
@@ -127,8 +127,8 @@ if broken), and what it recommends.
 | `param cap {MACHINES};` | a field of the entity: `m->capacity` (a value on a relation: make the relation an entity) |
 | `param max_qty {(m,i) in ROUTES} = cap[m] / time[i];` | a named callable: `const auto max_possible_qty = [](cMachine m, cItem i) { return m->capacity / i->time; };` |
 | `var Yield {PRODUCE} >= 0, <= cap[m]/time[i];` | `const dreamor::concert::VarTable<cMachine, cItem, cPeriod> vYield{env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};` |
-| `sum {(m,i,t) in PRODUCE} setup[m] * Setup[m,i,t]` | `dreamor::concert::sumOf(env, sPRODUCE, setup_cost).build()` |
-| `sum {m: (m,i,t) in PRODUCE} Yield[m,i,t]` | `dreamor::concert::sumOf(env, producedByItemPeriod.slice(i, t), vYield).build()` |
+| `sum {(m,i,t) in PRODUCE} setup[m] * Setup[m,i,t]` | `dreamor::concert::sumExpr(env, sPRODUCE, setup_cost).build()` |
+| `sum {m: (m,i,t) in PRODUCE} Yield[m,i,t]` | `dreamor::concert::sumExpr(env, producedByItemPeriod.slice(i, t), vYield).build()` |
 | `subject to C {m in MACHINES, t in PERIODS}: ...` | `for (const auto& [machine, period, rows] : sPRODUCE.groupBy<cMachine, cPeriod>()) model.add(...);` |
 
 ## Canonical model (Concert)
@@ -165,7 +165,7 @@ const dreamor::concert::VarTable<cItem, cPeriod> vStock{env, sSTOCK, 0, IloInfin
 const auto orderedPeriods = sPERIODS.ordered();
 const auto producedByItemPeriod = sPRODUCE.groupBy<cItem, cPeriod>();
 for (const auto& [i, t] : sSTOCK) {
-  IloExpr totalInFlow = dreamor::concert::sumOf(env, producedByItemPeriod.slice(i, t), vYield).build();
+  IloExpr totalInFlow = dreamor::concert::sumExpr(env, producedByItemPeriod.slice(i, t), vYield).build();
   if (const auto* prevPeriod = orderedPeriods.prev(t)) { totalInFlow += vStock(i, std::get<cPeriod>(*prevPeriod)); }
   model.add(totalInFlow - i->demand[t.get()] == vStock(i, t));
   totalInFlow.end();
@@ -174,7 +174,7 @@ for (const auto& [i, t] : sSTOCK) {
 // One row per existing (machine, period): iterate the Grouped.
 const auto machine_usage = [&](cMachine m, cItem i, cPeriod t) { return i->time * vYield(m, i, t); };
 for (const auto& [machine, period, rows] : sPRODUCE.groupBy<cMachine, cPeriod>()) {
-  IloExpr totalLoad = dreamor::concert::sumOf(env, rows, machine_usage).build();
+  IloExpr totalLoad = dreamor::concert::sumExpr(env, rows, machine_usage).build();
   model.add(totalLoad <= machine->capacity);
   totalLoad.end();
 }
@@ -185,8 +185,8 @@ for (const auto& [row, yieldVar] : vYield) {
 
 const auto holding_term = [&](cItem i, cPeriod t) { return i->hold * vStock(i, t); };
 const auto setup_term = [&](cMachine m, cItem i, cPeriod t) { return m->setup * vSetup(m, i, t); };
-IloExpr holdingCost = dreamor::concert::sumOf(env, sSTOCK, holding_term).build();
-IloExpr setupCost = dreamor::concert::sumOf(env, sPRODUCE, setup_term).build();
+IloExpr holdingCost = dreamor::concert::sumExpr(env, sSTOCK, holding_term).build();
+IloExpr setupCost = dreamor::concert::sumExpr(env, sPRODUCE, setup_term).build();
 IloExpr totalCost = holdingCost + setupCost;
 model.add(IloMinimize(env, totalCost));
 holdingCost.end();
@@ -211,7 +211,7 @@ const dreamor::mathopt::VarTable<cMachine, cItem, cPeriod> vYield{model, sPRODUC
 const dreamor::mathopt::VarTable<cMachine, cItem, cPeriod> vSetup{model, sPRODUCE, 0, 1, true, "Setup"};
 
 for (const auto& [machine, period, rows] : sPRODUCE.groupBy<cMachine, cPeriod>()) {
-  const math_opt::LinearExpression totalLoad = dreamor::mathopt::sumOf(rows, machine_usage).build();
+  const math_opt::LinearExpression totalLoad = dreamor::mathopt::sumExpr(rows, machine_usage).build();
   model.AddLinearConstraint(totalLoad <= machine->capacity);
 }
 
@@ -220,7 +220,7 @@ const auto yieldPlan = vYield.solution(*result);   // std::logic_error if no pri
 ```
 
 - The table takes a `Model&` instead of an env, and `is_integer` instead of a type constant.
-- `sumOf` takes no env.
+- `sumExpr` takes no env.
 - There are no semi-continuous variables and no `end()` calls. A sum is a `LinearExpression`, or a
   `QuadraticExpression` when its term is quadratic.
 - Bounds are tightened with `model.set_upper_bound(vYield(row), 0)`.
@@ -236,16 +236,16 @@ const hs::VarTable<cMachine, cItem, cPeriod> vYield{env, sPRODUCE, 0, max_possib
 const hs::VarTable<cMachine, cItem, cPeriod> vSetup{env, sPRODUCE, 0, 1, HighsVarType::kInteger, "Setup"};
 
 for (const auto& [machine, period, rows] : sPRODUCE.groupBy<cMachine, cPeriod>()) {
-  hs::addConstr(env, hs::sumOf(rows, machine_usage).build() <= machine->capacity, dreamor::indexedName("Cap", machine, period));
+  hs::addConstr(env, hs::sumExpr(rows, machine_usage).build() <= machine->capacity, dreamor::indexedName("Cap", machine, period));
 }
 
 const auto setup_cost = [&](cMachine m, cItem i, cPeriod t) { return m->setup * vSetup(m, i, t); };
-hs::minimize(env, hs::sumOf(sPRODUCE, setup_cost).build());   // setObjective, then run(); returns run()'s HighsStatus
+hs::minimize(env, hs::sumExpr(sPRODUCE, setup_cost).build());   // setObjective, then run(); returns run()'s HighsStatus
 const auto yieldPlan = vYield.solution(env);                  // std::logic_error if no primal solution
 ```
 
 - The table takes the `HighsEnv` and HiGHS's `HighsVarType`. A binary variable is `0, 1, HighsVarType::kInteger`.
-- `sumOf` takes no env. A row is `expr <= b`, `a <= expr`, `expr == b` or `(a <= expr) <= b`; `addConstr` merges
+- `sumExpr` takes no env. A row is `expr <= b`, `a <= expr`, `expr == b` or `(a <= expr) <= b`; `addConstr` merges
   repeated columns. A quadratic expression goes only to `setObjective`/`minimize`/`maximize`.
 - The model is collected and reaches HiGHS in one `passModel` the first time `env.highs()` is reached (or
   `minimize`, or `solution`); after that, everything written goes to it as written. Build the model first.
@@ -279,7 +279,7 @@ const auto yieldPlan = vYield.solution(env);                  // std::logic_erro
 Check generated code against this list:
 - Every callable takes column types.
 - Every lookup passes columns in key order.
-- Every `sumOf` ends in `.build()` and uses the right backend's argument list.
+- Every `sumExpr` ends in `.build()` and uses the right backend's argument list.
 - No `VarTable` is built over a subset of another family's set.
 - Driver-set constraint families use `slice()` rather than `Grouped` iteration.
 - In Concert, `env.end()` appears once.

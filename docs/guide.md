@@ -347,17 +347,17 @@ and `vSetup`), so it does not block it with a check.
 
 A VarTable cannot be copied, only moved (a copy would have two names pointing at the same variables).
 
-## Sums — sumOf
+## Sums — sumExpr
 
 ```cpp
-dreamor::concert::sumOf(env, rows, term).build()                       // IloExpr
-dreamor::concert::sumOf(env, rows, term).where(p, q).build()           // only rows where p AND q
-dreamor::concert::sumOf(env, rows, term).whereEach(p1, p2).build()         // std::array<IloExpr, 2>, several sums in one pass
-dreamor::concert::sumOf<cMachine>(env, machines, term).build()       // a plain container as a one-column set
+dreamor::concert::sumExpr(env, rows, term).build()                       // IloExpr
+dreamor::concert::sumExpr(env, rows, term).where(p, q).build()           // only rows where p AND q
+dreamor::concert::sumExpr(env, rows, term).whereEach(p1, p2).build()         // std::array<IloExpr, 2>, several sums in one pass
+dreamor::concert::sumExpr<cMachine>(env, machines, term).build()       // a plain container as a one-column set
 ```
 
 - `rows` is a set or a group (`RowSlice`).
-- `build()` is kept on purpose. Until `build()`, `sumOf(...)` is a builder, so `where()` and `whereEach()` can be chained;
+- `build()` is kept on purpose. Until `build()`, `sumExpr(...)` is a builder, so `where()` and `whereEach()` can be chained;
   using it without `build()` in a comparison, an assignment, `+=`, or an objective stops compilation with one
   sentence telling you to add `build()`.
 - A term takes only the columns it reads and returns that row's term. Coefficients are computed from the entities
@@ -367,15 +367,15 @@ dreamor::concert::sumOf<cMachine>(env, machines, term).build()       // a plain 
   ```
 - To add up variables without coefficients, **pass the table itself as the term**. No lookup-only lambda is needed.
   ```cpp
-  dreamor::concert::sumOf(env, producedByItemPeriod.slice(i, t), vYield).build()   // sum {m: (m,i,t) in PRODUCE} Yield[m,i,t]
+  dreamor::concert::sumExpr(env, producedByItemPeriod.slice(i, t), vYield).build()   // sum {m: (m,i,t) in PRODUCE} Yield[m,i,t]
   ```
   The table picks its key columns out of each row, so the rows may have more columns than the table.
 - `whereEach` computes the term only once per row.
-- AMPL: `sum {(m,i,t) in PRODUCE} setup[m] * Setup[m,i,t]` → `sumOf(env, sPRODUCE, setup_cost)`
+- AMPL: `sum {(m,i,t) in PRODUCE} setup[m] * Setup[m,i,t]` → `sumExpr(env, sPRODUCE, setup_cost)`
 
 In Concert, the lifetime of the `IloExpr` returned by `build()` is the receiver's responsibility (see
 [Concert resources and end()](#concert-resources-and-end) below). MathOpt's `LinearExpression` is an ordinary value,
-so there is nothing to manage, and so is HiGHS's `HighsLinearExpression`. MathOpt's and HiGHS's `sumOf` take no first
+so there is nothing to manage, and so is HiGHS's `HighsLinearExpression`. MathOpt's and HiGHS's `sumExpr` take no first
 argument: their expressions need no environment.
 
 ## Constraints
@@ -387,11 +387,11 @@ library has no constraint tables (for why, see [What dreamor does not do](philos
 ```cpp
 // A constraint family over a set: one per group
 for (const auto& [machine, period, rows] : producedByMachinePeriod) {
-  model.add(dreamor::concert::sumOf(env, rows, machine_usage).build() <= machine->capacity);
+  model.add(dreamor::concert::sumExpr(env, rows, machine_usage).build() <= machine->capacity);
 }
 
 // A single global constraint: setName if it needs a name
-IloRange setupBudget = (dreamor::concert::sumOf(env, sPRODUCE, setup_cost).build() <= B);
+IloRange setupBudget = (dreamor::concert::sumExpr(env, sPRODUCE, setup_cost).build() <= B);
 setupBudget.setName("SetupBudget");
 model.add(setupBudget);
 ```

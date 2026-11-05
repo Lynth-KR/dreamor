@@ -24,33 +24,33 @@ last column.
 | `Name an element of the ordered set` | `orderedT.prev(1)` | `orderedT.prev(cPeriod{1})` | `ordered_prev_raw_value` |
 | `Ask membership` | `in_ij(1, 2)` | Pass columns or a row | `membership_raw_values` |
 | `EntityVector<T> holds each entity once by its primary key` | `EntityVector<T>` for a `T` with no `primaryKey(const T&)` | Define `primaryKey(const T&)` next to `T`, returning its id, code, or a `std::tuple` of them | `entity_vector_needs_primary_key` |
-| `Take the columns themselves` | A callable takes `int` / `const T*` instead of the column type | Make the parameter the column type | `where_takes_columns`, `bound_takes_columns`, `sumof_term_takes_values` |
-| `Cannot read this callable's parameter list` | A generic lambda as a sum term, a bound, a `select(expr)` or an `orderBy` key | Column-typed parameters | `sumof_term_is_generic`, `bound_is_not_generic`, `select_is_not_generic`, `positionOferby_key_is_generic` |
+| `Take the columns themselves` | A callable takes `int` / `const T*` instead of the column type | Make the parameter the column type | `where_takes_columns`, `bound_takes_columns`, `sumexpr_term_takes_values` |
+| `Cannot read this callable's parameter list` | A generic lambda as a sum term, a bound, a `select(expr)` or an `orderBy` key | Column-typed parameters | `sumexpr_term_is_generic`, `bound_is_not_generic`, `select_is_not_generic`, `positionOferby_key_is_generic` |
 | `Cannot read this predicate's parameter list` | A generic lambda as a predicate | Column-typed parameters, or specialize `dreamor::CallableColumns` | `where_is_not_generic` |
-| `names a column these rows do not have` | A term or bound reads a column absent from the rows | Read only existing columns, or derive a set that has them | `sumof_term_reads_missing_column`, `vartable_bound_reads_missing_column` |
+| `names a column these rows do not have` | A term or bound reads a column absent from the rows | Read only existing columns, or derive a set that has them | `sumexpr_term_reads_missing_column`, `vartable_bound_reads_missing_column` |
 | `names a column this set does not have` | A `where` predicate reads a column absent from the set | Same | `where_reads_missing_column` |
 | `select(expr) returns the new row's columns` | `expr` returns bare values (`std::tuple{j.get(), i.get()}`), or an empty tuple | Return one `Col` or a `std::tuple` of them: `std::tuple<cFrom, cTo>{j, i}` | `select_returns_values` |
 | `select(expr) returns the same column twice` | `std::tuple<cI, cI>{...}` | Give each column of the new row its own type | `select_returns_column_twice` |
 | `select(expr) returns two columns with the same name` | Two returned columns of different value types share a name | Rename one column type | `select_returns_same_name` |
 | `The same column type appears twice` | Two columns of one type: a column named in `makeSet<...>` that a set source also has, or a `Col` type declared twice | Give each column its own type; to join two sets on a column, pass both as set sources | `makeset_column_named_twice` |
-| `This callable takes the same column twice` | A predicate, term, bound or `select(expr)` names one column in two parameters (`[](cFrom a, cFrom b)`) | Give each parameter its own column, or take the column once | `where_takes_column_twice`, `sumof_term_takes_column_twice` |
+| `This callable takes the same column twice` | A predicate, term, bound or `select(expr)` names one column in two parameters (`[](cFrom a, cFrom b)`) | Give each parameter its own column, or take the column once | `where_takes_column_twice`, `sumexpr_term_takes_column_twice` |
 | `A dependent column takes the same column twice` | `makeSet` dependent source with a repeated column parameter | Same | `makeset_dependent_takes_column_twice` |
 | `names one key column twice` | `VarTable<cI, cI>` | Give each key its own column type | `vartable_key_twice` |
 | `No column of this set has that name` | `groupBy<cK>()` / `select<cK>()` with a foreign column | Use the set's columns | `groupby_missing_column`, `select_missing_column` |
 | `A VarTable is built on a set with exactly its key columns` | The table's keys differ from the set's columns or their order | Match the table to the set, or `select<...>()` to reorder | `vartable_key_order_differs_from_set` |
 | `A ValueTable is built on a set with exactly its key columns` | A ValueTable whose keys differ from the set's columns or their order | Match the table to the set, or `select<...>()` to reorder | `valuetable_key_order_differs_from_set` |
-| `Scale the sum, not the table` | `100 * vYield` or `vYield * 100` | `100 * sumOf(env, rows, vYield).build()`, or multiply inside a term | `vartable_scaled`, `mathopt/vartable_scaled`, `highs/vartable_scaled` |
-| `is not an expression yet` | `sumOf(...)` without `.build()` in a comparison, `+=`, or `-` | Add `.build()` | `sumof_without_build`, `sumof_without_build_plus_assign`, `sumof_without_build_reversed`, `mathopt/sumof_without_build`, `highs/sumof_without_build` |
-| `UnbuiltSum` | `sumOf(...)` without `.build()` assigned to an expression or used as an objective | Add `.build()` | `sumof_without_build_assigned`, `sumof_without_build_objective`, `mathopt/sumof_without_build_assigned` |
-| `takes the IloEnv first` | Concert `sumOf(rows, term)` | `dreamor::concert::sumOf(env, rows, term)` | `sumof_without_env` |
-| `takes no model` | MathOpt `sumOf(model, rows, term)` | `dreamor::mathopt::sumOf(rows, term)` | `mathopt/sumof_with_model` |
-| `takes no HighsEnv` | HiGHS `sumOf(env, rows, term)` | `dreamor::highs::sumOf(rows, term)` | `highs/sumof_with_highs` |
+| `Scale the sum, not the table` | `100 * vYield` or `vYield * 100` | `100 * sumExpr(env, rows, vYield).build()`, or multiply inside a term | `vartable_scaled`, `mathopt/vartable_scaled`, `highs/vartable_scaled` |
+| `is not an expression yet` | `sumExpr(...)` without `.build()` in a comparison, `+=`, or `-` | Add `.build()` | `sumexpr_without_build`, `sumexpr_without_build_plus_assign`, `sumexpr_without_build_reversed`, `mathopt/sumexpr_without_build`, `highs/sumexpr_without_build` |
+| `UnbuiltSum` | `sumExpr(...)` without `.build()` assigned to an expression or used as an objective | Add `.build()` | `sumexpr_without_build_assigned`, `sumexpr_without_build_objective`, `mathopt/sumexpr_without_build_assigned` |
+| `takes the IloEnv first` | Concert `sumExpr(rows, term)` | `dreamor::concert::sumExpr(env, rows, term)` | `sumexpr_without_env` |
+| `takes no model` | MathOpt `sumExpr(model, rows, term)` | `dreamor::mathopt::sumExpr(rows, term)` | `mathopt/sumexpr_with_model` |
+| `takes no HighsEnv` | HiGHS `sumExpr(env, rows, term)` | `dreamor::highs::sumExpr(rows, term)` | `highs/sumexpr_with_highs` |
 | `HiGHS takes quadratic terms only in the objective` | A quadratic expression in a row (`x * x <= 1`, a quadratic sum compared) | Put the square in `setObjective()`/`minimize()`, or bound an epigraph variable with linear rows | `highs/quadratic_row`, `highs/quadratic_sum_row` |
 | `addConstr takes a row` | `addConstr(env, x + y)`: an expression with no bounds | `addConstr(env, x + y <= 1)`, or `addConstr(env, (0 <= x - y) <= 5)` | `highs/constr_without_bounds` |
 | `An objective is an expression, not a row` | `setObjective(env, x + y <= 1)` | `setObjective(env, x + y)` | `highs/objective_row` |
-| `whereEach() once` | `.whereEach(...).whereEach(...)` | One `whereEach` with every predicate | `sumof_where_each_twice` |
-| `sumOf takes an index set` | `sumOf(env, plainVector, term)` | `sumOf<Col>(env, plainVector, term)`, or build a set | `sumof_container_needs_column` |
-| `Bind the set to a variable first` | `sumOf<Col>(env, std::vector<int>{...}, term)` | Store the container in a named variable | `sumof_container_is_temporary` |
+| `whereEach() once` | `.whereEach(...).whereEach(...)` | One `whereEach` with every predicate | `sumexpr_where_each_twice` |
+| `sumExpr takes an index set` | `sumExpr(env, plainVector, term)` | `sumExpr<Col>(env, plainVector, term)`, or build a set | `sumexpr_container_needs_column` |
+| `Bind the set to a variable first` | `sumExpr<Col>(env, std::vector<int>{...}, term)` | Store the container in a named variable | `sumexpr_container_is_temporary` |
 | `A container source must be a named variable` | `makeSet<C>(std::vector<...>{...})`: a temporary container as a source | Store the container in a named variable that outlives the set; a range of numbers is `interval::closed(first, last)` | `makeset_container_is_temporary` |
 | `A dependent column cannot be a bare function name or a std::function` | A function name or a `std::function` as a dependent source | Pass a lambda or a function object | `makeset_dependent_is_a_function_name`, `makeset_dependent_is_a_std_function` |
 | `An interval counts integers` | `interval::closed(0.0, 160.0)` | Integer ends: `interval::closed(0, 160)` | `interval_ends_are_not_integers` |

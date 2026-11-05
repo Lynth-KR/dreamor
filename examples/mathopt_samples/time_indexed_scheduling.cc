@@ -172,7 +172,7 @@ absl::StatusOr<Schedule> Solve(absl::Span<const Job> jobs,
     return (s + jobs[j].processing_time) * vStart(j, s);
   };
   const math_opt::LinearExpression sum_completion_times =
-      dreamor::mathopt::sumOf(sSTART, completion_time).build();
+      dreamor::mathopt::sumExpr(sSTART, completion_time).build();
   model.Minimize(sum_completion_times);
 
   // subject to Once {j in JOBS}: sum {(j,s) in START} x[j,s] = 1;            (1)
@@ -180,11 +180,11 @@ absl::StatusOr<Schedule> Solve(absl::Span<const Job> jobs,
   // row from groupBy and silently vanish from the model; here it gets 0 = 1.
   const auto startsByJob = sSTART.groupBy<cJob>();
   for (const auto& [j] : sJOBS) {
-    model.AddLinearConstraint(dreamor::mathopt::sumOf(startsByJob.slice(j), vStart).build() == 1.0);
+    model.AddLinearConstraint(dreamor::mathopt::sumExpr(startsByJob.slice(j), vStart).build() == 1.0);
   }
   // subject to OneAtATime {t in TIMES}: sum {(j,s,t) in RUNNING} x[j,s] <= 1;  (2)
   for (const auto& [t, rows] : sRUNNING.groupBy<cTime>()) {
-    model.AddLinearConstraint(dreamor::mathopt::sumOf(rows, vStart).build() <= 1.0);
+    model.AddLinearConstraint(dreamor::mathopt::sumExpr(rows, vStart).build() <= 1.0);
   }
 
   ASSIGN_OR_RETURN(const math_opt::SolveResult result,

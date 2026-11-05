@@ -2,7 +2,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// Differential test: the set layer and sumOf against a reference written with nothing but the
+// Differential test: the set layer and sumExpr against a reference written with nothing but the
 // standard library - nested loops, std::set, std::map - over a few hundred small random cases
 // from a fixed seed. The cases lean on the edges: empty sources, one element, every value,
 // predicates that keep everything or nothing. Sources hold no value twice, as the contract asks
@@ -464,7 +464,7 @@ struct Differential {
     DREAMOR_CHECK(rowsOf(S.orderBy(key_of, dreamor::ascending)) == up);
     DREAMOR_CHECK(rowsOf(S.orderBy(key_of, dreamor::descending)) == down);
 
-    // sumOf: one term per row, narrowed by where(), one sum per whereEach() predicate - a row may land
+    // sumExpr: one term per row, narrowed by where(), one sum per whereEach() predicate - a row may land
     // in both.
     const dreamor::concert::VarTable<A, B, C> x{env, S, 0, 1, ILOFLOAT, "x"};
     const Rule keep       = randomRule(g);
@@ -479,10 +479,10 @@ struct Differential {
       if (first.keeps(std::get<1>(r), std::get<2>(r))) { ++in_first; }
       if (second.keeps(std::get<0>(r), std::get<2>(r))) { ++in_second; }
     }
-    IloExpr all = dreamor::concert::sumOf(env, S, x).build();
+    IloExpr all = dreamor::concert::sumExpr(env, S, x).build();
     DREAMOR_CHECK(terms(all) == s.size());
     all.end();
-    auto split = dreamor::concert::sumOf(env, S, x)
+    auto split = dreamor::concert::sumExpr(env, S, x)
                      .where([&keep](A a, B b) { return keep.keeps(indexOf(a), indexOf(b)); })
                      .whereEach([&first](B b, C c) { return first.keeps(indexOf(b), indexOf(c)); },
                                 [&second](A a, C c) { return second.keeps(indexOf(a), indexOf(c)); })
@@ -579,7 +579,7 @@ struct Differential {
       lookups = lookups && w(*(W.begin() + static_cast<std::ptrdiff_t>(i))).getImpl() == w_vars[i];
     }
     DREAMOR_CHECK(lookups);
-    IloExpr twice = dreamor::concert::sumOf(env, S, [&y](A a, B b, C c) { return 2 * y(a, b, c); }).build();
+    IloExpr twice = dreamor::concert::sumExpr(env, S, [&y](A a, B b, C c) { return 2 * y(a, b, c); }).build();
     bool in_order = terms(twice) == y_vars.size();
     for (std::size_t k = 0; in_order && k < y_vars.size(); ++k) {
       in_order = twice.expr_->terms[k].first == y_vars[k] && exactlyEqual(twice.expr_->terms[k].second, 2);

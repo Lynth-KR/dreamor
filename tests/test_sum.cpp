@@ -2,7 +2,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// sumOf over sets, groups and plain containers; where and split.
+// sumExpr over sets, groups and plain containers; where and split.
 #include <array>
 #include <cstddef>
 #include <vector>
@@ -56,15 +56,15 @@ int main() try {
   const auto var      = [&x](cI i, cJ j) { return x(i, j); };
   const auto weighted = [&x](cI i, cJ j) { return static_cast<double>(i.get()) * x(i, j); };
 
-  DREAMOR_CHECK(terms(dreamor::concert::sumOf(env, IJ, var).build()) == 6);
-  DREAMOR_CHECK(terms(dreamor::concert::sumOf(env, IJ, var).where([](cI i) { return i.get() > 1; }).build()) == 4);
+  DREAMOR_CHECK(terms(dreamor::concert::sumExpr(env, IJ, var).build()) == 6);
+  DREAMOR_CHECK(terms(dreamor::concert::sumExpr(env, IJ, var).where([](cI i) { return i.get() > 1; }).build()) == 4);
 
   const auto byJ = IJ.groupBy<cJ>();
   for (const auto& [j, rows] : byJ) {
-    DREAMOR_CHECK(terms(dreamor::concert::sumOf(env, rows, var).build()) == 3);
+    DREAMOR_CHECK(terms(dreamor::concert::sumExpr(env, rows, var).build()) == 3);
   }
 
-  const auto sums = dreamor::concert::sumOf(env, IJ, weighted)
+  const auto sums = dreamor::concert::sumExpr(env, IJ, weighted)
                         .whereEach([](cJ j) { return j.get() == 10; }, [](cJ) { return true; })
                         .build();
   DREAMOR_CHECK(terms(sums[0]) == 3 && terms(sums[1]) == 6);
@@ -76,54 +76,54 @@ int main() try {
 
   // a plain container as a one-column set
   const dreamor::concert::VarTable<cI> y{env, dreamor::makeSet<cI>(I).build(), 0, 1};
-  DREAMOR_CHECK(terms(dreamor::concert::sumOf<cI>(env, I, [&y](cI i) { return y(i); }).build()) == 3);
+  DREAMOR_CHECK(terms(dreamor::concert::sumExpr<cI>(env, I, [&y](cI i) { return y(i); }).build()) == 3);
   // a table is itself a term: its variables, summed over the rows
-  DREAMOR_CHECK(terms(dreamor::concert::sumOf(env, IJ, x).build()) == 6);
-  DREAMOR_CHECK(terms(dreamor::concert::sumOf(env, IJ, x).where([](cI i) { return i.get() > 1; }).build()) == 4);
+  DREAMOR_CHECK(terms(dreamor::concert::sumExpr(env, IJ, x).build()) == 6);
+  DREAMOR_CHECK(terms(dreamor::concert::sumExpr(env, IJ, x).where([](cI i) { return i.get() > 1; }).build()) == 4);
   for (const auto& [j, rows] : byJ) {
-    DREAMOR_CHECK(terms(dreamor::concert::sumOf(env, rows, x).build()) == 3);
+    DREAMOR_CHECK(terms(dreamor::concert::sumExpr(env, rows, x).build()) == 3);
   }
-  const auto tableSums = dreamor::concert::sumOf(env, IJ, x)
+  const auto tableSums = dreamor::concert::sumExpr(env, IJ, x)
                              .whereEach([](cJ j) { return j.get() == 10; }, [](cJ) { return true; })
                              .build();
   DREAMOR_CHECK(terms(tableSums[0]) == 3 && terms(tableSums[1]) == 6);
   using cK       = dreamor::Col<std::size_t, "k">;
   const auto IKJ = dreamor::makeSet<cI, cK, cJ>(I, I, J).build();  // more columns than the table's keys
-  DREAMOR_CHECK(terms(dreamor::concert::sumOf(env, IKJ, x).build()) == 18);
+  DREAMOR_CHECK(terms(dreamor::concert::sumExpr(env, IKJ, x).build()) == 18);
 
   // quadratic terms: IloExpr holds them as it holds linear ones, under where() and whereEach() too
   const auto square     = [&x](cI i, cJ j) { return static_cast<double>(i.get()) * (x(i, j) * x(i, j)); };
-  const IloExpr squares = dreamor::concert::sumOf(env, IJ, square).build();
+  const IloExpr squares = dreamor::concert::sumExpr(env, IJ, square).build();
   DREAMOR_CHECK(quadraticTerms(squares) == 6 && isExactlyZero(linearCoefficients(squares)));
   DREAMOR_CHECK(exactlyEqual(quadraticCoefficients(squares), 2 * (1 + 2 + 3)));
   const auto deviation = [&x](cI i, cJ j) { return (x(i, j) - 1) * (x(i, j) - 1); };
-  const auto parts     = dreamor::concert::sumOf(env, IJ, deviation)
+  const auto parts     = dreamor::concert::sumExpr(env, IJ, deviation)
                              .where([](cI i) { return i.get() > 1; })
                              .whereEach([](cJ j) { return j.get() == 10; }, [](cJ) { return true; })
                              .build();
   DREAMOR_CHECK(quadraticTerms(parts[0]) == 2 && quadraticTerms(parts[1]) == 4);
   DREAMOR_CHECK(exactlyEqual(linearCoefficients(parts[1]), -2 * 4) && exactlyEqual(parts[1].expr_->constant, 4));
 
-  // A lookup by columns inside a term reaches the row sumOf is on without hashing it. That is
+  // A lookup by columns inside a term reaches the row sumExpr is on without hashing it. That is
   // only a hint: the same variables come back whatever the term looks up and wherever the
   // rows come from, and the hint is gone once the sum is built.
-  const auto direct = varsOf(dreamor::concert::sumOf(env, IJ, x).build());
-  DREAMOR_CHECK(varsOf(dreamor::concert::sumOf(env, IJ, var).build()) == direct);
-  DREAMOR_CHECK(varsOf(dreamor::concert::sumOf(env, IJ, weighted).build()) == direct);
+  const auto direct = varsOf(dreamor::concert::sumExpr(env, IJ, x).build());
+  DREAMOR_CHECK(varsOf(dreamor::concert::sumExpr(env, IJ, var).build()) == direct);
+  DREAMOR_CHECK(varsOf(dreamor::concert::sumExpr(env, IJ, weighted).build()) == direct);
   const auto sameValues = IJ.where([](cI /*i*/) { return true; });
-  DREAMOR_CHECK(varsOf(dreamor::concert::sumOf(env, sameValues, var).build()) == direct);
+  DREAMOR_CHECK(varsOf(dreamor::concert::sumExpr(env, sameValues, var).build()) == direct);
   const auto other = [&x](cI i, cJ j) { return x(i, cJ{j.get() == 10 ? 20U : 10U}); };
   std::vector<const IloNumVarI*> swapped;
   swapped.reserve(IJ.size());
   for (const auto& [i, j] : IJ) {
     swapped.push_back(x(i, cJ{j.get() == 10 ? 20U : 10U}).getImpl());
   }
-  DREAMOR_CHECK(varsOf(dreamor::concert::sumOf(env, IJ, other).build()) == swapped);
+  DREAMOR_CHECK(varsOf(dreamor::concert::sumExpr(env, IJ, other).build()) == swapped);
   const auto nested = [&](cI i, cJ j) {
-    DREAMOR_CHECK(terms(dreamor::concert::sumOf(env, byJ.slice(cJ{20}), var).build()) == 3);
+    DREAMOR_CHECK(terms(dreamor::concert::sumExpr(env, byJ.slice(cJ{20}), var).build()) == 3);
     return x(i, j);
   };
-  DREAMOR_CHECK(varsOf(dreamor::concert::sumOf(env, IJ, nested).build()) == direct);
+  DREAMOR_CHECK(varsOf(dreamor::concert::sumExpr(env, IJ, nested).build()) == direct);
   DREAMOR_CHECK(dreamor::internal::currentRow() == nullptr);
 
   // A table summed over a group of its own set takes its variables by the rows' positions; over a
@@ -144,9 +144,9 @@ int main() try {
   for (const auto* groups : std::array{&byJ, &apartByJ}) {
     for (const auto& group : *groups) {
       const auto& rows = group.rows;
-      DREAMOR_CHECK(varsOf(dreamor::concert::sumOf(env, rows, x).build()) == byColumns(rows, every));
-      DREAMOR_CHECK(varsOf(dreamor::concert::sumOf(env, rows, x).where(notTwo).build()) == byColumns(rows, notTwo));
-      const auto parted = dreamor::concert::sumOf(env, rows, x).where(notTwo).whereEach(isOne, every).build();
+      DREAMOR_CHECK(varsOf(dreamor::concert::sumExpr(env, rows, x).build()) == byColumns(rows, every));
+      DREAMOR_CHECK(varsOf(dreamor::concert::sumExpr(env, rows, x).where(notTwo).build()) == byColumns(rows, notTwo));
+      const auto parted = dreamor::concert::sumExpr(env, rows, x).where(notTwo).whereEach(isOne, every).build();
       DREAMOR_CHECK(varsOf(parted[0]) == byColumns(rows, [&](cI i) { return notTwo(i) && isOne(i); }));
       DREAMOR_CHECK(varsOf(parted[1]) == byColumns(rows, notTwo));
     }

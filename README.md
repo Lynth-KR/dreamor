@@ -16,7 +16,7 @@
 [![HiGHS](https://img.shields.io/badge/backend-HiGHS-FFD43B?style=flat-square&labelColor=1D2433)](#backends)
 [![License: MPL 2.0](https://img.shields.io/badge/license-MPL%202.0-FFD43B?style=flat-square&labelColor=1D2433)](LICENSE)
 
-[Quick start](#quick-start)&emsp;[Building sets](docs/guide.md#building-sets--makeset)&emsp;[VarTable](docs/guide.md#variable-families--vartable)&emsp;[Sums](docs/guide.md#sums--sumof)&emsp;[OR-Tools samples](examples/mathopt_samples/README.md)&emsp;[Public API](docs/reference.md#public-api-reference)
+[Quick start](#quick-start)&emsp;[Building sets](docs/guide.md#building-sets--makeset)&emsp;[VarTable](docs/guide.md#variable-families--vartable)&emsp;[Sums](docs/guide.md#sums--sumexpr)&emsp;[OR-Tools samples](examples/mathopt_samples/README.md)&emsp;[Public API](docs/reference.md#public-api-reference)
 
 
 </div>
@@ -40,7 +40,7 @@ const dreamor::concert::VarTable<cMachine, cItem, cPeriod> vYield{env, sPRODUCE,
 const auto machine_usage = [&](cMachine m, cItem i, cPeriod t) { return i->time * vYield(m, i, t); };
 const auto producedByMachinePeriod = sPRODUCE.groupBy<cMachine, cPeriod>();
 for (const auto& [machine, period, rows] : producedByMachinePeriod) {
-  model.add(dreamor::concert::sumOf(env, rows, machine_usage).build() <= machine->capacity);
+  model.add(dreamor::concert::sumExpr(env, rows, machine_usage).build() <= machine->capacity);
 }
 ```
 
@@ -64,7 +64,7 @@ dreamor](examples/mathopt_samples/README.md), each next to the original.
 ## Backends
 
 The set layer (`dreamor/index_set.hpp`) depends on no solver. Only variable families (`VarTable`) and sums
-(`sumOf`) use the solver's variable and expression types, so each backend has its own namespace and header, and
+(`sumExpr`) use the solver's variable and expression types, so each backend has its own namespace and header, and
 the header you include is your dependency.
 
 | Backend | Header | Namespace | Solvers |
@@ -79,7 +79,7 @@ holds only values, so it is `dreamor::ValueTable` regardless of backend.
 
 The same across backends: bounds given as numbers or column functions, variable names
 `<name>_<key0>_<key1>...`, `std::out_of_range` when looking up a row that is not in the set (`vYield(row)`),
-iteration in set order, and `sumOf`'s `where()`/`whereEach()`.
+iteration in set order, and `sumExpr`'s `where()`/`whereEach()`.
 
 Everything that differs in MathOpt is MathOpt's own notation.
 
@@ -91,7 +91,7 @@ const dreamor::mathopt::VarTable<cMachine, cItem, cPeriod> vYield{
 const dreamor::mathopt::VarTable<cMachine, cItem, cPeriod> vSetup{model, sPRODUCE, 0, 1, true, "Setup"};
 
 for (const auto& [machine, period, rows] : producedByMachinePeriod) {
-  const math_opt::LinearExpression totalLoad = dreamor::mathopt::sumOf(rows, machine_usage).build();  // no env
+  const math_opt::LinearExpression totalLoad = dreamor::mathopt::sumExpr(rows, machine_usage).build();  // no env
   model.AddLinearConstraint(totalLoad <= machine->capacity);
 }
 
@@ -101,7 +101,7 @@ const auto yieldPlan = vYield.solution(*result);   // std::logic_error if there 
 
 Semi-continuous variables are Concert's (the `semiContinuous` constructor) and HiGHS's (`kSemiContinuous` as the
 type); MathOpt models have none. MathOpt keeps linear and
-quadratic expressions apart, so its `sumOf` accumulates into a `LinearExpression`, or into a `QuadraticExpression`
+quadratic expressions apart, so its `sumExpr` accumulates into a `LinearExpression`, or into a `QuadraticExpression`
 when the term is quadratic (`x * x`, `(x - 1) * (x - 1)`); Concert's `IloExpr` holds both.
 
 When building against the OR-Tools C++ prebuilt, define `OR_PROTO_DLL` as empty and link `libortools`,
@@ -117,10 +117,10 @@ const hs::VarTable<cMachine, cItem, cPeriod> vYield{
     env, sPRODUCE, 0, max_possible_qty, HighsVarType::kContinuous, "Yield"};   // HiGHS's HighsVarType for the kind
 
 for (const auto& [machine, period, rows] : producedByMachinePeriod) {
-  hs::addConstr(env, hs::sumOf(rows, machine_usage).build() <= machine->capacity);  // highspy's addConstr, no env in sumOf
+  hs::addConstr(env, hs::sumExpr(rows, machine_usage).build() <= machine->capacity);  // highspy's addConstr, no env in sumExpr
 }
 
-hs::minimize(env, hs::sumOf(sPRODUCE, vYield).build());   // the objective, then run()
+hs::minimize(env, hs::sumExpr(sPRODUCE, vYield).build());   // the objective, then run()
 const auto yieldPlan = vYield.solution(env);              // std::logic_error if there is no primal solution
 ```
 
@@ -221,7 +221,7 @@ class LotSizing {
     const auto orderedPeriods = sPERIODS.ordered();
     const auto producedByItemPeriod = sPRODUCE.groupBy<cItem, cPeriod>();
     for (const auto& [i, t] : sSTOCK) {
-      IloExpr totalInFlow = dreamor::concert::sumOf(env, producedByItemPeriod.slice(i, t), vYield).build();
+      IloExpr totalInFlow = dreamor::concert::sumExpr(env, producedByItemPeriod.slice(i, t), vYield).build();
       if (const auto* prevPeriod = orderedPeriods.prev(t)) { totalInFlow += vStock(i, std::get<cPeriod>(*prevPeriod)); }
       const double currentDemand = i->demand[t.get()];
       const auto endingStock = vStock(i, t);
@@ -233,7 +233,7 @@ class LotSizing {
   void addCapacity() {
     const auto machine_usage = [this](cMachine m, cItem i, cPeriod t) { return i->time * vYield(m, i, t); };
     for (const auto& [machine, period, rows] : sPRODUCE.groupBy<cMachine, cPeriod>()) {
-      IloExpr totalLoad = dreamor::concert::sumOf(env, rows, machine_usage).build();
+      IloExpr totalLoad = dreamor::concert::sumExpr(env, rows, machine_usage).build();
       model.add(totalLoad <= machine->capacity).setName(dreamor::indexedName("Capacity", machine, period));
       totalLoad.end();
     }
@@ -249,8 +249,8 @@ class LotSizing {
   void addObjective() {
     const auto holding_term = [this](cItem i, cPeriod t) { return i->hold * vStock(i, t); };
     const auto setup_term = [this](cMachine m, cItem i, cPeriod t) { return m->setup * vSetup(m, i, t); };
-    IloExpr holdingCost = dreamor::concert::sumOf(env, sSTOCK, holding_term).build();
-    IloExpr setupCost = dreamor::concert::sumOf(env, sPRODUCE, setup_term).build();
+    IloExpr holdingCost = dreamor::concert::sumExpr(env, sSTOCK, holding_term).build();
+    IloExpr setupCost = dreamor::concert::sumExpr(env, sPRODUCE, setup_term).build();
     IloExpr totalCost = holdingCost + setupCost;
     model.add(IloMinimize(env, totalCost));
     holdingCost.end();

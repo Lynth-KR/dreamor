@@ -37,10 +37,10 @@ int main() {{
   IloEnv env;
   const auto s = dreamor::makeSet<{cols}>({", ".join(["v"] * n)})
                      .where([](C0 a, C{n - 1} b) {{ return a.get() <= b.get(); }})
-                     .collect();
+                     .build();
   const auto g = s.groupBy<{half}>();
   const dreamor::concert::VarTable<{cols}> x{{env, s, 0, 1, ILOFLOAT, "x"}};
-  IloExpr e = dreamor::concert::sumOf(env, s, x).where([](C1 c) {{ return c.get() > 0; }}).build();
+  IloExpr e = dreamor::concert::sumExpr(env, s, x).where([](C1 c) {{ return c.get() > 0; }}).build();
   return static_cast<int>(g.size() + s.size()) + (x({key}).getUB() > 0 ? 0 : 1);
 }}
 """

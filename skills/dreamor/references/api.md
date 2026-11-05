@@ -158,8 +158,8 @@ VarTable<Keys...>{semiContinuous, const IloEnv& env, const IndexSet<Keys...>& se
 - A VarTable does not touch Concert when destroyed; `env.end()` releases everything.
 
 ```cpp
-sumOf(IloEnv env, rows, term)            // rows: IndexSet or RowSlice; term: column callable or a VarTable
-sumOf<Col>(IloEnv env, container, term)  // a plain lvalue container as a one-column set
+sumExpr(IloEnv env, rows, term)            // rows: IndexSet or RowSlice; term: column callable or a VarTable
+sumExpr<Col>(IloEnv env, container, term)  // a plain lvalue container as a one-column set
     .where(p...)                         // only rows where all p hold; chainable
     .whereEach(p1, ..., pN)                  // at most once; one pass, N sums, term computed once per row
     .build();                            // IloExpr, or std::array<IloExpr, N> after split
@@ -180,8 +180,8 @@ VarTable<Keys...>{math_opt::Model& model, const IndexSet<Keys...>& set,
                   Lb lb = 0, Ub ub = +inf, bool is_integer = false, const char* name = nullptr};
 solution(const math_opt::SolveResult&)   // → ValueTable; std::logic_error if no primal feasible solution
 
-sumOf(rows, term)                        // no env, no model
-sumOf<Col>(container, term)
+sumExpr(rows, term)                        // no env, no model
+sumExpr<Col>(container, term)
     .where(p...).whereEach(p...).build();    // math_opt::LinearExpression; QuadraticExpression for a quadratic term
                                          // (an array after split)
 ```
@@ -218,8 +218,8 @@ void setObjective(HighsEnv& env, const Objective& objective, ObjSense sense);
 HighsStatus minimize(HighsEnv& env, const Objective& objective);             // setObjective, then run()
 HighsStatus maximize(HighsEnv& env, const Objective& objective);
 
-sumOf(rows, term)                        // no env
-sumOf<Col>(container, term)
+sumExpr(rows, term)                        // no env
+sumExpr<Col>(container, term)
     .where(p...).whereEach(p...).build();    // HighsLinearExpression; HighsQuadraticExpression for a quadratic term
 ```
 

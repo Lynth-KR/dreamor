@@ -106,7 +106,7 @@ Every public type and function, by the header that brings it, under `dreamor/`. 
 **Sums** (`concert.hpp`, namespace `dreamor::concert`)
 | | |
 |---|---|
-| `sumOf(env, rows, term)`, `sumOf<Col>(env, container, term)` | Sum builder. The term is a column function or a `VarTable` itself |
+| `sumExpr(env, rows, term)`, `sumExpr<Col>(env, container, term)` | Sum builder. The term is a column function or a `VarTable` itself |
 | Builder `.where(p...)`, `.whereEach(p...)`, `.build()` | Filter; one sum per predicate, a row in each sum whose predicate it meets; `IloExpr` or `std::array<IloExpr, N>` |
 
 **MathOpt backend** (`mathopt.hpp`, namespace `dreamor::mathopt`)
@@ -115,7 +115,7 @@ Every public type and function, by the header that brings it, under `dreamor/`. 
 | `VarTable<Keys...>{model, set, lb = 0, ub = +inf, is_integer = false, name = nullptr}` | `model` is `math_opt::Model&`; lb, ub are numbers or column functions |
 | `(keys...)`, `(row)`, `contains`, `size`, `keys`, `begin`/`end` | Same as Concert (variables are `math_opt::Variable`) |
 | `solution(result)` | `math_opt::SolveResult` → `ValueTable`; `std::logic_error` if there is no feasible solution |
-| `sumOf(rows, term)`, `sumOf<Col>(container, term)` | Sum builder; `build()` gives `math_opt::LinearExpression`, or `math_opt::QuadraticExpression` when the term is quadratic (an array of them with `whereEach`) |
+| `sumExpr(rows, term)`, `sumExpr<Col>(container, term)` | Sum builder; `build()` gives `math_opt::LinearExpression`, or `math_opt::QuadraticExpression` when the term is quadratic (an array of them with `whereEach`) |
 
 **HiGHS backend** (`highs.hpp`, namespace `dreamor::highs`)
 | | |
@@ -134,7 +134,7 @@ Every public type and function, by the header that brings it, under `dreamor/`. 
 | `addConstr(env, row, name = nullptr)` | Adds the row, its repeated columns merged → `HighsCons` |
 | `setObjective(env, objective)`, `setObjective(env, objective, sense)` | Replaces the costs, constant and Hessian (and the sense) |
 | `minimize(env, objective)`, `maximize(env, objective)` | `setObjective`, then `run()` → its `HighsStatus` |
-| `sumOf(rows, term)`, `sumOf<Col>(container, term)` | Sum builder; `build()` gives `HighsLinearExpression`, or `HighsQuadraticExpression` when the term is quadratic (an array of them with `whereEach`) |
+| `sumExpr(rows, term)`, `sumExpr<Col>(container, term)` | Sum builder; `build()` gives `HighsLinearExpression`, or `HighsQuadraticExpression` when the term is quadratic (an array of them with `whereEach`) |
 | `HighsError` | Thrown by a HiGHS call that fails: `call()`, `status()` |
 
 ## Utilities

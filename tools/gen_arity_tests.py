@@ -27,11 +27,11 @@ def compile_fail(n_direct: bool) -> str:
     c = cols(65)
     decls = "\n".join(f'using C{i} = dreamor::Col<std::size_t, "c{i}">;' for i in range(65))
     if n_direct:
-        body = f"  (void)dreamor::makeSet<{', '.join(c)}>({', '.join(['I'] * 65)}).collect();"
+        body = f"  (void)dreamor::makeSet<{', '.join(c)}>({', '.join(['I'] * 65)}).build();"
     else:
         body = (
-            f"  const auto s64 = dreamor::makeSet<{', '.join(c[:64])}>({', '.join(['I'] * 64)}).collect();\n"
-            "  (void)dreamor::makeSet<C64>(s64, I).collect();"
+            f"  const auto s64 = dreamor::makeSet<{', '.join(c[:64])}>({', '.join(['I'] * 64)}).build();\n"
+            "  (void)dreamor::makeSet<C64>(s64, I).build();"
         )
     what = "65 columns at once" if n_direct else "a 64-column set spread into a set with one more column"
     return (

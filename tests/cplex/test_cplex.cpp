@@ -4,7 +4,7 @@
 //
 // Against the real CPLEX (run_tests.sh --cplex): a small MIP built with the library, solved,
 // read back with solution(), and exported to check that key-based names reach CPLEX; then a
-// quadratic objective summed by sumOf, solved as an MIQP.
+// quadratic objective summed by sumExpr, solved as an MIQP.
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
@@ -41,24 +41,24 @@ int main() try {
     const auto xv  = [&x](cI i, cJ j) { return x(i, j); };
     const auto byI = IJ.groupBy<cI>();
     for (const auto& [i, rows] : byI) {
-      model.add(dreamor::concert::sumOf(env, rows, xv).build() <= 1);
+      model.add(dreamor::concert::sumExpr(env, rows, xv).build() <= 1);
     }
     const auto byJ = IJ.groupBy<cJ>();
     for (const auto& [j, rows] : byJ) {
-      model.add(dreamor::concert::sumOf(env, rows, xv).build() <= 2);
+      model.add(dreamor::concert::sumExpr(env, rows, xv).build() <= 2);
     }
     for (const auto& [row, v] : sc) {
       model.add(v <= 5.0 * x(row));
     }
     for (const auto& [row, v] : slack) {
-      model.add(v >= 0.5 * dreamor::concert::sumOf(env, byI.slice(row), xv).build());
+      model.add(v >= 0.5 * dreamor::concert::sumExpr(env, byI.slice(row), xv).build());
     }
 
-    IloExpr obj = dreamor::concert::sumOf(env, IJ, [&x](cI i, cJ j) {
+    IloExpr obj = dreamor::concert::sumExpr(env, IJ, [&x](cI i, cJ j) {
                     return static_cast<double>(((i.get() * 7) + j.get()) % 11) * x(i, j);
                   }).build();
-    obj += dreamor::concert::sumOf(env, II, [&slack](cI i) { return -1.0 * slack(i); }).build();
-    obj += dreamor::concert::sumOf(env, IJ, [&sc](cI i, cJ j) { return 0.01 * sc(i, j); }).build();
+    obj += dreamor::concert::sumExpr(env, II, [&slack](cI i) { return -1.0 * slack(i); }).build();
+    obj += dreamor::concert::sumExpr(env, IJ, [&sc](cI i, cJ j) { return 0.01 * sc(i, j); }).build();
     model.add(IloMaximize(env, obj));
     obj.end();
 
@@ -94,14 +94,14 @@ int main() try {
     std::remove(lp.c_str());
     cplex.end();
 
-    // a quadratic objective built by sumOf: integer least squares, an MIQP
+    // a quadratic objective built by sumExpr: integer least squares, an MIQP
     const IloModel squares(env);
     const dreamor::concert::VarTable<cI> fit{env, II, -10, 10, ILOINT, "Fit"};
     const auto off_target = [&fit](cI i) {
       const double target = 1.4 * static_cast<double>(i.get());
       return (fit(i) - target) * (fit(i) - target);
     };
-    IloExpr sumOfSquares = dreamor::concert::sumOf(env, II, off_target).build();
+    IloExpr sumOfSquares = dreamor::concert::sumExpr(env, II, off_target).build();
     squares.add(IloMinimize(env, sumOfSquares));
     sumOfSquares.end();
     IloCplex leastSquares(squares);

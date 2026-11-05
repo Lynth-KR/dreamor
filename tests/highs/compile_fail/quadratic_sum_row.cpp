@@ -9,5 +9,5 @@ int main() {
   const auto sIJ = IJ();
   const hs::VarTable<cI, cJ> x{env, sIJ, 0, 1};
   const auto square = [&x](cI i, cJ j) { return x(i, j) * x(i, j); };
-  hs::addConstr(env, hs::sumOf(sIJ, square).build() == x(cI{1}, cJ{2}));
+  hs::addConstr(env, hs::sumExpr(sIJ, square).build() == x(cI{1}, cJ{2}));
 }

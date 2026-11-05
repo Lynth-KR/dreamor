@@ -279,14 +279,14 @@ absl::StatusOr<Menu> SolveForMenu(
       model, sCOCKTAILS, required, allowed, /*is_integer=*/true, "Make"};
 
   // subject to Budget: sum {i in INGREDIENTS} Buy[i] <= max_new + card(EXISTING);
-  model.AddLinearConstraint(dreamor::mathopt::sumOf(sINGREDIENTS, vBuy).build() <=
+  model.AddLinearConstraint(dreamor::mathopt::sumExpr(sINGREDIENTS, vBuy).build() <=
                             max_new_ingredients + existing_ingredients.size());
   // subject to NeedAll {(c,i) in RECIPE}: Make[c] <= Buy[i];
   for (const auto& [c, i] : sRECIPE) {
     model.AddLinearConstraint(vMake(c) <= vBuy(i));
   }
   // maximize Cocktails: sum {c in COCKTAILS} Make[c];
-  model.Maximize(dreamor::mathopt::sumOf(sCOCKTAILS, vMake).build());
+  model.Maximize(dreamor::mathopt::sumExpr(sCOCKTAILS, vMake).build());
 
   const math_opt::SolveArguments args = {
       .parameters = {.enable_output = enable_solver_output}};

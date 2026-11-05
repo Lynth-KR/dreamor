@@ -12,7 +12,7 @@
 //    4.   Macros: Screaming Snake Case (i.e., MY_MACRO)
 //
 // The IBM ILOG Concert backend (CPLEX): dreamor::concert::VarTable and
-// dreamor::concert::sumOf. Bounds, variable types, names and solutions are in Concert's own
+// dreamor::concert::sumExpr. Bounds, variable types, names and solutions are in Concert's own
 // terms - IloEnv, ILOFLOAT / ILOINT / ILOBOOL, IloCplex - because the model around them is
 // written in Concert anyway. A short alias reads well at the call site:
 //
@@ -65,14 +65,14 @@
 // included.
 //
 // ---------------------------------------------------------------------------------------
-// sumOf
+// sumExpr
 //
 // sum {t in ROWS : pred(t)} term(t)
 //
-//     sumOf(env, sASSIGN, term).build()                    -> IloExpr
-//     sumOf(env, sASSIGN, term).where(p).where(q).build()  -> IloExpr, over rows where p AND q
-//     sumOf(env, sASSIGN, term).whereEach(p1, p2, p3).build()  -> std::array<IloExpr, 3>
-//     sumOf<cMachine>(env, machines, term).build()       -> IloExpr, over a plain container
+//     sumExpr(env, sASSIGN, term).build()                    -> IloExpr
+//     sumExpr(env, sASSIGN, term).where(p).where(q).build()  -> IloExpr, over rows where p AND q
+//     sumExpr(env, sASSIGN, term).whereEach(p1, p2, p3).build()  -> std::array<IloExpr, 3>
+//     sumExpr<cMachine>(env, machines, term).build()       -> IloExpr, over a plain container
 //
 // where() narrows, exactly as makeSet's does. whereEach() is the other thing: one sum per
 // predicate, sharing a single traversal - for a set several constraints read differently.
@@ -83,7 +83,7 @@
 //
 //     const auto is_early = [](cItem i) { return i->dueDate() < 100; };
 //     const auto weighted_assign = [&vAssign](cMachine m, cItem i) { return cost(m, i) * vAssign(m, i); };
-//     sumOf(env, sASSIGN, weighted_assign).where(is_early).build();
+//     sumExpr(env, sASSIGN, weighted_assign).where(is_early).build();
 //
 // So parameter order is free, and a callable takes only the columns it needs. term() runs
 // at most once per row even under whereEach() - it is usually a VarTable lookup.
@@ -211,17 +211,17 @@ class VarTable : public internal::VarTableCore<IloNumVar, Keys...> {
 
 // sum {t in rows} term(t) as an IloExpr; see the description at the top of this file.
 template <typename... Columns, std::ranges::input_range Rows, typename Term>
-[[nodiscard]] auto sumOf(IloEnv env, Rows&& rows, Term&& term) {
+[[nodiscard]] auto sumExpr(IloEnv env, Rows&& rows, Term&& term) {
   return internal::makeSum<Columns...>(
       [env] { return IloExpr{env}; }, std::forward<Rows>(rows), std::forward<Term>(term));
 }
 
-// sumOf(rows, term) - without the environment, as MathOpt's takes it - stops on the fix.
+// sumExpr(rows, term) - without the environment, as MathOpt's takes it - stops on the fix.
 template <typename... Columns, typename Rows, typename Term>
-auto sumOf(Rows&& /*rows*/, Term&& /*term*/) {
+auto sumExpr(Rows&& /*rows*/, Term&& /*term*/) {
   static_assert(internal::always_false<Rows>,
-                "Concert's sumOf takes the IloEnv first: sumOf(env, rows, term). The one without an "
-                "environment is MathOpt's, dreamor::mathopt::sumOf(rows, term).");
+                "Concert's sumExpr takes the IloEnv first: sumExpr(env, rows, term). The one without an "
+                "environment is MathOpt's, dreamor::mathopt::sumExpr(rows, term).");
 }
 
 }  // namespace dreamor::concert

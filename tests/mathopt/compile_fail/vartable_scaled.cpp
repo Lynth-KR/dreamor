@@ -7,5 +7,5 @@
 int main() {
   math_opt::Model model;
   const dreamor::mathopt::VarTable<cI, cJ> x{model, IJ(), 0, 1};
-  (void)dreamor::mathopt::sumOf(IJ(), x * 100).build();
+  (void)dreamor::mathopt::sumExpr(IJ(), x * 100).build();
 }

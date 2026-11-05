@@ -5,7 +5,7 @@
 // File: call.hpp
 // Calling a callable with the columns it names, out of one row of an index set.
 //
-// Shared by everything that takes column callables over materialized rows: sumOf's term and
+// Shared by everything that takes column callables over materialized rows: sumExpr's term and
 // predicates, VarTable's per-row bounds. makeSet's predicates and sources go through the
 // generation plan instead (plan.hpp), since they run on partial tuples.
 #pragma once
@@ -56,7 +56,7 @@ template <typename Callable>
 struct TakesRowNumber : std::false_type {};
 
 // Guarded on the row, so a range that is not an index set produces the one diagnostic
-// its caller (sumOf, VarTable) already reports instead of one per call site.
+// its caller (sumExpr, VarTable) already reports instead of one per call site.
 template <typename Callable, typename Row>
 [[nodiscard]] decltype(auto) callColumnsOf(const Callable& callable, const Row& row) {
   if constexpr (TakesWholeRow<Callable>::value &&

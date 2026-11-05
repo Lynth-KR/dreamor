@@ -25,7 +25,7 @@
 //   solve0     a solve with a time limit of zero: where the benchmarks stop the clock
 // Against the stub (bench/common/stub) there is no solver: the run stops after budget.
 //
-// Arms: dreamor's sets, VarTables and sumOf, written as the README writes a model; and the model
+// Arms: dreamor's sets, VarTables and sumExpr, written as the README writes a model; and the model
 // written straight against the solver's API, as the benchmarks' C++ baselines are (`hand`):
 // variables in std::vectors indexed by position, the sums as loops - on HiGHS, whose API takes a
 // model as arrays, the arrays filled by position and handed over in one passModel. On HiGHS alone,
@@ -103,7 +103,7 @@ Instance makeInstance(std::size_t l, std::size_t c, std::size_t p, std::uint64_t
 #  if SCENARIO_DREAMOR
 
 void runDreamor(const Instance& in, Result& r) {
-  using dreamor::mathopt::sumOf;
+  using dreamor::mathopt::sumExpr;
   math_opt::Model model;
   dreamor::IndexSet<cLocation> sLOCATIONS;
   dreamor::IndexSet<cCustomer> sCUSTOMERS;
@@ -121,12 +121,12 @@ void runDreamor(const Instance& in, Result& r) {
   });
   r.measure("objective", [&] {
     model.Minimize(
-        sumOf(sASSIGN, [&](cLocation l, cCustomer c) { return distance(l->id, c->at) * (*vX)(l, c); }).build());
+        sumExpr(sASSIGN, [&](cLocation l, cCustomer c) { return distance(l->id, c->at) * (*vX)(l, c); }).build());
   });
   r.measure("assign", [&] {
     const auto assignedTo = sASSIGN.groupBy<cCustomer>();
     for (const auto& [customer] : sCUSTOMERS) {
-      model.AddLinearConstraint(sumOf(assignedTo.slice(customer), *vX).build() == 1.0);
+      model.AddLinearConstraint(sumExpr(assignedTo.slice(customer), *vX).build() == 1.0);
     }
   });
   r.measure("link", [&] {
@@ -134,7 +134,8 @@ void runDreamor(const Instance& in, Result& r) {
       model.AddLinearConstraint((*vX)(location, customer) <= (*vY)(location));
     }
   });
-  r.measure("budget", [&] { model.AddLinearConstraint(sumOf(sLOCATIONS, *vY).build() == static_cast<double>(in.p)); });
+  r.measure("budget",
+            [&] { model.AddLinearConstraint(sumExpr(sLOCATIONS, *vY).build() == static_cast<double>(in.p)); });
   solve(model, r);
 }
 
@@ -220,14 +221,14 @@ void runDreamor(const Instance& in, Result& r) {
     vX.emplace(env, sASSIGN, 0, 1);
   });
   r.measure("objective", [&] {
-    hs::setObjective(env, hs::sumOf(sASSIGN, [&](cLocation l, cCustomer c) {
+    hs::setObjective(env, hs::sumExpr(sASSIGN, [&](cLocation l, cCustomer c) {
                             return distance(l->id, c->at) * (*vX)(l, c);
                           }).build());
   });
   r.measure("assign", [&] {
     const auto assignedTo = sASSIGN.groupBy<cCustomer>();
     for (const auto& [customer] : sCUSTOMERS) {
-      hs::addConstr(env, hs::sumOf(assignedTo.slice(customer), *vX).build() == 1.0);
+      hs::addConstr(env, hs::sumExpr(assignedTo.slice(customer), *vX).build() == 1.0);
     }
   });
   r.measure("link", [&] {
@@ -235,7 +236,7 @@ void runDreamor(const Instance& in, Result& r) {
       hs::addConstr(env, (*vX)(location, customer) <= (*vY)(location));
     }
   });
-  r.measure("budget", [&] { hs::addConstr(env, hs::sumOf(sLOCATIONS, *vY).build() == static_cast<double>(in.p)); });
+  r.measure("budget", [&] { hs::addConstr(env, hs::sumExpr(sLOCATIONS, *vY).build() == static_cast<double>(in.p)); });
   solve(env, r);
 }
 
@@ -368,7 +369,7 @@ void runCalls(const Instance& in, Result& r) {
 #  if SCENARIO_DREAMOR
 
 void runDreamor(const Instance& in, Result& r) {
-  using dreamor::concert::sumOf;
+  using dreamor::concert::sumExpr;
   IloEnv env;
   IloModel model(env);
   dreamor::IndexSet<cLocation> sLOCATIONS;
@@ -387,14 +388,14 @@ void runDreamor(const Instance& in, Result& r) {
   });
   r.measure("objective", [&] {
     IloExpr objective =
-        sumOf(env, sASSIGN, [&](cLocation l, cCustomer c) { return distance(l->id, c->at) * (*vX)(l, c); }).build();
+        sumExpr(env, sASSIGN, [&](cLocation l, cCustomer c) { return distance(l->id, c->at) * (*vX)(l, c); }).build();
     model.add(IloMinimize(env, objective));
     objective.end();
   });
   r.measure("assign", [&] {
     const auto assignedTo = sASSIGN.groupBy<cCustomer>();
     for (const auto& [customer] : sCUSTOMERS) {
-      IloExpr assigned = sumOf(env, assignedTo.slice(customer), *vX).build();
+      IloExpr assigned = sumExpr(env, assignedTo.slice(customer), *vX).build();
       model.add(assigned == 1);
       assigned.end();
     }
@@ -405,7 +406,7 @@ void runDreamor(const Instance& in, Result& r) {
     }
   });
   r.measure("budget", [&] {
-    IloExpr opened = sumOf(env, sLOCATIONS, *vY).build();
+    IloExpr opened = sumExpr(env, sLOCATIONS, *vY).build();
     model.add(opened == static_cast<IloNum>(in.p));
     opened.end();
   });

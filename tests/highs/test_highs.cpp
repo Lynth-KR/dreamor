@@ -2,7 +2,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// The HiGHS backend (run_tests.sh --highs): VarTable and sumOf as test_vartable and test_sum check
+// The HiGHS backend (run_tests.sh --highs): VarTable and sumExpr as test_vartable and test_sum check
 // them for Concert, the expressions and rows of highspy's interface, the objective with its
 // Hessian, small models solved, and the code of README.md and highs.hpp's comments as written there.
 #include <cmath>
@@ -273,16 +273,16 @@ static void sum() {
   const auto var      = [&x](cI i, cJ j) { return x(i, j); };
   const auto weighted = [&x](cI i, cJ j) { return static_cast<double>(i.get()) * x(i, j); };
 
-  DREAMOR_CHECK(hs::sumOf(IJ, var).build().size() == 6);
-  DREAMOR_CHECK(hs::sumOf(IJ, var).where([](cI i) { return i.get() > 1; }).build().size() == 4);
+  DREAMOR_CHECK(hs::sumExpr(IJ, var).build().size() == 6);
+  DREAMOR_CHECK(hs::sumExpr(IJ, var).where([](cI i) { return i.get() > 1; }).build().size() == 4);
 
   const auto byJ = IJ.groupBy<cJ>();
   for (const auto& [j, rows] : byJ) {
-    DREAMOR_CHECK(hs::sumOf(rows, var).build().size() == 3);
+    DREAMOR_CHECK(hs::sumExpr(rows, var).build().size() == 3);
   }
 
   const auto sums =
-      hs::sumOf(IJ, weighted).whereEach([](cJ j) { return j.get() == 10; }, [](cJ) { return true; }).build();
+      hs::sumExpr(IJ, weighted).whereEach([](cJ j) { return j.get() == 10; }, [](cJ) { return true; }).build();
   DREAMOR_CHECK(sums[0].size() == 3 && sums[1].size() == 6);
   double coef = 0;
   for (const double c : sums[0].coefficients()) {
@@ -291,11 +291,11 @@ static void sum() {
   DREAMOR_CHECK(exactlyEqual(coef, 1 + 2 + 3));
 
   // a table is itself a term
-  DREAMOR_CHECK(hs::sumOf(IJ, x).build().size() == 6);
-  DREAMOR_CHECK(hs::sumOf(IJ, x).where([](cI i) { return i.get() > 1; }).build().size() == 4);
+  DREAMOR_CHECK(hs::sumExpr(IJ, x).build().size() == 6);
+  DREAMOR_CHECK(hs::sumExpr(IJ, x).where([](cI i) { return i.get() > 1; }).build().size() == 4);
 
   // an empty sum is the zero expression
-  const auto empty = hs::sumOf(IJ, var).where([](cI) { return false; }).build();
+  const auto empty = hs::sumExpr(IJ, var).where([](cI) { return false; }).build();
   DREAMOR_CHECK(empty.size() == 0 && isExactlyZero(empty.constant()));
   // no term on either side, so no model: the product is the constants' alone
   const hs::HighsQuadraticExpression constants = (empty + 2) * (empty + 3);
@@ -304,12 +304,12 @@ static void sum() {
 
   // a plain container as a one-column set
   const hs::VarTable<cI> y{env, dreamor::makeSet<cI>(I).build(), 0, 1};
-  DREAMOR_CHECK(hs::sumOf<cI>(I, [&y](cI i) { return y(i); }).build().size() == 3);
+  DREAMOR_CHECK(hs::sumExpr<cI>(I, [&y](cI i) { return y(i); }).build().size() == 3);
 
   // linear terms make a HighsLinearExpression, quadratic ones a HighsQuadraticExpression
-  static_assert(std::is_same_v<decltype(hs::sumOf(IJ, weighted).build()), hs::HighsLinearExpression>);
+  static_assert(std::is_same_v<decltype(hs::sumExpr(IJ, weighted).build()), hs::HighsLinearExpression>);
   const auto square    = [&x](cI i, cJ j) { return static_cast<double>(i.get()) * x(i, j) * x(i, j); };
-  const auto quadratic = hs::sumOf(IJ, square).build();
+  const auto quadratic = hs::sumExpr(IJ, square).build();
   static_assert(std::is_same_v<std::remove_const_t<decltype(quadratic)>, hs::HighsQuadraticExpression>);
   DREAMOR_CHECK(quadratic.first().size() == 6 && quadratic.linear().size() == 0);
   double squareCoef = 0;
@@ -320,7 +320,7 @@ static void sum() {
 
   // a quadratic expression term, under where() and whereEach(); (x - 1)^2 appends -x twice, unmerged
   const auto deviation = [&x](cI i, cJ j) { return (x(i, j) - 1) * (x(i, j) - 1); };
-  const auto parts     = hs::sumOf(IJ, deviation)
+  const auto parts     = hs::sumExpr(IJ, deviation)
                              .where([](cI i) { return i.get() > 1; })
                              .whereEach([](cJ j) { return j.get() == 10; }, [](cJ) { return true; })
                              .build();
@@ -338,9 +338,9 @@ static void solution() {
   const hs::VarTable<cI> vPick{env, sI, 0, 1, HighsVarType::kInteger, "Pick"};
   DREAMOR_CHECK_THROWS(std::logic_error, vPick.solution(env));  // not run yet
 
-  hs::addConstr(env, hs::sumOf(sI, vPick).build() <= 2);
+  hs::addConstr(env, hs::sumExpr(sI, vPick).build() <= 2);
   const auto value = [&vPick](cI i) { return static_cast<double>(i.get()) * vPick(i); };
-  DREAMOR_CHECK(hs::maximize(env, hs::sumOf(sI, value).build()) == HighsStatus::kOk);
+  DREAMOR_CHECK(hs::maximize(env, hs::sumExpr(sI, value).build()) == HighsStatus::kOk);
   const auto pickPlan = vPick.solution(env);
   DREAMOR_CHECK(pickPlan.size() == 3 && std::abs(pickPlan(cI{1})) < 1e-6 && std::abs(pickPlan(cI{3}) - 1) < 1e-6);
   DREAMOR_CHECK_THROWS(std::out_of_range, pickPlan(cI{9}));
@@ -547,11 +547,11 @@ static void docs() {
     const auto machine_usage = [&](cMachine m, cItem i, cPeriod t) { return i->time * vYield(m, i, t); };
 
     for (const auto& [machine, period, rows] : producedByMachinePeriod) {
-      hs::addConstr(env, hs::sumOf(rows, machine_usage).build() <= machine->capacity);
+      hs::addConstr(env, hs::sumExpr(rows, machine_usage).build() <= machine->capacity);
     }
 
     quiet(env);  // test only
-    hs::minimize(env, hs::sumOf(sPRODUCE, vYield).build());
+    hs::minimize(env, hs::sumExpr(sPRODUCE, vYield).build());
     const auto yieldPlan = vYield.solution(env);
     DREAMOR_CHECK(env.highs().getModelStatus() == HighsModelStatus::kOptimal && yieldPlan.size() == sPRODUCE.size());
     DREAMOR_CHECK(env.highs().getNumRow() == 2 && colName(env.highs(), 0) == "Yield_M1_A_1");
@@ -563,12 +563,12 @@ static void docs() {
     const auto machine_usage = [&](cMachine m, cItem i, cPeriod t) { return i->time * vYield(m, i, t); };
     const auto unit_cost     = [&](cMachine m, cItem i, cPeriod t) { return -i->cost * vYield(m, i, t); };
     for (const auto& [machine, period, rows] : producedByMachinePeriod) {
-      const hs::HighsLinearExpression totalLoad = hs::sumOf(rows, machine_usage).build();
+      const hs::HighsLinearExpression totalLoad = hs::sumExpr(rows, machine_usage).build();
       hs::addConstr(env, totalLoad <= machine->capacity);
     }
 
-    quiet(env);                                                 // test only
-    hs::minimize(env, hs::sumOf(sPRODUCE, unit_cost).build());  // sets the objective, then run()
+    quiet(env);                                                   // test only
+    hs::minimize(env, hs::sumExpr(sPRODUCE, unit_cost).build());  // sets the objective, then run()
     const auto yieldPlan = vYield.solution(env);
     // the most valuable per unit of time: A, 2 a unit at 1 hour, fills each period's 10 hours
     DREAMOR_CHECK(exactlyEqual(yieldPlan(cMachine{&m1}, cItem{&a}, cPeriod{1}), 10.0));
@@ -584,8 +584,8 @@ static void docs() {
     const hs::VarTable<cMachine, cItem, cPeriod> vYield{env, sPRODUCE, 0, max_possible_qty};
     const auto machine_usage = [&](cMachine m, cItem i, cPeriod t) { return i->time * vYield(m, i, t); };
     const auto unit_cost     = [&](cMachine m, cItem i, cPeriod t) { return -i->cost * vYield(m, i, t); };
-    hs::addConstr(env, hs::sumOf(rows, machine_usage).build() <= capacity);
-    hs::minimize(env, hs::sumOf(sPRODUCE, unit_cost).build());  // the model reaches the Highs here
+    hs::addConstr(env, hs::sumExpr(rows, machine_usage).build() <= capacity);
+    hs::minimize(env, hs::sumExpr(sPRODUCE, unit_cost).build());  // the model reaches the Highs here
     DREAMOR_CHECK(env.highs().getModelStatus() == HighsModelStatus::kOptimal);
     DREAMOR_CHECK(std::abs(env.highs().getInfo().objective_function_value + 40.0) < 1e-9);
   }

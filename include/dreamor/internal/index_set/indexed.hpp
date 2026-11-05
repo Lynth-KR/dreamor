@@ -141,7 +141,7 @@ struct SetAccess {
 }  // namespace internal::inline index_set
 
 // A view in the ranges sense: copying it is O(1) and shares the rows, so views::all and
-// sumOf hold it by value.
+// sumExpr hold it by value.
 template <typename... Columns>
 class IndexSet : public std::ranges::view_base {
   using Tup = std::tuple<Columns...>;

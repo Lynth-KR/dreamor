@@ -290,7 +290,7 @@ fits in 96 of lookup's 320 (64 of them at k = 1) and 32 of order's 256.
   solver's own array read by the entity's place, against the values copied into a table once a solve
   and an entity's row worked out from its address. `vars_named` under GCC (0.96): a
   name written straight into a buffer. Slice's `coef` (0.96 / 0.90): a coefficient a term, read by
-  the row's columns - a lookup that checks all k of them against the row sumOf published, up to 1.5
+  the row's columns - a lookup that checks all k of them against the row sumExpr published, up to 1.5
   times the instructions a term at k = 8 - where the hand-written arm reads it at the row's
   position. Group's sums are within 3% either way: 0.97-1.02 under GCC, 1.04-1.07 under Clang.
 - **The direct array, where it fits**, is the fastest arm in order - 0.44 / 0.57 of dreamor's time -

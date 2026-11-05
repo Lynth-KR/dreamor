@@ -2,7 +2,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// The MathOpt backend (run_tests.sh --mathopt): VarTable and sumOf as test_vartable and
+// The MathOpt backend (run_tests.sh --mathopt): VarTable and sumExpr as test_vartable and
 // test_sum check them for Concert, then the lot-sizing example solved with HiGHS.
 #include <array>
 #include <cmath>
@@ -103,15 +103,15 @@ static void sum() {
   const auto var      = [&x](cI i, cJ j) { return x(i, j); };
   const auto weighted = [&x](cI i, cJ j) { return static_cast<double>(i.get()) * x(i, j); };
 
-  DREAMOR_CHECK(terms(dreamor::mathopt::sumOf(IJ, var).build()) == 6);
-  DREAMOR_CHECK(terms(dreamor::mathopt::sumOf(IJ, var).where([](cI i) { return i.get() > 1; }).build()) == 4);
+  DREAMOR_CHECK(terms(dreamor::mathopt::sumExpr(IJ, var).build()) == 6);
+  DREAMOR_CHECK(terms(dreamor::mathopt::sumExpr(IJ, var).where([](cI i) { return i.get() > 1; }).build()) == 4);
 
   const auto byJ = IJ.groupBy<cJ>();
   for (const auto& [j, rows] : byJ) {
-    DREAMOR_CHECK(terms(dreamor::mathopt::sumOf(rows, var).build()) == 3);
+    DREAMOR_CHECK(terms(dreamor::mathopt::sumExpr(rows, var).build()) == 3);
   }
 
-  const auto sums = dreamor::mathopt::sumOf(IJ, weighted)
+  const auto sums = dreamor::mathopt::sumExpr(IJ, weighted)
                         .whereEach([](cJ j) { return j.get() == 10; }, [](cJ) { return true; })
                         .build();
   DREAMOR_CHECK(terms(sums[0]) == 3 && terms(sums[1]) == 6);
@@ -122,20 +122,20 @@ static void sum() {
   DREAMOR_CHECK(exactlyEqual(coef, 1 + 2 + 3));
 
   // a table is itself a term
-  DREAMOR_CHECK(terms(dreamor::mathopt::sumOf(IJ, x).build()) == 6);
-  DREAMOR_CHECK(terms(dreamor::mathopt::sumOf(IJ, x).where([](cI i) { return i.get() > 1; }).build()) == 4);
+  DREAMOR_CHECK(terms(dreamor::mathopt::sumExpr(IJ, x).build()) == 6);
+  DREAMOR_CHECK(terms(dreamor::mathopt::sumExpr(IJ, x).where([](cI i) { return i.get() > 1; }).build()) == 4);
 
   // an empty sum is the zero expression, attached to no model
-  DREAMOR_CHECK(terms(dreamor::mathopt::sumOf(IJ, var).where([](cI) { return false; }).build()) == 0);
+  DREAMOR_CHECK(terms(dreamor::mathopt::sumExpr(IJ, var).where([](cI) { return false; }).build()) == 0);
 
   // a plain container as a one-column set
   const dreamor::mathopt::VarTable<cI> y{model, dreamor::makeSet<cI>(I).build(), 0, 1};
-  DREAMOR_CHECK(terms(dreamor::mathopt::sumOf<cI>(I, [&y](cI i) { return y(i); }).build()) == 3);
+  DREAMOR_CHECK(terms(dreamor::mathopt::sumExpr<cI>(I, [&y](cI i) { return y(i); }).build()) == 3);
 
   // linear terms make a LinearExpression, quadratic ones a QuadraticExpression
-  static_assert(std::is_same_v<decltype(dreamor::mathopt::sumOf(IJ, weighted).build()), math_opt::LinearExpression>);
+  static_assert(std::is_same_v<decltype(dreamor::mathopt::sumExpr(IJ, weighted).build()), math_opt::LinearExpression>);
   const auto square    = [&x](cI i, cJ j) { return static_cast<double>(i.get()) * x(i, j) * x(i, j); };
-  const auto quadratic = dreamor::mathopt::sumOf(IJ, square).build();
+  const auto quadratic = dreamor::mathopt::sumExpr(IJ, square).build();
   static_assert(std::is_same_v<std::remove_const_t<decltype(quadratic)>, math_opt::QuadraticExpression>);
   DREAMOR_CHECK(quadratic.quadratic_terms().size() == 6 && quadratic.linear_terms().empty());
   double squareCoef = 0;
@@ -146,7 +146,7 @@ static void sum() {
 
   // a QuadraticExpression term, under where() and whereEach()
   const auto deviation = [&x](cI i, cJ j) { return (x(i, j) - 1) * (x(i, j) - 1); };
-  const auto parts     = dreamor::mathopt::sumOf(IJ, deviation)
+  const auto parts     = dreamor::mathopt::sumExpr(IJ, deviation)
                              .where([](cI i) { return i.get() > 1; })
                              .whereEach([](cJ j) { return j.get() == 10; }, [](cJ) { return true; })
                              .build();
@@ -155,10 +155,11 @@ static void sum() {
   DREAMOR_CHECK(parts[1].linear_terms().size() == 4 && exactlyEqual(parts[1].offset(), 4));
 
   // an empty quadratic sum is the zero expression too
-  DREAMOR_CHECK(dreamor::mathopt::sumOf(IJ, square).where([](cI) { return false; }).build().quadratic_terms().empty());
+  DREAMOR_CHECK(
+      dreamor::mathopt::sumExpr(IJ, square).where([](cI) { return false; }).build().quadratic_terms().empty());
 }
 
-// A quadratic objective built by sumOf, solved: HiGHS takes no quadratic objective through
+// A quadratic objective built by sumExpr, solved: HiGHS takes no quadratic objective through
 // MathOpt, so this one goes to SCIP.
 static void quadraticObjective() {
   math_opt::Model model("least squares");
@@ -169,7 +170,7 @@ static void quadraticObjective() {
     const double target = 1.4 * static_cast<double>(i.get());
     return (vFit(i) - target) * (vFit(i) - target);
   };
-  model.Minimize(dreamor::mathopt::sumOf(sI, off_target).build());
+  model.Minimize(dreamor::mathopt::sumExpr(sI, off_target).build());
 
   const auto result = math_opt::Solve(model, math_opt::SolverType::kGscip);
   DREAMOR_CHECK(result.ok() && result->termination.reason == math_opt::TerminationReason::kOptimal);
@@ -184,9 +185,9 @@ static void solution() {
   const std::vector<std::size_t> I{1, 2, 3};
   const auto sI = dreamor::makeSet<cI>(I).build();
   const dreamor::mathopt::VarTable<cI> vPick{model, sI, 0, 1, true, "Pick"};
-  model.AddLinearConstraint(dreamor::mathopt::sumOf(sI, [&vPick](cI i) { return vPick(i); }).build() <= 2);
+  model.AddLinearConstraint(dreamor::mathopt::sumExpr(sI, [&vPick](cI i) { return vPick(i); }).build() <= 2);
   model.Maximize(
-      dreamor::mathopt::sumOf(sI, [&vPick](cI i) { return static_cast<double>(i.get()) * vPick(i); }).build());
+      dreamor::mathopt::sumExpr(sI, [&vPick](cI i) { return static_cast<double>(i.get()) * vPick(i); }).build());
   const auto result = math_opt::Solve(model, math_opt::SolverType::kHighs);
   DREAMOR_CHECK(result.ok());
   if (!result.ok()) { return; }

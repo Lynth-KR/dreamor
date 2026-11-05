@@ -11,7 +11,7 @@
 //    3.   Constants: kPascal Case (i.e., kMyConstant)
 //    4.   Macros: Screaming Snake Case (i.e., MY_MACRO)
 //
-// The HiGHS backend: dreamor::highs::VarTable and dreamor::highs::sumOf, on HiGHS's own C++ API.
+// The HiGHS backend: dreamor::highs::VarTable and dreamor::highs::sumExpr, on HiGHS's own C++ API.
 //
 // HiGHS's C++ API is a matrix API: a column is an index, a row is (lower, upper, indices, values),
 // and a quadratic objective is a Hessian. It has no expression to write a model in. highspy, the
@@ -24,10 +24,10 @@
 //     const hs::VarTable<cMachine, cItem, cPeriod> vYield{env, sPRODUCE, 0, max_possible_qty,
 //                                                               HighsVarType::kContinuous, "Yield"};
 //
-//     const hs::HighsLinearExpression totalLoad = hs::sumOf(rows, machine_usage).build();
+//     const hs::HighsLinearExpression totalLoad = hs::sumExpr(rows, machine_usage).build();
 //     hs::addConstr(env, totalLoad <= machine->capacity);
 //
-//     hs::minimize(env, hs::sumOf(sPRODUCE, unit_cost).build());   // sets the objective, then run()
+//     hs::minimize(env, hs::sumExpr(sPRODUCE, unit_cost).build());   // sets the objective, then run()
 //     const auto yieldPlan = vYield.solution(env);
 //
 //   highspy                        dreamor::highs
@@ -42,7 +42,7 @@
 //   Highs.addConstr(expr, name)    addConstr(env, row, name)
 //   Highs.setObjective(expr, s)    setObjective(env, objective, sense)
 //   Highs.minimize / maximize      minimize(env, objective) / maximize    then run(), as highspy does
-//   Highs.qsum                     sumOf
+//   Highs.qsum                     sumExpr
 //
 // Where it differs from highspy, and why:
 //   - a row is a type of its own: x + y <= 1 is a HighsBoundedLinearExpression, so an inequality
@@ -68,8 +68,8 @@
 //
 // The rest is the library's and the same as on every backend: bounds as numbers or column
 // callables, names "<name>_<key0>_<key1>...", vYield(row) throwing std::out_of_range for a row
-// outside the set, iteration in the set's order, and sumOf's where() / whereEach(). As on MathOpt,
-// solution() throws std::logic_error when the model has no primal solution, and sumOf takes no
+// outside the set, iteration in the set's order, and sumExpr's where() / whereEach(). As on MathOpt,
+// solution() throws std::logic_error when the model has no primal solution, and sumExpr takes no
 // first argument. A HiGHS call that fails throws HighsError, which carries its HighsStatus.
 //
 // Building: add HiGHS's include/highs and link libhighs (tests/run_tests.sh --highs). The
@@ -1040,8 +1040,8 @@ namespace dreamor::highs {
 //     options.time_limit  = 60;
 //     hs::HighsEnv env{options};
 //     const hs::VarTable<cMachine, cItem, cPeriod> vYield{env, sPRODUCE, 0, max_possible_qty};
-//     hs::addConstr(env, hs::sumOf(rows, machine_usage).build() <= capacity);
-//     hs::minimize(env, hs::sumOf(sPRODUCE, unit_cost).build());   // the model reaches the Highs here
+//     hs::addConstr(env, hs::sumExpr(rows, machine_usage).build() <= capacity);
+//     hs::minimize(env, hs::sumExpr(sPRODUCE, unit_cost).build());   // the model reaches the Highs here
 class HighsEnv {
  public:
   HighsEnv() {
@@ -1471,17 +1471,18 @@ HighsStatus maximize(HighsEnv& env, const Objective& objective) {
 // term is quadratic (x * x, (x - 1) * (x - 1)); see concert.hpp for where(), whereEach() and the
 // rules on rows and callables, which are the same here.
 template <typename... Columns, std::ranges::input_range Rows, typename Term>
-[[nodiscard]] auto sumOf(Rows&& rows, Term&& term) {
+[[nodiscard]] auto sumExpr(Rows&& rows, Term&& term) {
   return internal::makeSum<Columns...>(
       [] { return HighsLinearExpression{}; }, std::forward<Rows>(rows), std::forward<Term>(term));
 }
 
-// sumOf(highs, rows, term) - with a first argument, as VarTable and Concert's sumOf take one -
+// sumExpr(highs, rows, term) - with a first argument, as VarTable and Concert's sumExpr take one -
 // stops on the fix.
 template <typename... Columns, typename First, typename Rows, typename Term>
-auto sumOf(First&& /*first*/, Rows&& /*rows*/, Term&& /*term*/) {
-  static_assert(internal::always_false<First>,
-                "HiGHS's sumOf takes no HighsEnv: sumOf(rows, term). An empty HighsLinearExpression needs no model.");
+auto sumExpr(First&& /*first*/, Rows&& /*rows*/, Term&& /*term*/) {
+  static_assert(
+      internal::always_false<First>,
+      "HiGHS's sumExpr takes no HighsEnv: sumExpr(rows, term). An empty HighsLinearExpression needs no model.");
 }
 
 }  // namespace dreamor::highs

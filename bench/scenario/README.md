@@ -32,7 +32,7 @@ splits them is its own: Concert hands part of the model over only once it is use
 `extract` alone understates Concert. Against the stub there is no solver, so a run stops after `budget`.
 
 **Arms.**
-- `dreamor`: sets with `makeSet`, `VarTable`s, the sums with `sumOf`, written as the README writes a
+- `dreamor`: sets with `makeSet`, `VarTable`s, the sums with `sumExpr`, written as the README writes a
   model - the assign constraints iterate the customers and take each one's `groupBy` slice, the link
   constraints walk the set and look x and y up by the row's columns.
 - `hand`: the model written straight against the solver's API, as the benchmarks' C++ baselines

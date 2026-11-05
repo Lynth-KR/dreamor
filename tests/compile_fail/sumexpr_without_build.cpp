@@ -3,11 +3,12 @@
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
 // expect: is not an expression yet
+#include <ilcplex/ilocplex.h>
 #include "prelude.hpp"
 int main() {
   IloEnv env;
+  IloModel model(env);
   const auto sIJ = IJ();
   const dreamor::concert::VarTable<cI, cJ> x{env, sIJ};
-  IloExpr total(env);
-  total += dreamor::concert::sumOf(env, sIJ, x);
+  model.add(dreamor::concert::sumExpr(env, sIJ, [&x](cI i, cJ j) { return x(i, j); }) <= 1);
 }

@@ -133,10 +133,10 @@ int main() try {
   const auto outArcs = sARCS.groupBy<cFrom>();
   DREAMOR_CHECK(outArcs.size() == 3);
 
-  // concert.hpp (sumOf)
+  // concert.hpp (sumExpr)
   const auto use_of = [&vUse](cFrom i, cTo j) { return vUse(i, j); };
   for (const auto& [node, arcs] : outArcs) {
-    DREAMOR_CHECK(sumOf(env, arcs, use_of).build().expr_->terms.size() == 2);
+    DREAMOR_CHECK(sumExpr(env, arcs, use_of).build().expr_->terms.size() == 2);
   }
 
   // value_table.hpp (data on a set) and internal/index_set/ordered.hpp (within groups)

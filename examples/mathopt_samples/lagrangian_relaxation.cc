@@ -195,13 +195,13 @@ FlowModel::FlowModel(const Graph& graph, const bool integer)
       model(std::make_unique<math_opt::Model>("LagrangianProblem")),
       vFlow(*model, sARCS, 0, 1, integer, "x"),
       // sum {a in ARCS} cost[a] * x[a], and the same for each resource
-      cost(dreamor::mathopt::sumOf(sARCS, [this](cArc a) {
+      cost(dreamor::mathopt::sumExpr(sARCS, [this](cArc a) {
              return a->cost * vFlow(a);
            }).build()),
-      resource_1(dreamor::mathopt::sumOf(sARCS, [this](cArc a) {
+      resource_1(dreamor::mathopt::sumExpr(sARCS, [this](cArc a) {
                    return a->resource_1 * vFlow(a);
                  }).build()),
-      resource_2(dreamor::mathopt::sumOf(sARCS, [this](cArc a) {
+      resource_2(dreamor::mathopt::sumExpr(sARCS, [this](cArc a) {
                    return a->resource_2 * vFlow(a);
                  }).build()) {
   // subject to Balance {n in NODES}:
@@ -215,8 +215,8 @@ FlowModel::FlowModel(const Graph& graph, const bool integer)
                     : n.get() == graph.sink ? -1
                                             : 0;
     model->AddLinearConstraint(
-        dreamor::mathopt::sumOf(outOf.slice(cTail{n.get()}), vFlow).build() -
-            dreamor::mathopt::sumOf(into.slice(cHead{n.get()}), vFlow).build() ==
+        dreamor::mathopt::sumExpr(outOf.slice(cTail{n.get()}), vFlow).build() -
+            dreamor::mathopt::sumExpr(into.slice(cHead{n.get()}), vFlow).build() ==
         rhs);
   }
 }

@@ -14,7 +14,7 @@
 // driver key, x over its group's rows); and on the inner shape split (two expressions a key, its
 // rows in even and odd periods, in one pass) and coef (one expression a key, c(t) * x a row).
 //
-// dreamor's groupBy, slice and sumOf are set against hand-written groupings, as in group, each
+// dreamor's groupBy, slice and sumExpr are set against hand-written groupings, as in group, each
 // with what a key goes through: the group numbers in a std::unordered_map from the packed key
 // (`identity`, `mixed`); the packed keys sorted, searched with std::lower_bound (`sort`); and the
 // usual code, a std::map from the key's entities to its rows (`map`). The packed arms take the
@@ -193,7 +193,7 @@ struct Dreamor<std::index_sequence<J...>> {
     r.measure("slice_" + dr.shape, [&] {
       std::uint64_t sum = 0;
       for (const auto& key : sDriver) {
-        IloExpr e = dreamor::concert::sumOf(env, groups->slice(key), vX).build();
+        IloExpr e = dreamor::concert::sumExpr(env, groups->slice(key), vX).build();
         sum += consume(e, check(key));
       }
       r.check("slice_" + dr.shape, sum);
@@ -202,7 +202,7 @@ struct Dreamor<std::index_sequence<J...>> {
     r.measure("split", [&] {
       std::uint64_t sum = 0;
       for (const auto& key : sDriver) {
-        auto parts            = dreamor::concert::sumOf(env, groups->slice(key), vX).whereEach(Even{}, Odd{}).build();
+        auto parts            = dreamor::concert::sumExpr(env, groups->slice(key), vX).whereEach(Even{}, Odd{}).build();
         const std::uint64_t h = check(key);
         sum += consume(parts[0], h) + consume(parts[1], ~h);
       }
@@ -211,7 +211,7 @@ struct Dreamor<std::index_sequence<J...>> {
     r.measure("coef", [&] {
       std::uint64_t sum = 0;
       for (const auto& key : sDriver) {
-        IloExpr e = dreamor::concert::sumOf(env, groups->slice(key), Coef{&vX}).build();
+        IloExpr e = dreamor::concert::sumExpr(env, groups->slice(key), Coef{&vX}).build();
         sum += consume(e, check(key));
       }
       r.check("coef", sum);

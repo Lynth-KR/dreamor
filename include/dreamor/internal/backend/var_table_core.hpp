@@ -140,7 +140,7 @@ class VarTableCore : public VarTableBase {
   friend auto operator*(const Scale& /*scale*/, const Table& /*table*/) {
     static_assert(
         always_false<Scale>,
-        "Scale the sum, not the table: 100 * sumOf(env, rows, vYield).build() (sumOf(rows, vYield) on MathOpt), or "
+        "Scale the sum, not the table: 100 * sumExpr(env, rows, vYield).build() (sumExpr(rows, vYield) on MathOpt), or "
         "multiply inside a term. A VarTable is a family of variables, not an expression.");
     return false;
   }
@@ -149,7 +149,7 @@ class VarTableCore : public VarTableBase {
   friend auto operator*(const Table& /*table*/, const Scale& /*scale*/) {
     static_assert(
         always_false<Scale>,
-        "Scale the sum, not the table: 100 * sumOf(env, rows, vYield).build() (sumOf(rows, vYield) on MathOpt), or "
+        "Scale the sum, not the table: 100 * sumExpr(env, rows, vYield).build() (sumExpr(rows, vYield) on MathOpt), or "
         "multiply inside a term. A VarTable is a family of variables, not an expression.");
     return false;
   }
@@ -212,7 +212,7 @@ class VarTableCore : public VarTableBase {
 
 }  // namespace dreamor::internal::inline backend
 
-// A table names its key columns, so it is itself a sum term: sumOf(env, rows, vYield) sums its
+// A table names its key columns, so it is itself a sum term: sumExpr(env, rows, vYield) sums its
 // variables over the rows - sum {(m,i,t) in rows} Yield[m,i,t] - without a lambda that only looks
 // them up. Every backend's table, through VarTableBase.
 template <typename Table>
