@@ -46,8 +46,8 @@ The tests run without a framework, through a single `tests/run_tests.sh`. Choose
 **Compilers:** GCC 13 or later, Clang 18 or later. CI tests both ends of that range - GCC 13 and 16, Clang 18 and 23 -
 and nothing in between, and the standard library's the same way: libstdc++, and LLVM's libc++ 18 and the newest
 (`CXX=clang++-18 STDLIB=libc++ tests/run_tests.sh`). Performance is measured and tuned on Linux x86-64 with libstdc++ alone. dreamor
-also builds and passes its tests on Windows, with clang-cl on the MSVC STL, checked by hand, not on CI (MSVC's own
-cl.exe is being brought up, not yet checked); and on WebAssembly with Emscripten, on CI (`WASM=1 tests/run_tests.sh` in
+also builds and passes its tests on Windows, with clang-cl on the MSVC STL, checked from WSL with
+`tools/windows_check.sh`, not on CI (MSVC's own cl.exe is being brought up: its tests pass, the rest is not settled); and on WebAssembly with Emscripten, on CI (`WASM=1 tests/run_tests.sh` in
 the `emscripten/emsdk` image). Apple Clang is not tested. Code stays portable rather than fast on one platform: no
 intrinsics or inline assembly, and only what every supported standard library has (`AGENTS.md`, "Platforms"). Where
 Linux runs - on the machine, under WSL2, in a container - is yours to choose. To try the newest ones locally: Clang from
