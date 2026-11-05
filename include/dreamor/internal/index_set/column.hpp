@@ -52,6 +52,27 @@ template <std::size_t N>
 ColumnName(const char (&)[N]) -> ColumnName<N>;  // NOLINT(*-avoid-c-arrays): deduces N from the literal
 
 template <typename T, ColumnName Name>
+class Col;
+
+namespace internal::inline index_set {
+
+template <typename T>
+struct IsColumn : std::false_type {};
+template <typename T, ColumnName Name>
+struct IsColumn<Col<T, Name>> : std::true_type {};
+
+template <typename Column>
+concept is_column = IsColumn<Column>::value;
+
+// The integers std::cmp_equal takes: not bool, nor a character type.
+template <typename T>
+concept comparable_integer =
+    std::integral<T> && !std::same_as<T, bool> && !std::same_as<T, char> && !std::same_as<T, wchar_t> &&
+    !std::same_as<T, char8_t> && !std::same_as<T, char16_t> && !std::same_as<T, char32_t>;
+
+}  // namespace internal::inline index_set
+
+template <typename T, ColumnName Name>
 class Col {
  public:
   using value_type = T;
@@ -80,6 +101,24 @@ class Col {
 
   friend bool operator==(const Col&, const Col&) = default;
 
+  // A column compares with a value as its value does - t == T, k != entrance, n == "x" - which the two
+  // conversions above would otherwise make ambiguous: the column to the value, or the value to a column. Integers
+  // compare by their values, whatever their signedness (std::cmp_equal), so t == 1 neither warns nor wraps.
+  // The column's type is deduced too, and checked first: a comparison of two tuples of columns finds this operator
+  // by argument-dependent lookup, and is never this one, so its constraints stop there instead of comparing a tuple.
+  template <typename Self, typename U>
+    requires std::same_as<Self, Col> && (!internal::is_column<U>) && requires(const T& column_value, const U& value) {
+      { column_value == value } -> std::convertible_to<bool>;
+    }
+  friend bool operator==(const Self& column, const U& value) {
+    if constexpr (internal::comparable_integer<T> && internal::comparable_integer<U>) {
+      return std::cmp_equal(column.value_, value);
+    } else {
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-array-to-pointer-decay): n == "x" reaches T's == as the pointer
+      return static_cast<bool>(column.value_ == value);
+    }
+  }
+
  private:
   T value_{};
 };
@@ -107,14 +146,6 @@ template <typename Pred>
 struct CallableColumns {};
 
 namespace internal::inline index_set {
-
-template <typename T>
-struct IsColumn : std::false_type {};
-template <typename T, ColumnName Name>
-struct IsColumn<Col<T, Name>> : std::true_type {};
-
-template <typename Column>
-concept is_column = IsColumn<Column>::value;
 
 // A value of an interval (interval.hpp), in the type its ends met in. It takes the integer
 // type of the column it fills, so `interval::closed(0, 160)` fills a std::size_t column.

@@ -14,7 +14,8 @@ using cPeriod  = dreamor::Col<std::size_t, "period">;       // the value may be 
 ```
 
 - A `Col` converts implicitly to the value it wraps, and if that value is a pointer, `->` and `*` reach the entity
-  directly (`m->capacity`). Get the value out with `t.get()`.
+  directly (`m->capacity`). It compares with a value as that value does - `t == T`, `t > 1`, `k != entrance` - and
+  `t.get()` gets the value out.
 - One entity type may have more than one column. Different names make different columns (`cFrom` and `cTo`,
   both `const Node*`).
 - **Tokens for variable names**: for an entity-pointer column, a `keyName(const T*)` function placed in the **same
@@ -356,7 +357,7 @@ Concert; for MathOpt, `model.set_upper_bound(vYield(row), 0)`; for HiGHS,
 `env.highs().changeColBounds(vYield(row).index(), 0, 0)`).
 
 ```cpp
-const auto in_maintenance = [](cMachine m, cPeriod t) { return m->name == "M0" && t.get() == 2; };
+const auto in_maintenance = [](cMachine m, cPeriod t) { return m->name == "M0" && t == 2; };
 for (const auto& row : vYield.keys().where(in_maintenance)) {
   vYield(row).setUB(0);
 }

@@ -333,7 +333,7 @@ int main() try {
                 !producedByItemPeriod.at(0).rows.empty() && !producedByItemPeriod.empty());
 
   // --- VarTable: tightening bounds later, semi-continuous
-  const auto in_maintenance = [](cMachine m, cPeriod t) { return m->name == "M0" && t.get() == 2; };
+  const auto in_maintenance = [](cMachine m, cPeriod t) { return m->name == "M0" && t == 2; };
   for (const auto& row : vYield.keys().where(in_maintenance)) {
     vYield(row).setUB(0);
   }

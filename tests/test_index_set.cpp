@@ -10,6 +10,7 @@
 #include <iterator>
 #include <ranges>
 #include <stdexcept>
+#include <string>
 #include <tuple>
 #include <type_traits>
 #include <vector>
@@ -21,6 +22,17 @@ using cJ = dreamor::Col<std::size_t, "j">;
 using cK = dreamor::Col<std::size_t, "k">;
 using cL = dreamor::Col<std::size_t, "l">;
 
+namespace {
+struct Node {
+  std::size_t id;
+};
+}  // namespace
+using cNode = dreamor::Col<const Node*, "node">;
+using cName = dreamor::Col<std::string, "name">;
+
+template <typename A, typename B>
+constexpr bool canCompare = requires(const A& a, const B& b) { a == b; };
+
 template <typename S>
 constexpr bool canPushBack = requires(S& s) { s.push_back(std::declval<typename S::value_type>()); };
 
@@ -31,6 +43,22 @@ int main() try {
   const auto II   = dreamor::makeSet<cI>(I).build();
   const auto even = [](cI i) { return i.get() % 2 == 0; };
   const auto big  = [](cJ j) { return j.get() >= 20; };
+
+  // a column compares with a value as its value does, either side, without ambiguity; integers by their values
+  {
+    const std::size_t two = 2;
+    const cI i{2};
+    DREAMOR_CHECK(i == 2 && i == two && 2 == i && i != 3 && !(i == -1) && i == cI{2});
+    const std::array<Node, 2> nodes{Node{1}, Node{2}};
+    const Node* const first = nodes.data();
+    const cNode n{first};
+    DREAMOR_CHECK(n == first && first == n && n != &nodes[1] && n != nullptr);
+    const cName name{"plate"};
+    DREAMOR_CHECK(name == "plate" && name != std::string("coils"));
+    const auto is_three = [](cI k) { return k == 3; };
+    DREAMOR_CHECK(IJ.where(is_three).size() == 3);
+    static_assert(!canCompare<cNode, std::size_t> && !canCompare<cI, const Node*>);
+  }
 
   // read-only, copy shares rows
   static_assert(!canPushBack<dreamor::IndexSet<cI>>);

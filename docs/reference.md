@@ -8,7 +8,7 @@ Every public type and function, by the header that brings it, under `dreamor/`. 
 **Columns** (`index_set.hpp`)
 | | |
 |---|---|
-| `Col<T, "name">` | Column type. `Col(T)` (implicit), `operator T()`, `get()`, `->` and `*` for pointers, `==`, default construction |
+| `Col<T, "name">` | Column type. `Col(T)` (implicit), `operator T()`, `get()`, `->` and `*` for pointers, `==` with a column of its type or with a value (`t == T`, `k != entrance`; integers by their values, whatever their signedness), default construction |
 | `Col<...>::kName` | Column name (`std::string_view`) |
 | `Col<...>::value_type` | The value type, `T` |
 | `ColumnName` | Type of `Col`'s name template argument (a string literal) |

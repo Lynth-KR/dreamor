@@ -15,7 +15,7 @@ The headers in `include/dreamor/` are authoritative; the usage examples in their
 
 | | |
 |---|---|
-| `Col<T, "name">` | Column type. Implicit `Col(T)`, `operator T()`, `get()`, `->` and `*` for pointer `T`, `==`, default construction |
+| `Col<T, "name">` | Column type. Implicit `Col(T)`, `operator T()`, `get()`, `->` and `*` for pointer `T`, `==` with a column of its type or with a value (`t == T`, `k != entrance`), default construction |
 | `Col<...>::kName` | The name, `std::string_view` |
 | `ColumnName` | Type of the name template argument (a string literal) |
 | `keyName(Col)` | The value's `keyName` if one is found (same namespace as the entity), otherwise the value itself. A variable's name and a column under `std::format` use, for an entity pointer with no `keyName`, the entity's `primaryKey`; the token must be `std::format`-able |
