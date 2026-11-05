@@ -22,19 +22,19 @@
 #include <utility>
 #include <vector>
 
-#include "dreamor/general/flat_index.hpp"
-#include "dreamor/index_set/binding.hpp"
-#include "dreamor/index_set/call.hpp"
-#include "dreamor/index_set/column.hpp"
-#include "dreamor/index_set/indexed.hpp"
-#include "dreamor/index_set/key_args.hpp"
+#include "dreamor/internal/base/flat_index.hpp"
+#include "dreamor/internal/index_set/binding.hpp"
+#include "dreamor/internal/index_set/call.hpp"
+#include "dreamor/internal/index_set/column.hpp"
+#include "dreamor/internal/index_set/indexed.hpp"
+#include "dreamor/internal/index_set/key_args.hpp"
 
 namespace dreamor {
 
-namespace internal {
+namespace internal::inline index_set {
 
-template <typename... Columns, typename Tup>
-[[nodiscard]] auto pickColumns(const IndexSet<Tup>& set) {
+template <typename... Columns, typename Set>
+[[nodiscard]] auto pickColumns(const Set& set) {
   Rows<std::tuple<Columns...>> out;
   out.reserve(set.size());
   for (const auto& tuple : set) {
@@ -43,12 +43,12 @@ template <typename... Columns, typename Tup>
   return out;
 }
 
-}  // namespace internal
+}  // namespace internal::inline index_set
 
-namespace internal {
+namespace internal::inline index_set {
 
 template <typename Tup>
-using TupleIndex = ::dreamor::general::FlatIndex<Tup>;
+using TupleIndex = ::dreamor::internal::FlatIndex<Tup>;
 
 // The key_at of a FlatIndex whose entries are positions in rows.
 template <typename Tup>
@@ -57,12 +57,12 @@ template <typename Tup>
 }
 
 // Every row by position; a repeat keeps its first one. Rows are hashed a block ahead
-// (general::hashedBlocks), as everywhere below that walks a whole set.
+// (hashedBlocks), as everywhere below that walks a whole set.
 template <typename Tup>
 [[nodiscard]] TupleIndex<Tup> indexRows(const Rows<Tup>& rows) {
   TupleIndex<Tup> index{rows.size()};
   const auto at = rowsAt(rows);
-  ::dreamor::general::hashedBlocks(
+  ::dreamor::internal::hashedBlocks(
       0,
       rows.size(),
       at,
@@ -83,7 +83,7 @@ void appendNew(Rows<Tup>& out, TupleIndex<Tup>& seen, const Tup& tuple, std::siz
 // Appends the first occurrence of each of rows that out does not have yet, front to back.
 template <typename Tup>
 void appendFirstOccurrences(Rows<Tup>& out, TupleIndex<Tup>& seen, const Rows<Tup>& rows) {
-  ::dreamor::general::hashedBlocks(
+  ::dreamor::internal::hashedBlocks(
       0,
       rows.size(),
       rowsAt(rows),
@@ -108,11 +108,11 @@ template <typename Tup>
 // no row twice, so no row needs to be checked against the ones already kept.
 template <typename Tup>
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): two sets of one type is what filtering one by the other means
-void appendFiltered(Rows<Tup>& out, const IndexSet<Tup>& from, const IndexSet<Tup>& by, bool keep) {
+void appendFiltered(Rows<Tup>& out, const SetFor<Tup>& from, const SetFor<Tup>& by, bool keep) {
   const auto& from_rows = SetAccess::rows(from);
   const auto& by_rows   = SetAccess::rows(by);
   const auto index      = indexRows(by_rows);
-  ::dreamor::general::hashedBlocks(
+  ::dreamor::internal::hashedBlocks(
       0,
       from_rows.size(),
       rowsAt(from_rows),
@@ -125,19 +125,19 @@ void appendFiltered(Rows<Tup>& out, const IndexSet<Tup>& from, const IndexSet<Tu
       index);
 }
 
-}  // namespace internal
+}  // namespace internal::inline index_set
 
 // Projection onto some columns, as a true set: S.select<cMachine, cItem>(). Naming every
 // column in another order reorders the columns: S.select<cOrder, cMachine, cItem>().
-template <typename Tup>
 template <typename... Columns>
-IndexSet<std::tuple<Columns...>> IndexSet<Tup>::select() const {
-  static_assert(sizeof...(Columns) > 0, "select() needs at least one column.");
-  internal::checkColumns<Tup, Columns...>();
-  return internal::SetAccess::make(internal::firstOccurrences(internal::pickColumns<Columns...>(*this)));
+template <typename... Picked>
+IndexSet<Picked...> IndexSet<Columns...>::select() const {
+  static_assert(sizeof...(Picked) > 0, "select() needs at least one column.");
+  internal::checkColumns<Tup, Picked...>();
+  return internal::SetAccess::make(internal::firstOccurrences(internal::pickColumns<Picked...>(*this)));
 }
 
-namespace internal {
+namespace internal::inline index_set {
 
 // A Col, or a non-empty tuple of Cols.
 template <typename Result>
@@ -172,7 +172,7 @@ struct SelectedRow<Expr, Tup, true> {
   using type                   = std::conditional_t<is_column<Result>, std::tuple<Result>, Result>;
 };
 
-}  // namespace internal
+}  // namespace internal::inline index_set
 
 // The general setof: each row becomes what expr returns - AMPL's setof {(i,j) in EDGES} (j,i).
 // expr takes the columns it reads, as a predicate does, and returns the new row's columns:
@@ -183,9 +183,9 @@ struct SelectedRow<Expr, Tup, true> {
 // A value moves into another column only where that column is written out: cTo does not
 // convert to cFrom on its own, so two columns over one value type cannot trade places
 // unnoticed. As a set, like select<Cols...>(): first occurrence of each row.
-template <typename Tup>
+template <typename... Columns>
 template <typename Expr>
-auto IndexSet<Tup>::select(Expr expr) const {
+auto IndexSet<Columns...>::select(Expr expr) const {
   internal::checkColumnCallable<Expr, Tup>();
   using Selected = internal::SelectedRow<Expr, Tup>;
   using NewRow   = Selected::type;
@@ -207,15 +207,15 @@ auto IndexSet<Tup>::select(Expr expr) const {
     }
     return internal::SetAccess::make(internal::firstOccurrences(out));
   } else {
-    return IndexSet<NewRow>{};
+    return internal::SetFor<NewRow>{};
   }
 }
 
 // A union B: A, then B diff A. Neither holds a row twice, so only A needs an index.
-template <typename Tup>
-[[nodiscard]] IndexSet<Tup> unite(const IndexSet<Tup>& left, const IndexSet<Tup>& right) {
+template <typename... Columns>
+[[nodiscard]] IndexSet<Columns...> unite(const IndexSet<Columns...>& left, const IndexSet<Columns...>& right) {
   const auto& left_rows = internal::SetAccess::rows(left);
-  internal::Rows<Tup> out;
+  internal::Rows<std::tuple<Columns...>> out;
   out.reserve(left.size() + right.size());
   out.insert(out.end(), left_rows.begin(), left_rows.end());
   internal::appendFiltered(out, right, left, false);
@@ -223,19 +223,19 @@ template <typename Tup>
 }
 
 // A inter B
-template <typename Tup>
+template <typename... Columns>
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): two sets of one type is what intersecting means
-[[nodiscard]] IndexSet<Tup> intersect(const IndexSet<Tup>& left, const IndexSet<Tup>& right) {
-  internal::Rows<Tup> out;
+[[nodiscard]] IndexSet<Columns...> intersect(const IndexSet<Columns...>& left, const IndexSet<Columns...>& right) {
+  internal::Rows<std::tuple<Columns...>> out;
   internal::appendFiltered(out, left, right, true);
   return internal::SetAccess::make(std::move(out));
 }
 
 // A \ B
-template <typename Tup>
+template <typename... Columns>
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): two sets of one type is what A \ B means
-[[nodiscard]] IndexSet<Tup> difference(const IndexSet<Tup>& left, const IndexSet<Tup>& right) {
-  internal::Rows<Tup> out;
+[[nodiscard]] IndexSet<Columns...> difference(const IndexSet<Columns...>& left, const IndexSet<Columns...>& right) {
+  internal::Rows<std::tuple<Columns...>> out;
   internal::appendFiltered(out, left, right, false);
   return internal::SetAccess::make(std::move(out));
 }
@@ -243,8 +243,9 @@ template <typename Tup>
 // A = B: the same rows, in any order - a set's equality, as std::unordered_set's. Neither holds a
 // row twice, so equal sizes and every row of A in B say it. Whether the rows also come in the same
 // order is std::ranges::equal(A, B).
-template <typename Tup>
-[[nodiscard]] bool operator==(const IndexSet<Tup>& left, const IndexSet<Tup>& right) {
+template <typename... Columns>
+[[nodiscard]] bool operator==(const IndexSet<Columns...>& left, const IndexSet<Columns...>& right) {
+  using Tup              = std::tuple<Columns...>;
   const auto& left_rows  = internal::SetAccess::rows(left);
   const auto& right_rows = internal::SetAccess::rows(right);
   if (left_rows.size() != right_rows.size()) { return false; }
@@ -263,12 +264,13 @@ template <typename Tup>
 //
 // A membership over fewer columns prunes earlier: one over (cNode) alone runs as soon as
 // the node is bound.
-template <typename Tup>
+template <typename Set>
 class Membership {
+  using Tup = Set::value_type;
+
  public:
   // Shares the set's rows and indexes them in place: 4 bytes a slot, no copy of a row.
-  explicit Membership(const IndexSet<Tup>& set)
-      : set_{set}, index_{internal::indexRows(internal::SetAccess::rows(set))} {}
+  explicit Membership(const Set& set) : set_{set}, index_{internal::indexRows(internal::SetAccess::rows(set))} {}
 
   // The set's columns, in order - where() calls pred(a, b), and so can you: in_routes(m, i) -
   // or a whole row (see key_args.hpp). The parameter list cannot say which columns these are
@@ -284,20 +286,20 @@ class Membership {
   }
 
  private:
-  IndexSet<Tup> set_;
+  Set set_;
   internal::TupleIndex<Tup> index_;
 };
 
 // Declares this membership's columns, so where() places it by them rather than by probing
 // its signature - which would match any call with the right number of arguments.
-template <typename Tup>
-struct PredicateColumns<Membership<Tup>> {
-  using type = Tup;
+template <typename Set>
+struct PredicateColumns<Membership<Set>> {
+  using type = Set::value_type;
 };
 
-template <typename Tup>
-Membership<Tup> IndexSet<Tup>::membership() const {
-  return Membership<Tup>{*this};
+template <typename... Columns>
+Membership<IndexSet<Columns...>> IndexSet<Columns...>::membership() const {
+  return Membership<IndexSet>{*this};
 }
 
 // Stable reordering by a key - SQL's ORDER BY: ascending, or descending with
@@ -308,9 +310,9 @@ Membership<Tup> IndexSet<Tup>::membership() const {
 //     const auto name_of       = [](cItem i) { return i->name; };
 //     const auto sBY_NAME      = sITEMS.orderBy(name_of);                       // ORDER BY name
 //     const auto sBY_NAME_DOWN = sITEMS.orderBy(name_of, dreamor::descending);  // ORDER BY name DESC
-template <typename Tup>
+template <typename... Columns>
 template <typename Key, typename Direction>
-IndexSet<Tup> IndexSet<Tup>::orderBy(Key key, Direction /*direction*/) const {
+IndexSet<Columns...> IndexSet<Columns...>::orderBy(Key key, Direction /*direction*/) const {
   internal::checkColumnCallable<Key, Tup>();
   static_assert(std::is_same_v<Direction, Ascending> || std::is_same_v<Direction, Descending>,
                 "orderBy(key, direction): the direction is dreamor::ascending or dreamor::descending.");
@@ -322,7 +324,7 @@ IndexSet<Tup> IndexSet<Tup>::orderBy(Key key, Direction /*direction*/) const {
     std::ranges::stable_sort(rows, Compare{}, key_of);
     return internal::SetAccess::make(std::move(rows));
   } else {
-    return IndexSet<Tup>{};
+    return IndexSet{};
   }
 }
 

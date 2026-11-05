@@ -16,7 +16,7 @@
 //
 // One test per column layout, each its own translation unit - test_differential.cpp and
 // test_differential_*.cpp - so the layouts compile side by side. A lookup by columns tries the
-// rows the thread's last lookups found, of every Key (dreamor/internal/row_index.hpp), and where
+// rows the thread's last lookups found, of every Key (dreamor/internal/backend/row_index.hpp), and where
 // such a hint falls against another set's rows depends on the rows' size and alignment: 4-byte
 // columns, padding, sizes no power of two. A layout names four columns A, B, C, D; the reference
 // holds each value as its index 0..kValues, the sets as the layout's values - the integer itself,
@@ -211,7 +211,7 @@ inline std::size_t terms(const IloExpr& e) {
 }
 
 // The variable's text, if it is set. The MSVC CRT deprecates getenv, so Windows takes _dupenv_s
-// (logger_light.hpp's isEnvSet does the same).
+// (logger.hpp's isEnvSet does the same).
 [[nodiscard]] inline std::optional<std::string> environmentText(const char* variable) {
 #ifdef _WIN32
   char* value      = nullptr;

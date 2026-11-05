@@ -1,6 +1,6 @@
 ---
 name: dreamor
-description: Write, review, and fix C++ optimization models that use dreamor (index sets, VarTable, sumOf) on CPLEX Concert, OR-Tools MathOpt, or HiGHS. Use this skill whenever code includes "dreamor/..." headers or uses makeSet, SetOf, groupBy, slice, ordered, VarTable, ValueTable, sumOf, or HighsEnv; whenever the user wants to translate an AMPL-style model (sets, indexed variables, sums, constraint families) into C++ with dreamor; and whenever a compile error mentions dreamor, VarTable, sumOf, UnbuiltSum, or messages such as "Look a variable or value up by the table's key columns" or "is not an expression yet".
+description: Write, review, and fix C++ optimization models that use dreamor (index sets, VarTable, sumOf) on CPLEX Concert, OR-Tools MathOpt, or HiGHS. Use this skill whenever code includes "dreamor/..." headers or uses makeSet, IndexSet, groupBy, slice, ordered, VarTable, ValueTable, sumOf, or HighsEnv; whenever the user wants to translate an AMPL-style model (sets, indexed variables, sums, constraint families) into C++ with dreamor; and whenever a compile error mentions dreamor, VarTable, sumOf, UnbuiltSum, or messages such as "Look a variable or value up by the table's key columns" or "is not an expression yet".
 ---
 
 # dreamor (0.7)
@@ -260,7 +260,7 @@ const auto yieldPlan = vYield.solution(env);                  // std::logic_erro
 - **One named global constraint (Concert):** `IloRange r = (expr <= B); r.setName("SetupBudget"); model.add(r);`
 - **Rows named like their variables:** `model.add(expr <= m->capacity).setName(dreamor::exprName("Cap", m, t));` -
   `Cap_M1_3`, the tokens VarTable uses, with no allocation and no format string. For a name of another shape, a
-  column prints as its token under `std::format` or `format` from `dreamor::general::FormatBuffer<256>`.
+  column prints as its token under `std::format` or `format` from `dreamor::FormatBuffer<256>`.
 - **Duals and reduced costs:** use the solver API (`getDuals`, `dual_values()`, `env.highs().getSolution().row_dual`).
   There is no keyed accessor.
 - **Several sums in one pass:** `.split(p1, p2).build()` returns `std::array<..., 2>` and computes each term once.

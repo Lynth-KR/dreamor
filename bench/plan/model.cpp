@@ -55,7 +55,7 @@
 #include <utility>
 #include <vector>
 
-#include "dreamor/index_set/plan.hpp"
+#include "dreamor/internal/index_set/plan.hpp"
 
 namespace {
 

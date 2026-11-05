@@ -11,7 +11,7 @@ The headers in `include/dreamor/` are authoritative; the usage examples in their
 
 ## Columns
 
-`index_set/column.hpp`, namespace `dreamor`.
+`dreamor/index_set.hpp`, namespace `dreamor`.
 
 | | |
 |---|---|
@@ -50,12 +50,12 @@ container source in `makeSet` like any other. Without `keyName`, an entity colum
 
 ## Building sets
 
-`index_set/set.hpp`.
+`dreamor/index_set.hpp`.
 
 ```cpp
 dreamor::makeSet<Cols...>(sources...)   // one source per column; a set source covers all its columns
     .where(pred)                        // repeatable; evaluated as soon as its columns are bound
-    .collect();                         // → SetOf<Cols...> = IndexSet<std::tuple<Cols...>>
+    .collect();                         // → IndexSet<Cols...>
 ```
 
 | Source | Example | Meaning |
@@ -73,8 +73,7 @@ A set has at most 64 columns, spread sources included; 65 stops at compile time.
 
 ## IndexSet
 
-`index_set/indexed.hpp` (implementation in `set.hpp`, `algebra.hpp`, `grouped.hpp`, `ordered.hpp`). Read-only,
-random-access, default-constructible (empty), O(1) copy sharing rows.
+`dreamor/index_set.hpp`. Read-only, random-access, default-constructible (empty), O(1) copy sharing rows.
 
 | Member | Result | AMPL |
 |---|---|---|
@@ -95,7 +94,7 @@ In generic code where the set type is a template parameter: `sANY.template selec
 
 ## Grouped and RowSlice
 
-`index_set/grouped.hpp`.
+`dreamor/index_set.hpp`.
 
 | `Grouped` | |
 |---|---|
@@ -114,7 +113,7 @@ random-access view into the set's rows (no copies), valid while the `Grouped` li
 
 ## Ordered
 
-`index_set/ordered.hpp`. A positional view over the deduplicated set - or, from `ordered<A...>()`, within each group
+`dreamor/index_set.hpp`. A positional view over the deduplicated set - or, from `ordered<A...>()`, within each group
 of rows that agree on `A...`: walks stop (cyclic: wrap) at the group's ends, `ord`/`isFirst`/`isLast` are within the
 group, `first(a...)`/`last(a...)` give a group's first and last row (AMPL's `first(S[a])`), and `first()`/`last()`/`at()`
 stop on a sentence. Every lookup is on a named `Ordered` only, and accepts either
@@ -136,16 +135,16 @@ Read a column from a returned pointer with `std::get<cPeriod>(*prevPeriod)`, fro
 
 ## Membership
 
-`index_set/algebra.hpp`. `in_routes(cols...)` or `in_routes(row)` → `bool`, O(1). Also usable as a `where` predicate.
+`dreamor/index_set.hpp`. `in_routes(cols...)` or `in_routes(row)` → `bool`, O(1). Also usable as a `where` predicate.
 
 ## Concert backend (`dreamor::concert`)
 
 `concert.hpp`.
 
 ```cpp
-VarTable<Keys...>{const IloEnv& env, const SetOf<Keys...>& set,
+VarTable<Keys...>{const IloEnv& env, const IndexSet<Keys...>& set,
                   Lb lb = 0, Ub ub = IloInfinity, IloNumVar::Type type = ILOFLOAT, const char* name = nullptr};
-VarTable<Keys...>{semiContinuous, const IloEnv& env, const SetOf<Keys...>& set,
+VarTable<Keys...>{semiContinuous, const IloEnv& env, const IndexSet<Keys...>& set,
                   Lb sclb, Ub ub, IloNumVar::Type type = ILOFLOAT, const char* name = nullptr};
 ```
 
@@ -177,7 +176,7 @@ sumOf<Col>(IloEnv env, container, term)  // a plain lvalue container as a one-co
 `mathopt.hpp`. `namespace math_opt = ::operations_research::math_opt;`
 
 ```cpp
-VarTable<Keys...>{math_opt::Model& model, const SetOf<Keys...>& set,
+VarTable<Keys...>{math_opt::Model& model, const IndexSet<Keys...>& set,
                   Lb lb = 0, Ub ub = +inf, bool is_integer = false, const char* name = nullptr};
 solution(const math_opt::SolveResult&)   // → ValueTable; std::logic_error if no primal feasible solution
 
@@ -205,7 +204,7 @@ HighsEnv env;                            // the model as written, and the Highs 
 HighsEnv env{options};                   // options: a HighsOptions, the Highs's before the model reaches it
 env.highs();                             // the Highs: the first call hands it the model in one passModel
 
-VarTable<Keys...>{HighsEnv& env, const SetOf<Keys...>& set,
+VarTable<Keys...>{HighsEnv& env, const IndexSet<Keys...>& set,
                   Lb lb = 0, Ub ub = kHighsInf, HighsVarType type = HighsVarType::kContinuous,
                   const char* name = nullptr};
 solution(const HighsEnv& env)            // → ValueTable; std::logic_error if no primal solution
@@ -262,16 +261,16 @@ named callable when an expression defines it (`docs/philosophy.md`).
 
 No solver; the library uses them itself.
 
-- `dreamor::exprName(family, keys...)` (`index_set/name_token.hpp`): `"<family>_<key0>_<key1>..."`, a row named as
+- `dreamor::exprName(family, keys...)` (`dreamor/index_set.hpp`): `"<family>_<key0>_<key1>..."`, a row named as
   VarTable names variables - columns by their token, or values - in a buffer of the thread's, no allocation, no
-  format string; valid until the thread's next `exprName`. `general::NameBuilder<N>` builds such a name part by part
+  format string; valid until the thread's next `exprName`. `NameBuilder<N>` builds such a name part by part
   (`restart(root)`, `append(length, token)`, `name()`).
-- `dreamor/general/format_buffer.hpp`: for a name of another shape, `class Model : private dreamor::general::FormatBuffer<256>`, then
+- `dreamor/format_buffer.hpp`: for a name of another shape, `class Model : private dreamor::FormatBuffer<256>`, then
   `model.add(expr <= cap).setName(format("Capacity_{}_{}", m, t));`. A column formats as its name token; `format`
   is static, on a buffer of the thread's, so a `const` member function calls it and threads call it at once; the
   returned `const char*` is valid until the thread's next `format` through any `FormatBuffer<N, Policy>`. Too long a name throws (`kThrow`, the default) or logs and
   clears (`OnFormatOverflow::kLogAndClear`).
-- `dreamor/logger/logger_light.hpp`: `DREAMOR_LOG_INFO/WARNING/ERROR/FATAL(fmt, args...)` (`std::format`, checked
+- `dreamor/logger.hpp`: `DREAMOR_LOG_INFO/WARNING/ERROR/FATAL(fmt, args...)` (`std::format`, checked
   at compile time; `FATAL` aborts in every build), `DREAMOR_DEBUG_INFO/ERROR/FATAL` (gone under `NDEBUG`),
   `dreamor::logger::setLevel(Level::kWarning)`, `dreamor::logger::FileSink sink{"model.log"};` (this thread, this
   scope).

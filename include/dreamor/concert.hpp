@@ -59,7 +59,7 @@
 // and vFlow(row) turns any of those rows into its variable.
 //
 // Storage: the set is shared, not copied, so keys are stored once. Beside it sit the
-// variables in the set's order and a hash index from key to row (internal/row_index.hpp),
+// variables in the set's order and a hash index from key to row (internal/backend/row_index.hpp),
 // which every table on the same set shares - vUse and vFlow over sARCS build it once. Column
 // order handed to the model therefore follows the set, reproducibly - pointer keys
 // included.
@@ -99,14 +99,15 @@
 #include <utility>
 #include <vector>
 
-#include "dreamor/index_set/indexed.hpp"
-#include "dreamor/index_set/key_args.hpp"
-#include "dreamor/internal/row_index.hpp"
-#include "dreamor/internal/sum_builder.hpp"
-#include "dreamor/internal/var_table_core.hpp"
+#include "dreamor/index_set.hpp"  // guaranteed, as <iostream> brings <istream> and <ostream>: a model needs its sets
+#include "dreamor/internal/backend/row_index.hpp"
+#include "dreamor/internal/backend/sum_builder.hpp"
+#include "dreamor/internal/backend/var_table_core.hpp"
+#include "dreamor/internal/index_set/indexed.hpp"
+#include "dreamor/internal/index_set/key_args.hpp"
 #include "dreamor/value_table.hpp"
 
-#include "dreamor/general/third_party_headers.hpp"
+#include "dreamor/internal/base/third_party_headers.hpp"
 DREAMOR_BEGIN_THIRD_PARTY_HEADERS
 #include <ilconcert/iloexpression.h>
 DREAMOR_END_THIRD_PARTY_HEADERS
@@ -132,7 +133,7 @@ class VarTable : public internal::VarTableCore<IloNumVar, Keys...> {
 
   template <typename Lb = IloNum, typename Ub = IloNum>
   VarTable(const IloEnv& env,
-           const IndexSet<Key>& set,
+           const IndexSet<Keys...>& set,
            const Lb& lb         = 0,
            const Ub& ub         = IloInfinity,
            IloNumVar::Type type = ILOFLOAT,
@@ -151,7 +152,7 @@ class VarTable : public internal::VarTableCore<IloNumVar, Keys...> {
   template <typename Lb = IloNum, typename Ub = IloNum>
   VarTable(SemiContinuous /*unused*/,
            const IloEnv& env,
-           const IndexSet<Key>& set,
+           const IndexSet<Keys...>& set,
            const Lb& sclb,
            const Ub& ub,
            IloNumVar::Type type = ILOFLOAT,

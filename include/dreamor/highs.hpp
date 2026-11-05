@@ -90,24 +90,25 @@
 #include <utility>
 #include <vector>
 
-#include "dreamor/index_set/indexed.hpp"
-#include "dreamor/index_set/key_args.hpp"
-#include "dreamor/internal/inline_vector.hpp"
-#include "dreamor/internal/row_index.hpp"
-#include "dreamor/internal/sum_builder.hpp"
-#include "dreamor/internal/var_table_core.hpp"
-#include "dreamor/logger/logger_light.hpp"
+#include "dreamor/index_set.hpp"  // guaranteed, as <iostream> brings <istream> and <ostream>: a model needs its sets
+#include "dreamor/internal/backend/inline_vector.hpp"
+#include "dreamor/internal/backend/row_index.hpp"
+#include "dreamor/internal/backend/sum_builder.hpp"
+#include "dreamor/internal/backend/var_table_core.hpp"
+#include "dreamor/internal/index_set/indexed.hpp"
+#include "dreamor/internal/index_set/key_args.hpp"
+#include "dreamor/logger.hpp"
 #include "dreamor/value_table.hpp"
 
-#include "dreamor/general/third_party_headers.hpp"
+#include "dreamor/internal/base/third_party_headers.hpp"
 DREAMOR_BEGIN_THIRD_PARTY_HEADERS
 #include "Highs.h"
 DREAMOR_END_THIRD_PARTY_HEADERS
 
-namespace dreamor::internal {
+namespace dreamor::highs::detail {
 struct HighsModelAccess;
 struct HighsEnvAccess;
-}  // namespace dreamor::internal
+}  // namespace dreamor::highs::detail
 
 namespace dreamor::highs {
 
@@ -245,7 +246,7 @@ class HighsLinearExpression {
 
  private:
   friend class HighsQuadraticExpression;
-  friend struct internal::HighsModelAccess;
+  friend struct detail::HighsModelAccess;
 
   // Appends sign * every term of other. Room is made first and the terms are read by index, so
   // other may be this expression itself (e += e): nothing reallocates under the reads.
@@ -352,7 +353,7 @@ class HighsQuadraticExpression {
   [[nodiscard]] std::span<const double> quadraticCoefficients() const noexcept { return quadratic_coefficients_; }
 
  private:
-  friend struct internal::HighsModelAccess;
+  friend struct detail::HighsModelAccess;
 
   // As HighsLinearExpression::appendAll: other may be this expression itself.
   void appendAll(const HighsQuadraticExpression& other, double sign) {
@@ -477,7 +478,7 @@ concept Scalar = is_highs_scalar<std::remove_cvref_t<T>>;
 
 }  // namespace dreamor::highs
 
-namespace dreamor::internal {
+namespace dreamor::highs::detail {
 
 // The model an expression's variables belong to, null while it has none: for the debug checks
 // and the expansion of a product, not for users - no raw pointer leaves the public API.
@@ -511,7 +512,7 @@ template <typename T>
   }
 }
 
-}  // namespace dreamor::internal
+}  // namespace dreamor::highs::detail
 
 namespace dreamor::highs {
 
@@ -626,10 +627,10 @@ template <typename L, typename R>
            (std::same_as<std::remove_cvref_t<L>, HighsLinearExpression> ||
             std::same_as<std::remove_cvref_t<R>, HighsLinearExpression>))
 HighsQuadraticExpression operator*(const L& lhs, const R& rhs) {
-  const HighsLinearExpression left  = internal::toHighsLinear(lhs);
-  const HighsLinearExpression right = internal::toHighsLinear(rhs);
-  const HighsEnv* left_model        = internal::HighsModelAccess::of(left);
-  const HighsEnv* model             = left_model != nullptr ? left_model : internal::HighsModelAccess::of(right);
+  const HighsLinearExpression left  = detail::toHighsLinear(lhs);
+  const HighsLinearExpression right = detail::toHighsLinear(rhs);
+  const HighsEnv* left_model        = detail::HighsModelAccess::of(left);
+  const HighsEnv* model             = left_model != nullptr ? left_model : detail::HighsModelAccess::of(right);
   // (a + l)(c + r) = ac + c l + a r + l r; a side whose constant is zero adds no terms.
   const double a = left.constant();
   const double c = right.constant();
@@ -667,7 +668,7 @@ HighsQuadraticExpression operator*(const L& lhs, const R& rhs) {
 template <typename L, typename R>
   requires LinearOperands<L, R>
 HighsLinearExpression operator+(L&& lhs, R&& rhs) {
-  HighsLinearExpression sum = internal::toHighsLinear(std::forward<L>(lhs));
+  HighsLinearExpression sum = detail::toHighsLinear(std::forward<L>(lhs));
   if constexpr (is_highs_scalar<std::remove_cvref_t<R>>) {
     sum += static_cast<double>(rhs);
   } else {
@@ -678,7 +679,7 @@ HighsLinearExpression operator+(L&& lhs, R&& rhs) {
 template <typename L, typename R>
   requires LinearOperands<L, R>
 HighsLinearExpression operator-(L&& lhs, R&& rhs) {
-  HighsLinearExpression difference = internal::toHighsLinear(std::forward<L>(lhs));
+  HighsLinearExpression difference = detail::toHighsLinear(std::forward<L>(lhs));
   if constexpr (is_highs_scalar<std::remove_cvref_t<R>>) {
     difference -= static_cast<double>(rhs);
   } else {
@@ -689,15 +690,15 @@ HighsLinearExpression operator-(L&& lhs, R&& rhs) {
 template <typename L, typename R>
   requires QuadraticOperands<L, R>
 HighsQuadraticExpression operator+(L&& lhs, R&& rhs) {
-  HighsQuadraticExpression sum = internal::toHighsQuadratic(std::forward<L>(lhs));
-  sum += internal::toHighsQuadratic(std::forward<R>(rhs));
+  HighsQuadraticExpression sum = detail::toHighsQuadratic(std::forward<L>(lhs));
+  sum += detail::toHighsQuadratic(std::forward<R>(rhs));
   return sum;
 }
 template <typename L, typename R>
   requires QuadraticOperands<L, R>
 HighsQuadraticExpression operator-(L&& lhs, R&& rhs) {
-  HighsQuadraticExpression difference = internal::toHighsQuadratic(std::forward<L>(lhs));
-  difference -= internal::toHighsQuadratic(std::forward<R>(rhs));
+  HighsQuadraticExpression difference = detail::toHighsQuadratic(std::forward<L>(lhs));
+  difference -= detail::toHighsQuadratic(std::forward<R>(rhs));
   return difference;
 }
 
@@ -709,9 +710,9 @@ template <typename L, typename R>
   requires LinearOperands<L, R>
 auto operator<=(L&& lhs, R&& rhs) {
   if constexpr (is_highs_scalar<std::remove_cvref_t<R>>) {
-    return HighsUpperBoundedLinearExpression{internal::toHighsLinear(std::forward<L>(lhs)), static_cast<double>(rhs)};
+    return HighsUpperBoundedLinearExpression{detail::toHighsLinear(std::forward<L>(lhs)), static_cast<double>(rhs)};
   } else if constexpr (is_highs_scalar<std::remove_cvref_t<L>>) {
-    return HighsLowerBoundedLinearExpression{internal::toHighsLinear(std::forward<R>(rhs)), static_cast<double>(lhs)};
+    return HighsLowerBoundedLinearExpression{detail::toHighsLinear(std::forward<R>(rhs)), static_cast<double>(lhs)};
   } else {
     return HighsBoundedLinearExpression{std::forward<L>(lhs) - std::forward<R>(rhs), -kHighsInf, 0.0};
   }
@@ -720,9 +721,9 @@ template <typename L, typename R>
   requires LinearOperands<L, R>
 auto operator>=(L&& lhs, R&& rhs) {
   if constexpr (is_highs_scalar<std::remove_cvref_t<R>>) {
-    return HighsLowerBoundedLinearExpression{internal::toHighsLinear(std::forward<L>(lhs)), static_cast<double>(rhs)};
+    return HighsLowerBoundedLinearExpression{detail::toHighsLinear(std::forward<L>(lhs)), static_cast<double>(rhs)};
   } else if constexpr (is_highs_scalar<std::remove_cvref_t<L>>) {
-    return HighsUpperBoundedLinearExpression{internal::toHighsLinear(std::forward<R>(rhs)), static_cast<double>(lhs)};
+    return HighsUpperBoundedLinearExpression{detail::toHighsLinear(std::forward<R>(rhs)), static_cast<double>(lhs)};
   } else {
     return HighsBoundedLinearExpression{std::forward<L>(lhs) - std::forward<R>(rhs), 0.0, kHighsInf};
   }
@@ -762,7 +763,7 @@ auto operator==(const L& /*lhs*/, const R& /*rhs*/) {
 
 }  // namespace dreamor::highs
 
-namespace dreamor::internal {
+namespace dreamor::highs::detail {
 
 // A HiGHS call's status: an error throws, a warning is HiGHS's to report (it logs it).
 inline void highsCall(const char* call, HighsStatus status) {
@@ -1014,7 +1015,7 @@ inline void checkHighsModel([[maybe_unused]] const dreamor::highs::HighsEnv* exp
 #endif
 }
 
-}  // namespace dreamor::internal
+}  // namespace dreamor::highs::detail
 
 namespace dreamor::highs {
 
@@ -1048,7 +1049,7 @@ class HighsEnv {
   }
   // The Highs takes these options at once (passOptions): they touch no model, so nothing is passed.
   explicit HighsEnv(const HighsOptions& options) : HighsEnv{} {
-    internal::highsCall("passOptions", highs_.passOptions(options));
+    detail::highsCall("passOptions", highs_.passOptions(options));
   }
   // Variables point at their environment: it stays where it is.
   HighsEnv(const HighsEnv&)            = delete;
@@ -1068,7 +1069,7 @@ class HighsEnv {
   }
 
  private:
-  friend struct internal::HighsEnvAccess;
+  friend struct detail::HighsEnvAccess;
 
   // Hands the collected model over, once; the model is empty after. pass() is const - a const
   // environment's Highs is reached too - so what it moves is mutable.
@@ -1078,15 +1079,15 @@ class HighsEnv {
     HighsLp& lp = model_.lp_;
     if (lp.col_cost_.empty() && lp.row_lower_.empty()) {
       if (lp.sense_ != ObjSense::kMinimize) {
-        internal::highsCall("changeObjectiveSense", highs_.changeObjectiveSense(lp.sense_));
+        detail::highsCall("changeObjectiveSense", highs_.changeObjectiveSense(lp.sense_));
       }
       if (std::fpclassify(lp.offset_) != FP_ZERO) {
-        internal::highsCall("changeObjectiveOffset", highs_.changeObjectiveOffset(lp.offset_));
+        detail::highsCall("changeObjectiveOffset", highs_.changeObjectiveOffset(lp.offset_));
       }
       return;
     }
-    lp.num_col_           = internal::highsCount(lp.col_cost_.size());
-    lp.num_row_           = internal::highsCount(lp.row_lower_.size());
+    lp.num_col_           = detail::highsCount(lp.col_cost_.size());
+    lp.num_row_           = detail::highsCount(lp.row_lower_.size());
     lp.a_matrix_.num_col_ = lp.num_col_;
     lp.a_matrix_.num_row_ = lp.num_row_;
     if (named_) {  // every column and row a name, as HiGHS takes them: the unnamed ones empty
@@ -1101,7 +1102,7 @@ class HighsEnv {
     }
     HighsModel model = std::move(model_);
     model_           = HighsModel{};
-    internal::highsCall("passModel", highs_.passModel(std::move(model)));
+    detail::highsCall("passModel", highs_.passModel(std::move(model)));
   }
 
   // Until passed: what was written, its matrix row-wise. The names hold no slot for a column or row
@@ -1115,7 +1116,7 @@ class HighsEnv {
 
 }  // namespace dreamor::highs
 
-namespace dreamor::internal {
+namespace dreamor::highs::detail {
 
 // What VarTable, addConstr and setObjective write, into the collected model or - once it is passed -
 // into the Highs, as the environment stands.
@@ -1257,11 +1258,11 @@ struct HighsEnvAccess {
   }
 };
 
-}  // namespace dreamor::internal
+}  // namespace dreamor::highs::detail
 
 namespace dreamor::highs {}  // namespace dreamor::highs
 
-namespace dreamor::internal {
+namespace dreamor::highs::detail {
 
 // A HiGHS table's variables: its columns are added in one go, so a row's variable is the first
 // column plus the row's position, and nothing is kept a variable - 16 bytes a row, as a vector of
@@ -1302,12 +1303,12 @@ class HighsColumns {
   std::size_t count_{0};
 };
 
-template <>
-struct VarStorage<dreamor::highs::HighsVar> {
-  using type = HighsColumns;
-};
+}  // namespace dreamor::highs::detail
 
-}  // namespace dreamor::internal
+template <>
+struct dreamor::internal::VarStorage<dreamor::highs::HighsVar> {
+  using type = dreamor::highs::detail::HighsColumns;
+};
 
 namespace dreamor::highs {
 
@@ -1330,7 +1331,7 @@ class VarTable : public internal::VarTableCore<HighsVar, Keys...> {
   // kInteger, kSemiContinuous, kSemiInteger.
   template <typename Lb = double, typename Ub = double>
   VarTable(HighsEnv& env,
-           const IndexSet<Key>& set,
+           const IndexSet<Keys...>& set,
            const Lb& lb      = 0,
            const Ub& ub      = kHighsInf,
            HighsVarType type = HighsVarType::kContinuous,
@@ -1347,12 +1348,12 @@ class VarTable : public internal::VarTableCore<HighsVar, Keys...> {
         upper[i] = internal::boundOf(ub, rows[i]);
       }
     };
-    const HighsInt first = internal::HighsEnvAccess::addColumns(env, count, type, bounds);
-    this->vars_          = internal::HighsColumns{first, env, count};
+    const HighsInt first = detail::HighsEnvAccess::addColumns(env, count, type, bounds);
+    this->vars_          = detail::HighsColumns{first, env, count};
     typename Core::NameBuilder names{name};
     if (!names.enabled()) { return; }
     for (std::size_t i = 0; i < count; ++i) {
-      internal::HighsEnvAccess::nameColumn(env, first + static_cast<HighsInt>(i), Core::nameOf(names, rows[i]));
+      detail::HighsEnvAccess::nameColumn(env, first + static_cast<HighsInt>(i), Core::nameOf(names, rows[i]));
     }
   }
 
@@ -1368,7 +1369,7 @@ class VarTable : public internal::VarTableCore<HighsVar, Keys...> {
     }
     std::vector<double> values;
     values.reserve(this->vars_.size());
-    if (this->vars_.size() > 0) { internal::checkHighsModel(&this->vars_[0].env(), env, "VarTable::solution"); }
+    if (this->vars_.size() > 0) { detail::checkHighsModel(&this->vars_[0].env(), env, "VarTable::solution"); }
     for (std::size_t i = 0; i < this->vars_.size(); ++i) {
       values.push_back(solved.col_value[static_cast<std::size_t>(this->vars_[i].index())]);
     }
@@ -1386,11 +1387,11 @@ HighsCons addConstr(HighsEnv& env, Row&& row, const char* name = nullptr) {
     // A two-sided row is read where it is; a one-sided one becomes one.
     const auto add = [&env, name](const HighsBoundedLinearExpression& bounded) {
       const HighsLinearExpression& expression = bounded.expression();
-      internal::checkHighsModel(internal::HighsModelAccess::of(expression), env, "addConstr");
-      const HighsCons added{internal::HighsEnvAccess::addRow(
+      detail::checkHighsModel(detail::HighsModelAccess::of(expression), env, "addConstr");
+      const HighsCons added{detail::HighsEnvAccess::addRow(
                                 env, bounded.lower(), bounded.upper(), expression.indices(), expression.coefficients()),
                             env};
-      if (name != nullptr) { internal::HighsEnvAccess::nameRow(env, added.index(), name); }
+      if (name != nullptr) { detail::HighsEnvAccess::nameRow(env, added.index(), name); }
       return added;
     };
     if constexpr (std::same_as<Kind, HighsBoundedLinearExpression>) {
@@ -1415,12 +1416,12 @@ void setObjective(HighsEnv& env, const Objective& objective) {
     static_assert(internal::always_false<Kind>,
                   "An objective is an expression, not a row: setObjective(env, x + y), without the bound.");
   } else if constexpr (std::same_as<Kind, HighsQuadraticExpression>) {
-    internal::HighsEnvAccess::setObjective(env, objective.linear(), &objective);
+    detail::HighsEnvAccess::setObjective(env, objective.linear(), &objective);
   } else if constexpr (std::same_as<Kind, HighsQuadraticTerm>) {
     const HighsQuadraticExpression quadratic{objective};
-    internal::HighsEnvAccess::setObjective(env, quadratic.linear(), &quadratic);
+    detail::HighsEnvAccess::setObjective(env, quadratic.linear(), &quadratic);
   } else if constexpr (is_highs_linear<Kind>) {
-    internal::HighsEnvAccess::setObjective(env, internal::toHighsLinear(objective), nullptr);
+    detail::HighsEnvAccess::setObjective(env, detail::toHighsLinear(objective), nullptr);
   } else {
     static_assert(internal::always_false<Kind>,
                   "setObjective takes an expression of this backend's variables: a HighsVar, a term, a "
@@ -1430,7 +1431,7 @@ void setObjective(HighsEnv& env, const Objective& objective) {
 template <typename Objective>
 void setObjective(HighsEnv& env, const Objective& objective, ObjSense sense) {
   setObjective(env, objective);
-  internal::HighsEnvAccess::setSense(env, sense);
+  detail::HighsEnvAccess::setSense(env, sense);
 }
 
 // setObjective, then run(), as highspy's minimize and maximize: the status is run()'s.

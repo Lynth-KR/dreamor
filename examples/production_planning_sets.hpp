@@ -35,10 +35,10 @@ using cPeriod  = dreamor::Col<std::size_t, "period">;
 
 // Sets first (a base class is initialized before the members that use it), then variables.
 struct Sets {
-  dreamor::SetOf<cPeriod> sPERIODS;
-  dreamor::SetOf<cMachine, cItem> sROUTES;
-  dreamor::SetOf<cMachine, cItem, cPeriod> sPRODUCE;
-  dreamor::SetOf<cItem, cPeriod> sSTOCK;
+  dreamor::IndexSet<cPeriod> sPERIODS;
+  dreamor::IndexSet<cMachine, cItem> sROUTES;
+  dreamor::IndexSet<cMachine, cItem, cPeriod> sPRODUCE;
+  dreamor::IndexSet<cItem, cPeriod> sSTOCK;
 
   explicit Sets(const Instance& in) {
     const auto items_of = [](cMachine m) { return m->items; };

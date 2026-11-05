@@ -16,7 +16,7 @@
 #include "check.hpp"
 #include "dreamor/concert.hpp"
 #include "dreamor/index_set.hpp"
-#include "dreamor/logger/logger_light.hpp"
+#include "dreamor/logger.hpp"
 #include "float_compare.hpp"
 #include "ilconcert/ilomodel.h"
 
@@ -139,7 +139,7 @@ int main() try {
     DREAMOR_CHECK(sumOf(env, arcs, use_of).build().expr_->terms.size() == 2);
   }
 
-  // value_table.hpp (data on a set) and index_set/ordered.hpp (within groups)
+  // value_table.hpp (data on a set) and internal/index_set/ordered.hpp (within groups)
   {
     using Tup            = std::tuple<cMachine, cPeriod>;
     const auto sRUN      = makeSet<cMachine, cPeriod>(machines, periods).collect();
@@ -152,21 +152,21 @@ int main() try {
                   exactlyEqual(weight(*next), 8.0 + std::get<cPeriod>(*next).get()));
   }
 
-  // index_set/name_token.hpp (a column under std::format)
+  // internal/index_set/name_token.hpp (a column under std::format)
   {
     const Node& n1 = nodeData[0];
     const Node& n2 = nodeData[1];
     const cFrom i{&n1};
     const cTo j{&n2};
     DREAMOR_CHECK(std::format("Cap_{}_{}", i, j) == "Cap_1_2");
-    // index_set/name_token.hpp (exprName)
+    // internal/index_set/name_token.hpp (exprName)
     const IloModel model(env);
     const IloNumVar load(env, 0, 10);
     model.add(load <= 5).setName(dreamor::exprName("Capacity", i, j));
     DREAMOR_CHECK(std::string{dreamor::exprName("Capacity", i, j)} == "Capacity_1_2");
   }
 
-  // logger/logger_light.hpp (FileSink): the lines go to the file for the scope, then back
+  // logger.hpp (FileSink): the lines go to the file for the scope, then back
   {
     const std::filesystem::path logFile = std::filesystem::temp_directory_path() / "dreamor_test_docs_filesink.log";
     std::filesystem::remove(logFile);

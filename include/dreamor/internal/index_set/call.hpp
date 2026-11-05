@@ -14,11 +14,11 @@
 #include <type_traits>
 #include <utility>
 
-#include "dreamor/index_set/binding.hpp"
-#include "dreamor/index_set/column.hpp"
-#include "dreamor/index_set/element.hpp"
+#include "dreamor/internal/index_set/binding.hpp"
+#include "dreamor/internal/index_set/column.hpp"
+#include "dreamor/internal/index_set/element.hpp"
 
-namespace dreamor::internal {
+namespace dreamor::internal::inline index_set {
 
 // A row is one element of an index set: a tuple of named columns.
 template <typename Row>
@@ -98,4 +98,19 @@ consteval void checkColumnCallable() {
   }
 }
 
-}  // namespace dreamor::internal
+// A VarTable's bound and a ValueTable's value are given alike: a number, or a callable over the
+// row's columns.
+template <typename Bound, typename Row>
+consteval void checkBound() {
+  if constexpr (!std::is_arithmetic_v<Bound>) { checkColumnCallable<Bound, Row>(); }
+}
+template <typename Bound, typename Row>
+[[nodiscard]] double boundOf(const Bound& bound, const Row& row) {
+  if constexpr (std::is_arithmetic_v<Bound>) {
+    return static_cast<double>(bound);
+  } else {
+    return static_cast<double>(callColumnsOf(bound, row));
+  }
+}
+
+}  // namespace dreamor::internal::inline index_set

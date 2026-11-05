@@ -2,7 +2,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// File: internal/sum_builder.hpp
+// File: internal/backend/sum_builder.hpp
 // Naming convention
 //    1.   Type: Pascal Case (i.e., MyType)
 //    2.   Variables: snake case (i.e., my_variable)
@@ -28,15 +28,15 @@
 #include <type_traits>
 #include <utility>
 
-#include "dreamor/index_set/binding.hpp"
-#include "dreamor/index_set/call.hpp"
-#include "dreamor/index_set/column.hpp"
-#include "dreamor/index_set/element.hpp"
-#include "dreamor/index_set/grouped.hpp"
-#include "dreamor/index_set/key_args.hpp"
-#include "dreamor/internal/row_index.hpp"
+#include "dreamor/internal/backend/row_index.hpp"
+#include "dreamor/internal/index_set/binding.hpp"
+#include "dreamor/internal/index_set/call.hpp"
+#include "dreamor/internal/index_set/column.hpp"
+#include "dreamor/internal/index_set/element.hpp"
+#include "dreamor/internal/index_set/grouped.hpp"
+#include "dreamor/internal/index_set/key_args.hpp"
 
-namespace dreamor::internal {
+namespace dreamor::internal::inline backend {
 
 // How the builder holds its term: a copy, except for a term that cannot be copied - a
 // variable table, sumOf(env, rows, vYield) - which is held by reference for the one
@@ -82,7 +82,7 @@ template <typename Term>
   }
 }
 
-}  // namespace dreamor::internal
+}  // namespace dreamor::internal::inline backend
 
 // A held reference names the same columns as what it refers to, and takes what it takes.
 template <typename T>
@@ -90,7 +90,7 @@ struct dreamor::PredicateColumns<dreamor::internal::TermRef<T>> : dreamor::Predi
 template <typename T>
 struct dreamor::internal::TakesWholeRow<dreamor::internal::TermRef<T>> : dreamor::internal::TakesWholeRow<T> {};
 
-namespace dreamor::internal {
+namespace dreamor::internal::inline backend {
 
 // The expression a sum adds its terms into: the backend's zero, unless the terms need a wider
 // one. A backend that keeps expression kinds apart widens it here - MathOpt's sum of quadratic
@@ -465,4 +465,4 @@ template <typename... Columns, typename MakeZero, std::ranges::input_range Rows,
   }
 }
 
-}  // namespace dreamor::internal
+}  // namespace dreamor::internal::inline backend

@@ -31,7 +31,7 @@
 #include "../common/result.hpp"
 #if defined(SCENARIO_MATHOPT)
 #  if SCENARIO_DREAMOR
-#    include "dreamor/general/third_party_headers.hpp"
+#    include "dreamor/internal/base/third_party_headers.hpp"
 #    include "dreamor/mathopt.hpp"
 DREAMOR_BEGIN_THIRD_PARTY_HEADERS
 #  endif

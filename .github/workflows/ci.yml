@@ -198,7 +198,8 @@ jobs:
           "$RUNNER_TEMP/consumer/lot_sizing"
 
   lint:
-    # clang-format and ruff at the versions tools/format.sh and ruff.toml pin, then clang-tidy at
+    # clang-format and ruff at the versions tools/format.sh and ruff.toml pin, the headers' layers
+    # (tools/check_layers.py), then clang-tidy at
     # the version tools/tidy.sh pins, over the library, the tests and the examples. OR-Tools'
     # headers are needed to see the MathOpt backend, and the HiGHS it ships the HiGHS backend; CPLEX
     # is not, the stub stands in.
@@ -211,6 +212,7 @@ jobs:
       # The scripts run the pinned versions through uvx: the pins live in the scripts and ruff.toml alone.
       - run: pipx install uv
       - run: tools/format.sh --check
+      - run: python3 tools/check_layers.py
       - name: OR-Tools v9.15 prebuilt
         run: |
           mkdir -p "$RUNNER_TEMP/ortools"

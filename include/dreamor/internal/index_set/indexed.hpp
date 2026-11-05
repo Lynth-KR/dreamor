@@ -42,17 +42,17 @@
 #include <utility>
 #include <vector>
 
-#include "dreamor/general/aligned_vector.hpp"
+#include "dreamor/internal/base/aligned_vector.hpp"
 
 namespace dreamor {
 
-template <typename Tup>
+template <typename... Columns>
 class IndexSet;
-template <typename Tup, typename... Columns>
+template <typename Set, typename... Columns>
 class Grouped;
-template <typename Tup, typename... Within>
+template <typename Set, typename... Within>
 class Ordered;
-template <typename Tup>
+template <typename Set>
 class Membership;
 
 // The order orderBy sorts in: ascending, the default, or descending - SQL's ASC and DESC.
@@ -61,14 +61,27 @@ inline constexpr struct Ascending {
 inline constexpr struct Descending {
 } descending{};  // NOLINT(readability-identifier-naming): a public tag object, named like std::in_place
 
-// SetOf<cMachine, cItem> reads as the set it declares.
-template <typename... Columns>
-using SetOf = IndexSet<std::tuple<Columns...>>;
+namespace internal::inline index_set {
 
-namespace internal {
+// The set whose rows are Tup: IndexSet<Cs...> for std::tuple<Cs...>. Code that works on a set's rows
+// computes a row type; this names the set of it.
+template <typename Tup>
+struct SetForTuple;
+template <typename... Columns>
+struct SetForTuple<std::tuple<Columns...>> {
+  using type = IndexSet<Columns...>;
+};
+template <typename Tup>
+using SetFor = SetForTuple<Tup>::type;
+
+// Whether T is a set: what a source can share its rows with rather than copy them.
+template <typename T>
+inline constexpr bool is_index_set = false;
+template <typename... Columns>
+inline constexpr bool is_index_set<IndexSet<Columns...>> = true;
 
 // One object built from a set's rows and shared by everything built on them - the row index
-// every variable and value table on the set looks keys up in (internal/row_index.hpp). Held
+// every variable and value table on the set looks keys up in (internal/backend/row_index.hpp). Held
 // weakly: it lives while something built on it does, and the next one after that builds it
 // again, so a set alone keeps no index alive. The set layer does not know its type.
 class SharedSlot {
@@ -91,10 +104,10 @@ class SharedSlot {
 };
 
 // A set's rows, from a cache line's start: where a row falls within a line - in one, or across two -
-// then does not depend on what the allocator handed out before (general/aligned_vector.hpp). Every
+// then does not depend on what the allocator handed out before (internal/base/aligned_vector.hpp). Every
 // table and index on the set reads them.
 template <typename Tup>
-using Rows = ::dreamor::general::AlignedVector64<Tup>;
+using Rows = ::dreamor::internal::AlignedVector64<Tup>;
 
 // What every copy of a set shares: its rows and the slot built from them.
 template <typename Tup>
@@ -110,27 +123,29 @@ class SetRows {
 
 // Library-side access to a set's rows, so IndexSet itself never hands out its storage.
 struct SetAccess {
-  template <typename Tup>
-  [[nodiscard]] static const Rows<Tup>& rows(const IndexSet<Tup>& set) noexcept {
+  template <typename... Columns>
+  [[nodiscard]] static const Rows<std::tuple<Columns...>>& rows(const IndexSet<Columns...>& set) noexcept {
     return set.rows_->rows_;
   }
   // The slot shared by every set with these rows - copies of one set, never an equal set.
-  template <typename Tup>
-  [[nodiscard]] static const SharedSlot& indexSlot(const IndexSet<Tup>& set) noexcept {
+  template <typename... Columns>
+  [[nodiscard]] static const SharedSlot& indexSlot(const IndexSet<Columns...>& set) noexcept {
     return set.rows_->index_;
   }
   template <typename Tup>
-  [[nodiscard]] static IndexSet<Tup> make(Rows<Tup> rows) {
-    return IndexSet<Tup>{std::make_shared<const SetRows<Tup>>(std::move(rows))};
+  [[nodiscard]] static SetFor<Tup> make(Rows<Tup> rows) {
+    return SetFor<Tup>{std::make_shared<const SetRows<Tup>>(std::move(rows))};
   }
 };
 
-}  // namespace internal
+}  // namespace internal::inline index_set
 
 // A view in the ranges sense: copying it is O(1) and shares the rows, so views::all and
 // sumOf hold it by value.
-template <typename Tup>
+template <typename... Columns>
 class IndexSet : public std::ranges::view_base {
+  using Tup = std::tuple<Columns...>;
+
  public:
   using value_type     = Tup;
   using const_iterator = internal::Rows<Tup>::const_iterator;
@@ -148,15 +163,15 @@ class IndexSet : public std::ranges::view_base {
   [[nodiscard]] IndexSet where(Preds... preds) const;
   template <typename Key, typename Direction = Ascending>
   [[nodiscard]] IndexSet orderBy(Key key, Direction direction = {}) const;
-  template <typename... Columns>
-  [[nodiscard]] IndexSet<std::tuple<Columns...>> select() const;
+  template <typename... Picked>
+  [[nodiscard]] IndexSet<Picked...> select() const;
   template <typename Expr>
   [[nodiscard]] auto select(Expr expr) const;
-  template <typename... Columns>
-  [[nodiscard]] Grouped<Tup, Columns...> groupBy() const;
-  [[nodiscard]] Membership<Tup> membership() const;
+  template <typename... By>
+  [[nodiscard]] Grouped<IndexSet, By...> groupBy() const;
+  [[nodiscard]] Membership<IndexSet> membership() const;
   template <typename... Within>
-  [[nodiscard]] Ordered<Tup, Within...> ordered() const;
+  [[nodiscard]] Ordered<IndexSet, Within...> ordered() const;
 
  private:
   friend struct internal::SetAccess;

@@ -13,14 +13,8 @@ Version 0.7.1, MPL 2.0 (releases up to 0.5.0 were Apache 2.0).
 
 | Path | What |
 |---|---|
-| `include/dreamor/index_set.hpp`, `include/dreamor/index_set/` | Set layer: `Col`, `makeSet`, `interval`, `IndexSet`, `Grouped`, `Ordered`, set algebra. `index_set.hpp` brings `EntityVector` too. Must not include any solver header |
-| `include/dreamor/entity_vector.hpp` | `dreamor::EntityVector`, the model's entities, each once by its primary key |
-| `include/dreamor/value_table.hpp` | `dreamor::ValueTable`, shared by every backend |
-| `include/dreamor/concert.hpp` | Concert backend |
-| `include/dreamor/mathopt.hpp` | MathOpt backend |
-| `include/dreamor/highs.hpp` | HiGHS backend, on HiGHS's own C++ API |
-| `include/dreamor/internal/` | Shared backend machinery (`var_table_core.hpp`, `row_index.hpp`, `sum_builder.hpp`, `inline_vector.hpp`) |
-| `include/dreamor/general/`, `include/dreamor/logger/` | Utilities (`tuple_hash.hpp`, `flat_index.hpp`, `aligned_vector.hpp`, `format_buffer.hpp`, `third_party_headers.hpp`, `unreachable.hpp`, `inline.hpp`, `logger_light.hpp`) |
+| `include/dreamor/` | The headers a user includes, and nothing else: `index_set.hpp` (the set layer: `Col`, `makeSet`, `interval`, `IndexSet`, `Grouped`, `Ordered`, set algebra, `exprName`; brings `entity_vector.hpp` too), `entity_vector.hpp` (`dreamor::EntityVector`, the model's entities, each once by its primary key), `value_table.hpp` (`dreamor::ValueTable`, shared by every backend), `format_buffer.hpp` (`FormatBuffer`, `NameBuilder`), `logger.hpp`, and the backends `concert.hpp` (Concert), `mathopt.hpp` (MathOpt), `highs.hpp` (HiGHS, on its own C++ API). A backend header brings `index_set.hpp`, a guarantee, as `<iostream>` brings `<istream>` and `<ostream>`. None but the backends includes a solver header |
+| `include/dreamor/internal/` | What the public headers are built from, never included by a user - libstdc++'s `bits/`, Eigen's `src/` - in three layers, each including only those below it: `base/` (`tuple_hash.hpp`, `flat_index.hpp`, `aligned_vector.hpp`, `third_party_headers.hpp`, `unreachable.hpp`, `inline.hpp`), `index_set/` (the set layer's parts, behind `index_set.hpp`), `backend/` (what every backend shares: `var_table_core.hpp`, `row_index.hpp`, `sum_builder.hpp`, `inline_vector.hpp`). `tools/check_layers.py` holds the order, in CI's lint: `logger.hpp` and `base/` lowest, then `format_buffer.hpp`, `index_set/` with `entity_vector.hpp`, `index_set.hpp`, `backend/` with `value_table.hpp` (which use each other), the backends; only a backend includes a solver's header, and no user-facing code includes `internal/` |
 | `examples/` | Lot-sizing example: `production_planning_data.hpp` (the data, no dreamor), `production_planning_sets.hpp` (columns and sets, solver-free), `production_planning.hpp` (Concert), `production_planning_mathopt.hpp` (MathOpt), `production_planning_highs.hpp` (HiGHS), `production_planning_plain.hpp` (without dreamor, for comparison). `mathopt_samples/`: three OR-Tools MathOpt samples ported to dreamor, with a walkthrough of each port (keep Google's license header and the modification notice on these files) |
 | `tests/` | Framework-free tests, `tests/run_tests.sh`, Concert stub (`tests/stub/`), compile-fail cases |
 | `bench/` | Benchmarks, not run in CI (`bench/README.md`). `bench/catalog/`: layer 1, each operation against hand-written code over data shapes and access patterns, a resolution IV screening design per family (lookups, grouping, set operations, slices, generation, order) and a full design of its own for entities and solution values, against the lean Concert stub. `bench/scenario/`: layer 2, whole models (p-median, the model of the modeling-language benchmarks, and the lot-sizing example as written) built by dreamor and by hand up to the solver's start, on the stub, CPLEX, MathOpt and HiGHS. `bench/common/`: the measurement header, the run's JSON result, the lean stub, the machine helpers, the per-repetition code layouts, `--reuse`, the shared build steps, and an MPS comparison. `bench/solver/`: how Concert's variable creation meets the caller's code. `bench/plan/`: how `makeSet`'s visit order compares with every other order - a cost model over made-up sets of 3 to 16 sources, and a timed three-source experiment |
@@ -28,7 +22,7 @@ Version 0.7.1, MPL 2.0 (releases up to 0.5.0 were Apache 2.0).
 | `README.md`, `docs/` | Documentation, in English alone (one version to keep true): the README introduces and maps; `docs/philosophy.md` the principles and rules of use, `docs/guide.md` every part in use, `docs/reference.md` the API in tables; `docs/ci.md` the CI, for people working on dreamor |
 | `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `NOTICE` | For people contributing, the Contributor Covenant 2.1, how to report a vulnerability privately, the copyright and attribution notice |
 | `cmake/`, `CMakeLists.txt` | `dreamor::dreamor` INTERFACE target and install/package config |
-| `tools/` | `format.sh`, `tidy.sh`, `ci_local.sh`, `hooks/pre-push`, `clang-format` (the pinned one, for an editor), `gen_compile_commands.py`, `gen_arity_tests.py`, `measure_compile_cost.py`, `diagnostics_report.py` (how readable the compiler's errors are for the compile_fail mistakes), `tree.sh` (the repository as a tree, without what git ignores), `windows_check.sh` (the Windows check, from WSL), `containers/` (images `ci_local.sh` builds for itself) |
+| `tools/` | `format.sh`, `check_layers.py`, `tidy.sh`, `ci_local.sh`, `hooks/pre-push`, `clang-format` (the pinned one, for an editor), `gen_compile_commands.py`, `gen_arity_tests.py`, `measure_compile_cost.py`, `diagnostics_report.py` (how readable the compiler's errors are for the compile_fail mistakes), `tree.sh` (the repository as a tree, without what git ignores), `windows_check.sh` (the Windows check, from WSL), `containers/` (images `ci_local.sh` builds for itself) |
 | `.github/` | The CI workflow, issue forms and the pull request template |
 | `assets/` | The README's banner and slogan |
 
@@ -51,6 +45,7 @@ UNIT_TESTS=0 tests/run_tests.sh      # the compiler's checks alone: no other tes
 WASM=1 tests/run_tests.sh            # WebAssembly with Emscripten, under Node.js (the emsdk image, see "Platforms")
 CXX=clang++-18 STDLIB=libc++ tests/run_tests.sh  # LLVM's libc++ of that Clang's version (stub mode only)
 tools/format.sh                      # clang-format (C++) and ruff (Python) in place; --check changes nothing
+python3 tools/check_layers.py        # the headers keep their layers (Layout); reads the includes, compiles nothing
 tools/tidy.sh                        # clang-tidy; needs compile_commands.json (tools/gen_compile_commands.py)
 tools/ci_local.sh [REV]              # what CI runs, on one commit checked out apart; records a pass for the hook
 ```
@@ -112,7 +107,8 @@ tools/ci_local.sh [REV]              # what CI runs, on one commit checked out a
   backend or the shared machinery uses, `--highs` passes if you touched anything the HiGHS backend or the shared
   machinery uses, `WASM=1` passes and `tools/windows_check.sh` passes with cl.exe and clang-cl if you touched
   platform-dependent code
-  (see "Platforms", "Checking"), `tools/format.sh --check` passes, and `tools/tidy.sh` reports nothing.
+  (see "Platforms", "Checking"), `tools/format.sh --check` and `tools/check_layers.py` pass, and `tools/tidy.sh`
+  reports nothing.
 
 ## Platforms
 
@@ -128,10 +124,10 @@ backends) are not settled, so the user-facing documents do not claim it yet.
 - **Portable code over one platform's fast path.** What one instruction set alone has - SIMD (`<immintrin.h>`,
   `_mm_*`, AVX2), BMI, target attributes, inline assembly - is not used: it splits an algorithm by CPU and widens the
   gap between platforms. An operation every 64-bit CPU has, which compilers only spell differently, is fine in one
-  helper with a fallback in standard C++ that gives the same result: `general::foldedMultiply` takes the high
+  helper with a fallback in standard C++ that gives the same result: `internal::foldedMultiply` takes the high
   half of a 64x64 product as `__int128` (GCC, Clang) or `__umulh` (MSVC, `<intrin.h>`), and in 32-bit halves
   elsewhere (`foldedMultiplyPortable`, which `tests/test_tuple_hash.cpp` holds against the others);
-  `general::unreachable()`; `FlatIndex::prefetchForWrite` (no prefetch where there is no builtin).
+  `internal::unreachable()`; `FlatIndex::prefetchForWrite` (no prefetch where there is no builtin).
 - **The standard library's common ground.** Use what every supported implementation has at its floor - libstdc++ 13,
   libc++ 18, the MSVC STL of Visual Studio 2022 - and nothing that one of them adds or lacks. Where a feature outside
   that ground has one inside it that does the same at the same speed, take the inside one:
@@ -140,13 +136,13 @@ backends) are not settled, so the user-facing documents do not claim it yet.
     libc++ 18's `formattable` rejects (it checks with a context of its own).
 - **Platform differences live behind macros, one small helper per difference.** The helper holds the
   `#ifdef _WIN32` / `#else` / `#endif` and its callers do not branch: `isTerminal()`, `isEnvSet()` and `openFile()`
-  in `logger/logger_light.hpp` are the pattern. No `#ifdef` inside a function's logic, and no second implementation
+  in `logger.hpp` are the pattern. No `#ifdef` inside a function's logic, and no second implementation
   of an algorithm under a macro.
 - **Choose the macro by what differs.**
   - The operating system or C runtime (POSIX against Win32/UCRT functions, `<unistd.h>` against `<io.h>`): `_WIN32`.
   - The compiler (builtins, pragmas, attributes): `__clang__` and `__GNUC__`, tested before `_MSC_VER`, because
-    clang-cl defines `_MSC_VER` too; cl.exe is the `_MSC_VER` branch (`general/unreachable.hpp`,
-    `general/inline.hpp`, `general/third_party_headers.hpp`). An attribute is one of these too: cl.exe warns about a
+    clang-cl defines `_MSC_VER` too; cl.exe is the `_MSC_VER` branch (`internal/base/unreachable.hpp`,
+    `internal/base/inline.hpp`, `internal/base/third_party_headers.hpp`). An attribute is one of these too: cl.exe warns about a
     `gnu::` attribute at every warning level (C5030), so `DREAMOR_INLINE` and `DREAMOR_NOINLINE` stand for
     `gnu::always_inline` and `gnu::noinline`. A `#pragma GCC` or `#pragma clang` outside such a helper is an unknown
     pragma to cl.exe (C4068), in a test too: `tests/float_compare.hpp` lets `std::equal_to` do its `==` instead.
@@ -173,7 +169,7 @@ backends) are not settled, so the user-facing documents do not claim it yet.
   the CRT has set up stdio - where a CRT call can end the process before `main`, now and then (the logger's
   `_isatty(_fileno(stderr))` did, in about one run in twenty). GCC and Clang elsewhere initialize it on first use, so
   only Windows shows it. Hold a constant (`nullptr` for stderr, an unknown state) and compute on first use, as
-  `logger/logger_light.hpp` and `internal/row_index.hpp` do; a `thread_local` inside a function is initialized on
+  `logger.hpp` and `internal/backend/row_index.hpp` do; a `thread_local` inside a function is initialized on
   first use everywhere.
 - **The MSVC CRT's deprecation warnings count** (`fopen`, `getenv`, ... under `-Wdeprecated-declarations`): a header
   that warns there warns in a user's Windows build. Call the CRT's own spelling in the helper's `_WIN32` branch
@@ -282,7 +278,7 @@ Backend-only features stay in their backend:
 - HiGHS only: `HighsEnv`, the model collected and passed to the `Highs` once; a row as a type of its own, so a
   row given as an objective and a quadratic row stop at compile time; `HighsError` for a HiGHS call that fails.
 
-Shared logic belongs in `include/dreamor/internal/`.
+Shared logic belongs in `include/dreamor/internal/backend/`.
 
 ## Benchmark
 
@@ -354,8 +350,22 @@ Follow it in library code:
 - macros `SCREAMING_SNAKE_CASE`, prefixed `DREAMOR_` (a bare `CHECK` collides with Abseil and glog, see
   `tests/check.hpp`).
 
+Namespaces say who a name is for, and where it lives:
+- a public name is in `dreamor`, or in its component's namespace (`dreamor::concert`, `mathopt`, `highs`, `logger`,
+  `interval`), wherever it is defined - a set-layer type defined under `internal/index_set/` is `dreamor::IndexSet`,
+  as libstdc++ defines `std::vector` in `bits/`: the name a diagnostic shows and the namespace ADL searches are the
+  user's;
+- the internal layers are `dreamor::internal::base`, `index_set` and `backend`, after their folders, declared
+  `namespace dreamor::internal::inline base` - inline namespaces of `dreamor::internal`, as
+  `std::literals::chrono_literals` is of `std::literals`: code writes `internal::FlatIndex`, and GCC's diagnostics
+  name the layer. Their names never collide, having been one namespace; the include order keeps the layers apart;
+- a public header's own helpers are in its namespace's `detail` (`dreamor::detail`, `dreamor::highs::detail`,
+  `dreamor::logger::detail`, `dreamor::interval::detail`); what several headers share belongs to a layer instead.
+
+No namespace alias or using-directive at namespace scope: in a header it reaches the user's code.
+
 Wrap third-party includes (Concert, OR-Tools, HiGHS) in `DREAMOR_BEGIN_THIRD_PARTY_HEADERS` /
-`DREAMOR_END_THIRD_PARTY_HEADERS` from `general/third_party_headers.hpp`. That way `-Wall -Wextra` (or `-Werror`)
+`DREAMOR_END_THIRD_PARTY_HEADERS` from `internal/base/third_party_headers.hpp`. That way `-Wall -Wextra` (or `-Werror`)
 reports only this library's code.
 
 ### Model code in this repository

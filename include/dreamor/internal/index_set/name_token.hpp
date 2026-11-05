@@ -20,9 +20,9 @@
 #include <string_view>
 #include <type_traits>
 
-#include "dreamor/general/format_buffer.hpp"
-#include "dreamor/index_set/column.hpp"
-#include "dreamor/logger/logger_light.hpp"
+#include "dreamor/format_buffer.hpp"
+#include "dreamor/internal/index_set/column.hpp"
+#include "dreamor/logger.hpp"
 
 // Customization point for how a key column appears inside generated variable names.
 //
@@ -36,7 +36,7 @@
 // does need one. Prefer the hook over specializing std::formatter for the pointer type: a
 // std::formatter specialization is global and would rewrite every unrelated
 // std::format("{}", ptr) that meant to print an address.
-namespace dreamor::internal {
+namespace dreamor::internal::inline index_set {
 
 // std::formatter's primary template is disabled (not default constructible) for types that
 // have no formatter, which is the standard way to detect formattability before C++23's
@@ -82,9 +82,9 @@ template <typename Key>
 template <typename Column>
 concept has_name_token = is_column<Column> && (has_key_name<Column> || has_primary_key_name<Column>);
 
-}  // namespace dreamor::internal
+}  // namespace dreamor::internal::inline index_set
 
-namespace dreamor::internal {
+namespace dreamor::internal::inline index_set {
 
 // A key's token as a name takes it: a column with no token of its own (an int period, a string
 // grade) by its value, so that a number goes through std::to_chars rather than a formatter.
@@ -101,12 +101,12 @@ template <typename Key>
 inline constexpr std::size_t kExprNameSize = 256;
 
 // The thread's builder for exprName: one for every exprName, whatever its keys.
-[[nodiscard]] inline general::NameBuilder<kExprNameSize>& exprNameBuilder() {
-  thread_local general::NameBuilder<kExprNameSize> builder{""};
+[[nodiscard]] inline NameBuilder<kExprNameSize>& exprNameBuilder() {
+  thread_local NameBuilder<kExprNameSize> builder{""};
   return builder;
 }
 
-}  // namespace dreamor::internal
+}  // namespace dreamor::internal::inline index_set
 
 namespace dreamor {
 
@@ -121,7 +121,7 @@ namespace dreamor {
 template <typename... Keys>
   requires(internal::is_nameable<Keys> && ...)
 [[nodiscard]] const char* exprName(std::string_view family, const Keys&... keys) {
-  general::NameBuilder<internal::kExprNameSize>& names = internal::exprNameBuilder();
+  NameBuilder<internal::kExprNameSize>& names = internal::exprNameBuilder();
   // NOLINTNEXTLINE(misc-const-correctness): each key assigns it; with none (a family alone) nothing does
   [[maybe_unused]] std::size_t length = names.restart(family);
   ((length = names.append(length, internal::plainNameToken(keys))), ...);

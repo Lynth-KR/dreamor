@@ -33,9 +33,9 @@ int main() try {
   const auto big  = [](cJ j) { return j.get() >= 20; };
 
   // read-only, copy shares rows
-  static_assert(!canPushBack<dreamor::SetOf<cI>>);
-  static_assert(std::ranges::random_access_range<dreamor::SetOf<cI, cJ>> &&
-                std::ranges::sized_range<dreamor::SetOf<cI>>);
+  static_assert(!canPushBack<dreamor::IndexSet<cI>>);
+  static_assert(std::ranges::random_access_range<dreamor::IndexSet<cI, cJ>> &&
+                std::ranges::sized_range<dreamor::IndexSet<cI>>);
   const auto copy = IJ;  // NOLINT(performance-unnecessary-copy-initialization): the copy is what is checked
   DREAMOR_CHECK(copy.begin() == IJ.begin() && IJ.size() == 12);
 
@@ -165,7 +165,7 @@ int main() try {
   DREAMOR_CHECK(IJ == IJ && dreamor::unite(IJ.where(even), dreamor::difference(IJ, IJ.where(even))) == IJ);
   DREAMOR_CHECK(IJ != IJ.where(even) && IJ.where(even) != dreamor::difference(IJ, IJ.where(even)));
   DREAMOR_CHECK(IJ.where(even).size() == dreamor::difference(IJ, IJ.where(even)).size());  // same size, other rows
-  DREAMOR_CHECK(IJ.where([](cI) { return false; }) == dreamor::SetOf<cI, cJ>{});
+  DREAMOR_CHECK(IJ.where([](cI) { return false; }) == dreamor::IndexSet<cI, cJ>{});
 
   // the visit order: with no predicate to tell them apart, a dependent source goes before a
   // container - its list per binding is usually the shorter - and containers keep declaration order

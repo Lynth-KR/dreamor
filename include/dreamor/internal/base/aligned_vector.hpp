@@ -2,7 +2,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// File: general/aligned_vector.hpp
+// File: internal/base/aligned_vector.hpp
 // Naming convention
 //    1.   Type: Pascal Case (i.e., MyType)
 //    2.   Variables: snake case (i.e., my_variable)
@@ -25,7 +25,7 @@
 #include <type_traits>
 #include <vector>
 
-namespace dreamor::general {
+namespace dreamor::internal::inline base {
 
 // Stateless: every instance allocates alike, so a vector moves by handing its block over. The
 // alignment comes as a type, std::integral_constant, so that std::allocator_traits rebinds the
@@ -65,4 +65,4 @@ inline constexpr std::size_t kCacheLine = 64;
 template <typename T>
 using AlignedVector64 = AlignedVector<T, kCacheLine>;
 
-}  // namespace dreamor::general
+}  // namespace dreamor::internal::inline base

@@ -25,7 +25,7 @@
 #  include <intrin.h>  // __umulh, for foldedMultiply
 #endif
 
-namespace dreamor::general {
+namespace dreamor::internal::inline base {
 
 // The 128-bit product of a and b, its two halves xored: the folded multiply Abseil's hash and foldhash mix
 // with. This one is standard C++ on every platform: four 32x32 -> 64 products of the halves, the cross terms
@@ -65,7 +65,7 @@ namespace dreamor::general {
 // std::hash. The standard leaves std::hash to each library: the MSVC STL runs FNV-1a over the bytes,
 // eight multiplies for a pointer, before TupleHash mixes again. Taking the bits makes the hash, and the
 // code a key's lookup compiles to, the same on every standard library. A column is unwrapped by the
-// overload beside it (index_set/column.hpp), which TupleHash finds by argument-dependent lookup.
+// overload beside it (internal/index_set/column.hpp), which TupleHash finds by argument-dependent lookup.
 template <typename T>
 [[nodiscard]] constexpr std::uint64_t hashElement(const T& element) noexcept {
   if constexpr (std::is_integral_v<T> || std::is_enum_v<T>) {
@@ -101,4 +101,4 @@ struct TupleHash {
   }
 };
 
-}  // namespace dreamor::general
+}  // namespace dreamor::internal::inline base

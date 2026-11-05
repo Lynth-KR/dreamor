@@ -2,7 +2,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// general::TupleHash on the keys a model has - integer grids, entity pointers, strings - which
+// internal::TupleHash on the keys a model has - integer grids, entity pointers, strings - which
 // std::hash leaves almost as they are: every key gets its own 64-bit hash, and the low bits a
 // FlatIndex indexes by spread over the slots as a random hash's would.
 #include <array>
@@ -17,8 +17,8 @@
 #include <vector>
 
 #include "check.hpp"
-#include "dreamor/general/tuple_hash.hpp"
-#include "dreamor/index_set/column.hpp"
+#include "dreamor/internal/base/tuple_hash.hpp"
+#include "dreamor/internal/index_set/column.hpp"
 
 namespace {
 
@@ -34,7 +34,7 @@ bool spreadsLikeRandom(const std::vector<Key>& keys) {
   std::unordered_set<std::size_t> hashes;
   std::size_t distinct_slots = 0;
   for (const Key& key : keys) {
-    const std::size_t hash = dreamor::general::TupleHash{}(key);
+    const std::size_t hash = dreamor::internal::TupleHash{}(key);
     hashes.insert(hash);
     const std::size_t slot = hash & (slots - 1);
     if (!taken[slot]) { ++distinct_slots; }
@@ -60,7 +60,7 @@ using cB = dreamor::Col<std::uint16_t, "b">;
 // and a pointer each run's.
 template <typename... Ts>
 bool hashesTo(const std::tuple<Ts...>& key, std::uint64_t expected) {
-  return dreamor::general::TupleHash{}(key) == static_cast<std::size_t>(expected);
+  return dreamor::internal::TupleHash{}(key) == static_cast<std::size_t>(expected);
 }
 
 }  // namespace
@@ -69,8 +69,8 @@ int main() try {
   // The compiler's wide multiply (unsigned __int128, __umulh) and the one in 32-bit halves agree, bit
   // for bit: on the edges of the halves, and on random pairs.
   {
-    using dreamor::general::foldedMultiply;
-    using dreamor::general::foldedMultiplyPortable;
+    using dreamor::internal::foldedMultiply;
+    using dreamor::internal::foldedMultiplyPortable;
     constexpr std::array<std::uint64_t, 6> kEdges{
         0,
         1,

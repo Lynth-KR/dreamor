@@ -21,27 +21,27 @@
 #include <utility>
 #include <vector>
 
-#include "dreamor/general/flat_index.hpp"
-#include "dreamor/general/tuple_hash.hpp"
-#include "dreamor/index_set/binding.hpp"
-#include "dreamor/index_set/column.hpp"
-#include "dreamor/index_set/element.hpp"
-#include "dreamor/index_set/grouped.hpp"
-#include "dreamor/index_set/indexed.hpp"
-#include "dreamor/index_set/plan.hpp"
-#include "dreamor/logger/logger_light.hpp"
+#include "dreamor/internal/base/flat_index.hpp"
+#include "dreamor/internal/base/tuple_hash.hpp"
+#include "dreamor/internal/index_set/binding.hpp"
+#include "dreamor/internal/index_set/column.hpp"
+#include "dreamor/internal/index_set/element.hpp"
+#include "dreamor/internal/index_set/grouped.hpp"
+#include "dreamor/internal/index_set/indexed.hpp"
+#include "dreamor/internal/index_set/plan.hpp"
+#include "dreamor/logger.hpp"
 
 namespace dreamor {
 
 template <typename T>
 class EntityVector;  // dreamor/entity_vector.hpp; only its name is needed here
 
-namespace internal {
+namespace internal::inline index_set {
 template <typename Row, typename Key>
 struct GroupedOn;
 template <typename Row, typename... Columns>
 struct GroupedOn<Row, std::tuple<Columns...>> {
-  using type = Grouped<Row, Columns...>;
+  using type = Grouped<SetFor<Row>, Columns...>;
 };
 
 class SourceChecks;
@@ -59,9 +59,9 @@ struct ViewsEntityVector<std::ranges::ref_view<EntityVector<T>>> : std::true_typ
 // type, not per column: keys are what a column holds, its pointer as const void*.
 template <typename Key>
 [[nodiscard]] std::optional<std::pair<std::size_t, std::size_t>> firstRepeat(const std::vector<Key>& keys) {
-  ::dreamor::general::FlatIndex<Key> index{keys.size()};
+  ::dreamor::internal::FlatIndex<Key> index{keys.size()};
   const auto repeat = index.insertAll(0, keys.size(), [&keys](std::size_t at) -> const Key& { return keys[at]; });
-  if (repeat.first == ::dreamor::general::FlatIndex<Key>::kNotFound) { return std::nullopt; }
+  if (repeat.first == ::dreamor::internal::FlatIndex<Key>::kNotFound) { return std::nullopt; }
   return repeat;
 }
 
@@ -146,10 +146,10 @@ class SourceChecks {
     return keys;
   }
 
-  std::unordered_set<std::tuple<const void*, std::size_t>, ::dreamor::general::TupleHash> checked_;
+  std::unordered_set<std::tuple<const void*, std::size_t>, ::dreamor::internal::TupleHash> checked_;
 };
 #endif  // NDEBUG
-}  // namespace internal
+}  // namespace internal::inline index_set
 
 // Lazy builder. Nothing is generated until collect().
 template <typename ElemTuple, typename RangeTuple, typename PredTuple>
@@ -192,7 +192,7 @@ class Set {
 
   // Non-const on purpose: views such as filter_view have no const begin(). This is a
   // one-shot factory call, not an observer.
-  [[nodiscard]] IndexSet<ElemTuple> collect() {
+  [[nodiscard]] internal::SetFor<ElemTuple> collect() {
 #ifndef NDEBUG
     internal::SourceChecks checks;
     checks_ = &checks;
@@ -464,9 +464,7 @@ class Set {
       checks_->template container<std::tuple_element_t<kColumnsOf<Source>[0], ElemTuple>>(Source,
                                                                                           std::get<Source>(ranges_));
     } else if constexpr (internal::sourceKindOf<Src>() == internal::SourceKind::kSpread) {
-      if constexpr (!std::same_as<Src, IndexSet<std::ranges::range_value_t<Src>>>) {
-        checks_->spread(Source, std::get<Source>(ranges_));
-      }
+      if constexpr (!internal::is_index_set<Src>) { checks_->spread(Source, std::get<Source>(ranges_)); }
     }
   }
 
@@ -482,7 +480,7 @@ class Set {
     if constexpr (kJoins<Source>) {
       using SourceRow    = JoinIndex<Source>::SourceRow;
       const auto& source = std::get<Source>(ranges_);
-      if constexpr (std::same_as<std::remove_cvref_t<decltype(source)>, IndexSet<SourceRow>>) {
+      if constexpr (internal::is_index_set<std::remove_cvref_t<decltype(source)>>) {
         std::get<Source>(indexes_).emplace(source);  // Shares the set's rows.
       } else {
         internal::Rows<SourceRow> rows;
@@ -659,7 +657,7 @@ template <typename... Columns, typename... Sources>
   return Set<ElemTuple, decltype(source_tuple), std::tuple<>>{std::move(source_tuple), {}};
 }
 
-namespace internal {
+namespace internal::inline index_set {
 template <typename Builder>
 [[nodiscard]] auto applyWhere(Builder builder) {
   return builder;
@@ -668,7 +666,7 @@ template <typename Builder, typename Pred, typename... Preds>
 [[nodiscard]] auto applyWhere(const Builder& builder, Pred pred, Preds... preds) {
   return applyWhere(builder.where(std::move(pred)), std::move(preds)...);
 }
-}  // namespace internal
+}  // namespace internal::inline index_set
 
 // The rows of a set that pass every predicate - AMPL's {(m,i,o) in ASSIGN: p and q}.
 //
@@ -677,9 +675,9 @@ template <typename Builder, typename Pred, typename... Preds>
 //
 // Predicates name their columns exactly as in the builder's where(): it is the same
 // filter, applied to an existing set instead of during generation.
-template <typename Tup>
+template <typename... Columns>
 template <typename... Preds>
-IndexSet<Tup> IndexSet<Tup>::where(Preds... preds) const {
+IndexSet<Columns...> IndexSet<Columns...>::where(Preds... preds) const {
   static_assert(sizeof...(Preds) > 0, "where() needs at least one predicate.");
   return internal::applyWhere(makeSet<>(*this), std::move(preds)...).collect();
 }

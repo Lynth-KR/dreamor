@@ -2,7 +2,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// File: general/flat_index.hpp
+// File: internal/base/flat_index.hpp
 // Naming convention
 //    1.   Type: Pascal Case (i.e., MyType)
 //    2.   Variables: snake case (i.e., my_variable)
@@ -51,10 +51,10 @@
 #include <utility>
 #include <vector>
 
-#include "dreamor/general/inline.hpp"
-#include "dreamor/general/tuple_hash.hpp"
+#include "dreamor/internal/base/inline.hpp"
+#include "dreamor/internal/base/tuple_hash.hpp"
 
-namespace dreamor::general {
+namespace dreamor::internal::inline base {
 
 inline constexpr std::size_t kHashBlock = 32;  // keys hashed, and slots prefetched, at a time
 
@@ -246,4 +246,4 @@ class FlatIndex {
   std::uint32_t entry_mask_ = kEmpty;
 };
 
-}  // namespace dreamor::general
+}  // namespace dreamor::internal::inline base

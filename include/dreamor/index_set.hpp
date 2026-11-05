@@ -3,7 +3,7 @@
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
 // File: index_set.hpp
-// Builds the index sets of a mathematical model as read-only IndexSet<std::tuple<...>>,
+// Builds the index sets of a mathematical model as read-only IndexSet<...>,
 // the way an AMPL set declaration does:
 //
 //     {m in MACHINES, i in ITEMS[m]: fits[m,i]}
@@ -48,8 +48,8 @@
 // An IndexSet is read-only: begin(), end(), size() for range-for and any read-only
 // algorithm, and no way to edit it. A different set is derived instead -
 // S.where(p), S.orderBy(key), unite(A, B), ... each returns a new
-// set and leaves S as it was. Copies are O(1) and share the rows. Declare sets with
-// SetOf<cMachine, cItem>.
+// set and leaves S as it was. Copies are O(1) and share the rows. A set's type names its
+// columns: IndexSet<cMachine, cItem>.
 //
 // A set holds no row twice. That rests on a contract with the caller: every range handed to
 // makeSet - a container, what a dependent source returns - holds no element twice, and an
@@ -67,11 +67,11 @@
 #pragma once
 
 #include "dreamor/entity_vector.hpp"
-#include "dreamor/index_set/algebra.hpp"
-#include "dreamor/index_set/column.hpp"
-#include "dreamor/index_set/grouped.hpp"
-#include "dreamor/index_set/indexed.hpp"
-#include "dreamor/index_set/interval.hpp"
-#include "dreamor/index_set/name_token.hpp"
-#include "dreamor/index_set/ordered.hpp"
-#include "dreamor/index_set/set.hpp"
+#include "dreamor/internal/index_set/algebra.hpp"
+#include "dreamor/internal/index_set/column.hpp"
+#include "dreamor/internal/index_set/grouped.hpp"
+#include "dreamor/internal/index_set/indexed.hpp"
+#include "dreamor/internal/index_set/interval.hpp"
+#include "dreamor/internal/index_set/name_token.hpp"
+#include "dreamor/internal/index_set/ordered.hpp"
+#include "dreamor/internal/index_set/set.hpp"

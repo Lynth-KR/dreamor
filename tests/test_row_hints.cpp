@@ -73,14 +73,14 @@ auto valuesOf(std::size_t n, std::size_t shift) {
 // Every combination of each column's n values from shift on. makeSet takes its containers as
 // named variables only, so they are held here until the set is collected.
 template <typename... Cols>
-dreamor::SetOf<Cols...> gridOf(std::size_t n, std::size_t shift) {
+dreamor::IndexSet<Cols...> gridOf(std::size_t n, std::size_t shift) {
   auto values = std::make_tuple(valuesOf<Cols>(n, shift)...);
   return std::apply([](auto&... v) { return dreamor::makeSet<Cols...>(v...).collect(); }, values);
 }
 
 // A few rows whatever the columns: 8 for one column, 2 a column from four on.
 template <typename... Cols>
-dreamor::SetOf<Cols...> rowsOf(std::size_t shift) {
+dreamor::IndexSet<Cols...> rowsOf(std::size_t shift) {
   constexpr std::array<std::size_t, 4> kValues{8, 4, 3, 2};
   return gridOf<Cols...>(kValues.at(std::min<std::size_t>(sizeof...(Cols), kValues.size()) - 1), shift);
 }
@@ -177,7 +177,7 @@ using T2 = dreamor::Col<std::string, "t2">;
 
 template <typename... Cols>
 struct Family {
-  dreamor::SetOf<Cols...> rows;
+  dreamor::IndexSet<Cols...> rows;
   dreamor::concert::VarTable<Cols...> x;
   Family(IloEnv env, std::size_t shift) : rows{rowsOf<Cols...>(shift)}, x{env, rows, 0, 1} {}
   [[nodiscard]] bool agrees(std::size_t at) const {
@@ -218,7 +218,7 @@ bool onThreads(IloEnv env) {
   const auto deep                = gridOf<S0, S1, S2>(6, 0);
   const dreamor::concert::VarTable<S0, S1> xWide{env, wide, 0, 1};
   const dreamor::concert::VarTable<S0, S1, S2> xDeep{env, deep, 0, 1};
-  std::vector<dreamor::SetOf<U0, U1, U2>> own;
+  std::vector<dreamor::IndexSet<U0, U1, U2>> own;
   own.reserve(kThreads);
   for (std::size_t t = 0; t < kThreads; ++t) {
     own.push_back(rowsOf<U0, U1, U2>(t));

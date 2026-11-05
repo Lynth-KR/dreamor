@@ -30,7 +30,7 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include "dreamor/logger/logger_light.hpp"
+#include "dreamor/logger.hpp"
 
 // ---------------------------------------------------------------------------------------------
 using Clk = std::chrono::steady_clock;

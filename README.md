@@ -200,10 +200,10 @@ class LotSizing {
   IloModel model;
 
   // sets
-  const dreamor::SetOf<cPeriod> sPERIODS;
-  const dreamor::SetOf<cMachine, cItem> sROUTES;
-  const dreamor::SetOf<cMachine, cItem, cPeriod> sPRODUCE;
-  const dreamor::SetOf<cItem, cPeriod> sSTOCK;
+  const dreamor::IndexSet<cPeriod> sPERIODS;
+  const dreamor::IndexSet<cMachine, cItem> sROUTES;
+  const dreamor::IndexSet<cMachine, cItem, cPeriod> sPRODUCE;
+  const dreamor::IndexSet<cItem, cPeriod> sSTOCK;
 
   // 4) Variables, over the sets above
   const dreamor::concert::VarTable<cMachine, cItem, cPeriod> vYield{env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};
@@ -287,8 +287,8 @@ Two headers dreamor uses itself, there for model code too. Neither depends on a 
 
 | Header | |
 |---|---|
-| `dreamor/index_set.hpp`, `dreamor/general/format_buffer.hpp` | `dreamor::exprName("Capacity", m, t)` names a row the way `VarTable` names variables - `Capacity_M1_3`, each column by its token - in a buffer of the thread's, with no allocation and no format string: `model.add(load <= cap).setName(dreamor::exprName("Capacity", m, t))`. `general::NameBuilder<N>` builds such names part by part, and `general::FormatBuffer<N>` formats any other name (`format(...)`, a column printing as its token) |
-| `dreamor/logger/logger_light.hpp` | `DREAMOR_LOG_INFO` / `WARNING` / `ERROR` / `FATAL(fmt, args...)` write a line with the elapsed time, the call site and the level, the text through `std::format`, checked at compile time. `DREAMOR_DEBUG_*` vanish under `NDEBUG`, arguments and all. `dreamor::logger::FileSink sink{"model.log"};` sends the thread's lines to a file until the scope ends |
+| `dreamor/index_set.hpp`, `dreamor/format_buffer.hpp` | `dreamor::exprName("Capacity", m, t)` names a row the way `VarTable` names variables - `Capacity_M1_3`, each column by its token - in a buffer of the thread's, with no allocation and no format string: `model.add(load <= cap).setName(dreamor::exprName("Capacity", m, t))`. `NameBuilder<N>` builds such names part by part, and `FormatBuffer<N>` formats any other name (`format(...)`, a column printing as its token) |
+| `dreamor/logger.hpp` | `DREAMOR_LOG_INFO` / `WARNING` / `ERROR` / `FATAL(fmt, args...)` write a line with the elapsed time, the call site and the level, the text through `std::format`, checked at compile time. `DREAMOR_DEBUG_*` vanish under `NDEBUG`, arguments and all. `dreamor::logger::FileSink sink{"model.log"};` sends the thread's lines to a file until the scope ends |
 
 The [API reference](docs/reference.md#utilities) lists the rest.
 

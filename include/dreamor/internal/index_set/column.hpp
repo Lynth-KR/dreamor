@@ -25,8 +25,8 @@
 #include <type_traits>
 #include <utility>
 
-#include "dreamor/general/tuple_hash.hpp"
-#include "dreamor/logger/logger_light.hpp"
+#include "dreamor/internal/base/tuple_hash.hpp"
+#include "dreamor/logger.hpp"
 
 namespace dreamor {
 
@@ -106,7 +106,7 @@ template <typename T, ColumnName Name>
 template <typename Pred>
 struct PredicateColumns {};
 
-namespace internal {
+namespace internal::inline index_set {
 
 template <typename T>
 struct IsColumn : std::false_type {};
@@ -217,13 +217,13 @@ consteval void checkColumns() {
                 "The same column is named twice.");
 }
 
-}  // namespace internal
+}  // namespace internal::inline index_set
 
 // TupleHash takes a column as the value it wraps, in 64 bits: found by argument-dependent lookup, as
-// std::swap's overloads are, and more specialized than general::hashElement's template.
+// std::swap's overloads are, and more specialized than internal::hashElement's template.
 template <typename T, ColumnName Name>
 [[nodiscard]] constexpr std::uint64_t hashElement(const Col<T, Name>& column) noexcept {
-  return general::hashElement(column.get());
+  return internal::hashElement(column.get());
 }
 
 }  // namespace dreamor

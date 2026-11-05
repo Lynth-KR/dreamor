@@ -15,7 +15,7 @@
 // release build compiles away. Reaching it is undefined behavior, as with the standard's.
 #pragma once
 
-namespace dreamor::general {
+namespace dreamor::internal::inline base {
 
 [[noreturn]] inline void unreachable() {
 #if defined(__GNUC__) || defined(__clang__)
@@ -25,4 +25,4 @@ namespace dreamor::general {
 #endif
 }
 
-}  // namespace dreamor::general
+}  // namespace dreamor::internal::inline base

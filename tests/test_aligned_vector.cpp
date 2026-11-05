@@ -2,7 +2,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// general::AlignedVector on its own, and the sets every derivation makes: their rows start on a
+// internal::AlignedVector on its own, and the sets every derivation makes: their rows start on a
 // cache line's boundary.
 #include <bit>
 #include <cstddef>
@@ -14,8 +14,8 @@
 #include <vector>
 
 #include "check.hpp"
-#include "dreamor/general/aligned_vector.hpp"
 #include "dreamor/index_set.hpp"
+#include "dreamor/internal/base/aligned_vector.hpp"
 
 using cI = dreamor::Col<std::size_t, "i">;
 using cJ = dreamor::Col<std::size_t, "j">;
@@ -35,28 +35,28 @@ bool rowsOnLine(const Set& set) {
 
 int main() try {
   // every block a vector grows into, and one aligned past what new gives on its own
-  dreamor::general::AlignedVector64<char> bytes;
+  dreamor::internal::AlignedVector64<char> bytes;
   bool grown = true;
   for (std::size_t k = 0; k < 100000; ++k) {
     bytes.push_back(static_cast<char>(k));
     grown = grown && onBoundary(bytes.data(), 64);
   }
   DREAMOR_CHECK(grown && bytes.size() == 100000 && bytes[99999] == static_cast<char>(99999));
-  dreamor::general::AlignedVector<std::uint64_t, 4096> paged(10, 7);
+  dreamor::internal::AlignedVector<std::uint64_t, 4096> paged(10, 7);
   DREAMOR_CHECK(onBoundary(paged.data(), 4096) && paged[9] == 7);
 
   // a move hands the block over; a copy has one of its own, aligned too
   const char* block = bytes.data();
-  dreamor::general::AlignedVector64<char> moved{std::move(bytes)};
+  dreamor::internal::AlignedVector64<char> moved{std::move(bytes)};
   DREAMOR_CHECK(moved.data() == block);
-  dreamor::general::AlignedVector64<char> copy{moved};
+  dreamor::internal::AlignedVector64<char> copy{moved};
   copy.push_back('x');
   DREAMOR_CHECK(copy.data() != block && onBoundary(copy.data(), 64) && copy.size() == moved.size() + 1);
 
   // the allocator rebinds as containers ask it to
-  using Line    = std::integral_constant<std::size_t, dreamor::general::kCacheLine>;
-  using Rebound = std::allocator_traits<dreamor::general::AlignedAllocator<char, Line>>::rebind_alloc<long double>;
-  static_assert(std::is_same_v<Rebound, dreamor::general::AlignedAllocator<long double, Line>>);
+  using Line    = std::integral_constant<std::size_t, dreamor::internal::kCacheLine>;
+  using Rebound = std::allocator_traits<dreamor::internal::AlignedAllocator<char, Line>>::rebind_alloc<long double>;
+  static_assert(std::is_same_v<Rebound, dreamor::internal::AlignedAllocator<long double, Line>>);
   static_assert(std::allocator_traits<Rebound>::is_always_equal::value);
 
   // sets: collected, filtered, joined, projected, combined, ordered, and empty
@@ -75,7 +75,7 @@ int main() try {
   const auto missing = dreamor::difference(IJ, kept);
   DREAMOR_CHECK(rowsOnLine(both) && rowsOnLine(common) && rowsOnLine(missing));
   DREAMOR_CHECK(both.size() == IJ.size() && common.size() == kept.size() && missing.size() == IJ.size() - kept.size());
-  const dreamor::SetOf<cI, cJ> none;
+  const dreamor::IndexSet<cI, cJ> none;
   DREAMOR_CHECK(rowsOnLine(none) && none.size() == 0);
   return report("aligned_vector");
 } catch (...) { return ::uncaught(); }

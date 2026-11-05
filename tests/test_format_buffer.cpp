@@ -14,7 +14,7 @@
 #include <vector>
 
 #include "check.hpp"
-#include "dreamor/general/format_buffer.hpp"
+#include "dreamor/format_buffer.hpp"
 #include "dreamor/index_set.hpp"
 
 namespace {
@@ -22,7 +22,7 @@ namespace {
 using cPeriod = dreamor::Col<std::size_t, "period">;
 
 // A model names its rows from const member functions: format() changes no object.
-class Rows : private dreamor::general::FormatBuffer<32> {
+class Rows : private dreamor::FormatBuffer<32> {
  public:
   explicit Rows(std::string_view name) : family{name} {}
   [[nodiscard]] std::string capacity(std::size_t m, cPeriod t) const { return format("{}_{}_{}", family, m, t); }
@@ -33,7 +33,7 @@ class Rows : private dreamor::general::FormatBuffer<32> {
   std::string_view family;
 };
 
-class QuietRows : private dreamor::general::FormatBuffer<8, dreamor::general::OnFormatOverflow::kLogAndClear> {
+class QuietRows : private dreamor::FormatBuffer<8, dreamor::OnFormatOverflow::kLogAndClear> {
  public:
   explicit QuietRows(std::string_view name) : family{name} {}
   [[nodiscard]] std::string tooLong() const noexcept { return format("{}_{}", family, 123456789); }
@@ -43,7 +43,7 @@ class QuietRows : private dreamor::general::FormatBuffer<8, dreamor::general::On
 };
 
 // The buffer is no member: a FormatBuffer adds nothing to the object.
-struct Sized : private dreamor::general::FormatBuffer<256> {
+struct Sized : private dreamor::FormatBuffer<256> {
   int value = 0;
 };
 static_assert(sizeof(Sized) == sizeof(int));

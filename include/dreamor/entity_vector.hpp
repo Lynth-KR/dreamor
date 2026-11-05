@@ -54,12 +54,12 @@
 #include <utility>
 #include <vector>
 
-#include "dreamor/general/flat_index.hpp"
-#include "dreamor/logger/logger_light.hpp"
+#include "dreamor/internal/base/flat_index.hpp"
+#include "dreamor/logger.hpp"
 
 namespace dreamor {
 
-namespace internal {
+namespace detail {
 
 template <typename T>
 struct IsStdTuple : std::false_type {};
@@ -81,7 +81,7 @@ template <typename T>
   }
 }
 
-}  // namespace internal
+}  // namespace detail
 
 // An entity: something with a primary key, by `primaryKey(const T&)` found next to T.
 template <typename T>
@@ -100,7 +100,7 @@ class EntityVector {
   using value_type     = T;
   using const_iterator = std::vector<T>::const_iterator;
   using iterator       = const_iterator;
-  using key_type       = std::remove_cvref_t<internal::PrimaryKeyResult<T>>;  // what primaryKey() returns
+  using key_type       = std::remove_cvref_t<detail::PrimaryKeyResult<T>>;  // what primaryKey() returns
   using size_type      = std::size_t;
 
   EntityVector()                               = default;
@@ -132,7 +132,7 @@ class EntityVector {
     const std::size_t entry = items_.size() - 1;
     std::size_t held        = Index::kNotFound;
     try {
-      held = index_.insert(internal::indexKeyOf(items_.back()), entry, keyAt());
+      held = index_.insert(detail::indexKeyOf(items_.back()), entry, keyAt());
     } catch (...) {
       items_.pop_back();
       throw;
@@ -205,8 +205,7 @@ class EntityVector {
   void modify(const T* entity, Fn fn) {
     reading("modify");
 #ifndef NDEBUG
-    const std::size_t found =
-        entity == nullptr ? Index::kNotFound : index_.find(internal::indexKeyOf(*entity), keyAt());
+    const std::size_t found = entity == nullptr ? Index::kNotFound : index_.find(detail::indexKeyOf(*entity), keyAt());
     if (found == Index::kNotFound || &items_[found] != entity) {
       DREAMOR_DEBUG_FATAL("EntityVector::modify: the entity is not one of this container's - a broken contract.");
     }
@@ -224,8 +223,8 @@ class EntityVector {
   }
 
  private:
-  using IndexKey = decltype(internal::indexKeyOf(std::declval<const T&>()));
-  using Index    = ::dreamor::general::FlatIndex<IndexKey>;
+  using IndexKey = decltype(detail::indexKeyOf(std::declval<const T&>()));
+  using Index    = ::dreamor::internal::FlatIndex<IndexKey>;
 
   // The two sides of freeze(), checked by a debug build.
   void filling([[maybe_unused]] const char* what) const {
@@ -256,7 +255,7 @@ class EntityVector {
   }
 
   [[nodiscard]] static IndexKey asIndexKey(const key_type& key) {
-    if constexpr (internal::IsStdTuple<key_type>::value) {
+    if constexpr (detail::IsStdTuple<key_type>::value) {
       return key;
     } else {
       return IndexKey{key};
@@ -264,7 +263,7 @@ class EntityVector {
   }
 
   [[nodiscard]] auto keyAt() const {
-    return [this](std::size_t entry) { return internal::indexKeyOf(items_[entry]); };
+    return [this](std::size_t entry) { return detail::indexKeyOf(items_[entry]); };
   }
 
   std::vector<T> items_;

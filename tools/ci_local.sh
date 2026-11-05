@@ -14,8 +14,8 @@
 # signature - in ci-passed/ under the repository's git directory, where tools/hooks/pre-push looks
 # for it before a push to main.
 #
-# ORTOOLS_DIR is the OR-Tools C++ prebuilt CI downloads (v9.15; default /opt/ortools). Format and
-# tidy run first, and nothing else if either fails, as on CI; then the rest run CI_JOBS at a time
+# ORTOOLS_DIR is the OR-Tools C++ prebuilt CI downloads (v9.15; default /opt/ortools). Format, the
+# layer check and tidy run first, and nothing else if one fails, as on CI; then the rest run CI_JOBS at a time
 # (default 4), as CI's runners do, each in a checkout of its own - tests/run_tests.sh builds in the
 # tree - and each compiling JOBS at a time (default: half the cores). Logs go to a temporary folder,
 # kept if a job fails.
@@ -130,6 +130,7 @@ report() {
 }
 
 job format 'tools/format.sh --check'
+job layers 'python3 tools/check_layers.py'
 job tidy 'python3 tools/gen_compile_commands.py && tools/tidy.sh'
 report
 [ -z "$failed" ] || exit 1

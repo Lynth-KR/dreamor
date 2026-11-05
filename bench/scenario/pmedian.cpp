@@ -49,7 +49,7 @@
 #include "../common/measure.hpp"
 #include "../common/result.hpp"
 #include "backend.hpp"
-#include "dreamor/logger/logger_light.hpp"
+#include "dreamor/logger.hpp"
 #if SCENARIO_DREAMOR
 #  include "dreamor/index_set.hpp"
 #endif
@@ -105,9 +105,9 @@ Instance makeInstance(std::size_t l, std::size_t c, std::size_t p, std::uint64_t
 void runDreamor(const Instance& in, Result& r) {
   using dreamor::mathopt::sumOf;
   math_opt::Model model;
-  dreamor::SetOf<cLocation> sLOCATIONS;
-  dreamor::SetOf<cCustomer> sCUSTOMERS;
-  dreamor::SetOf<cLocation, cCustomer> sASSIGN;
+  dreamor::IndexSet<cLocation> sLOCATIONS;
+  dreamor::IndexSet<cCustomer> sCUSTOMERS;
+  dreamor::IndexSet<cLocation, cCustomer> sASSIGN;
   r.measure("sets", [&] {
     sLOCATIONS = dreamor::makeSet<cLocation>(in.locations).collect();
     sCUSTOMERS = dreamor::makeSet<cCustomer>(in.customers).collect();
@@ -205,9 +205,9 @@ void runCalls(const Instance& /*in*/, Result& r) {
 void runDreamor(const Instance& in, Result& r) {
   namespace hs = dreamor::highs;
   hs::HighsEnv env{startOptions()};
-  dreamor::SetOf<cLocation> sLOCATIONS;
-  dreamor::SetOf<cCustomer> sCUSTOMERS;
-  dreamor::SetOf<cLocation, cCustomer> sASSIGN;
+  dreamor::IndexSet<cLocation> sLOCATIONS;
+  dreamor::IndexSet<cCustomer> sCUSTOMERS;
+  dreamor::IndexSet<cLocation, cCustomer> sASSIGN;
   r.measure("sets", [&] {
     sLOCATIONS = dreamor::makeSet<cLocation>(in.locations).collect();
     sCUSTOMERS = dreamor::makeSet<cCustomer>(in.customers).collect();
@@ -371,9 +371,9 @@ void runDreamor(const Instance& in, Result& r) {
   using dreamor::concert::sumOf;
   IloEnv env;
   IloModel model(env);
-  dreamor::SetOf<cLocation> sLOCATIONS;
-  dreamor::SetOf<cCustomer> sCUSTOMERS;
-  dreamor::SetOf<cLocation, cCustomer> sASSIGN;
+  dreamor::IndexSet<cLocation> sLOCATIONS;
+  dreamor::IndexSet<cCustomer> sCUSTOMERS;
+  dreamor::IndexSet<cLocation, cCustomer> sASSIGN;
   r.measure("sets", [&] {
     sLOCATIONS = dreamor::makeSet<cLocation>(in.locations).collect();
     sCUSTOMERS = dreamor::makeSet<cCustomer>(in.customers).collect();

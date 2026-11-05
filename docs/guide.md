@@ -101,7 +101,7 @@ Each column of `makeSet<A, B, C>` corresponds to one source. There are four kind
   operation below makes a repeat - and each key of a VarTable has exactly one variable.
 - Rows come out in generation order, and which column varies fastest is not fixed. If order matters, sort with
   `orderBy`.
-- To spell out a set's type, use `dreamor::SetOf<cMachine, cItem>`.
+- To spell out a set's type, use `dreamor::IndexSet<cMachine, cItem>`.
 
 ## Steering the visit order
 
@@ -410,8 +410,8 @@ else `primaryKey()`, else the value). Two tools cover it; the other two are for 
 |---|---|---|
 | `VarTable` | every model | names its variables itself (`Yield_M1_I3_2`): nothing to call |
 | `dreamor::exprName(family, keys...)` | whatever else needs a name | the same rule for one name - a row, or a variable made outside a set: `model.add(load <= cap).setName(dreamor::exprName("Capacity", m, t))`. A key without one is a literal (`"SetupBudget"`) |
-| `general::FormatBuffer<N>::format` | rarely | a name of another shape (`x[1,2]`, a number as `{:.2f}`), from a format string; a column prints as its token |
-| `general::NameBuilder<N>` | more rarely | a name put together part by part - down a tree, say, a level at a time; what `VarTable` and `exprName` are built on |
+| `FormatBuffer<N>::format` | rarely | a name of another shape (`x[1,2]`, a number as `{:.2f}`), from a format string; a column prints as its token |
+| `NameBuilder<N>` | more rarely | a name put together part by part - down a tree, say, a level at a time; what `VarTable` and `exprName` are built on |
 
 `exprName` and `format` build in a buffer of the thread's and return a pointer valid until the thread's next call:
 hand it straight to `setName`, `AddLinearConstraint` or `addConstr`, which copy it. `exprName` reads no format

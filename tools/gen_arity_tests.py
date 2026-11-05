@@ -6,7 +6,7 @@
 
     python3 tools/gen_arity_tests.py
 
-A set's columns are bits of one std::uint64_t (kMaxColumns in include/dreamor/index_set/plan.hpp),
+A set's columns are bits of one std::uint64_t (kMaxColumns in include/dreamor/internal/index_set/plan.hpp),
 so a 65th column must stop on dreamor's own message - directly, and when a 64-column set is spread
 into a new one. The files are written out in full (65 column declarations, 65 arguments) and
 committed, so the test runner needs no Python; edit this script, not its output, and re-run it.

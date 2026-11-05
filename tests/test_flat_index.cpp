@@ -2,7 +2,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// general::FlatIndex on its own: growth through several doublings, repeats, absent keys, and
+// internal::FlatIndex on its own: growth through several doublings, repeats, absent keys, and
 // a projected key that is built on every call rather than stored.
 #include <cstddef>
 #include <tuple>
@@ -10,10 +10,10 @@
 #include <vector>
 
 #include "check.hpp"
-#include "dreamor/general/flat_index.hpp"
+#include "dreamor/internal/base/flat_index.hpp"
 
 using Key   = std::tuple<std::size_t, std::size_t>;
-using Index = dreamor::general::FlatIndex<Key>;
+using Index = dreamor::internal::FlatIndex<Key>;
 
 int main() try {
   // Grown from nothing: 16 slots, then doubling past 1000 entries.

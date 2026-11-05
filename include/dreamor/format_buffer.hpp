@@ -29,10 +29,10 @@
 #include <type_traits>  // IWYU pragma: keep // For std::is_integral_v / is_floating_point_v
 #include <utility>      // IWYU pragma: keep // For std::forward
 
-#include "dreamor/general/inline.hpp"
-#include "dreamor/logger/logger_light.hpp"  // IWYU pragma: keep // For DREAMOR_LOG_WARNING
+#include "dreamor/internal/base/inline.hpp"
+#include "dreamor/logger.hpp"  // IWYU pragma: keep // For DREAMOR_LOG_WARNING
 
-namespace dreamor::general {
+namespace dreamor {
 
 enum class OnFormatOverflow : std::uint8_t {
   kThrow,        // Throw std::runtime_error. Do NOT use from a noexcept caller.
@@ -230,4 +230,4 @@ class NameBuilder {
   bool enabled_{false};
 };
 
-}  // namespace dreamor::general
+}  // namespace dreamor

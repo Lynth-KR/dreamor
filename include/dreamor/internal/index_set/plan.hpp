@@ -16,10 +16,10 @@
 #include <tuple>
 #include <utility>
 
-#include "dreamor/index_set/binding.hpp"
-#include "dreamor/index_set/element.hpp"
+#include "dreamor/internal/index_set/binding.hpp"
+#include "dreamor/internal/index_set/element.hpp"
 
-namespace dreamor::internal {
+namespace dreamor::internal::inline index_set {
 
 // A set's columns are bits of one std::uint64_t throughout planning, so a set has at most 64.
 inline constexpr std::size_t kMaxColumns = 64;
@@ -188,4 +188,4 @@ template <std::size_t SourceCount, std::size_t PredCount>
   return order;
 }
 
-}  // namespace dreamor::internal
+}  // namespace dreamor::internal::inline index_set

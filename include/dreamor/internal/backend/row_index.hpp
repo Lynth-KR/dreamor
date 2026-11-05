@@ -2,7 +2,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// File: internal/row_index.hpp
+// File: internal/backend/row_index.hpp
 // Naming convention
 //    1.   Type: Pascal Case (i.e., MyType)
 //    2.   Variables: snake case (i.e., my_variable)
@@ -32,13 +32,13 @@
 #include <utility>
 #include <vector>
 
-#include "dreamor/general/flat_index.hpp"
-#include "dreamor/general/inline.hpp"
-#include "dreamor/index_set/indexed.hpp"
-#include "dreamor/index_set/key_args.hpp"
-#include "dreamor/logger/logger_light.hpp"
+#include "dreamor/internal/base/flat_index.hpp"
+#include "dreamor/internal/base/inline.hpp"
+#include "dreamor/internal/index_set/indexed.hpp"
+#include "dreamor/internal/index_set/key_args.hpp"
+#include "dreamor/logger.hpp"
 
-namespace dreamor::internal {
+namespace dreamor::internal::inline backend {
 
 // The row sumOf is evaluating its term on, while it does: a hint for a lookup by columns
 // inside the term - cost(m, i, t) * vYield(m, i, t) - which gets copies of the row's columns
@@ -93,7 +93,7 @@ using LastRows = std::array<LastRow, 4>;
 template <typename Key>
 class RowIndex {
  public:
-  static constexpr std::size_t kNotFound = ::dreamor::general::FlatIndex<Key>::kNotFound;
+  static constexpr std::size_t kNotFound = ::dreamor::internal::FlatIndex<Key>::kNotFound;
 
   explicit RowIndex(const Rows<Key>& rows) {
     if (rows.size() >= std::numeric_limits<std::uint32_t>::max()) {
@@ -249,10 +249,10 @@ class RowIndex {
   // The hash, built once, by whichever lookup needs it first; the others wait for it. A set holds
   // no row twice (index_set.hpp), so each key has one variable. A debug build stops on a repeat
   // all the same: indexing finds it for nothing.
-  [[nodiscard]] const ::dreamor::general::FlatIndex<Key>& built(const Rows<Key>& rows) const {
+  [[nodiscard]] const ::dreamor::internal::FlatIndex<Key>& built(const Rows<Key>& rows) const {
     if (!ready_.load(std::memory_order_acquire)) {
       std::call_once(once_, [&] {
-        ::dreamor::general::FlatIndex<Key> index{rows.size()};
+        ::dreamor::internal::FlatIndex<Key> index{rows.size()};
         [[maybe_unused]] const auto [first, repeat] = index.insertAll(0, rows.size(), rowsAt(rows));
 #ifndef NDEBUG
         if (first != kNotFound) {
@@ -272,7 +272,7 @@ class RowIndex {
 
   mutable std::once_flag once_;
   mutable std::atomic<bool> ready_{false};
-  mutable ::dreamor::general::FlatIndex<Key> index_;
+  mutable ::dreamor::internal::FlatIndex<Key> index_;
   std::uintptr_t first_ = 0;  // the first row's entity when the rows are an array's elements in order, else 0
 };
 
@@ -313,10 +313,11 @@ class RowPairIterator {
 // The row index of a set: every table on the set - vYield and vSetup on sPRODUCE, a ValueTable
 // of data on it, the values a solve gives back - shares one, made by the first. Its hash waits
 // for the first lookup that needs one.
-template <typename Key>
-[[nodiscard]] std::shared_ptr<const RowIndex<Key>> sharedRowIndex(const IndexSet<Key>& keys) {
+template <typename... Keys>
+[[nodiscard]] std::shared_ptr<const RowIndex<std::tuple<Keys...>>> sharedRowIndex(const IndexSet<Keys...>& keys) {
+  using Key = std::tuple<Keys...>;
   return SetAccess::indexSlot(keys).template get<RowIndex<Key>>(
       [&keys] { return std::make_shared<const RowIndex<Key>>(SetAccess::rows(keys)); });
 }
 
-}  // namespace dreamor::internal
+}  // namespace dreamor::internal::inline backend

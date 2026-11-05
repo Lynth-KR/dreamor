@@ -105,10 +105,10 @@ class LotSizing {
   IloModel model;
 
   // sets
-  const dreamor::SetOf<cPeriod> sPERIODS;
-  const dreamor::SetOf<cMachine, cItem> sROUTES;
-  const dreamor::SetOf<cMachine, cItem, cPeriod> sPRODUCE;
-  const dreamor::SetOf<cItem, cPeriod> sSTOCK;
+  const dreamor::IndexSet<cPeriod> sPERIODS;
+  const dreamor::IndexSet<cMachine, cItem> sROUTES;
+  const dreamor::IndexSet<cMachine, cItem, cPeriod> sPRODUCE;
+  const dreamor::IndexSet<cItem, cPeriod> sSTOCK;
 
   // 4) Variables, over the sets above
   const dreamor::concert::VarTable<cMachine, cItem, cPeriod> vYield{

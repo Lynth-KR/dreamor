@@ -1,9 +1,11 @@
 # Public API reference
 
 
-Every public type and function, by header. The [guide](guide.md) explains them in use.
+Every public type and function, by the header that brings it, under `dreamor/`. A backend header - `concert.hpp`,
+`mathopt.hpp`, `highs.hpp` - brings `index_set.hpp` too, a guarantee, as `<iostream>` brings `<istream>` and
+`<ostream>`. The [guide](guide.md) explains them in use.
 
-**Columns** (`column.hpp`)
+**Columns** (`index_set.hpp`)
 | | |
 |---|---|
 | `Col<T, "name">` | Column type. `Col(T)` (implicit), `operator T()`, `get()`, `->` and `*` for pointers, `==`, default construction |
@@ -14,7 +16,7 @@ Every public type and function, by header. The [guide](guide.md) explains them i
 | `std::hash<Col<...>>` | Lets a column be a key of `std::unordered_map` and the like |
 | `PredicateColumns<F>` | Specialization point declaring the columns read by a function object with a template `operator()` |
 
-**Building sets** (`set.hpp`)
+**Building sets** (`index_set.hpp`)
 | | |
 |---|---|
 | `makeSet<Cols...>(sources...)` | Set builder |
@@ -23,10 +25,10 @@ Every public type and function, by header. The [guide](guide.md) explains them i
 | Builder `.where(p)` | Adds one predicate (call repeatedly for several) |
 | Builder `.collect()` | Finalizes into an `IndexSet` |
 
-**Sets** (`indexed.hpp`, implemented in `set.hpp`/`algebra.hpp`/`grouped.hpp`/`ordered.hpp`)
+**Sets** (`index_set.hpp`)
 | | |
 |---|---|
-| `IndexSet<std::tuple<Cols...>>`, alias `SetOf<Cols...>` | Read-only set. Default construction (empty set), O(1) copy |
+| `IndexSet<Cols...>` | Read-only set, its type naming its columns. Default construction (empty set), O(1) copy |
 | `begin()`, `end()`, `size()` | Random-access iteration |
 | `where(p...)`, `orderBy(key)`, `orderBy(key, descending)`, `select<Cols...>()`, `select(expr)` | Derivation → `IndexSet` (`ascending`, the default, and `descending` are tag objects in `dreamor`) |
 | `groupBy<Cols...>()` | → `Grouped` |
@@ -50,12 +52,12 @@ Every public type and function, by header. The [guide](guide.md) explains them i
 | `value_type`, `key_type`, `size_type`, `const_iterator` (= `iterator`) | Member types, named as the standard containers name them; `key_type` is what `primaryKey()` returns |
 | `modify(entity, fn)` | `fn(T&)` on one element; its key must not change. After `freeze()` |
 
-**Membership** (`algebra.hpp`)
+**Membership** (`index_set.hpp`)
 | | |
 |---|---|
 | `(cols...)` / `(row)` | Membership as `bool` |
 
-**Grouped** (`grouped.hpp`)
+**Grouped** (`index_set.hpp`)
 | | |
 |---|---|
 | `begin()`, `end()` | Every existing group (in first-occurrence order). The element `Group` unpacks as `[cols..., rows]` |
@@ -66,12 +68,12 @@ Every public type and function, by header. The [guide](guide.md) explains them i
 | `keyAt(g)`, `at(g)` | Key of the g-th group, the group (`std::out_of_range` if out of range) |
 | `regrouped()` | A new `IndexSet` with rows gathered group by group |
 
-**RowSlice** (`grouped.hpp`)
+**RowSlice** (`index_set.hpp`)
 | | |
 |---|---|
 | `begin()`, `end()`, `size()`, `empty()`, `operator[](i)`, `front()`, `back()` | Random-access view, default construction (empty) |
 
-**Ordered** (`ordered.hpp`)
+**Ordered** (`index_set.hpp`)
 | | |
 |---|---|
 | `ord(cols...)` | Position (`std::optional<std::size_t>`, empty if absent). Everything below also takes a single row instead of columns |
@@ -135,7 +137,7 @@ Every public type and function, by header. The [guide](guide.md) explains them i
 
 ## Utilities
 
-**Names** (`exprName` in `index_set/name_token.hpp`, namespace `dreamor`; the rest in `general/format_buffer.hpp`, namespace `dreamor::general`)
+**Names** (`exprName` in `index_set.hpp`, the rest in `format_buffer.hpp`; namespace `dreamor`)
 | | |
 |---|---|
 | `exprName(family, keys...)` | `"<family>_<key0>_<key1>..."`, a row named the way `VarTable` names variables: each key a column (by its token) or a value. In a buffer of the thread's, with no allocation and no format string; the `const char*` is valid until the thread's next `exprName` (hand it to `setName`, which copies it). Longer than 255 chars: `std::runtime_error` |
@@ -143,7 +145,7 @@ Every public type and function, by header. The [guide](guide.md) explains them i
 | `FormatBuffer<N, Policy = OnFormatOverflow::kThrow>` | A fixed buffer of `N` chars for names, one per thread: the object holds nothing. Inherit privately; `format(fmt, args...)` is static - a `const` member function calls it, and so do many threads at once - and returns a `const char*` valid until the thread's next `format` through any `FormatBuffer<N, Policy>` (hand it straight to `setName`, which copies it). A column formats as its name token |
 | `OnFormatOverflow::kThrow`, `kLogAndClear` | A name longer than `N - 1` chars: `std::runtime_error`, or a warning and an empty name (`format` is then `noexcept`) |
 
-**Logging** (`logger/logger_light.hpp`)
+**Logging** (`logger.hpp`)
 | | |
 |---|---|
 | `DREAMOR_LOG_INFO(fmt, args...)`, `DREAMOR_LOG_WARNING`, `DREAMOR_LOG_ERROR` | One line: `[+elapsed ms] [file:line] [LEVEL] text`, the text through `std::format` (checked at compile time). Coloured on a terminal unless `NO_COLOR` is set; `ERROR` flushes |

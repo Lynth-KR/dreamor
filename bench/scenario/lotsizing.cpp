@@ -47,7 +47,7 @@
 #include "../common/measure.hpp"
 #include "../common/result.hpp"
 #include "backend.hpp"
-#include "dreamor/logger/logger_light.hpp"
+#include "dreamor/logger.hpp"
 #if !SCENARIO_DREAMOR
 #  include "../../examples/production_planning_data.hpp"
 #elif defined(SCENARIO_MATHOPT)

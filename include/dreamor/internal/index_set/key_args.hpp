@@ -2,7 +2,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// File: index_set/key_args.hpp
+// File: internal/index_set/key_args.hpp
 // Naming convention
 //    1.   Type: Pascal Case (i.e., MyType)
 //    2.   Variables: snake case (i.e., my_variable)
@@ -27,7 +27,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace dreamor::internal {
+namespace dreamor::internal::inline index_set {
 
 template <typename...>
 inline constexpr bool always_false = false;
@@ -167,4 +167,4 @@ consteval bool checkMembershipKey() {
   "Pass the key's columns as arguments, without braces: slice(i, t), prev(t), next(t, 2) - not " \
   "slice({i, t})."
 
-}  // namespace dreamor::internal
+}  // namespace dreamor::internal::inline index_set

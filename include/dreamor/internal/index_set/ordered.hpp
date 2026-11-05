@@ -17,13 +17,13 @@
 #include <utility>
 #include <vector>
 
-#include "dreamor/general/flat_index.hpp"
-#include "dreamor/general/unreachable.hpp"
-#include "dreamor/index_set/algebra.hpp"
-#include "dreamor/index_set/grouped.hpp"
-#include "dreamor/index_set/indexed.hpp"
-#include "dreamor/index_set/key_args.hpp"
-#include "dreamor/logger/logger_light.hpp"
+#include "dreamor/internal/base/flat_index.hpp"
+#include "dreamor/internal/base/unreachable.hpp"
+#include "dreamor/internal/index_set/algebra.hpp"
+#include "dreamor/internal/index_set/grouped.hpp"
+#include "dreamor/internal/index_set/indexed.hpp"
+#include "dreamor/internal/index_set/key_args.hpp"
+#include "dreamor/logger.hpp"
 
 namespace dreamor {
 
@@ -53,21 +53,23 @@ namespace dreamor {
 //     periodsOfMachine.next(m, t)      // the period after t among m's, nullptr after m's last
 //     periodsOfMachine.isLast(m, t)    // ord(t, S[m]) = card(S[m])
 //     periodsOfMachine.first(m)        // first(S[m]): the row (m, t) of m's first period
-template <typename Tup, typename... Within>
+template <typename Set, typename... Within>
 class Ordered {
+  using Tup = Set::value_type;
+
   static constexpr bool kWithinGroups = sizeof...(Within) > 0;
   using GroupKey                      = std::tuple<Within...>;
   struct NoGroups {};
   // Within groups: a group's key -> its index, for first(m) and last(m).
-  using GroupIndex = std::conditional_t<kWithinGroups, ::dreamor::general::FlatIndex<GroupKey>, NoGroups>;
+  using GroupIndex = std::conditional_t<kWithinGroups, ::dreamor::internal::FlatIndex<GroupKey>, NoGroups>;
 
  public:
   // One position per element: a set holds no row twice (index_set.hpp), so insertAll goes
   // through. Within groups, the rows are laid out group by group - the groups in order of first
   // appearance, each in the set's order - and every position knows its group's span.
-  explicit Ordered(const IndexSet<Tup>& set) {
+  explicit Ordered(const Set& set) {
     if constexpr (kWithinGroups) {
-      const Grouped<Tup, Within...> groups{set};
+      const Grouped<Set, Within...> groups{set};
       members_ = groups.regrouped();
       group_starts_.reserve(groups.size() + 1);
       group_of_.reserve(members_.size());
@@ -85,7 +87,7 @@ class Ordered {
     } else {
       members_ = set;
     }
-    positions_ = ::dreamor::general::FlatIndex<Tup>{members_.size()};
+    positions_ = ::dreamor::internal::FlatIndex<Tup>{members_.size()};
     static_cast<void>(positions_.insertAll(0, rows().size(), rowsAt()));
   }
 
@@ -94,9 +96,9 @@ class Ordered {
 
   // On rvalues these stop with a sentence, for the same reason as in Grouped: they borrow
   // from members_, so `S.ordered().prev(t)` would point into a vector that is already gone.
-  [[nodiscard]] const IndexSet<Tup>& members() const& noexcept { return members_; }
+  [[nodiscard]] const Set& members() const& noexcept { return members_; }
   template <typename Unused = void>
-  [[nodiscard]] const IndexSet<Tup>& members() const&& {
+  [[nodiscard]] const Set& members() const&& {
     static_assert(
         internal::always_false<Unused>,
         "Name the Ordered first - const auto orderedPeriods = sPERIODS.ordered(); - its lookups hand out pointers into it, which would dangle once a temporary is gone.");
@@ -338,7 +340,7 @@ class Ordered {
   }
 
  private:
-  static constexpr std::size_t kNotMember = ::dreamor::general::FlatIndex<Tup>::kNotFound;
+  static constexpr std::size_t kNotMember = ::dreamor::internal::FlatIndex<Tup>::kNotFound;
 
   [[nodiscard]] auto rowsAt() const {
     return [this](std::size_t position) -> const Tup& { return rows()[position]; };
@@ -361,7 +363,7 @@ class Ordered {
         DREAMOR_DEBUG_FATAL(
             "Ordered::{} has no row to return - a broken contract: the group has no row in the set. Run it over the groups the set has (groupBy), or check with contains.",
             what);
-        general::unreachable();
+        internal::unreachable();
       }
       return rows()[First ? group_starts_[index] : group_starts_[index + 1] - 1];
     } else {
@@ -408,7 +410,7 @@ class Ordered {
       DREAMOR_DEBUG_FATAL(
           "Ordered::{} has no row to return - a broken contract: the element is past the end of its set or group, or not in it. Run it over a domain that has the neighbour (isFirst, isLast), or use the pointer form, next / prev.",
           what);
-      general::unreachable();
+      internal::unreachable();
     }
     return *row;
   }
@@ -429,20 +431,20 @@ class Ordered {
 
   [[nodiscard]] const internal::Rows<Tup>& rows() const noexcept { return internal::SetAccess::rows(members_); }
 
-  IndexSet<Tup> members_;                         // Within groups, the set laid out group by group.
-  ::dreamor::general::FlatIndex<Tup> positions_;  // Element -> position, over members_' rows.
-  std::vector<std::uint32_t> group_of_;           // Within groups: each position's group (groupBy's limit).
-  std::vector<std::size_t> group_starts_;         // Within groups: size K + 1, each group's first position.
-  std::vector<GroupKey> group_keys_;              // Within groups: each group's key, in group order.
-  GroupIndex group_index_;                        // Within groups: group key -> group, over group_keys_.
+  Set members_;                                    // Within groups, the set laid out group by group.
+  ::dreamor::internal::FlatIndex<Tup> positions_;  // Element -> position, over members_' rows.
+  std::vector<std::uint32_t> group_of_;            // Within groups: each position's group (groupBy's limit).
+  std::vector<std::size_t> group_starts_;          // Within groups: size K + 1, each group's first position.
+  std::vector<GroupKey> group_keys_;               // Within groups: each group's key, in group order.
+  GroupIndex group_index_;                         // Within groups: group key -> group, over group_keys_.
 };
 
 // S.ordered() over the whole set; S.ordered<cMachine>() within each machine's rows.
-template <typename Tup>
+template <typename... Columns>
 template <typename... Within>
-Ordered<Tup, Within...> IndexSet<Tup>::ordered() const {
+Ordered<IndexSet<Columns...>, Within...> IndexSet<Columns...>::ordered() const {
   if constexpr (sizeof...(Within) > 0) { internal::checkColumns<Tup, Within...>(); }
-  return Ordered<Tup, Within...>{*this};
+  return Ordered<IndexSet, Within...>{*this};
 }
 
 }  // namespace dreamor

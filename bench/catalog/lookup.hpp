@@ -74,7 +74,7 @@ struct Dreamor<std::index_sequence<J...>> {
   using Set                          = typename G::Set;
   using Table                        = typename G::Table;
   static constexpr bool kPairs       = kK > 1;  // y, on (k1, period): not at k = 1
-  using PairSet                      = std::conditional_t<kPairs, dreamor::SetOf<cK<0>, cK<kLast>>, std::monostate>;
+  using PairSet                      = std::conditional_t<kPairs, dreamor::IndexSet<cK<0>, cK<kLast>>, std::monostate>;
   using PairTable = std::conditional_t<kPairs, dreamor::concert::VarTable<cK<0>, cK<kLast>>, std::monostate>;
 
   struct PairTag {

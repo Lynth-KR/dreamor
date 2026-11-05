@@ -22,16 +22,16 @@
 #include <utility>
 #include <vector>
 
-#include "dreamor/general/flat_index.hpp"
-#include "dreamor/index_set/column.hpp"
-#include "dreamor/index_set/indexed.hpp"
-#include "dreamor/index_set/key_args.hpp"
+#include "dreamor/internal/base/flat_index.hpp"
+#include "dreamor/internal/index_set/column.hpp"
+#include "dreamor/internal/index_set/indexed.hpp"
+#include "dreamor/internal/index_set/key_args.hpp"
 
 namespace dreamor {
 
-namespace internal {
+namespace internal::inline index_set {
 struct SliceAccess;
-}  // namespace internal
+}  // namespace internal::inline index_set
 
 // One group: rows of the grouped set, in the set's order. A random-access view - size(),
 // empty(), rows[i], front(), back(), range-for - over row numbers into the set, so it
@@ -125,7 +125,7 @@ class RowSlice : public std::ranges::view_base {
   std::size_t count_ = 0;
 };
 
-namespace internal {
+namespace internal::inline index_set {
 
 // Library-side access to a group's rows: the set's first row, and the positions in it of the
 // group's rows, in the set's order - what a sum takes a table's variables by (sum_builder.hpp).
@@ -145,7 +145,7 @@ struct IsRowSlice : std::false_type {};
 template <typename Tup>
 struct IsRowSlice<RowSlice<Tup>> : std::true_type {};
 
-}  // namespace internal
+}  // namespace internal::inline index_set
 
 // One group of a Grouped: its key and its rows. It destructures flat - the key's columns
 // first, the rows last - so a loop names what it reads:
@@ -195,8 +195,10 @@ struct Group {
 //
 // The set is shared, not copied: the groups are row numbers into it (4 bytes a row), laid
 // out group by group.
-template <typename Tup, typename... Columns>
+template <typename Set, typename... Columns>
 class Grouped {
+  using Tup = Set::value_type;
+
  public:
   using Key   = std::tuple<Columns...>;
   using Group = ::dreamor::Group<Tup, Columns...>;
@@ -240,7 +242,7 @@ class Grouped {
   // before the hash, and while every change of key opens a new group, the groups ARE the runs:
   // rows_ is the set's own order and nothing is sorted. The row-to-group array the sort needs
   // is made only when a key comes back.
-  explicit Grouped(const IndexSet<Tup>& set) : set_{set} {
+  explicit Grouped(Set set) : set_{std::move(set)} {
     const auto& rows = internal::SetAccess::rows(set_);
     if (rows.size() >= std::numeric_limits<std::uint32_t>::max()) {
       throw std::length_error("groupBy: more than 2^32 - 2 rows.");
@@ -384,7 +386,7 @@ class Grouped {
   [[nodiscard]] GroupIterator end() const&&   = delete;
 
   // The set with its groups made contiguous, as a set of its own.
-  [[nodiscard]] IndexSet<Tup> regrouped() const {
+  [[nodiscard]] Set regrouped() const {
     const auto& rows = internal::SetAccess::rows(set_);
     internal::Rows<Tup> out;
     out.reserve(rows_.size());
@@ -395,7 +397,7 @@ class Grouped {
   }
 
  private:
-  static constexpr std::size_t kNoGroup = ::dreamor::general::FlatIndex<Key>::kNotFound;
+  static constexpr std::size_t kNoGroup = ::dreamor::internal::FlatIndex<Key>::kNotFound;
 
   [[nodiscard]] static Key keyOf(const Tup& tuple) { return Key{std::get<Columns>(tuple)...}; }
 
@@ -426,20 +428,20 @@ class Grouped {
     };
   }
 
-  IndexSet<Tup> set_;                // Shared with the caller's set: no row is copied.
+  Set set_;                          // Shared with the caller's set: no row is copied.
   std::vector<std::uint32_t> rows_;  // Row numbers of set_, group by group.
   std::vector<Key> keys_;
-  std::vector<std::size_t> offsets_;          // Size K + 1; CSR row pointers into rows_.
-  ::dreamor::general::FlatIndex<Key> index_;  // Key -> group number, over keys_.
+  std::vector<std::size_t> offsets_;           // Size K + 1; CSR row pointers into rows_.
+  ::dreamor::internal::FlatIndex<Key> index_;  // Key -> group number, over keys_.
 };
 
 // S.groupBy<cItem>() groups by the item column; S.groupBy<cMachine, cOrder>() by two.
-template <typename Tup>
 template <typename... Columns>
-Grouped<Tup, Columns...> IndexSet<Tup>::groupBy() const {
-  static_assert(sizeof...(Columns) > 0, "groupBy needs at least one column.");
-  internal::checkColumns<Tup, Columns...>();
-  return Grouped<Tup, Columns...>{*this};
+template <typename... By>
+Grouped<IndexSet<Columns...>, By...> IndexSet<Columns...>::groupBy() const {
+  static_assert(sizeof...(By) > 0, "groupBy needs at least one column.");
+  internal::checkColumns<Tup, By...>();
+  return Grouped<IndexSet, By...>{*this};
 }
 
 }  // namespace dreamor

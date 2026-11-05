@@ -101,7 +101,7 @@ template <std::size_t... J>
 struct Gen<std::index_sequence<J...>> {
   static constexpr std::size_t kK    = sizeof...(J);
   static constexpr std::size_t kLast = kK - 1;
-  using Set                          = dreamor::SetOf<cK<J>...>;
+  using Set                          = dreamor::IndexSet<cK<J>...>;
   using Table                        = dreamor::concert::VarTable<cK<J>...>;
 
   // Callables take the columns they read, by type: no generic lambdas.

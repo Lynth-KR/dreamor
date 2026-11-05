@@ -92,7 +92,7 @@ static auto qC(std::uint64_t den) {
 
 // The shape's predicates on a builder, each where it can run - or, late, folded into one over
 // A, B and C, so that it runs only once all three are bound.
-using Set = dreamor::SetOf<cA, cB, cC>;
+using Set = dreamor::IndexSet<cA, cB, cC>;
 template <typename Builder>
 static Set withPredicates(std::string_view shape, const Dens& d, Builder b, bool late) {
   if (shape == "pair") {
@@ -174,8 +174,8 @@ constexpr std::pair<std::string_view, RunForced> kOrders[] = {
     {"CBA", runForced<kC, kB, kA>},
 };
 
-template <typename Tup>
-static std::uint64_t checksum(const dreamor::IndexSet<Tup>& set) {
+template <typename... Columns>
+static std::uint64_t checksum(const dreamor::IndexSet<Columns...>& set) {
   std::uint64_t sum = 0;
   for (const auto& row : set) {
     const auto& a = std::get<cA>(row);

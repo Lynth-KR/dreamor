@@ -31,9 +31,9 @@
 #include <type_traits>
 #include <utility>
 
-#include "dreamor/index_set/column.hpp"
-#include "dreamor/index_set/key_args.hpp"
-#include "dreamor/logger/logger_light.hpp"
+#include "dreamor/internal/index_set/column.hpp"
+#include "dreamor/internal/index_set/key_args.hpp"
+#include "dreamor/logger.hpp"
 
 namespace dreamor::interval {
 

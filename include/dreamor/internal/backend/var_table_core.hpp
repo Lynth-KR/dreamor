@@ -2,7 +2,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// File: internal/var_table_core.hpp
+// File: internal/backend/var_table_core.hpp
 // Naming convention
 //    1.   Type: Pascal Case (i.e., MyType)
 //    2.   Variables: snake case (i.e., my_variable)
@@ -30,16 +30,26 @@
 #include <utility>
 #include <vector>
 
-#include "dreamor/general/format_buffer.hpp"
-#include "dreamor/index_set/call.hpp"
-#include "dreamor/index_set/indexed.hpp"
-#include "dreamor/index_set/key_args.hpp"
-#include "dreamor/index_set/name_token.hpp"
-#include "dreamor/internal/row_index.hpp"
-#include "dreamor/logger/logger_light.hpp"
+#include "dreamor/format_buffer.hpp"
+#include "dreamor/internal/backend/row_index.hpp"
+#include "dreamor/internal/index_set/call.hpp"
+#include "dreamor/internal/index_set/indexed.hpp"
+#include "dreamor/internal/index_set/key_args.hpp"
+#include "dreamor/internal/index_set/name_token.hpp"
+#include "dreamor/logger.hpp"
 #include "dreamor/value_table.hpp"
 
-namespace dreamor::internal {
+namespace dreamor::internal::inline backend {
+
+// The one way a backend's VarTable hands over its values.
+struct ValueTableAccess {
+  template <typename... Keys>
+  [[nodiscard]] static ValueTable<Keys...> make(IndexSet<Keys...> keys,
+                                                std::shared_ptr<const RowIndex<std::tuple<Keys...>>> index,
+                                                std::vector<double> values) {
+    return ValueTable<Keys...>{std::move(keys), std::move(index), std::move(values)};
+  }
+};
 
 // What every backend's VarTable derives from, through VarTableCore: the traits below find a
 // table by it.
@@ -71,7 +81,7 @@ class VarTableCore : public VarTableBase {
   using Key = std::tuple<Keys...>;
 
   // contains(m, i, t) or contains(row): the key's columns in order, or a row of the set (see
-  // index_set/key_args.hpp).
+  // internal/index_set/key_args.hpp).
   template <typename... Args>
   [[nodiscard]] bool contains(const Args&... key) const {
     if constexpr (checkTableKey<Key, Args...>()) {
@@ -84,19 +94,18 @@ class VarTableCore : public VarTableBase {
   // A set whose columns are not exactly the keys, in order, stops here on one sentence rather
   // than on "no matching constructor". Public, as a backend inherits it (`using Core::Core;`)
   // with this access; its first parameter is the backend's environment or model.
-  template <typename Model, typename OtherTup, typename... Rest>
-    requires(!std::same_as<OtherTup, Key>)
-  VarTableCore(Model&& /*model*/, const IndexSet<OtherTup>& /*set*/, Rest&&... /*rest*/)
-      : VarTableCore{IndexSet<Key>{}} {
-    static_assert(always_false<OtherTup>,
+  template <typename Model, typename Set, typename... Rest>
+    requires(is_index_set<Set> && !std::same_as<Set, IndexSet<Keys...>>)
+  VarTableCore(Model&& /*model*/, const Set& /*set*/, Rest&&... /*rest*/) : VarTableCore{IndexSet<Keys...>{}} {
+    static_assert(always_false<Set>,
                   "A VarTable is built on a set with exactly its key columns, in the same order: "
-                  "VarTable<cMachine, cItem, cPeriod> takes a SetOf<cMachine, cItem, cPeriod>. "
+                  "VarTable<cMachine, cItem, cPeriod> takes an IndexSet<cMachine, cItem, cPeriod>. "
                   "Declare the table in the set's order, or derive a set in the table's order with select<...>().");
   }
 
   // The variable of a key: vYield(m, i, t) - Yield[m,i,t] in AMPL - or vYield(row). The columns
   // themselves, in the declared order; anything else stops on one sentence (see
-  // index_set/key_args.hpp). Throws std::out_of_range when the set does not have the key - the
+  // internal/index_set/key_args.hpp). Throws std::out_of_range when the set does not have the key - the
   // rule of every backend; contains() asks first.
   template <typename... Args>
   [[nodiscard]] Var operator()(const Args&... key) const {
@@ -110,7 +119,7 @@ class VarTableCore : public VarTableBase {
   [[nodiscard]] std::size_t size() const noexcept { return vars_.size(); }
 
   // The set this table was built on - its keys, in order.
-  [[nodiscard]] const IndexSet<Key>& keys() const noexcept { return keys_; }
+  [[nodiscard]] const IndexSet<Keys...>& keys() const noexcept { return keys_; }
 
   // (row, variable) pairs in the set's order - the column order the model gets.
   [[nodiscard]] auto begin() const noexcept { return Iterator{rows().data(), cursorAt(vars_, 0)}; }
@@ -146,7 +155,7 @@ class VarTableCore : public VarTableBase {
   }
 
  protected:
-  explicit VarTableCore(const IndexSet<Key>& keys) : keys_{keys}, index_{sharedRowIndex(keys_)} {}
+  explicit VarTableCore(const IndexSet<Keys...>& keys) : keys_{keys}, index_{sharedRowIndex(keys_)} {}
 
   VarTableCore(VarTableCore&&) noexcept            = default;
   VarTableCore& operator=(VarTableCore&&) noexcept = default;
@@ -175,8 +184,7 @@ class VarTableCore : public VarTableBase {
   // kLogAndClear (not kThrow): construction is reached from noexcept modeling code, where a
   // throw would mean std::terminate rather than a recoverable error.
   static constexpr std::size_t kNameBufferSize = 256;  // a variable's name, terminator included
-  using NameBuilder =
-      ::dreamor::general::NameBuilder<kNameBufferSize, ::dreamor::general::OnFormatOverflow::kLogAndClear>;
+  using NameBuilder = ::dreamor::NameBuilder<kNameBufferSize, ::dreamor::OnFormatOverflow::kLogAndClear>;
 
   [[nodiscard]] static const char* nameOf(NameBuilder& names, const Key& key) {
     if (!names.enabled()) {
@@ -192,14 +200,14 @@ class VarTableCore : public VarTableBase {
 
  private:
   template <typename>
-  friend struct TakesRowNumber;  // a sum over a group of the set takes vars_ by the rows' positions
+  friend struct internal::TakesRowNumber;  // a sum over a group of the set takes vars_ by the rows' positions
   using Iterator = RowPairIterator<Key, decltype(cursorAt(std::declval<const typename VarStorage<Var>::type&>(), 0))>;
 
-  IndexSet<Key> keys_;                          // Shared; the only copy of the keys.
+  IndexSet<Keys...> keys_;                      // Shared; the only copy of the keys.
   std::shared_ptr<const RowIndex<Key>> index_;  // Shared with ValueTables.
 };
 
-}  // namespace dreamor::internal
+}  // namespace dreamor::internal::inline backend
 
 // A table names its key columns, so it is itself a sum term: sumOf(env, rows, vYield) sums its
 // variables over the rows - sum {(m,i,t) in rows} Yield[m,i,t] - without a lambda that only looks

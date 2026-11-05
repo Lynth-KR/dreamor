@@ -12,7 +12,7 @@ Lint runs first; when it passes, the rest run at once.
 
 | Job | Machine | What it runs | compile_fail |
 |---|---|---|---|
-| lint | ubuntu-24.04 | `tools/format.sh --check`, then `tools/tidy.sh` (with OR-Tools' headers, for the MathOpt and HiGHS backends) | - |
+| lint | ubuntu-24.04 | `tools/format.sh --check`, `tools/check_layers.py` (the headers keep their layers), then `tools/tidy.sh` (with OR-Tools' headers, for the MathOpt and HiGHS backends) | - |
 | stub, GCC 13 `-O3 -DNDEBUG` | the runner | unit tests, documented code, compile_fail, syntax checks; installs the CMake package and builds `tests/cmake_consumer` with GCC 13 and Clang 18 | yes |
 | stub, Clang 18 `-O1 -g` | the runner | the compiler's checks alone (`UNIT_TESTS=0`): compile_fail, syntax checks, documented code | yes |
 | stub, Clang 18 `-O3 -DNDEBUG` | the runner | unit tests | - |
@@ -85,8 +85,8 @@ overflow Emscripten's default of 64 KB, which nothing checks.
 `tools/ci_local.sh [REV]` runs every job over one commit (default `HEAD`) checked out in a temporary worktree, so it
 tests what a push publishes and not the working tree. It checks first for everything CI installs - GCC 13, Clang 18 and
 23, libc++ 18 (`libc++-18-dev`, `libc++abi-18-dev`, `libunwind-18-dev`), podman with the two official images, cmake,
-OR-Tools at `$ORTOOLS_DIR`, uv - and runs nothing if one is missing. Format and tidy run first, and nothing else if
-either fails; then the jobs run `CI_JOBS` at a time (default 4), each compiling `JOBS` at a time (default half the
+OR-Tools at `$ORTOOLS_DIR`, uv - and runs nothing if one is missing. Format, the layer check and tidy run first, and
+nothing else if one fails; then the jobs run `CI_JOBS` at a time (default 4), each compiling `JOBS` at a time (default half the
 cores). Lower both where memory is short: each compiler takes up to about 1 GB.
 
 A pass is recorded by the commit's tree (`ci-passed/` under the git directory), and `tools/hooks/pre-push` stops a push

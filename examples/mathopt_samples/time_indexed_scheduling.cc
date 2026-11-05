@@ -16,7 +16,7 @@
 // Modified by Lynth-KR, 2026: ported to dreamor. The original is
 // ortools/math_opt/samples/cpp/time_indexed_scheduling.cc at
 // google/or-tools@100f66e; examples/mathopt_samples/README.md walks through
-// what changed. Logging goes through dreamor/logger/logger_light.hpp.
+// what changed. Logging goes through dreamor/logger.hpp.
 
 // Problem statement.
 //
@@ -69,7 +69,7 @@
 #include "ortools/base/status_macros.h"
 #include "ortools/math_opt/cpp/math_opt.h"
 #include "dreamor/index_set.hpp"
-#include "dreamor/logger/logger_light.hpp"
+#include "dreamor/logger.hpp"
 #include "dreamor/mathopt.hpp"
 
 ABSL_FLAG(operations_research::math_opt::SolverType, solver_type,

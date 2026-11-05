@@ -55,14 +55,15 @@
 #include <utility>
 #include <vector>
 
-#include "dreamor/index_set/indexed.hpp"
-#include "dreamor/index_set/key_args.hpp"
-#include "dreamor/internal/row_index.hpp"
-#include "dreamor/internal/sum_builder.hpp"
-#include "dreamor/internal/var_table_core.hpp"
+#include "dreamor/index_set.hpp"  // guaranteed, as <iostream> brings <istream> and <ostream>: a model needs its sets
+#include "dreamor/internal/backend/row_index.hpp"
+#include "dreamor/internal/backend/sum_builder.hpp"
+#include "dreamor/internal/backend/var_table_core.hpp"
+#include "dreamor/internal/index_set/indexed.hpp"
+#include "dreamor/internal/index_set/key_args.hpp"
 #include "dreamor/value_table.hpp"
 
-#include "dreamor/general/third_party_headers.hpp"
+#include "dreamor/internal/base/third_party_headers.hpp"
 DREAMOR_BEGIN_THIRD_PARTY_HEADERS
 #include "ortools/math_opt/cpp/model.h"
 #include "ortools/math_opt/cpp/solve_result.h"
@@ -88,7 +89,7 @@ class VarTable : public internal::VarTableCore<::operations_research::math_opt::
 
   template <typename Lb = double, typename Ub = double>
   VarTable(::operations_research::math_opt::Model& model,
-           const IndexSet<Key>& set,
+           const IndexSet<Keys...>& set,
            const Lb& lb     = 0,
            const Ub& ub     = std::numeric_limits<double>::infinity(),
            bool is_integer  = false,

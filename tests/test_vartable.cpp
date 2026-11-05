@@ -151,7 +151,7 @@ int main() try {
   // each lookup gives what the row's address gives
   bool turnsAgree = true;
   for (std::size_t round = 0; round < 3; ++round) {
-    std::vector<dreamor::SetOf<cI, cJ>> sets;
+    std::vector<dreamor::IndexSet<cI, cJ>> sets;
     sets.reserve(6);
     for (std::size_t s = 0; s < 6; ++s) {
       const std::vector<std::size_t> Is{s + round, s + round + 1};

@@ -16,7 +16,7 @@
 // Modified by Lynth-KR, 2026: ported to dreamor. The original is
 // ortools/math_opt/samples/cpp/lagrangian_relaxation.cc at
 // google/or-tools@100f66e; examples/mathopt_samples/README.md walks through
-// what changed. Logging goes through dreamor/logger/logger_light.hpp.
+// what changed. Logging goes through dreamor/logger.hpp.
 
 // Solves a constrained shortest path problem via Lagrangian Relaxation. The
 // Lagrangian dual is solved with subgradient ascent.
@@ -107,7 +107,7 @@
 #include "ortools/base/status_macros.h"
 #include "ortools/math_opt/cpp/math_opt.h"
 #include "dreamor/index_set.hpp"
-#include "dreamor/logger/logger_light.hpp"
+#include "dreamor/logger.hpp"
 #include "dreamor/mathopt.hpp"
 
 ABSL_FLAG(double, step_size, 0.95,
@@ -173,9 +173,9 @@ struct Network {
                     .collect();
     sARCS = sARC_ENDS.select<cArc>();
   }
-  dreamor::SetOf<cNode> sNODES;
-  dreamor::SetOf<cArc, cTail, cHead> sARC_ENDS;
-  dreamor::SetOf<cArc> sARCS;
+  dreamor::IndexSet<cNode> sNODES;
+  dreamor::IndexSet<cArc, cTail, cHead> sARC_ENDS;
+  dreamor::IndexSet<cArc> sARCS;
 };
 
 // The shortest path model: flow variables, the cost and resource expressions,

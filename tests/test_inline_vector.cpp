@@ -10,7 +10,7 @@
 #include <utility>
 
 #include "check.hpp"
-#include "dreamor/internal/inline_vector.hpp"
+#include "dreamor/internal/backend/inline_vector.hpp"
 
 using Small = dreamor::internal::InlineVector<int, 4>;
 

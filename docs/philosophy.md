@@ -61,7 +61,7 @@ the AMPL comments and the code then match once the prefix is dropped.
 | What | Shape | Example | AMPL |
 |---|---|---|---|
 | Column type | `c` + PascalCase | `cMachine`, `cPeriod` | |
-| Set (`SetOf`) | `s` + SCREAMING_SNAKE_CASE | `sPRODUCE`, `sPEAK_PRODUCE` | `PRODUCE` |
+| Set (`IndexSet`) | `s` + SCREAMING_SNAKE_CASE | `sPRODUCE`, `sPEAK_PRODUCE` | `PRODUCE` |
 | Variable family (`VarTable`) | `v` + PascalCase | `vYield`, `vSetup`, `vStock` | `Yield` |
 
 Sets get a prefix because an all-caps name in C++ looks like a macro or a constant (`ILOFLOAT`, `ILOBOOL`).

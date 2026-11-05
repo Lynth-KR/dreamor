@@ -147,7 +147,7 @@ static void runDreamor(const Keys<K>& keys, Result& r) {
   for (const Item<K>& item : items) {
     by_place.push_back(&item);
   }
-  dreamor::SetOf<Col> sITEMS;
+  dreamor::IndexSet<Col> sITEMS;
   std::optional<dreamor::concert::VarTable<Col>> vX;
   r.measure("build", [&] {
     sITEMS = dreamor::makeSet<Col>(items).collect();

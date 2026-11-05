@@ -15,9 +15,9 @@
 #include <type_traits>
 #include <utility>
 
-#include "dreamor/index_set/column.hpp"
+#include "dreamor/internal/index_set/column.hpp"
 
-namespace dreamor::internal {
+namespace dreamor::internal::inline index_set {
 
 // The three ways an AMPL index set names a column:
 //
@@ -174,4 +174,4 @@ template <typename Source>
   }
 }
 
-}  // namespace dreamor::internal
+}  // namespace dreamor::internal::inline index_set

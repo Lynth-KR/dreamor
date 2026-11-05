@@ -156,7 +156,7 @@ struct Dreamor<std::index_sequence<J...>> {
 
   template <std::size_t... I>
   static void select(std::index_sequence<I...>, const Set& sX, Result& r) {
-    dreamor::SetOf<cK<I>...> out;
+    dreamor::IndexSet<cK<I>...> out;
     r.measure("select", [&] { out = sX.template select<cK<I>...>(); });
     std::uint64_t h = 0;
     for (const auto& row : out) {

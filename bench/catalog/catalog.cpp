@@ -26,7 +26,7 @@
 #include "../common/measure.hpp"
 #include "../common/result.hpp"
 #include "data.hpp"
-#include "dreamor/logger/logger_light.hpp"
+#include "dreamor/logger.hpp"
 #include "entities.hpp"
 #include "group.hpp"
 #include "lookup.hpp"

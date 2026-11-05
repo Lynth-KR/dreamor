@@ -8,7 +8,7 @@ the index sets are declared instead of implied by loops and hash maps.
 The originals are in [`ortools/math_opt/samples/cpp`](https://github.com/google/or-tools/tree/100f66e6242ab8bf8d32feb8f3bf086db66ae2b5/ortools/math_opt/samples/cpp)
 at google/or-tools@100f66e. Each port keeps the original's license header and says what changed.
 Everything around the model is left as it was: flags, data, the solve loop, LaTeX export. The
-only other change is output, which goes through `dreamor/logger/logger_light.hpp` instead of
+only other change is output, which goes through `dreamor/logger.hpp` instead of
 `std::cout` (LaTeX output still goes to standard out, since it is meant for a pipe).
 
 | Sample | What the port shows |

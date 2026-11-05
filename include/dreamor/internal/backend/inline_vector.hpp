@@ -2,7 +2,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// File: internal/inline_vector.hpp
+// File: internal/backend/inline_vector.hpp
 // Naming convention
 //    1.   Type: Pascal Case (i.e., MyType)
 //    2.   Variables: snake case (i.e., my_variable)
@@ -25,7 +25,7 @@
 #include <utility>
 #include <vector>
 
-namespace dreamor::internal {
+namespace dreamor::internal::inline backend {
 
 template <typename T, std::size_t N>
   requires(std::is_trivially_copyable_v<T> && N > 0)
@@ -103,4 +103,4 @@ class InlineVector {
   std::size_t size_{0};
 };
 
-}  // namespace dreamor::internal
+}  // namespace dreamor::internal::inline backend

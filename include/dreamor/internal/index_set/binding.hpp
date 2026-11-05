@@ -16,9 +16,9 @@
 #include <type_traits>
 #include <utility>
 
-#include "dreamor/index_set/column.hpp"
+#include "dreamor/internal/index_set/column.hpp"
 
-namespace dreamor::internal {
+namespace dreamor::internal::inline index_set {
 
 template <typename T>
 struct is_std_function : std::false_type {};
@@ -118,4 +118,4 @@ using PlacementOf = PredicatePlacement<typename ColumnsOfPredicate<Pred>::type, 
 template <typename Source, typename ElemTuple>
 using SourcePlacement = PlacementOf<Source, ElemTuple>;
 
-}  // namespace dreamor::internal
+}  // namespace dreamor::internal::inline index_set
