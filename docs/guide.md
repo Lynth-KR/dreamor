@@ -156,6 +156,7 @@ O(1) and shares the rows.
 | `dreamor::intersect(A, B)` | A ∩ B |
 | `dreamor::difference(A, B)` | A \ B |
 | `A == B` | The same rows, in any order (`std::ranges::equal(A, B)` compares the order too) |
+| `dreamor::within(A, B)` | Every row of A is in B: A ⊆ B, AMPL's `A within B` |
 
 ```cpp
 const auto sPEAK_PRODUCE  = sPRODUCE.where(is_peak);                  // production rows in peak-demand periods

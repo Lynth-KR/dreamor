@@ -240,20 +240,40 @@ template <typename... Columns>
   return internal::SetAccess::make(std::move(out));
 }
 
+namespace internal::inline index_set {
+
+// Whether every row of left is in right - indexing right alone, as appendFiltered does. Copies of
+// one set share its rows, and a set holds each of them.
+template <typename Set>
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): two sets of one type is what a subset test takes
+[[nodiscard]] bool everyRowIn(const Set& left, const Set& right) {
+  using Tup              = Set::value_type;
+  const auto& left_rows  = SetAccess::rows(left);
+  const auto& right_rows = SetAccess::rows(right);
+  if (left_rows.data() == right_rows.data()) { return true; }
+  const auto index    = indexRows(right_rows);
+  const auto at       = rowsAt(right_rows);
+  const auto in_right = [&](const Tup& row) { return index.find(row, at) != TupleIndex<Tup>::kNotFound; };
+  return std::ranges::all_of(left_rows, in_right);
+}
+
+}  // namespace internal::inline index_set
+
 // A = B: the same rows, in any order - a set's equality, as std::unordered_set's. Neither holds a
 // row twice, so equal sizes and every row of A in B say it. Whether the rows also come in the same
 // order is std::ranges::equal(A, B).
 template <typename... Columns>
 [[nodiscard]] bool operator==(const IndexSet<Columns...>& left, const IndexSet<Columns...>& right) {
-  using Tup              = std::tuple<Columns...>;
-  const auto& left_rows  = internal::SetAccess::rows(left);
-  const auto& right_rows = internal::SetAccess::rows(right);
-  if (left_rows.size() != right_rows.size()) { return false; }
-  if (left_rows.data() == right_rows.data()) { return true; }  // copies of one set share its rows
-  const auto index    = internal::indexRows(right_rows);
-  const auto at       = internal::rowsAt(right_rows);
-  const auto in_right = [&](const Tup& row) { return index.find(row, at) != internal::TupleIndex<Tup>::kNotFound; };
-  return std::ranges::all_of(left_rows, in_right);
+  return left.size() == right.size() && internal::everyRowIn(left, right);
+}
+
+// A within B: every row of A is in B - AMPL's within, a subset test. Read as written: within(sLATE,
+// sORDERS) asks whether sLATE lies inside sORDERS. A set lies within itself, and the empty set within
+// every set.
+template <typename... Columns>
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): two sets of one type is what A within B means
+[[nodiscard]] bool within(const IndexSet<Columns...>& inner, const IndexSet<Columns...>& outer) {
+  return inner.size() <= outer.size() && internal::everyRowIn(inner, outer);
 }
 
 // O(1) membership test, so one set can filter another during generation instead of

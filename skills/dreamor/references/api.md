@@ -88,7 +88,8 @@ A set has at most 64 columns, spread sources included; 65 stops at compile time.
 | `orderedWithin<A...>()` | `Ordered` within each group of rows that agree on `A...` | `next(t, S[a])` |
 
 Free functions: `dreamor::unite(A, B)` (∪), `intersect(A, B)` (∩), `difference(A, B)` (\). `A == B`: the same rows in
-any order, as `std::unordered_set`'s; `std::ranges::equal(A, B)` compares the order too.
+any order, as `std::unordered_set`'s; `std::ranges::equal(A, B)` compares the order too. `within(A, B)`: every row of
+`A` is in `B` (AMPL's `A within B`, a subset test).
 
 In generic code where the set type is a template parameter: `sANY.template select<A>()`.
 

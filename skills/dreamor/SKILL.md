@@ -76,7 +76,7 @@ if broken), and what it recommends.
    `build()` is deliberate, since it lets `.where()`/`.whereEach()` chain; keep it.
 4. **A table's key columns equal its set's columns, in order.** Reorder a set with `select<...>()` if needed.
 5. **Sets are read-only.** To get a different set, derive one with `where`, `select`, `orderBy`, `unite`,
-   `intersect`, or `difference`.
+   `intersect`, or `difference`. Each gives a stated order of rows (`docs/reference.md`, "The order of rows").
 6. **Name the object before borrowing from it.** Call `Grouped::slice/at` and every `Ordered` lookup on a
    named variable. Plain iteration of a temporary is fine: `for (const auto& [c, rows] : S.groupBy<C>())`.
 7. **Grouped iteration binds key columns, then rows:** `for (const auto& [machine, period, rows] : grouped)`. Any

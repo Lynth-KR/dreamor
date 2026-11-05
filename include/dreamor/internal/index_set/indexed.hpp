@@ -24,6 +24,7 @@
 //     S.ordered()                positionOf / next / prev
 //     S.orderedWithin<cMachine>()    the same within each machine's rows   next(t, S[m])
 //     unite(A, B), intersect(A, B), difference(A, B)
+//     within(A, B)               every row of A in B           A within B
 //
 // The members are defined in the headers that implement them; include
 // "dreamor/index_set.hpp" to have all of them.

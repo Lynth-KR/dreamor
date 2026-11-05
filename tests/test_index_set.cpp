@@ -171,6 +171,15 @@ int main() try {
   // NOLINTNEXTLINE(readability-container-size-empty): this tests operator== against the empty set
   DREAMOR_CHECK(IJ.where([](cI) { return false; }) == dreamor::IndexSet<cI, cJ>{});
 
+  // within: a subset test, read as written - every row of the first in the second, in any order
+  const auto evens = IJ.where(even);
+  DREAMOR_CHECK(dreamor::within(evens, IJ) && !dreamor::within(IJ, evens));
+  DREAMOR_CHECK(dreamor::within(IJ, IJ) && dreamor::within(IJ, reversed) && dreamor::within(evens, evens.where(even)));
+  DREAMOR_CHECK(dreamor::within(dreamor::IndexSet<cI, cJ>{}, IJ) && !dreamor::within(IJ, dreamor::IndexSet<cI, cJ>{}));
+  DREAMOR_CHECK(!dreamor::within(evens, dreamor::difference(IJ, evens)));  // same size, other rows
+  DREAMOR_CHECK(
+      !dreamor::within(dreamor::unite(evens, II.select([](cI i) { return std::tuple<cI, cJ>{i, cJ{99}}; })), IJ));
+
   // the visit order: with no predicate to tell them apart, a dependent source goes before a
   // container - its list per binding is usually the shorter - and containers keep declaration order
   {

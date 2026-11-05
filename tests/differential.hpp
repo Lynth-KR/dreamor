@@ -397,6 +397,8 @@ struct Differential {
     DREAMOR_CHECK(rowsOf(dreamor::unite(S, T)) == firstOccurrences(both));
     DREAMOR_CHECK(rowsOf(dreamor::intersect(S, T)) == in_both);
     DREAMOR_CHECK(rowsOf(dreamor::difference(S, T)) == only_s);
+    DREAMOR_CHECK(dreamor::within(S, T) == only_s.empty());
+    DREAMOR_CHECK(dreamor::within(dreamor::intersect(S, T), S) && dreamor::within(dreamor::intersect(S, T), T));
 
     // makeSet over S and a set U sharing c: the natural join, whichever set comes first and with
     // a predicate across the two.

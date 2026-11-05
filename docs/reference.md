@@ -37,6 +37,19 @@ Every public type and function, by the header that brings it, under `dreamor/`. 
 | `ordered()`, `orderedWithin<A...>()` | → `Ordered` over the whole set, or within each group of rows that agree on `A...` |
 | `unite(A, B)`, `intersect(A, B)`, `difference(A, B)` | Binary operations → `IndexSet` |
 | `A == B`, `A != B` | The same rows, in any order |
+| `within(A, B)` | Every row of `A` is in `B`: `A` is a subset of `B` (AMPL's `A within B`) |
+
+**The order of rows.** A set's rows come in an order, and each operation gives a stated one. Hashing decides
+membership only, never an order, so a result is the same from run to run, pointer columns included.
+| | |
+|---|---|
+| `makeSet(...).build()` | Generation order; which column varies fastest is not fixed. Where the order means something, give it with `orderBy` |
+| `where(p...)` | The set's order, with rows left out |
+| `orderBy(key)`, `orderBy(key, descending)` | By the key; rows with equal keys keep the set's order (a stable sort) |
+| `select<Cols...>()`, `select(expr)` | Each new row once, where it first comes, in the set's order |
+| `unite(A, B)` | A's rows in A's order, then B's rows that A lacks, in B's order |
+| `intersect(A, B)`, `difference(A, B)` | A's order |
+| `groupBy<Cols...>()` | Groups in the order their keys first come; the rows of a group in the set's order |
 
 **EntityVector** (`entity_vector.hpp`)
 | | |
