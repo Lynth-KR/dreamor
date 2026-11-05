@@ -259,6 +259,27 @@ int main() try {
   DREAMOR_CHECK(
       std::ranges::equal(dreamor::makeSet<>(sROUTES, sOPEN_ITEMS).build(), sROUTES.where(sOPEN_ITEMS.membership())));
 
+  // --- Values over a set (sROUTES, sOPEN and fits_batch as above)
+  {
+    const auto capacity_of = [](cMachine m) { return m->capacity; };
+    const auto demand_of   = [](cItem i, cPeriod t) { return i->demand[t.get()]; };
+    const auto sMACHINES   = dreamor::makeSet<cMachine>(machines).build();
+
+    const bool allFit   = dreamor::allOf(sROUTES, fits_batch);
+    const auto nFit     = dreamor::countIf(sROUTES, fits_batch);
+    const double maxCap = dreamor::maxOf(sMACHINES, capacity_of);
+    const double demand = dreamor::sumValue(sOPEN, demand_of);
+    const auto* biggest = dreamor::maxElement(sMACHINES, capacity_of);
+
+    double expected = 0;
+    for (const auto& [i, t] : sOPEN) {
+      expected += i->demand[t.get()];
+    }
+    DREAMOR_CHECK(nFit == sROUTES.where(fits_batch).size() && allFit == (nFit == sROUTES.size()));
+    DREAMOR_CHECK(exactlyEqual(maxCap, 60.0) && exactlyEqual(demand, expected) && biggest != nullptr &&
+                  std::get<cMachine>(*biggest).get()->name == "M0");
+  }
+
   // --- Deriving sets (orderedPeriods is the one from Quick start)
   const auto is_peak       = [](cItem i, cPeriod t) { return i->demand[t.get()] >= 15; };
   const auto sPEAK_PRODUCE = sPRODUCE.where(is_peak);

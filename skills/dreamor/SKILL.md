@@ -116,6 +116,8 @@ if broken), and what it recommends.
 | `set ROUTES := {m in MACHINES, i in ITEMS[m]};` | `const auto sROUTES = dreamor::makeSet<cMachine, cItem>(machines, items_of).build();` |
 | `set PRODUCE := {(m,i) in ROUTES, t in PERIODS};` | `const auto sPRODUCE = dreamor::makeSet<cPeriod>(sROUTES, periods).build();` |
 | `{...: open[i,t]}` | `.where(is_open)` with `[](cItem i, cPeriod t) { ... }` |
+| `forall`/`exists {...}: p`, `card {...: p}` over data | `dreamor::allOf(S, p)`, `anyOf`, `noneOf`, `countIf(S, p)`: no loop, no set made |
+| `max {...} v`, `min`, `sum {...} v` over data, the row of the largest | `dreamor::maxOf(S, v)`, `minOf`, `sumValue(S, v)`; `maxElement(S, v)` (`const Row*`, `nullptr` if none) |
 | `setof {(m,i,t) in S} (m,i)` | `S.select<cMachine, cItem>()` |
 | `{(m,i) in ROUTES, (i,t) in OPEN}` | `dreamor::makeSet<>(sROUTES, sOPEN).build()` (joined on the shared `cItem`) |
 | `setof {(i,j) in EDGES} (j,i)` | `sEDGES.select([](cFrom i, cTo j) { return std::tuple<cFrom, cTo>{j, i}; })` |

@@ -133,6 +133,18 @@ the columns or one row.
 Read a column from a returned pointer with `std::get<cPeriod>(*prevPeriod)`, from a returned row with
 `std::get<cPeriod>(orderedPeriods.prevOf(t))`.
 
+## Over rows
+
+`dreamor/index_set.hpp`, namespace `dreamor`. Rows: a set, a group's rows, any range of rows; callables take columns.
+
+| | |
+|---|---|
+| `allOf/anyOf/noneOf(rows, pred)` | `bool` (forall / exists / not exists), stops early |
+| `countIf(rows, pred)` | `std::size_t`, `card {rows: pred}`, no set made |
+| `maxOf/minOf(rows, value)` | the value; rows not empty (precondition, checked in debug) |
+| `sumValue(rows, value)` | sum of data, `0` for none (`sumExpr` is the solver's expression) |
+| `maxElement/minElement(rows, value)`, `findIf(rows, pred)` | `const Row*`, first of equals, `nullptr` if none; rows must outlive the call (a named set) |
+
 ## Membership
 
 `dreamor/index_set.hpp`. `in_routes(cols...)` or `in_routes(row)` → `bool`, O(1). Also usable as a `where` predicate.

@@ -53,6 +53,16 @@ Every public type and function, by the header that brings it, under `dreamor/`. 
 | `value_type`, `key_type`, `size_type`, `const_iterator` (= `iterator`) | Member types, named as the standard containers name them; `key_type` is what `primaryKey()` returns |
 | `modify(entity, fn)` | `fn(T&)` on one element; its key must not change. After `freeze()` |
 
+**Over rows** (`index_set.hpp`, namespace `dreamor`): rows are a set, a group's rows (`RowSlice`) or any range of
+rows; the callable takes the columns it reads, as a predicate does. None makes a set; each stops once it has its answer
+| | |
+|---|---|
+| `allOf(rows, pred)`, `anyOf(rows, pred)`, `noneOf(rows, pred)` | `bool`: AMPL's `forall`, `exists`, not `exists` |
+| `countIf(rows, pred)` | `std::size_t`: AMPL's `card {rows: pred}` |
+| `maxOf(rows, value)`, `minOf(rows, value)` | The largest / smallest value, AMPL's `max` / `min`. The rows are not empty (a precondition, as for `std::ranges::max`; a debug build checks it) |
+| `sumValue(rows, value)` | The sum of a value of data, `0` for no rows (the solver's expression is `sumExpr`) |
+| `maxElement(rows, value)`, `minElement(rows, value)`, `findIf(rows, pred)` | The row (`const Row*`): the largest / smallest value's, the first of equals, or the first `pred` holds for; `nullptr` if none. The rows outlive the call: a named set, or a group's rows |
+
 **Membership** (`index_set.hpp`)
 | | |
 |---|---|

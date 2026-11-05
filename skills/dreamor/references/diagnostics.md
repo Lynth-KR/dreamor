@@ -21,6 +21,8 @@ last column.
 | `Name the Ordered first` | `S.ordered().prev(t)` | `const auto orderedT = S.ordered();` then `orderedT.prev(t)` | `ordered_needs_a_name` |
 | `at() takes a position, 0 to size() - 1, not a column` | `orderedPeriods.at(t)` with a column: it would be read as a position | `orderedPeriods.positionOf(t)` for its position; `at(n)` with a number | `ordered_at_takes_a_position` |
 | `ordered() takes no columns` | `S.ordered<cMachine>()`, positions within groups | `S.orderedWithin<cMachine>()` | `ordered_takes_no_columns` |
+| `These rows are not rows of columns` | `countIf(values, pred)` and the like over plain values | Pass a set, a group's rows, or a range of `std::tuple<Cols...>` | `aggregate_rows_are_not_columns` |
+| `hand back a row by its address: name the set first` | `maxElement(S.where(p), value)`, a temporary set | `const auto sP = S.where(p);` then `maxElement(sP, value)` | `max_element_of_a_temporary` |
 | `Name an element of the ordered set` | `orderedT.prev(1)` | `orderedT.prev(cPeriod{1})` | `ordered_prev_raw_value` |
 | `Ask membership` | `in_ij(1, 2)` | Pass columns or a row | `membership_raw_values` |
 | `EntityVector<T> holds each entity once by its primary key` | `EntityVector<T>` for a `T` with no `primaryKey(const T&)` | Define `primaryKey(const T&)` next to `T`, returning its id, code, or a `std::tuple` of them | `entity_vector_needs_primary_key` |
@@ -94,6 +96,7 @@ A broken precondition is undefined behavior. A debug build (no `NDEBUG`) checks 
 | `Ordered::first has no row to return` (or `last`) | `first(m)`/`last(m)` of a group with no row in the set | run it over the groups the set has (`groupBy`), or check with `contains` |
 | `interval: closed at its integer type's largest value` | `interval::closed(first, last)` with `last` the type's maximum, which has no one-past-the-end | a wider integer type for the ends |
 | `interval: an end its interval's integer type cannot hold` | an end outside the interval's integer type | ends that fit the type, or a wider type |
+| `maxOf has no value to return` (or `minOf`) | `maxOf`/`minOf` over no rows | check with `empty()` first, or take the row with `maxElement`/`minElement`, which gives `nullptr` |
 | `interval: a value the column's integer type cannot hold` | an interval's value outside the range of the column's integer type | a column type that holds every value of the interval |
 | `dreamor::highs: one expression holds variables of two HighsEnvs` | an expression mixes two environments' variables | build each expression from one `HighsEnv`'s tables |
 | `dreamor::highs::<call>: the expression's variables belong to another HighsEnv` | a row or an objective handed to an env other than its variables' | hand it to the env its variables belong to |

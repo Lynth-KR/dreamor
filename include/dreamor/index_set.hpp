@@ -67,6 +67,7 @@
 #pragma once
 
 #include "dreamor/entity_vector.hpp"
+#include "dreamor/internal/index_set/aggregate.hpp"
 #include "dreamor/internal/index_set/algebra.hpp"
 #include "dreamor/internal/index_set/column.hpp"
 #include "dreamor/internal/index_set/grouped.hpp"

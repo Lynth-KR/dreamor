@@ -117,6 +117,20 @@ int main() try {
   DREAMOR_CHECK(sREVERSED.size() == 3 && std::get<cFrom>(*sREVERSED.begin())->id == 2 &&
                 unite(sEDGES, sREVERSED).size() == 6 && sFROM.size() == 3);
 
+  // internal/index_set/aggregate.hpp
+  {
+    const std::vector<Order> orderObjects{{"o1", 2.0}, {"o2", 5.0}, {"o3", 4.0}};
+    const auto sORDERS     = makeSet<cOrder>(orderObjects).build();
+    const auto quantity_of = [](cOrder o) { return o->quantity(); };
+    const auto due_by_7    = [](cItem i) { return i->dueDate() <= 7; };
+    const auto nDue        = dreamor::countIf(sITEMS, due_by_7);  // sITEMS from index_set.hpp's examples above
+    DREAMOR_CHECK(nDue == sITEMS.where(due_by_7).size() && dreamor::allOf(sITEMS, due_by_7) == (nDue == sITEMS.size()));
+    DREAMOR_CHECK(exactlyEqual(dreamor::maxOf(sORDERS, quantity_of), 5.0) &&
+                  exactlyEqual(dreamor::sumValue(sORDERS, quantity_of), 11.0));
+    const auto* biggest = dreamor::maxElement(sORDERS, quantity_of);
+    DREAMOR_CHECK(biggest != nullptr && std::get<cOrder>(*biggest).get()->name == "o2");
+  }
+
   // concert.hpp (VarTable)
   const auto sARCS = makeSet<cFrom, cTo>(Nodes, Nodes).where(reachable).build();
   const VarTable<cFrom, cTo> vUse{env, sARCS, 0, 1, ILOBOOL, "Use"};

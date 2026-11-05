@@ -295,6 +295,29 @@ for (const auto& [i, t] : sSTOCK.where(not_first)) {  // {(i,t) in STOCK: ord(t)
 | `first(S[m])`, `last(S[m])` | `periodsOfMachine.first(m)`, `periodsOfMachine.last(m)` |
 | `{t in S: ord(t) > 1}` | `S.where(not_first)`, with `isFirst` |
 
+## Values over a set — allOf, countIf, maxOf, sumValue, maxElement
+
+Before any solver call - data checked, a bound computed, a heuristic's choice between solves - a value over a set's
+rows needs neither a loop nor a set made with `where()`. The callable takes the columns it reads, as a predicate
+does, and each function stops once it has its answer. The names are the C++ standard's.
+
+```cpp
+const auto capacity_of = [](cMachine m) { return m->capacity; };
+const auto demand_of   = [](cItem i, cPeriod t) { return i->demand[t.get()]; };
+const auto sMACHINES   = dreamor::makeSet<cMachine>(machines).build();
+
+const bool allFit   = dreamor::allOf(sROUTES, fits_batch);     // forall {(m,i) in ROUTES} 30 * time[i] <= cap[m]
+const auto nFit     = dreamor::countIf(sROUTES, fits_batch);   // card {(m,i) in ROUTES: 30 * time[i] <= cap[m]}
+const double maxCap = dreamor::maxOf(sMACHINES, capacity_of);  // max {m in MACHINES} cap[m]; the set is not empty
+const double demand = dreamor::sumValue(sOPEN, demand_of);     // sum {(i,t) in OPEN} demand[i,t], a number
+const auto* biggest = dreamor::maxElement(sMACHINES, capacity_of);  // the row of the largest: AMPL has no argmax
+```
+
+- `anyOf` and `noneOf` are AMPL's `exists` and its negation; `minOf` and `minElement` mirror the max ones.
+- `maxElement`, `minElement` and `findIf` give a row by its address - the first of equals - or `nullptr`, as
+  `Ordered::next` does. The rows have to outlive the call: a named set, or a group's rows.
+- `sumValue` sums data; `sumExpr` builds the solver's expression.
+
 ## Variable families — VarTable
 
 ```cpp

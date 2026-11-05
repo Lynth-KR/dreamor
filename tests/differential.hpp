@@ -2,11 +2,11 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// Differential test: the set layer and sumExpr against a reference written with nothing but the
-// standard library - nested loops, std::set, std::map - over a few hundred small random cases
-// from a fixed seed. The cases lean on the edges: empty sources, one element, every value,
-// predicates that keep everything or nothing. Sources hold no value twice, as the contract asks
-// (dreamor/index_set.hpp), and every set built from them must hold no row twice.
+// Differential test: the set layer, sumExpr and the functions over rows against a reference written with nothing but
+// the standard library - nested loops, std::set, std::map - over a few hundred small random cases from a fixed seed.
+// The cases lean on the edges: empty sources, one element, every value, predicates that keep everything or nothing.
+// Sources hold no value twice, as the contract asks (dreamor/index_set.hpp), and every set built from them must hold no
+// row twice.
 //
 // makeSet leaves unspecified which column varies fastest, so its rows are compared as a
 // multiset. Everything downstream is specified to the row (select / unite / intersect /
@@ -273,6 +273,47 @@ struct Differential {
     return out;
   }
 
+  // allOf ... findIf over rows - a set, or a group's rows - against plain loops over the same rows; the ones that
+  // give a row are compared by its address, the first of equals. The weights are 0 to 3, so equal values are common.
+  template <typename Rows>
+  static void checkOverRows(const Rows& rows, const Rule& rule, const std::vector<int>& weight) {
+    const auto keeps       = [&rule](B b, C c) { return rule.keeps(indexOf(b), indexOf(c)); };
+    const auto value       = [&weight](A a, C c) { return weight[indexOf(a)] + weight[indexOf(c)]; };
+    std::size_t kept       = 0;
+    const void* first_kept = nullptr;
+    const void* largest    = nullptr;
+    const void* smallest   = nullptr;
+    int largest_value      = 0;
+    int smallest_value     = 0;
+    int total              = 0;
+    for (const auto& row : rows) {
+      if (rule.keeps(indexOf(std::get<B>(row)), indexOf(std::get<C>(row)))) {
+        ++kept;
+        if (first_kept == nullptr) { first_kept = &row; }
+      }
+      const int v = weight[indexOf(std::get<A>(row))] + weight[indexOf(std::get<C>(row))];
+      total += v;
+      if (largest == nullptr || largest_value < v) {
+        largest       = &row;
+        largest_value = v;
+      }
+      if (smallest == nullptr || v < smallest_value) {
+        smallest       = &row;
+        smallest_value = v;
+      }
+    }
+    DREAMOR_CHECK(dreamor::countIf(rows, keeps) == kept);
+    DREAMOR_CHECK(dreamor::anyOf(rows, keeps) == (kept > 0) && dreamor::noneOf(rows, keeps) == (kept == 0));
+    DREAMOR_CHECK(dreamor::allOf(rows, keeps) == (kept == rows.size()));
+    DREAMOR_CHECK(static_cast<const void*>(dreamor::findIf(rows, keeps)) == first_kept);
+    DREAMOR_CHECK(dreamor::sumValue(rows, value) == total);
+    DREAMOR_CHECK(static_cast<const void*>(dreamor::maxElement(rows, value)) == largest);
+    DREAMOR_CHECK(static_cast<const void*>(dreamor::minElement(rows, value)) == smallest);
+    if (largest != nullptr) {
+      DREAMOR_CHECK(dreamor::maxOf(rows, value) == largest_value && dreamor::minOf(rows, value) == smallest_value);
+    }
+  }
+
   [[nodiscard]] static auto buildSet(const Data& d) {
     const auto as = valuesOf<A>(d.as);
     const auto bs = valuesOf<B>(d.bs);
@@ -307,6 +348,15 @@ struct Differential {
       if (rule.keeps(std::get<1>(r), std::get<2>(r))) { filtered.push_back(r); }
     }
     DREAMOR_CHECK(rowsOf(S.where([&rule](B b, C c) { return rule.keeps(indexOf(b), indexOf(c)); })) == filtered);
+
+    // allOf ... findIf: over the set, and below over each group's rows. The weights come from a generator of their
+    // own, seeded by the case, so the cases the shared one draws stay what they were.
+    std::mt19937 weights_of_case{static_cast<std::uint32_t>((s.size() * 31) + t.size())};
+    std::vector<int> weight(kValues);
+    for (int& w : weight) {
+      w = static_cast<int>(weights_of_case() % 4);
+    }
+    checkOverRows(S, rule, weight);
 
     // select(): projection, first occurrences.
     std::vector<std::pair<std::size_t, std::size_t>> ac;
@@ -403,6 +453,7 @@ struct Differential {
     for (std::size_t i = 0; i < std::min(byA.size(), key_order.size()); ++i) {
       DREAMOR_CHECK(indexOf(std::get<A>(byA.at(i).key)) == key_order[i]);
       DREAMOR_CHECK(rowsOf(byA.at(i).rows) == groups[key_order[i]]);
+      checkOverRows(byA.at(i).rows, rule, weight);
     }
     for (std::size_t a = 0; a < kValues; ++a) {
       const auto expected = groups.contains(a) ? groups[a] : std::vector<Row>{};
