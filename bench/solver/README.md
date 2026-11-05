@@ -12,7 +12,7 @@ real solver does with the variables it is handed, apart. It answers two question
 It builds the variables of one cell (K1 x K2 x K3, every route kept, ids in loop order, F
 families), both arms, one fresh process per run:
 
-- `dreamor`: `makeSet(...).collect()`, then one `VarTable` per family.
+- `dreamor`: `makeSet(...).build()`, then one `VarTable` per family.
 - `flat`: rows as ids, one `std::vector` of variables per family, an `unordered_map` index.
 
 ## Why the catalog measures against a stub

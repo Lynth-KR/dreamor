@@ -24,7 +24,7 @@
 // One decision variable of a mathematical model, defined over an index set - the C++
 // counterpart of `var Flow {ARCS} >= 0, <= cap[i,j];`:
 //
-//     const auto sARCS = makeSet<cFrom, cTo>(Nodes, Nodes).where(reachable).collect();
+//     const auto sARCS = makeSet<cFrom, cTo>(Nodes, Nodes).where(reachable).build();
 //
 //     const VarTable<cFrom, cTo> vUse{env, sARCS, 0, 1, ILOBOOL, "Use"};
 //     const VarTable<cFrom, cTo> vFlow{env, sARCS, 0, [](cFrom i, cTo j) { return cap(i, j); },
@@ -71,12 +71,12 @@
 //
 //     sumOf(env, sASSIGN, term).build()                    -> IloExpr
 //     sumOf(env, sASSIGN, term).where(p).where(q).build()  -> IloExpr, over rows where p AND q
-//     sumOf(env, sASSIGN, term).split(p1, p2, p3).build()  -> std::array<IloExpr, 3>
+//     sumOf(env, sASSIGN, term).whereEach(p1, p2, p3).build()  -> std::array<IloExpr, 3>
 //     sumOf<cMachine>(env, machines, term).build()       -> IloExpr, over a plain container
 //
-// where() narrows, exactly as makeSet's does. split() is the other thing: one sum per
+// where() narrows, exactly as makeSet's does. whereEach() is the other thing: one sum per
 // predicate, sharing a single traversal - for a set several constraints read differently.
-// The two compose: .where(common).split(a, b) gives two sums, both narrowed by common.
+// The two compose: .where(common).whereEach(a, b) gives two sums, both narrowed by common.
 //
 // ROWS is an index set - a range of column tuples. The term and every predicate name their
 // columns in their own parameter list, the same way makeSet's callables do:
@@ -86,7 +86,7 @@
 //     sumOf(env, sASSIGN, weighted_assign).where(is_early).build();
 //
 // So parameter order is free, and a callable takes only the columns it needs. term() runs
-// at most once per row even under split() - it is usually a VarTable lookup.
+// at most once per row even under whereEach() - it is usually a VarTable lookup.
 #pragma once
 
 #include <concepts>
@@ -124,7 +124,7 @@ class VarTable : public internal::VarTableCore<IloNumVar, Keys...> {
   using Core = internal::VarTableCore<IloNumVar, Keys...>;
 
  public:
-  using Key = Core::Key;
+  using key_type = Core::key_type;
   // Lookup (vYield(m, i, t), vYield(row)), contains(), size(), keys() and iteration are the
   // core's; so is the constructor that stops on a set with other key columns. Copy is deleted
   // (IloNumVar is a handle: a copy would alias the same Concert columns under two names) and
@@ -139,11 +139,11 @@ class VarTable : public internal::VarTableCore<IloNumVar, Keys...> {
            IloNumVar::Type type = ILOFLOAT,
            const char* name     = nullptr)
       : Core{set} {
-    internal::checkBound<Lb, Key>();
-    internal::checkBound<Ub, Key>();
+    internal::checkBound<Lb, key_type>();
+    internal::checkBound<Ub, key_type>();
     typename Core::NameBuilder names{name};
     this->vars_.reserve(this->rows().size());
-    for (const Key& row : this->rows()) {
+    for (const key_type& row : this->rows()) {
       this->vars_.emplace_back(
           env, internal::boundOf(lb, row), internal::boundOf(ub, row), type, Core::nameOf(names, row));
     }
@@ -158,11 +158,11 @@ class VarTable : public internal::VarTableCore<IloNumVar, Keys...> {
            IloNumVar::Type type = ILOFLOAT,
            const char* name     = nullptr)
       : Core{set} {
-    internal::checkBound<Lb, Key>();
-    internal::checkBound<Ub, Key>();
+    internal::checkBound<Lb, key_type>();
+    internal::checkBound<Ub, key_type>();
     typename Core::NameBuilder names{name};
     this->vars_.reserve(this->rows().size());
-    for (const Key& row : this->rows()) {
+    for (const key_type& row : this->rows()) {
       this->vars_.push_back(IloSemiContVar(
           env, internal::boundOf(sclb, row), internal::boundOf(ub, row), type, Core::nameOf(names, row)));
     }

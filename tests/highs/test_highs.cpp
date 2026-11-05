@@ -75,7 +75,7 @@ static void varTable() {
   const Highs& highs = quiet(env);
   const std::vector<std::size_t> I{3, 1, 2};
   const std::vector<std::size_t> J{10, 20};
-  const auto IJ = dreamor::makeSet<cI, cJ>(I, J).collect();
+  const auto IJ = dreamor::makeSet<cI, cJ>(I, J).build();
 
   static_assert(!std::is_copy_constructible_v<hs::VarTable<cI, cJ>>);
   static_assert(std::is_nothrow_move_constructible_v<hs::VarTable<cI, cJ>>);
@@ -142,7 +142,7 @@ static void expressions() {
   hs::HighsEnv env;
   const Highs& highs = quiet(env);
   const std::vector<std::size_t> I{1, 2};
-  const hs::VarTable<cI> v{env, dreamor::makeSet<cI>(I).collect(), -10, 10};
+  const hs::VarTable<cI> v{env, dreamor::makeSet<cI>(I).build(), -10, 10};
   const hs::HighsVar x = v(cI{1});
   const hs::HighsVar y = v(cI{2});
 
@@ -228,7 +228,7 @@ static void objective() {
   hs::HighsEnv env;
   const Highs& highs = quiet(env);
   const std::vector<std::size_t> I{1, 2};
-  const hs::VarTable<cI> v{env, dreamor::makeSet<cI>(I).collect(), -10, 10};
+  const hs::VarTable<cI> v{env, dreamor::makeSet<cI>(I).build(), -10, 10};
   const hs::HighsVar x = v(cI{1});
   const hs::HighsVar y = v(cI{2});
   hs::addConstr(env, x + y >= 1);
@@ -268,7 +268,7 @@ static void sum() {
   hs::HighsEnv env;  // sums alone: the Highs is never reached
   const std::vector<std::size_t> I{1, 2, 3};
   const std::vector<std::size_t> J{10, 20};
-  const auto IJ = dreamor::makeSet<cI, cJ>(I, J).collect();
+  const auto IJ = dreamor::makeSet<cI, cJ>(I, J).build();
   const hs::VarTable<cI, cJ> x{env, IJ, 0, 1, HighsVarType::kInteger, "x"};
   const auto var      = [&x](cI i, cJ j) { return x(i, j); };
   const auto weighted = [&x](cI i, cJ j) { return static_cast<double>(i.get()) * x(i, j); };
@@ -281,7 +281,8 @@ static void sum() {
     DREAMOR_CHECK(hs::sumOf(rows, var).build().size() == 3);
   }
 
-  const auto sums = hs::sumOf(IJ, weighted).split([](cJ j) { return j.get() == 10; }, [](cJ) { return true; }).build();
+  const auto sums =
+      hs::sumOf(IJ, weighted).whereEach([](cJ j) { return j.get() == 10; }, [](cJ) { return true; }).build();
   DREAMOR_CHECK(sums[0].size() == 3 && sums[1].size() == 6);
   double coef = 0;
   for (const double c : sums[0].coefficients()) {
@@ -302,7 +303,7 @@ static void sum() {
   DREAMOR_CHECK(exactlyEqual(constants.linear().constant(), 6));
 
   // a plain container as a one-column set
-  const hs::VarTable<cI> y{env, dreamor::makeSet<cI>(I).collect(), 0, 1};
+  const hs::VarTable<cI> y{env, dreamor::makeSet<cI>(I).build(), 0, 1};
   DREAMOR_CHECK(hs::sumOf<cI>(I, [&y](cI i) { return y(i); }).build().size() == 3);
 
   // linear terms make a HighsLinearExpression, quadratic ones a HighsQuadraticExpression
@@ -317,11 +318,11 @@ static void sum() {
   }
   DREAMOR_CHECK(exactlyEqual(squareCoef, 2 * (1 + 2 + 3)));
 
-  // a quadratic expression term, under where() and split(); (x - 1)^2 appends -x twice, unmerged
+  // a quadratic expression term, under where() and whereEach(); (x - 1)^2 appends -x twice, unmerged
   const auto deviation = [&x](cI i, cJ j) { return (x(i, j) - 1) * (x(i, j) - 1); };
   const auto parts     = hs::sumOf(IJ, deviation)
                              .where([](cI i) { return i.get() > 1; })
-                             .split([](cJ j) { return j.get() == 10; }, [](cJ) { return true; })
+                             .whereEach([](cJ j) { return j.get() == 10; }, [](cJ) { return true; })
                              .build();
   static_assert(std::is_same_v<std::remove_cvref_t<decltype(parts[0])>, hs::HighsQuadraticExpression>);
   DREAMOR_CHECK(parts[0].first().size() == 2 && parts[1].first().size() == 4);
@@ -333,7 +334,7 @@ static void solution() {
   hs::HighsEnv env;
   Highs& highs = quiet(env);
   const std::vector<std::size_t> I{1, 2, 3};
-  const auto sI = dreamor::makeSet<cI>(I).collect();
+  const auto sI = dreamor::makeSet<cI>(I).build();
   const hs::VarTable<cI> vPick{env, sI, 0, 1, HighsVarType::kInteger, "Pick"};
   DREAMOR_CHECK_THROWS(std::logic_error, vPick.solution(env));  // not run yet
 
@@ -356,7 +357,7 @@ static void collected() {
   // columns, the merged rows, the names given (and the empty ones), the objective with its Hessian.
   hs::HighsEnv env;
   const std::vector<std::size_t> I{1, 2};
-  const auto sI = dreamor::makeSet<cI>(I).collect();
+  const auto sI = dreamor::makeSet<cI>(I).build();
   const hs::VarTable<cI> x{env, sI, 0, 10, HighsVarType::kContinuous, "x"};
   const hs::VarTable<cI> u{env, sI, -1, 1};
   const hs::HighsVar x1 = x(cI{1});
@@ -451,7 +452,7 @@ static void errors() {
   hs::HighsEnv env;
   quiet(env);
   const std::vector<std::size_t> I{1};
-  const auto sI = dreamor::makeSet<cI>(I).collect();
+  const auto sI = dreamor::makeSet<cI>(I).build();
   bool thrown   = false;
   try {
     const hs::VarTable<cI> bad{env, sI, std::numeric_limits<double>::quiet_NaN(), 1};
@@ -507,9 +508,9 @@ static void docs() {
   const lot::Machine m1{"M1", 10.0, {&a, &b}};
   const std::vector<const lot::Machine*> machines{&m1};
   const std::vector<std::size_t> periods{1, 2};
-  const auto items_of         = [](cMachine m) -> const std::vector<const lot::Item*>& { return m->items; };
-  const auto sPRODUCE         = dreamor::makeSet<cMachine, cItem, cPeriod>(machines, items_of, periods).collect();
-  const auto max_possible_qty = [](cMachine m, cItem i) { return m->capacity / i->time; };
+  const auto items_of                = [](cMachine m) -> const std::vector<const lot::Item*>& { return m->items; };
+  const auto sPRODUCE                = dreamor::makeSet<cMachine, cItem, cPeriod>(machines, items_of, periods).build();
+  const auto max_possible_qty        = [](cMachine m, cItem i) { return m->capacity / i->time; };
   const auto producedByMachinePeriod = sPRODUCE.groupBy<cMachine, cPeriod>();
 
   {  // README.md, Backends
@@ -572,7 +573,7 @@ static void longRows() {
     for (std::size_t i = 0; i < I.size(); ++i) {
       I[i] = i;
     }
-    const auto sI = dreamor::makeSet<cI>(I).collect();
+    const auto sI = dreamor::makeSet<cI>(I).build();
     const hs::VarTable<cI> x{env, sI};
     if (passed) { (void)env.highs(); }
     // x3, x0..x11, x3 again, x5 cancelled: 14 terms, 11 columns

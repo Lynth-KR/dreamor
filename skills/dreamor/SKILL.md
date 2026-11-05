@@ -73,11 +73,11 @@ if broken), and what it recommends.
    - MathOpt: `dreamor::mathopt::sumOf(rows, term).build()` → `LinearExpression`. It takes no env and no model.
    - HiGHS: `dreamor::highs::sumOf(rows, term).build()` → `HighsLinearExpression`. It takes no env either.
 
-   `build()` is deliberate, since it lets `.where()`/`.split()` chain; keep it.
+   `build()` is deliberate, since it lets `.where()`/`.whereEach()` chain; keep it.
 4. **A table's key columns equal its set's columns, in order.** Reorder a set with `select<...>()` if needed.
 5. **Sets are read-only.** To get a different set, derive one with `where`, `select`, `orderBy`, `unite`,
    `intersect`, or `difference`.
-6. **Name the object before borrowing from it.** Call `Grouped::slice/at/keyAt` and every `Ordered` lookup on a
+6. **Name the object before borrowing from it.** Call `Grouped::slice/at` and every `Ordered` lookup on a
    named variable. Plain iteration of a temporary is fine: `for (const auto& [c, rows] : S.groupBy<C>())`.
 7. **Grouped iteration binds key columns, then rows:** `for (const auto& [machine, period, rows] : grouped)`. Any
    other number of names is rejected.
@@ -113,15 +113,15 @@ if broken), and what it recommends.
 
 | AMPL | dreamor |
 |---|---|
-| `set ROUTES := {m in MACHINES, i in ITEMS[m]};` | `const auto sROUTES = dreamor::makeSet<cMachine, cItem>(machines, items_of).collect();` |
-| `set PRODUCE := {(m,i) in ROUTES, t in PERIODS};` | `const auto sPRODUCE = dreamor::makeSet<cPeriod>(sROUTES, periods).collect();` |
+| `set ROUTES := {m in MACHINES, i in ITEMS[m]};` | `const auto sROUTES = dreamor::makeSet<cMachine, cItem>(machines, items_of).build();` |
+| `set PRODUCE := {(m,i) in ROUTES, t in PERIODS};` | `const auto sPRODUCE = dreamor::makeSet<cPeriod>(sROUTES, periods).build();` |
 | `{...: open[i,t]}` | `.where(is_open)` with `[](cItem i, cPeriod t) { ... }` |
 | `setof {(m,i,t) in S} (m,i)` | `S.select<cMachine, cItem>()` |
-| `{(m,i) in ROUTES, (i,t) in OPEN}` | `dreamor::makeSet<>(sROUTES, sOPEN).collect()` (joined on the shared `cItem`) |
+| `{(m,i) in ROUTES, (i,t) in OPEN}` | `dreamor::makeSet<>(sROUTES, sOPEN).build()` (joined on the shared `cItem`) |
 | `setof {(i,j) in EDGES} (j,i)` | `sEDGES.select([](cFrom i, cTo j) { return std::tuple<cFrom, cTo>{j, i}; })` |
 | `(m,i) in ROUTES` | `sROUTES.membership()`, called as `in_routes(m, i)` or passed to `where` |
-| `prev(t)`, `next(t, 2)`, `ord(t)` on an ordered set | `const auto orderedPeriods = sPERIODS.ordered();` then `.prev(t)` (row pointer or `nullptr`), `.next(t, 2)`, `.ord(t)` (0-based optional) |
-| `next(t, S[m])`, the next row within an indexed collection | `const auto periodsOfMachine = sRUN.ordered<cMachine>();` then `.next(m, t)` (`nullptr` at the end of `m`'s rows) |
+| `prev(t)`, `next(t, 2)`, `ord(t)` on an ordered set | `const auto orderedPeriods = sPERIODS.ordered();` then `.prev(t)` (row pointer or `nullptr`), `.next(t, 2)`, `.positionOf(t)` (0-based optional) |
+| `next(t, S[m])`, the next row within an indexed collection | `const auto periodsOfMachine = sRUN.orderedWithin<cMachine>();` then `.next(m, t)` (`nullptr` at the end of `m`'s rows) |
 | `subject to C {(i,t) in STOCK: ord(t) > 1}: ... Stock[i,prev(t)] ...`, a row only where a neighbour is | `const auto not_first = [&orderedPeriods](cPeriod t) { return !orderedPeriods.isFirst(t); };` then `for (const auto& [i, t] : sSTOCK.where(not_first))`, reading `orderedPeriods.prevOf(t)` (the row itself) in the row: the condition on the loop's set, not an `if` around the row |
 | `(if ord(t) > 1 then Stock[i,prev(t)])`, a term only where a neighbour is | in the row: `if (const auto* prevPeriod = orderedPeriods.prev(t)) { totalInFlow += vStock(i, std::get<cPeriod>(*prevPeriod)); }` |
 | `param cap {MACHINES};` | a field of the entity: `m->capacity` (a value on a relation: make the relation an entity) |
@@ -151,10 +151,10 @@ IloEnv env;
 IloModel model(env);
 
 const auto items_of = [](cMachine m) { return m->items; };
-const auto sPERIODS = dreamor::makeSet<cPeriod>(periods).collect();
-const auto sROUTES  = dreamor::makeSet<cMachine, cItem>(machines, items_of).collect();
-const auto sPRODUCE = dreamor::makeSet<cPeriod>(sROUTES, periods).collect();
-const auto sSTOCK   = dreamor::makeSet<cItem, cPeriod>(items, periods).collect();
+const auto sPERIODS = dreamor::makeSet<cPeriod>(periods).build();
+const auto sROUTES  = dreamor::makeSet<cMachine, cItem>(machines, items_of).build();
+const auto sPRODUCE = dreamor::makeSet<cPeriod>(sROUTES, periods).build();
+const auto sSTOCK   = dreamor::makeSet<cItem, cPeriod>(items, periods).build();
 
 const auto max_possible_qty = [](cMachine m, cItem i) { return m->capacity / i->time; };
 const dreamor::concert::VarTable<cMachine, cItem, cPeriod> vYield{env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};
@@ -236,7 +236,7 @@ const hs::VarTable<cMachine, cItem, cPeriod> vYield{env, sPRODUCE, 0, max_possib
 const hs::VarTable<cMachine, cItem, cPeriod> vSetup{env, sPRODUCE, 0, 1, HighsVarType::kInteger, "Setup"};
 
 for (const auto& [machine, period, rows] : sPRODUCE.groupBy<cMachine, cPeriod>()) {
-  hs::addConstr(env, hs::sumOf(rows, machine_usage).build() <= machine->capacity, dreamor::exprName("Cap", machine, period));
+  hs::addConstr(env, hs::sumOf(rows, machine_usage).build() <= machine->capacity, dreamor::indexedName("Cap", machine, period));
 }
 
 const auto setup_cost = [&](cMachine m, cItem i, cPeriod t) { return m->setup * vSetup(m, i, t); };
@@ -260,17 +260,17 @@ const auto yieldPlan = vYield.solution(env);                  // std::logic_erro
 - **Constraint for only some keys:** filter the driver set with `where` before the loop.
 - **Lower and upper constraint per key:** add both in the same iteration.
 - **One named global constraint (Concert):** `IloRange r = (expr <= B); r.setName("SetupBudget"); model.add(r);`
-- **Rows named like their variables:** `model.add(expr <= m->capacity).setName(dreamor::exprName("Cap", m, t));` -
+- **Rows named like their variables:** `model.add(expr <= m->capacity).setName(dreamor::indexedName("Cap", m, t));` -
   `Cap_M1_3`, the tokens VarTable uses, with no allocation and no format string. For a name of another shape, a
   column prints as its token under `std::format` or `format` from `dreamor::FormatBuffer<256>`.
 - **Duals and reduced costs:** use the solver API (`getDuals`, `dual_values()`, `env.highs().getSolution().row_dual`).
   There is no keyed accessor.
-- **Several sums in one pass:** `.split(p1, p2).build()` returns `std::array<..., 2>` and computes each term once.
+- **Several sums in one pass:** `.whereEach(p1, p2).build()` returns `std::array<..., 2>` and computes each term once.
 - **Model in a struct:** the sets must be built before the `VarTable`s that take them - declare them as members before
   the `VarTable`s (members are constructed in declaration order), or put them in a base class.
 - **Generic code over sets:** `sANY.template select<A>()`.
 - **A function object with a template `operator()` as a predicate:** specialize
-  `dreamor::PredicateColumns<F>` with `using type = std::tuple<Cols...>;`.
+  `dreamor::CallableColumns<F>` with `using type = std::tuple<Cols...>;`.
 - **Scheduling with CP Optimizer or CP-SAT:** dreamor does not model it, but rows from `makeSet`/`groupBy`/`ordered()`
   can be passed to those APIs directly.
 

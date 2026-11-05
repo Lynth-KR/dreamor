@@ -14,7 +14,7 @@ using cJ = dreamor::Col<std::size_t, "j">;
 
 int main() {
   const std::vector<std::size_t> I{1, 2, 3}, J{10, 20};
-  const auto sIJ     = dreamor::makeSet<cI, cJ>(I, J).where([](cI i) { return i.get() != 2; }).collect();
+  const auto sIJ     = dreamor::makeSet<cI, cJ>(I, J).where([](cI i) { return i.get() != 2; }).build();
   std::size_t walked = 0;
   for (const auto& [i, rows] : sIJ.groupBy<cI>()) {
     walked += rows.size();

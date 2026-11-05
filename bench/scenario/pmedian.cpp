@@ -109,9 +109,9 @@ void runDreamor(const Instance& in, Result& r) {
   dreamor::IndexSet<cCustomer> sCUSTOMERS;
   dreamor::IndexSet<cLocation, cCustomer> sASSIGN;
   r.measure("sets", [&] {
-    sLOCATIONS = dreamor::makeSet<cLocation>(in.locations).collect();
-    sCUSTOMERS = dreamor::makeSet<cCustomer>(in.customers).collect();
-    sASSIGN    = dreamor::makeSet<cLocation, cCustomer>(in.locations, in.customers).collect();
+    sLOCATIONS = dreamor::makeSet<cLocation>(in.locations).build();
+    sCUSTOMERS = dreamor::makeSet<cCustomer>(in.customers).build();
+    sASSIGN    = dreamor::makeSet<cLocation, cCustomer>(in.locations, in.customers).build();
   });
   std::optional<dreamor::mathopt::VarTable<cLocation>> vY;
   std::optional<dreamor::mathopt::VarTable<cLocation, cCustomer>> vX;
@@ -209,9 +209,9 @@ void runDreamor(const Instance& in, Result& r) {
   dreamor::IndexSet<cCustomer> sCUSTOMERS;
   dreamor::IndexSet<cLocation, cCustomer> sASSIGN;
   r.measure("sets", [&] {
-    sLOCATIONS = dreamor::makeSet<cLocation>(in.locations).collect();
-    sCUSTOMERS = dreamor::makeSet<cCustomer>(in.customers).collect();
-    sASSIGN    = dreamor::makeSet<cLocation, cCustomer>(in.locations, in.customers).collect();
+    sLOCATIONS = dreamor::makeSet<cLocation>(in.locations).build();
+    sCUSTOMERS = dreamor::makeSet<cCustomer>(in.customers).build();
+    sASSIGN    = dreamor::makeSet<cLocation, cCustomer>(in.locations, in.customers).build();
   });
   std::optional<hs::VarTable<cLocation>> vY;
   std::optional<hs::VarTable<cLocation, cCustomer>> vX;
@@ -375,9 +375,9 @@ void runDreamor(const Instance& in, Result& r) {
   dreamor::IndexSet<cCustomer> sCUSTOMERS;
   dreamor::IndexSet<cLocation, cCustomer> sASSIGN;
   r.measure("sets", [&] {
-    sLOCATIONS = dreamor::makeSet<cLocation>(in.locations).collect();
-    sCUSTOMERS = dreamor::makeSet<cCustomer>(in.customers).collect();
-    sASSIGN    = dreamor::makeSet<cLocation, cCustomer>(in.locations, in.customers).collect();
+    sLOCATIONS = dreamor::makeSet<cLocation>(in.locations).build();
+    sCUSTOMERS = dreamor::makeSet<cCustomer>(in.customers).build();
+    sASSIGN    = dreamor::makeSet<cLocation, cCustomer>(in.locations, in.customers).build();
   });
   std::optional<dreamor::concert::VarTable<cLocation>> vY;
   std::optional<dreamor::concert::VarTable<cLocation, cCustomer>> vX;

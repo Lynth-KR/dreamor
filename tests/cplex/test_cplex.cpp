@@ -28,8 +28,8 @@ int main() try {
     const std::vector<std::size_t> I{1, 2, 3, 4};
     const std::vector<std::size_t> J{10, 20, 30};
     const auto IJ =
-        dreamor::makeSet<cI, cJ>(I, J).where([](cI i, cJ j) { return (i.get() + j.get()) % 3 != 0; }).collect();
-    const auto II = dreamor::makeSet<cI>(I).collect();
+        dreamor::makeSet<cI, cJ>(I, J).where([](cI i, cJ j) { return (i.get() + j.get()) % 3 != 0; }).build();
+    const auto II = dreamor::makeSet<cI>(I).build();
 
     const dreamor::concert::VarTable<cI, cJ> x{env, IJ, 0, 1, ILOBOOL, "x"};
     const dreamor::concert::VarTable<cI> slack{

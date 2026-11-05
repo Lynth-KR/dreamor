@@ -62,11 +62,11 @@ int main() try {
   // sets: collected, filtered, joined, projected, combined, ordered, and empty
   const std::vector<std::size_t> I{1, 2, 3, 4, 5};
   const std::vector<std::size_t> J{10, 20, 30};
-  const auto IJ     = dreamor::makeSet<cI, cJ>(I, J).collect();
-  const auto kept   = dreamor::makeSet<cI, cJ>(I, J).where([](cI i) { return i.get() % 2 == 1; }).collect();
-  const auto Is     = dreamor::makeSet<cI>(I).collect();
-  const auto Js     = dreamor::makeSet<cJ>(J).collect();
-  const auto onI    = dreamor::makeSet<>(Is, IJ).collect();
+  const auto IJ     = dreamor::makeSet<cI, cJ>(I, J).build();
+  const auto kept   = dreamor::makeSet<cI, cJ>(I, J).where([](cI i) { return i.get() % 2 == 1; }).build();
+  const auto Is     = dreamor::makeSet<cI>(I).build();
+  const auto Js     = dreamor::makeSet<cJ>(J).build();
+  const auto onI    = dreamor::makeSet<>(Is, IJ).build();
   const auto picked = IJ.select<cI>();
   DREAMOR_CHECK(rowsOnLine(IJ) && rowsOnLine(kept) && rowsOnLine(Is) && rowsOnLine(Js) && rowsOnLine(onI));
   DREAMOR_CHECK(rowsOnLine(picked) && picked.size() == I.size());

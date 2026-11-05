@@ -117,7 +117,7 @@ struct Dreamor<std::index_sequence<J...>> {
     r.measure("sum_" + name, [&] {
       std::uint64_t check = 0;
       for (const auto& group : *groups) {
-        IloExpr e = dreamor::concert::sumOf(env, group.tuples, vX).build();
+        IloExpr e = dreamor::concert::sumOf(env, group.rows, vX).build();
         check += consume(e, keyOfGroup(group));
       }
       r.check("sum_" + name, check);
@@ -126,7 +126,7 @@ struct Dreamor<std::index_sequence<J...>> {
       r.measure("sum_where", [&] {
         std::uint64_t check = 0;
         for (const auto& group : *groups) {
-          IloExpr e = dreamor::concert::sumOf(env, group.tuples, vX).where(Even{}).build();
+          IloExpr e = dreamor::concert::sumOf(env, group.rows, vX).where(Even{}).build();
           check += consume(e, keyOfGroup(group));
         }
         r.check("sum_where", check);

@@ -4,7 +4,7 @@
 //
 // File: name_token.hpp
 // The token a column contributes to a name: what VarTable writes for each key in
-// "<name>_<key0>_<key1>...", what exprName writes for a row, and what a column prints as under
+// "<name>_<key0>_<key1>...", what indexedName writes for a row, and what a column prints as under
 // std::format, so that a row can be named the way its variables are:
 //
 //     const cFrom i{&n1};
@@ -53,7 +53,7 @@ concept has_key_name = requires(const Key& key) {
 // (EntityVector): the key names it - a name identifies a variable, as the key does the entity.
 template <typename Key>
 concept has_primary_key_name = requires(const Key& key) {
-  requires std::is_pointer_v<typename Key::Value>;
+  requires std::is_pointer_v<typename Key::value_type>;
   { primaryKey(*key.get()) } -> is_formattable;  // found via ADL
 };
 
@@ -97,12 +97,12 @@ template <typename Key>
   }
 }
 
-// The longest name exprName builds, with its terminator: FormatBuffer's usual size.
-inline constexpr std::size_t kExprNameSize = 256;
+// The longest name indexedName builds, with its terminator: FormatBuffer's usual size.
+inline constexpr std::size_t kIndexedNameSize = 256;
 
-// The thread's builder for exprName: one for every exprName, whatever its keys.
-[[nodiscard]] inline NameBuilder<kExprNameSize>& exprNameBuilder() {
-  thread_local NameBuilder<kExprNameSize> builder{""};
+// The thread's builder for indexedName: one for every indexedName, whatever its keys.
+[[nodiscard]] inline NameBuilder<kIndexedNameSize>& indexedNameBuilder() {
+  thread_local NameBuilder<kIndexedNameSize> builder{""};
   return builder;
 }
 
@@ -113,15 +113,15 @@ namespace dreamor {
 // A row's name, the way VarTable names its variables: "<family>_<key0>_<key1>...", each key a column
 // (by the token it gives a variable's name) or a value. It is built in a buffer of the thread's, with no
 // allocation and no format string to read - std::format reads one each call - so the pointer it returns
-// is valid until the thread's next exprName: hand it straight to setName, AddLinearConstraint or
+// is valid until the thread's next indexedName: hand it straight to setName, AddLinearConstraint or
 // addConstr, which copy it. A name longer than 255 characters throws std::runtime_error, as
 // FormatBuffer's format does.
 //
-//     model.add(load <= cap).setName(dreamor::exprName("Capacity", m, t));   // "Capacity_M1_3"
+//     model.add(load <= cap).setName(dreamor::indexedName("Capacity", m, t));   // "Capacity_M1_3"
 template <typename... Keys>
   requires(internal::is_nameable<Keys> && ...)
-[[nodiscard]] const char* exprName(std::string_view family, const Keys&... keys) {
-  NameBuilder<internal::kExprNameSize>& names = internal::exprNameBuilder();
+[[nodiscard]] const char* indexedName(std::string_view family, const Keys&... keys) {
+  NameBuilder<internal::kIndexedNameSize>& names = internal::indexedNameBuilder();
   // NOLINTNEXTLINE(misc-const-correctness): each key assigns it; with none (a family alone) nothing does
   [[maybe_unused]] std::size_t length = names.restart(family);
   ((length = names.append(length, internal::plainNameToken(keys))), ...);

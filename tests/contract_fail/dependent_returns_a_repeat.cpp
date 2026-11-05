@@ -9,7 +9,7 @@
 int main() try {
   const std::vector<std::size_t> is{1, 2};
   const auto js_of = [](cI i) { return std::vector<std::size_t>{i.get(), i.get()}; };
-  return static_cast<int>(dreamor::makeSet<cI, cJ>(is, js_of).collect().size());
+  return static_cast<int>(dreamor::makeSet<cI, cJ>(is, js_of).build().size());
 } catch (...) {
   return 1;  // no message: the runner reports it
 }

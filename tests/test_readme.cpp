@@ -66,7 +66,7 @@ struct MyFilter {
 }  // namespace
 
 template <>
-struct dreamor::PredicateColumns<MyFilter> {
+struct dreamor::CallableColumns<MyFilter> {
   using type = std::tuple<cMachine, cPeriod>;
 };
 
@@ -91,10 +91,10 @@ class LotSizing {
             const std::vector<std::size_t>& periods)
       : env(environment),
         model(environment),
-        sPERIODS(dreamor::makeSet<cPeriod>(periods).collect()),
-        sROUTES(dreamor::makeSet<cMachine, cItem>(machines, items_of).collect()),
-        sPRODUCE(dreamor::makeSet<cPeriod>(sROUTES, periods).collect()),  // expand an existing set
-        sSTOCK(dreamor::makeSet<cItem, cPeriod>(items, periods).collect()) {
+        sPERIODS(dreamor::makeSet<cPeriod>(periods).build()),
+        sROUTES(dreamor::makeSet<cMachine, cItem>(machines, items_of).build()),
+        sPRODUCE(dreamor::makeSet<cPeriod>(sROUTES, periods).build()),  // expand an existing set
+        sSTOCK(dreamor::makeSet<cItem, cPeriod>(items, periods).build()) {
     addInventoryBalance();
     addCapacity();
     addSetupLinks();
@@ -142,7 +142,7 @@ class LotSizing {
     const auto machine_usage = [this](cMachine m, cItem i, cPeriod t) { return i->time * vYield(m, i, t); };
     for (const auto& [machine, period, rows] : sPRODUCE.groupBy<cMachine, cPeriod>()) {
       IloExpr totalLoad = dreamor::concert::sumOf(env, rows, machine_usage).build();
-      model.add(totalLoad <= machine->capacity).setName(dreamor::exprName("Capacity", machine, period));
+      model.add(totalLoad <= machine->capacity).setName(dreamor::indexedName("Capacity", machine, period));
       totalLoad.end();
     }
   }
@@ -184,7 +184,7 @@ int main() try {
   // --- The example at the top
   const auto items_of = [](cMachine m) { return m->items; };
   {
-    const auto sPRODUCE         = dreamor::makeSet<cMachine, cItem, cPeriod>(machines, items_of, periods).collect();
+    const auto sPRODUCE         = dreamor::makeSet<cMachine, cItem, cPeriod>(machines, items_of, periods).build();
     const auto max_possible_qty = [](cMachine m, cItem i) { return m->capacity / i->time; };
     const dreamor::concert::VarTable<cMachine, cItem, cPeriod> vYield{
         env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};
@@ -228,7 +228,7 @@ int main() try {
     const bool inserted = plant.emplace(Machine{"M1", 40.0, 5.0, {}}).second;
     const bool again    = plant.emplace(Machine{"M1", 1.0, 1.0, {}}).second;
     plant.sort().freeze();
-    const auto sRUN       = dreamor::makeSet<cMachine, cPeriod>(plant, periods).collect();
+    const auto sRUN       = dreamor::makeSet<cMachine, cPeriod>(plant, periods).build();
     const auto lowerSetup = [](Machine& m) { m.setup = 4.0; };
     if (const Machine* found = plant.find("M1")) { plant.modify(found, lowerSetup); }
     DREAMOR_CHECK(inserted && !again && sRUN.size() == periods.size() && exactlyEqual(plant.front().setup, 4.0));
@@ -238,26 +238,26 @@ int main() try {
   std::vector<Machine> machineObjects{m0, m1};
   std::vector<std::unique_ptr<Machine>> machineOwners;
   machineOwners.push_back(std::make_unique<Machine>(m1));
-  DREAMOR_CHECK(std::get<cMachine>(*dreamor::makeSet<cMachine>(machineObjects).collect().begin()).get() ==
+  DREAMOR_CHECK(std::get<cMachine>(*dreamor::makeSet<cMachine>(machineObjects).build().begin()).get() ==
                 machineObjects.data());
-  DREAMOR_CHECK(std::get<cMachine>(*dreamor::makeSet<cMachine>(machineOwners).collect().begin()).get() ==
+  DREAMOR_CHECK(std::get<cMachine>(*dreamor::makeSet<cMachine>(machineOwners).build().begin()).get() ==
                 machineOwners[0].get());
   const auto is_open = [](cItem i, cPeriod t) { return i->demand[t.get()] > 0; };
-  DREAMOR_CHECK(dreamor::makeSet<cPeriod>(sROUTES, periods).where(is_open).collect().size() == 6);
-  const auto sOPEN = dreamor::makeSet<cItem, cPeriod>(items, periods).where(is_open).collect();
-  DREAMOR_CHECK(dreamor::makeSet<>(sROUTES, sOPEN).collect().size() == 6);
+  DREAMOR_CHECK(dreamor::makeSet<cPeriod>(sROUTES, periods).where(is_open).build().size() == 6);
+  const auto sOPEN = dreamor::makeSet<cItem, cPeriod>(items, periods).where(is_open).build();
+  DREAMOR_CHECK(dreamor::makeSet<>(sROUTES, sOPEN).build().size() == 6);
 
   // --- Steering the visit order (sOPEN is the one just above)
   const auto fits_batch = [](cMachine m, cItem i) { return 30 * i->time <= m->capacity; };
   const auto sMAKE =
-      dreamor::makeSet<cMachine, cItem, cPeriod>(machines, items, periods).where(fits_batch).where(is_open).collect();
-  const auto sMAKE_STAGED = dreamor::makeSet<cMachine>(machines, sOPEN).where(fits_batch).collect();
+      dreamor::makeSet<cMachine, cItem, cPeriod>(machines, items, periods).where(fits_batch).where(is_open).build();
+  const auto sMAKE_STAGED = dreamor::makeSet<cMachine>(machines, sOPEN).where(fits_batch).build();
   static_assert(std::is_same_v<decltype(sMAKE), decltype(sMAKE_STAGED)>);
   DREAMOR_CHECK(sMAKE.size() == 9 && sMAKE_STAGED.size() == sMAKE.size() &&
                 std::ranges::all_of(sMAKE_STAGED, sMAKE.membership()));
   const auto sOPEN_ITEMS = sOPEN.select<cItem>();
   DREAMOR_CHECK(
-      std::ranges::equal(dreamor::makeSet<>(sROUTES, sOPEN_ITEMS).collect(), sROUTES.where(sOPEN_ITEMS.membership())));
+      std::ranges::equal(dreamor::makeSet<>(sROUTES, sOPEN_ITEMS).build(), sROUTES.where(sOPEN_ITEMS.membership())));
 
   // --- Deriving sets (orderedPeriods is the one from Quick start)
   const auto is_peak       = [](cItem i, cPeriod t) { return i->demand[t.get()] >= 15; };
@@ -273,7 +273,7 @@ int main() try {
     const auto* wrapped = orderedPeriods.nextCyclic(cPeriod{2});
     DREAMOR_CHECK(std::get<cPeriod>(orderedPeriods.first()).get() == 0 && orderedPeriods.isLast(cPeriod{2}) &&
                   wrapped != nullptr && std::get<cPeriod>(*wrapped).get() == 0);
-    DREAMOR_CHECK(orderedPeriods.ord(cPeriod{2}) == 2 && orderedPeriods.next(cPeriod{0}, 2) != nullptr &&
+    DREAMOR_CHECK(orderedPeriods.positionOf(cPeriod{2}) == 2 && orderedPeriods.next(cPeriod{0}, 2) != nullptr &&
                   orderedPeriods.next(cPeriod{0}, 3) == nullptr && orderedPeriods.members().size() == 3);
   }
   {  // a row only where a neighbour is: the domain filtered, as the guide writes it
@@ -288,9 +288,9 @@ int main() try {
   }
   {  // select(expr), over a graph of its own
     const std::vector<Node> nodes{{0}, {1}, {2}};
-    const auto sNODES = dreamor::makeSet<cNode>(nodes).collect();
+    const auto sNODES = dreamor::makeSet<cNode>(nodes).build();
     const auto sEDGES =
-        dreamor::makeSet<cFrom, cTo>(nodes, nodes).where([](cFrom i, cTo j) { return i->id + 1 == j->id; }).collect();
+        dreamor::makeSet<cFrom, cTo>(nodes, nodes).where([](cFrom i, cTo j) { return i->id + 1 == j->id; }).build();
     // (j,i) for every (i,j)
     const auto sREVERSED = sEDGES.select([](cFrom i, cTo j) { return std::tuple<cFrom, cTo>{j, i}; });
     const auto sTAILS    = sNODES.select([](cNode n) { return cFrom{n}; });  // the nodes as arc tails
@@ -307,9 +307,9 @@ int main() try {
   DREAMOR_CHECK(walked == sPRODUCE.size());
   DREAMOR_CHECK(producingRows.size() == 2 && producedByItemPeriod.slice(cItem{&i2}, cPeriod{0}).empty());
   DREAMOR_CHECK(producedByItemPeriod.contains(cItem{&i0}, cPeriod{0}) &&
-                producedByItemPeriod.sliceSize(cItem{&i1}, cPeriod{0}) == 2);
-  DREAMOR_CHECK(producedByItemPeriod.regrouped().size() == sPRODUCE.size() && !producedByItemPeriod.at(0).empty() &&
-                !producedByItemPeriod.empty());
+                producedByItemPeriod.slice(cItem{&i1}, cPeriod{0}).size() == 2);
+  DREAMOR_CHECK(producedByItemPeriod.regrouped().size() == sPRODUCE.size() &&
+                !producedByItemPeriod.at(0).rows.empty() && !producedByItemPeriod.empty());
 
   // --- VarTable: tightening bounds later, semi-continuous
   const auto in_maintenance = [](cMachine m, cPeriod t) { return m->name == "M0" && t.get() == 2; };
@@ -336,7 +336,7 @@ int main() try {
   DREAMOR_CHECK(tightenedPlan.size() == 9 && tightenedPlan.keys().size() == 9);
 
   // --- Rules 9, Col
-  DREAMOR_CHECK(dreamor::makeSet<cMachine, cPeriod>(machines, periods).where(MyFilter{}).collect().size() == 6);
+  DREAMOR_CHECK(dreamor::makeSet<cMachine, cPeriod>(machines, periods).where(MyFilter{}).build().size() == 6);
   DREAMOR_CHECK(cMachine::kName == "machine" && dreamor::keyName(cMachine{&m0}) == "M0" &&
                 dreamor::keyName(cPeriod{7}) == 7);
   std::unordered_map<cMachine, std::size_t> perMachine{{cMachine{&m0}, 1}};

@@ -51,7 +51,7 @@ int main() try {
   const IloEnv env;
   const std::vector<std::size_t> I{1, 2, 3};
   const std::vector<std::size_t> J{10, 20};
-  const auto IJ = dreamor::makeSet<cI, cJ>(I, J).collect();
+  const auto IJ = dreamor::makeSet<cI, cJ>(I, J).build();
   const dreamor::concert::VarTable<cI, cJ> x{env, IJ, 0, 1, ILOINT, "x"};
   const auto var      = [&x](cI i, cJ j) { return x(i, j); };
   const auto weighted = [&x](cI i, cJ j) { return static_cast<double>(i.get()) * x(i, j); };
@@ -65,7 +65,7 @@ int main() try {
   }
 
   const auto sums = dreamor::concert::sumOf(env, IJ, weighted)
-                        .split([](cJ j) { return j.get() == 10; }, [](cJ) { return true; })
+                        .whereEach([](cJ j) { return j.get() == 10; }, [](cJ) { return true; })
                         .build();
   DREAMOR_CHECK(terms(sums[0]) == 3 && terms(sums[1]) == 6);
   double coef = 0;
@@ -75,7 +75,7 @@ int main() try {
   DREAMOR_CHECK(exactlyEqual(coef, 1 + 2 + 3));
 
   // a plain container as a one-column set
-  const dreamor::concert::VarTable<cI> y{env, dreamor::makeSet<cI>(I).collect(), 0, 1};
+  const dreamor::concert::VarTable<cI> y{env, dreamor::makeSet<cI>(I).build(), 0, 1};
   DREAMOR_CHECK(terms(dreamor::concert::sumOf<cI>(env, I, [&y](cI i) { return y(i); }).build()) == 3);
   // a table is itself a term: its variables, summed over the rows
   DREAMOR_CHECK(terms(dreamor::concert::sumOf(env, IJ, x).build()) == 6);
@@ -83,14 +83,15 @@ int main() try {
   for (const auto& [j, rows] : byJ) {
     DREAMOR_CHECK(terms(dreamor::concert::sumOf(env, rows, x).build()) == 3);
   }
-  const auto tableSums =
-      dreamor::concert::sumOf(env, IJ, x).split([](cJ j) { return j.get() == 10; }, [](cJ) { return true; }).build();
+  const auto tableSums = dreamor::concert::sumOf(env, IJ, x)
+                             .whereEach([](cJ j) { return j.get() == 10; }, [](cJ) { return true; })
+                             .build();
   DREAMOR_CHECK(terms(tableSums[0]) == 3 && terms(tableSums[1]) == 6);
   using cK       = dreamor::Col<std::size_t, "k">;
-  const auto IKJ = dreamor::makeSet<cI, cK, cJ>(I, I, J).collect();  // more columns than the table's keys
+  const auto IKJ = dreamor::makeSet<cI, cK, cJ>(I, I, J).build();  // more columns than the table's keys
   DREAMOR_CHECK(terms(dreamor::concert::sumOf(env, IKJ, x).build()) == 18);
 
-  // quadratic terms: IloExpr holds them as it holds linear ones, under where() and split() too
+  // quadratic terms: IloExpr holds them as it holds linear ones, under where() and whereEach() too
   const auto square     = [&x](cI i, cJ j) { return static_cast<double>(i.get()) * (x(i, j) * x(i, j)); };
   const IloExpr squares = dreamor::concert::sumOf(env, IJ, square).build();
   DREAMOR_CHECK(quadraticTerms(squares) == 6 && isExactlyZero(linearCoefficients(squares)));
@@ -98,7 +99,7 @@ int main() try {
   const auto deviation = [&x](cI i, cJ j) { return (x(i, j) - 1) * (x(i, j) - 1); };
   const auto parts     = dreamor::concert::sumOf(env, IJ, deviation)
                              .where([](cI i) { return i.get() > 1; })
-                             .split([](cJ j) { return j.get() == 10; }, [](cJ) { return true; })
+                             .whereEach([](cJ j) { return j.get() == 10; }, [](cJ) { return true; })
                              .build();
   DREAMOR_CHECK(quadraticTerms(parts[0]) == 2 && quadraticTerms(parts[1]) == 4);
   DREAMOR_CHECK(exactlyEqual(linearCoefficients(parts[1]), -2 * 4) && exactlyEqual(parts[1].expr_->constant, 4));
@@ -127,8 +128,8 @@ int main() try {
 
   // A table summed over a group of its own set takes its variables by the rows' positions; over a
   // group of an equal set collected apart, rows of the same type at other addresses, it looks each
-  // row up. Either way the variables are those of a lookup row by row, under where() and split().
-  const auto apart     = dreamor::makeSet<cI, cJ>(I, J).collect();
+  // row up. Either way the variables are those of a lookup row by row, under where() and whereEach().
+  const auto apart     = dreamor::makeSet<cI, cJ>(I, J).build();
   const auto apartByJ  = apart.groupBy<cJ>();
   const auto byColumns = [&x](const auto& rows, const auto& keep) {
     std::vector<const IloNumVarI*> out;
@@ -142,10 +143,10 @@ int main() try {
   const auto isOne  = [](cI i) { return i.get() == 1; };
   for (const auto* groups : std::array{&byJ, &apartByJ}) {
     for (const auto& group : *groups) {
-      const auto& rows = group.tuples;
+      const auto& rows = group.rows;
       DREAMOR_CHECK(varsOf(dreamor::concert::sumOf(env, rows, x).build()) == byColumns(rows, every));
       DREAMOR_CHECK(varsOf(dreamor::concert::sumOf(env, rows, x).where(notTwo).build()) == byColumns(rows, notTwo));
-      const auto parted = dreamor::concert::sumOf(env, rows, x).where(notTwo).split(isOne, every).build();
+      const auto parted = dreamor::concert::sumOf(env, rows, x).where(notTwo).whereEach(isOne, every).build();
       DREAMOR_CHECK(varsOf(parted[0]) == byColumns(rows, [&](cI i) { return notTwo(i) && isOne(i); }));
       DREAMOR_CHECK(varsOf(parted[1]) == byColumns(rows, notTwo));
     }

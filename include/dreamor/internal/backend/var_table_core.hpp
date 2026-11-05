@@ -78,14 +78,14 @@ class VarTableCore : public VarTableBase {
  public:
   // The index tuple. Identical to the element type of the set the table is built on, so a
   // row from that set, a subset of it or one of its groups goes straight into operator().
-  using Key = std::tuple<Keys...>;
+  using key_type = std::tuple<Keys...>;
 
   // contains(m, i, t) or contains(row): the key's columns in order, or a row of the set (see
   // internal/index_set/key_args.hpp).
   template <typename... Args>
   [[nodiscard]] bool contains(const Args&... key) const {
-    if constexpr (checkTableKey<Key, Args...>()) {
-      return index_->find(rows(), key...) != RowIndex<Key>::kNotFound;
+    if constexpr (checkTableKey<key_type, Args...>()) {
+      return index_->find(rows(), key...) != RowIndex<key_type>::kNotFound;
     } else {
       return false;
     }
@@ -109,7 +109,7 @@ class VarTableCore : public VarTableBase {
   // rule of every backend; contains() asks first.
   template <typename... Args>
   [[nodiscard]] Var operator()(const Args&... key) const {
-    if constexpr (checkTableKey<Key, Args...>()) {
+    if constexpr (checkTableKey<key_type, Args...>()) {
       return vars_[rowOf(key...)];
     } else {
       std::terminate();
@@ -167,11 +167,13 @@ class VarTableCore : public VarTableBase {
   template <typename... Args>
   [[nodiscard]] std::size_t rowOf(const Args&... key) const {
     const std::size_t at = index_->find(rows(), key...);
-    if (at == RowIndex<Key>::kNotFound) { throw std::out_of_range("VarTable: this tuple is not in the table's set."); }
+    if (at == RowIndex<key_type>::kNotFound) {
+      throw std::out_of_range("VarTable: this row is not in the table's set.");
+    }
     return at;
   }
 
-  [[nodiscard]] const Rows<Key>& rows() const noexcept { return SetAccess::rows(keys_); }
+  [[nodiscard]] const Rows<key_type>& rows() const noexcept { return SetAccess::rows(keys_); }
 
   // The values of vars_, in the same order, as a ValueTable sharing this table's set and index.
   [[nodiscard]] ValueTable<Keys...> valueTable(std::vector<double> values) const {
@@ -186,7 +188,7 @@ class VarTableCore : public VarTableBase {
   static constexpr std::size_t kNameBufferSize = 256;  // a variable's name, terminator included
   using NameBuilder = ::dreamor::NameBuilder<kNameBufferSize, ::dreamor::OnFormatOverflow::kLogAndClear>;
 
-  [[nodiscard]] static const char* nameOf(NameBuilder& names, const Key& key) {
+  [[nodiscard]] static const char* nameOf(NameBuilder& names, const key_type& key) {
     if (!names.enabled()) {
       return nullptr;  // Unnamed: no key to read or format per variable.
     }
@@ -201,10 +203,11 @@ class VarTableCore : public VarTableBase {
  private:
   template <typename>
   friend struct internal::TakesRowNumber;  // a sum over a group of the set takes vars_ by the rows' positions
-  using Iterator = RowPairIterator<Key, decltype(cursorAt(std::declval<const typename VarStorage<Var>::type&>(), 0))>;
+  using Iterator =
+      RowPairIterator<key_type, decltype(cursorAt(std::declval<const typename VarStorage<Var>::type&>(), 0))>;
 
-  IndexSet<Keys...> keys_;                      // Shared; the only copy of the keys.
-  std::shared_ptr<const RowIndex<Key>> index_;  // Shared with ValueTables.
+  IndexSet<Keys...> keys_;                           // Shared; the only copy of the keys.
+  std::shared_ptr<const RowIndex<key_type>> index_;  // Shared with ValueTables.
 };
 
 }  // namespace dreamor::internal::inline backend
@@ -214,8 +217,8 @@ class VarTableCore : public VarTableBase {
 // them up. Every backend's table, through VarTableBase.
 template <typename Table>
   requires std::derived_from<Table, dreamor::internal::VarTableBase>
-struct dreamor::PredicateColumns<Table> {
-  using type = Table::Key;
+struct dreamor::CallableColumns<Table> {
+  using type = Table::key_type;
 };
 // Given a row of its own set, a table finds the variable by the row's address.
 template <typename Table>
@@ -225,7 +228,7 @@ struct dreamor::internal::TakesWholeRow<Table> : std::true_type {};
 template <typename Table>
   requires std::derived_from<Table, dreamor::internal::VarTableBase>
 struct dreamor::internal::TakesRowNumber<Table> : std::true_type {
-  [[nodiscard]] static const Table::Key* firstRow(const Table& table) noexcept {
+  [[nodiscard]] static const Table::key_type* firstRow(const Table& table) noexcept {
     return SetAccess::rows(table.keys()).data();
   }
   [[nodiscard]] static auto at(const Table& table, std::size_t n) { return table.vars_[n]; }

@@ -7,5 +7,5 @@
 #include "prelude.hpp"
 int main() {
   const std::function<std::vector<std::size_t>(cI)> next = [](cI i) { return std::vector<std::size_t>{i.get() + 1}; };
-  (void)dreamor::makeSet<cI, cJ>(I, next).collect();
+  (void)dreamor::makeSet<cI, cJ>(I, next).build();
 }

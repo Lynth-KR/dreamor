@@ -78,16 +78,16 @@ Three kinds: what the compiler stops, what dreamor takes on trust, and what it r
 1. Callables (predicates, dependent sources, bound functions, terms of sums) take **column types** as parameters.
    `[](const Item* i)` or `[](auto i)` is a compile error - the key of `orderBy` included. A function object whose
    `operator()` is a template, so that its columns cannot be read from its parameters, can still be a predicate:
-   specialize `dreamor::PredicateColumns` to declare the columns it reads.
+   specialize `dreamor::CallableColumns` to declare the columns it reads.
    ```cpp
-   template <> struct dreamor::PredicateColumns<MyFilter> { using type = std::tuple<cMachine, cPeriod>; };
+   template <> struct dreamor::CallableColumns<MyFilter> { using type = std::tuple<cMachine, cPeriod>; };
    ```
 2. A dependent source that yields entities returns a range of **pointers** to them (or a view over them), not the
    entities themselves; one that yields values (numbers, strings) returns any range of them.
 3. Sets are read-only. Derive instead of modifying.
 4. Look up by key with column values in declaration order (`vYield(m, i, t)`, `slice(i, t)`, `prev(t)`). Braces and
    bare values are not accepted (see [Columns](guide.md#columns)).
-5. `Grouped`'s `slice()`/`at()`/`keyAt()` and `Ordered`'s lookups are called on a named object, not on a temporary.
+5. `Grouped`'s `slice()`/`at()` and `Ordered`'s lookups are called on a named object, not on a temporary.
    Only iterating needs no name: `for (... : S.groupBy<C>())`.
 
 ### Contract: undefined behavior if broken
@@ -109,7 +109,7 @@ Three kinds: what the compiler stops, what dreamor takes on trust, and what it r
 
 | Not done | Reason / alternative |
 |---|---|
-| Constraint tables (storing constraints per key) | Most constraints are added once and never looked up again. A row is named by its keys with `exprName`, as `VarTable` names variables, and added through the solver API (Concert `IloRange` + `setName`, MathOpt `AddLinearConstraint(expr, name)`, HiGHS `addConstr(env, row, name)`) |
+| Constraint tables (storing constraints per key) | Most constraints are added once and never looked up again. A row is named by its keys with `indexedName`, as `VarTable` names variables, and added through the solver API (Concert `IloRange` + `setName`, MathOpt `AddLinearConstraint(expr, name)`, HiGHS `addConstr(env, row, name)`) |
 | Reading duals / reduced costs by key | A rare task. Use the solver API when needed (Concert `getDuals`, MathOpt `dual_values()`, HiGHS `getSolution().row_dual`, etc.) |
 | Appending variables (column generation) | Structure is immutable. New columns mean a new set + a new VarTable |
 | Pipe syntax (`S \| where(p)`) | No second way to do the same thing |

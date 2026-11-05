@@ -150,7 +150,7 @@ static void runDreamor(const Keys<K>& keys, Result& r) {
   dreamor::IndexSet<Col> sITEMS;
   std::optional<dreamor::concert::VarTable<Col>> vX;
   r.measure("build", [&] {
-    sITEMS = dreamor::makeSet<Col>(items).collect();
+    sITEMS = dreamor::makeSet<Col>(items).build();
     vX.emplace(env, sITEMS, 0, Tag{}, ILOFLOAT);
   });
   using Values = decltype(vX->solution(solver));

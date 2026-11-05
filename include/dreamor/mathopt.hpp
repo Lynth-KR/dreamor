@@ -34,13 +34,13 @@
 //     is MathOpt's `is_integer` flag, and the default upper bound is +infinity;
 //   - sumOf takes no environment - an empty LinearExpression needs none - and build()
 //     returns a math_opt::LinearExpression, or a math_opt::QuadraticExpression when the term is
-//     quadratic (std::array of them under split()), as MathOpt keeps the two kinds apart;
+//     quadratic (std::array of them under whereEach()), as MathOpt keeps the two kinds apart;
 //   - solution() reads a math_opt::SolveResult and throws std::logic_error when it has no
 //     primal feasible solution (MathOpt itself would CHECK-fail);
 //   - no semi-continuous variables: MathOpt's model has none.
 // The rest is the library's and the same everywhere: bounds as numbers or column callables,
 // names "<n>_<key0>_<key1>...", vYield(row) throwing std::out_of_range for a row outside the set,
-// iteration in the set's order, and sumOf's where() / split().
+// iteration in the set's order, and sumOf's where() / whereEach().
 //
 // Building against the OR-Tools prebuilt: define OR_PROTO_DLL as empty, add its include/,
 // and link libortools, libprotobuf and the abseil libraries (tests/run_tests.sh --mathopt).
@@ -78,7 +78,7 @@ class VarTable : public internal::VarTableCore<::operations_research::math_opt::
   using Core = internal::VarTableCore<::operations_research::math_opt::Variable, Keys...>;
 
  public:
-  using Key      = Core::Key;
+  using key_type = Core::key_type;
   using Variable = ::operations_research::math_opt::Variable;
   // Lookup, contains(), size(), keys(), iteration and the constructor that stops on a set with
   // other key columns are the core's, as on Concert. vYield(row) throws std::out_of_range for a
@@ -95,11 +95,11 @@ class VarTable : public internal::VarTableCore<::operations_research::math_opt::
            bool is_integer  = false,
            const char* name = nullptr)
       : Core{set} {
-    internal::checkBound<Lb, Key>();
-    internal::checkBound<Ub, Key>();
+    internal::checkBound<Lb, key_type>();
+    internal::checkBound<Ub, key_type>();
     typename Core::NameBuilder names{name};
     this->vars_.reserve(this->rows().size());
-    for (const Key& row : this->rows()) {
+    for (const key_type& row : this->rows()) {
       const char* const variable_name = Core::nameOf(names, row);
       this->vars_.push_back(model.AddVariable(internal::boundOf(lb, row),
                                               internal::boundOf(ub, row),
@@ -126,7 +126,7 @@ class VarTable : public internal::VarTableCore<::operations_research::math_opt::
 
 // sum {t in rows} term(t) as a math_opt::LinearExpression, or a math_opt::QuadraticExpression
 // when term(t) is quadratic (a QuadraticTerm or a QuadraticExpression: x * x, (x - 1) * (x - 1));
-// see concert.hpp for where(), split() and the rules on rows and callables, which are the same here.
+// see concert.hpp for where(), whereEach() and the rules on rows and callables, which are the same here.
 template <typename... Columns, std::ranges::input_range Rows, typename Term>
 [[nodiscard]] auto sumOf(Rows&& rows, Term&& term) {
   return internal::makeSum<Columns...>([] { return ::operations_research::math_opt::LinearExpression{}; },

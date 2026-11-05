@@ -34,7 +34,7 @@
 // calling predicates less.
 //
 // Prints one CSV line: the planner's order, the rows, an order-free checksum (every variant of a
-// case must agree), the time of collect(), and - in the counting build (-DPLAN_COUNT) - how many
+// case must agree), the time of build(), and - in the counting build (-DPLAN_COUNT) - how many
 // times predicates were called.
 #include <array>
 #include <chrono>
@@ -97,30 +97,30 @@ template <typename Builder>
 static Set withPredicates(std::string_view shape, const Dens& d, Builder b, bool late) {
   if (shape == "pair") {
     if (late) {
-      return b.where([p = pBC(d.d1)](cA, cB bb, cC c) { return p(bb, c); }).collect();
+      return b.where([p = pBC(d.d1)](cA, cB bb, cC c) { return p(bb, c); }).build();
     }
-    return b.where(pBC(d.d1)).collect();
+    return b.where(pBC(d.d1)).build();
   }
   if (shape == "filters") {
     if (late) {
-      return b.where([p = qA(d.d1), q = qC(d.d2)](cA a, cB, cC c) { return p(a) && q(c); }).collect();
+      return b.where([p = qA(d.d1), q = qC(d.d2)](cA a, cB, cC c) { return p(a) && q(c); }).build();
     }
-    return b.where(qA(d.d1)).where(qC(d.d2)).collect();
+    return b.where(qA(d.d1)).where(qC(d.d2)).build();
   }
   if (shape == "chain") {
     if (late) {
-      return b.where([p = pAB(d.d1), q = pBC(d.d2)](cA a, cB bb, cC c) { return p(a, bb) && q(bb, c); }).collect();
+      return b.where([p = pAB(d.d1), q = pBC(d.d2)](cA a, cB bb, cC c) { return p(a, bb) && q(bb, c); }).build();
     }
-    return b.where(pAB(d.d1)).where(pBC(d.d2)).collect();
+    return b.where(pAB(d.d1)).where(pBC(d.d2)).build();
   }
   if (late) {
     return b
         .where([p = pAB(d.d1), q = pBC(d.d2), r = pAC(d.d3)](cA a, cB bb, cC c) {
           return p(a, bb) && q(bb, c) && r(a, c);
         })
-        .collect();
+        .build();
   }
-  return b.where(pAB(d.d1)).where(pBC(d.d2)).where(pAC(d.d3)).collect();
+  return b.where(pAB(d.d1)).where(pBC(d.d2)).where(pAC(d.d3)).build();
 }
 
 template <typename Builder>
@@ -231,13 +231,13 @@ int main(int argc, char** argv) {
   };
 
   if (shape == "join") {
-    const auto S = dreamor::makeSet<cA, cB>(ptrs[0], ptrs[1]).where(pAB(d.d1)).collect();
-    const auto U = dreamor::makeSet<cB, cC>(ptrs[1], ptrs[2]).where(pBC(d.d2)).collect();
+    const auto S = dreamor::makeSet<cA, cB>(ptrs[0], ptrs[1]).where(pAB(d.d1)).build();
+    const auto U = dreamor::makeSet<cB, cC>(ptrs[1], ptrs[2]).where(pBC(d.d2)).build();
     if (variant == "SU") {
-      time([&] { return dreamor::makeSet<>(S, U).collect(); });
+      time([&] { return dreamor::makeSet<>(S, U).build(); });
     }
     if (variant == "US") {
-      time([&] { return dreamor::makeSet<>(U, S).collect(); });
+      time([&] { return dreamor::makeSet<>(U, S).build(); });
     }
     planned = variant;  // a join is visited in declaration order
   } else {

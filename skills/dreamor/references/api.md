@@ -21,7 +21,7 @@ The headers in `include/dreamor/` are authoritative; the usage examples in their
 | `keyName(Col)` | The value's `keyName` if one is found (same namespace as the entity), otherwise the value itself. A variable's name and a column under `std::format` use, for an entity pointer with no `keyName`, the entity's `primaryKey`; the token must be `std::format`-able |
 | `std::formatter<Col<...>>` | A column prints as its name token: `std::format("Cap_{}_{}", i, j)` names a row the way VarTable names variables. No format spec; a column with no token has none |
 | `std::hash<Col<...>>` | Columns can key `std::unordered_map` |
-| `PredicateColumns<F>` | Specialization point: `template <> struct dreamor::PredicateColumns<F> { using type = std::tuple<Cols...>; };` for a function object with a template `operator()` |
+| `CallableColumns<F>` | Specialization point: `template <> struct dreamor::CallableColumns<F> { using type = std::tuple<Cols...>; };` for a function object with a template `operator()` |
 
 Two columns over the same `T` with different names are different types (`cFrom`, `cTo` over `const Node*`).
 
@@ -55,7 +55,7 @@ container source in `makeSet` like any other. Without `keyName`, an entity colum
 ```cpp
 dreamor::makeSet<Cols...>(sources...)   // one source per column; a set source covers all its columns
     .where(p...)                        // ANDed, chainable; each evaluated as soon as its columns are bound
-    .collect();                         // → IndexSet<Cols...>
+    .build();                         // → IndexSet<Cols...>
 ```
 
 | Source | Example | Meaning |
@@ -85,7 +85,7 @@ A set has at most 64 columns, spread sources included; 65 stops at compile time.
 | `groupBy<Cols...>()` | `Grouped` | slices |
 | `membership()` | `Membership` | `(m,i) in S` |
 | `ordered()` | `Ordered` | ordered set |
-| `ordered<A...>()` | `Ordered` within each group of rows that agree on `A...` | `next(t, S[a])` |
+| `orderedWithin<A...>()` | `Ordered` within each group of rows that agree on `A...` | `next(t, S[a])` |
 
 Free functions: `dreamor::unite(A, B)` (∪), `intersect(A, B)` (∩), `difference(A, B)` (\). `A == B`: the same rows in
 any order, as `std::unordered_set`'s; `std::ranges::equal(A, B)` compares the order too.
@@ -98,13 +98,13 @@ In generic code where the set type is a template parameter: `sANY.template selec
 
 | `Grouped` | |
 |---|---|
-| range-for | groups in first-occurrence order of the key; each `Group` unpacks as `[keyCols..., rows]`; bind one name to use `.key` and `.tuples` |
+| range-for | groups in first-occurrence order of the key; each `Group` unpacks as `[keyCols..., rows]`; bind one name to use `.key` and `.rows` |
 | `slice(cols...)`, `slice(key)` | `RowSlice` of that key, empty if absent — on a named `Grouped` only |
-| `contains(cols...)`, `sliceSize(cols...)` | also accept a `key` |
+| `contains(cols...)` | also accepts a `key` |
 | `size()`, `empty()` | number of groups |
-| `keyAt(g)`, `at(g)` | g-th key / group, `std::out_of_range` if out of range — on a named `Grouped` only |
+| `at(g)` | the g-th `Group` (key and rows), `std::out_of_range` if out of range — on a named `Grouped` only |
 | `regrouped()` | new `IndexSet` with rows gathered group by group |
-| `Key`, `Group{key, tuples}` | types; `key` values come from `keyAt()` or `Group::key` |
+| `key_type`, `Group{key, rows}` | types; `key` values come from `Group::key` |
 
 Within a group, rows keep the set's order.
 
@@ -113,20 +113,20 @@ random-access view into the set's rows (no copies), valid while the `Grouped` li
 
 ## Ordered
 
-`dreamor/index_set.hpp`. A positional view over the set - or, from `ordered<A...>()`, within each group
-of rows that agree on `A...`: walks stop (cyclic: wrap) at the group's ends, `ord`/`isFirst`/`isLast` are within the
+`dreamor/index_set.hpp`. A positional view over the set - or, from `orderedWithin<A...>()`, within each group
+of rows that agree on `A...`: walks stop (cyclic: wrap) at the group's ends, `positionOf`/`isFirst`/`isLast` are within the
 group, `first(a...)`/`last(a...)` give a group's first and last row (AMPL's `first(S[a])`), and `first()`/`last()`/`at()`
 stop on a sentence. Every lookup is on a named `Ordered` only, and accepts either
 the columns or one row.
 
 | | |
 |---|---|
-| `ord(cols...)` | `std::optional<std::size_t>`, 0-based, empty if absent |
+| `positionOf(cols...)` | `std::optional<std::size_t>`, 0-based (AMPL's `ord` minus one), empty if absent |
 | `next(cols...)`, `next(cols..., steps)`, `prev(...)` | `const Row*`, `nullptr` past the boundary or for a non-member; negative steps walk backwards |
 | `nextOf(...)`, `prevOf(...)` | `const Row&`, the neighbour itself, which must be there (a domain filtered with `isFirst` / `isLast`); a debug build stops if it is not, a release build does not check |
 | `nextCyclic(...)`, `prevCyclic(...)` | wrap from the end to the start |
 | `first()`, `last()`, `at(pos)` | rows (the whole set only) |
-| `first(cols...)`, `last(cols...)` | under `ordered<A...>()`, the group's first and last row; the group must have one (a debug build stops if not) |
+| `first(cols...)`, `last(cols...)` | under `orderedWithin<A...>()`, the group's first and last row; the group must have one (a debug build stops if not) |
 | `isFirst(cols...)`, `isLast(cols...)`, `contains(cols...)` | tests |
 | `size()`, `empty()`, `members()` | size, the set |
 
@@ -161,7 +161,7 @@ VarTable<Keys...>{semiContinuous, const IloEnv& env, const IndexSet<Keys...>& se
 sumOf(IloEnv env, rows, term)            // rows: IndexSet or RowSlice; term: column callable or a VarTable
 sumOf<Col>(IloEnv env, container, term)  // a plain lvalue container as a one-column set
     .where(p...)                         // only rows where all p hold; chainable
-    .split(p1, ..., pN)                  // at most once; one pass, N sums, term computed once per row
+    .whereEach(p1, ..., pN)                  // at most once; one pass, N sums, term computed once per row
     .build();                            // IloExpr, or std::array<IloExpr, N> after split
 ```
 
@@ -182,7 +182,7 @@ solution(const math_opt::SolveResult&)   // → ValueTable; std::logic_error if 
 
 sumOf(rows, term)                        // no env, no model
 sumOf<Col>(container, term)
-    .where(p...).split(p...).build();    // math_opt::LinearExpression; QuadraticExpression for a quadratic term
+    .where(p...).whereEach(p...).build();    // math_opt::LinearExpression; QuadraticExpression for a quadratic term
                                          // (an array after split)
 ```
 
@@ -218,7 +218,7 @@ HighsStatus maximize(HighsEnv& env, const Objective& objective);
 
 sumOf(rows, term)                        // no env
 sumOf<Col>(container, term)
-    .where(p...).split(p...).build();    // HighsLinearExpression; HighsQuadraticExpression for a quadratic term
+    .where(p...).whereEach(p...).build();    // HighsLinearExpression; HighsQuadraticExpression for a quadratic term
 ```
 
 - `HighsVar`, `HighsCons`: `index()`, `env()`. A term is `HighsLinearTerm` (`3 * x`) or `HighsQuadraticTerm`
@@ -236,7 +236,7 @@ sumOf<Col>(container, term)
 ## Common to all backends
 
 - `vYield(keys...)`, `vYield(row)`: the variable; `std::out_of_range` if the row is not in the set.
-- `contains(keys...)`, `contains(row)`, `size()`, `keys()` (the table's set), `Key` (= `std::tuple<Keys...>`).
+- `contains(keys...)`, `contains(row)`, `size()`, `keys()` (the table's set), `key_type` (= `std::tuple<Keys...>`).
 - Range-for yields `[row, var]` in set order, which is also the column order handed to the model.
 - Built once from the set. There is no `add`/`create` and no default constructor; tables are move-only.
 - One variable per row: a set holds no row twice (see Building sets).
@@ -261,9 +261,9 @@ named callable when an expression defines it (`docs/philosophy.md`).
 
 No solver; the library uses them itself.
 
-- `dreamor::exprName(family, keys...)` (`dreamor/index_set.hpp`): `"<family>_<key0>_<key1>..."`, a row named as
+- `dreamor::indexedName(family, keys...)` (`dreamor/index_set.hpp`): `"<family>_<key0>_<key1>..."`, a row named as
   VarTable names variables - columns by their token, or values - in a buffer of the thread's, no allocation, no
-  format string; valid until the thread's next `exprName`. `NameBuilder<N>` builds such a name part by part
+  format string; valid until the thread's next `indexedName`. `NameBuilder<N>` builds such a name part by part
   (`restart(root)`, `append(length, token)`, `name()`).
 - `dreamor/format_buffer.hpp`: for a name of another shape, `class Model : private dreamor::FormatBuffer<256>`, then
   `model.add(expr <= cap).setName(format("Capacity_{}_{}", m, t));`. A column formats as its name token; `format`

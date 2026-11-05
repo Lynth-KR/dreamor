@@ -43,7 +43,7 @@ inline const std::string& primaryKey(const Machine& m) { return m.name; }     //
 dreamor::EntityVector<Machine> plant;
 const bool inserted = plant.emplace(Machine{"M1", 40.0, 5.0, {}}).second;      // false: M1 was there
 plant.sort().freeze();                                                         // primary-key order; then read only
-const auto sRUN = dreamor::makeSet<cMachine, cPeriod>(plant, periods).collect();
+const auto sRUN = dreamor::makeSet<cMachine, cPeriod>(plant, periods).build();
 const auto lowerSetup = [](Machine& m) { m.setup = 4.0; };
 if (const Machine* found = plant.find("M1")) {
   plant.modify(found, lowerSetup);                                            // the one way to change one
@@ -66,7 +66,7 @@ if (const Machine* found = plant.find("M1")) {
 ## Building sets — makeSet
 
 ```cpp
-const auto sNAME = dreamor::makeSet<Cols...>(sources...).where(predicates...).collect();
+const auto sNAME = dreamor::makeSet<Cols...>(sources...).where(predicates...).build();
 ```
 
 Each column of `makeSet<A, B, C>` corresponds to one source. There are four kinds of source.
@@ -79,10 +79,10 @@ Each column of `makeSet<A, B, C>` corresponds to one source. There are four kind
 | Existing set | `makeSet<cPeriod>(sROUTES, periods)` | Fills all of that set's columns at once. Two sets that share a column are joined on it |
 
 - **AMPL correspondence**
-  - `{m in MACHINES, i in ITEMS[m]}` → `makeSet<cMachine, cItem>(machines, items_of).collect()`
-  - `{(m,i) in ROUTES, t in PERIODS: open[i,t]}` → `makeSet<cPeriod>(sROUTES, periods).where(is_open).collect()`
-  - `{(m,i) in ROUTES, (i,t) in OPEN}` → `makeSet<>(sROUTES, sOPEN).collect()`
-  - `{m in MACHINES, t in 1..T}` → `makeSet<cMachine, cPeriod>(machines, dreamor::interval::closed(1, T)).collect()`
+  - `{m in MACHINES, i in ITEMS[m]}` → `makeSet<cMachine, cItem>(machines, items_of).build()`
+  - `{(m,i) in ROUTES, t in PERIODS: open[i,t]}` → `makeSet<cPeriod>(sROUTES, periods).where(is_open).build()`
+  - `{(m,i) in ROUTES, (i,t) in OPEN}` → `makeSet<>(sROUTES, sOPEN).build()`
+  - `{m in MACHINES, t in 1..T}` → `makeSet<cMachine, cPeriod>(machines, dreamor::interval::closed(1, T)).build()`
 - **Set sources that share a column are joined on it** (a natural join). The one visited second is looked up by the
   shared columns instead of scanned, so the product is never built: the cost is the two sets plus the result. A set
   whose columns all lie in another one filters it, with the same rows as `sROUTES.where(sOPEN.membership())`. A
@@ -118,11 +118,11 @@ const auto fits_batch = [](cMachine m, cItem i) { return 30 * i->time <= m->capa
 const auto sMAKE = dreamor::makeSet<cMachine, cItem, cPeriod>(machines, items, periods)
                        .where(fits_batch)
                        .where(is_open)
-                       .collect();
+                       .build();
 
 // The same rows in two steps: is_open over items x periods alone, then fits_batch over what passed
-const auto sOPEN        = dreamor::makeSet<cItem, cPeriod>(items, periods).where(is_open).collect();
-const auto sMAKE_STAGED = dreamor::makeSet<cMachine>(machines, sOPEN).where(fits_batch).collect();
+const auto sOPEN        = dreamor::makeSet<cItem, cPeriod>(items, periods).where(is_open).build();
+const auto sMAKE_STAGED = dreamor::makeSet<cMachine>(machines, sOPEN).where(fits_batch).build();
 ```
 
 - **The same set.** The rows are the same, and so is the type: a set's columns come in the order of its sources, so
@@ -148,7 +148,7 @@ O(1) and shares the rows.
 | `S.groupBy<A>()` | Grouping (next section) | slices |
 | `S.membership()` | O(1) membership predicate, to put in another set's `where` | `(m,i) in S` |
 | `S.ordered()` | Positions and neighbours in the set's order ([Ordered sets](#ordered-sets--ordered)) | an ordered set |
-| `S.ordered<A>()` | The same within each group of rows that agree on `A` | `next(t, S[a])` |
+| `S.orderedWithin<A>()` | The same within each group of rows that agree on `A` | `next(t, S[a])` |
 
 | Free function | |
 |---|---|
@@ -192,9 +192,10 @@ for (const auto& [item, period, rows] : sPRODUCE.groupBy<cItem, cPeriod>()) { ..
   `producingRows.empty()`, `producingRows[k]`, `producingRows.front()`, `producingRows.back()`, range-for, and
   ranges algorithms all work. Rows are not copied.
 - Iterating a `Grouped` unpacks, for each group, the key's columns followed by that group's rows
-  (`[item, period, rows]`). If you need the key tuple as a whole, bind a single name and use `.key` and `.tuples`.
+  (`[item, period, rows]`). If you need the key tuple as a whole, bind a single name and use `.key` and `.rows`;
+  `at(g)` gives the g-th group the same way.
 - If you only iterate, the `groupBy` result needs no name: range-for keeps the result of the range expression alive
-  until the loop ends. Accesses that borrow a group, such as `slice()`, `at()`, and `keyAt()`, work only on a named
+  until the loop ends. Accesses that borrow a group, such as `slice()` and `at()`, work only on a named
   `Grouped` (on a temporary they are a compile error).
 - Groups come in order of each key's first occurrence; rows within a group keep the original set's order.
 - **Iterating a `Grouped` visits existing keys only.** If the driver set (`sSTOCK`) has keys that this set
@@ -232,7 +233,7 @@ the number they hold - `orderBy(value_of)`, or `orderBy(value_of, dreamor::desce
 
 ```cpp
 const auto orderedPeriods = sPERIODS.ordered();
-orderedPeriods.ord(t);         // ord(t): the 0-based position, or nullopt for a non-member
+orderedPeriods.positionOf(t);  // AMPL's ord(t) - 1: the 0-based position, or nullopt for a non-member
 orderedPeriods.next(t);        // next(t): a pointer to the next row, nullptr after the last
 orderedPeriods.next(t, 2);     // two steps on; negative steps walk back
 orderedPeriods.prevOf(t);      // prev(t) where the domain promises one: the row itself
@@ -247,18 +248,18 @@ two ways: `next`/`prev` return a pointer to the row, or `nullptr` past either en
 not there. A lookup names an element by its columns, in order, or by one row of the set. The lookups hand out
 pointers into the `Ordered`, so they work on a named one only (on a temporary they are a compile error).
 
-### Within groups — ordered<A>()
+### Within groups — orderedWithin<A>()
 
 ```cpp
-const auto periodsOfMachine = sRUN.ordered<cMachine>();
+const auto periodsOfMachine = sRUN.orderedWithin<cMachine>();
 periodsOfMachine.next(m, t);    // next(t, S[m]): the period after t among m's, nullptr after m's last
 periodsOfMachine.isLast(m, t);  // ord(t, S[m]) = card(S[m])
 periodsOfMachine.first(m);      // first(S[m]): the row (m, t) of m's first period; last(m) likewise
 ```
 
-`ordered<A>()` orders within each group of rows that agree on `A` - AMPL's indexed collection of ordered sets,
+`orderedWithin<A>()` orders within each group of rows that agree on `A` - AMPL's indexed collection of ordered sets,
 `S[a]`: a row's neighbours are the rows of its own group, in the set's order, so a walk stops (or, cyclic, wraps) at
-its group's ends, `ord` is the position within the group, and `isFirst`/`isLast` are the group's ends. `first(a)` and
+its group's ends, `positionOf` is the position within the group, and `isFirst`/`isLast` are the group's ends. `first(a)` and
 `last(a)` give a group's first and last row; the group must have one (a debug build stops if not - run over the
 groups the set has, `groupBy`). `first()`, `last()` and `at()`, positions of the whole set, are not there.
 
@@ -286,11 +287,11 @@ for (const auto& [i, t] : sSTOCK.where(not_first)) {  // {(i,t) in STOCK: ord(t)
 | `set S ordered;` (the data's order) | every set: generation order |
 | `ordered by Reals`, `ordered by reversed Reals` | `S.orderBy(value_of)`, `S.orderBy(value_of, dreamor::descending)` |
 | `ordered by T` | none: sort by a key |
-| `ord(t, S)` (from 1) | `orderedPeriods.ord(t)` (from 0) |
+| `ord(t, S)` (from 1) | `orderedPeriods.positionOf(t)` (from 0) |
 | `next(t, S)`, `prev(t, S)`, `next(t, S, 2)` | `next(t)`, `prev(t)`, `next(t, 2)` (a pointer); `nextOf(t)`, `prevOf(t)` (the row) |
 | `nextw(t, S)`, `prevw(t, S)` | `nextCyclic(t)`, `prevCyclic(t)` |
 | `first(S)`, `last(S)`, `member(k, S)` | `first()`, `last()`, `at(k - 1)` |
-| `next(t, S[m])`, `ord(t, S[m])` | `periodsOfMachine.next(m, t)`, `periodsOfMachine.ord(m, t)` |
+| `next(t, S[m])`, `ord(t, S[m])` | `periodsOfMachine.next(m, t)`, `periodsOfMachine.positionOf(m, t)` |
 | `first(S[m])`, `last(S[m])` | `periodsOfMachine.first(m)`, `periodsOfMachine.last(m)` |
 | `{t in S: ord(t) > 1}` | `S.where(not_first)`, with `isFirst` |
 
@@ -310,7 +311,7 @@ const dreamor::concert::VarTable<KeyCols...> vName{env, set, lb, ub, type, "Name
 - Defaults when omitted: `lb = 0`, `ub = IloInfinity`, `ILOFLOAT`, no name.
 - Semi-continuous variables: `dreamor::concert::VarTable<...> vBatch{dreamor::concert::semiContinuous, env, sBATCH, sclb, ub, ILOFLOAT, "Batch"};`
 - Names are `name_key0_key1...` (`Yield_M0_I3_2`). Key tokens come from the `keyName()` hook (or `primaryKey()`).
-  `nullptr` means no name. A row is named the way its variables are with `dreamor::exprName("Cap", m, t)` - the same
+  `nullptr` means no name. A row is named the way its variables are with `dreamor::indexedName("Cap", m, t)` - the same
   tokens, in a buffer of the thread's, with no format string to read; a column under `std::format` (or a
   `FormatBuffer`'s `format`) prints the same token, for a name of another shape.
 - A VarTable takes its set in its constructor, so the set must be built first. When you bundle a model into a struct,
@@ -351,12 +352,12 @@ A VarTable cannot be copied, only moved (a copy would have two names pointing at
 ```cpp
 dreamor::concert::sumOf(env, rows, term).build()                       // IloExpr
 dreamor::concert::sumOf(env, rows, term).where(p, q).build()           // only rows where p AND q
-dreamor::concert::sumOf(env, rows, term).split(p1, p2).build()         // std::array<IloExpr, 2>, several sums in one pass
+dreamor::concert::sumOf(env, rows, term).whereEach(p1, p2).build()         // std::array<IloExpr, 2>, several sums in one pass
 dreamor::concert::sumOf<cMachine>(env, machines, term).build()       // a plain container as a one-column set
 ```
 
 - `rows` is a set or a group (`RowSlice`).
-- `build()` is kept on purpose. Until `build()`, `sumOf(...)` is a builder, so `where()` and `split()` can be chained;
+- `build()` is kept on purpose. Until `build()`, `sumOf(...)` is a builder, so `where()` and `whereEach()` can be chained;
   using it without `build()` in a comparison, an assignment, `+=`, or an objective stops compilation with one
   sentence telling you to add `build()`.
 - A term takes only the columns it reads and returns that row's term. Coefficients are computed from the entities
@@ -369,7 +370,7 @@ dreamor::concert::sumOf<cMachine>(env, machines, term).build()       // a plain 
   dreamor::concert::sumOf(env, producedByItemPeriod.slice(i, t), vYield).build()   // sum {m: (m,i,t) in PRODUCE} Yield[m,i,t]
   ```
   The table picks its key columns out of each row, so the rows may have more columns than the table.
-- `split` computes the term only once per row.
+- `whereEach` computes the term only once per row.
 - AMPL: `sum {(m,i,t) in PRODUCE} setup[m] * Setup[m,i,t]` → `sumOf(env, sPRODUCE, setup_cost)`
 
 In Concert, the lifetime of the `IloExpr` returned by `build()` is the receiver's responsibility (see
@@ -411,12 +412,12 @@ else `primaryKey()`, else the value). Two tools cover it; the other two are for 
 | Tool | Who uses it | What it does |
 |---|---|---|
 | `VarTable` | every model | names its variables itself (`Yield_M1_I3_2`): nothing to call |
-| `dreamor::exprName(family, keys...)` | whatever else needs a name | the same rule for one name - a row, or a variable made outside a set: `model.add(load <= cap).setName(dreamor::exprName("Capacity", m, t))`. A key without one is a literal (`"SetupBudget"`) |
+| `dreamor::indexedName(family, keys...)` | whatever else needs a name | the same rule for one name - a row, or a variable made outside a set: `model.add(load <= cap).setName(dreamor::indexedName("Capacity", m, t))`. A key without one is a literal (`"SetupBudget"`) |
 | `FormatBuffer<N>::format` | rarely | a name of another shape (`x[1,2]`, a number as `{:.2f}`), from a format string; a column prints as its token |
-| `NameBuilder<N>` | more rarely | a name put together part by part - down a tree, say, a level at a time; what `VarTable` and `exprName` are built on |
+| `NameBuilder<N>` | more rarely | a name put together part by part - down a tree, say, a level at a time; what `VarTable` and `indexedName` are built on |
 
-`exprName` and `format` build in a buffer of the thread's and return a pointer valid until the thread's next call:
-hand it straight to `setName`, `AddLinearConstraint` or `addConstr`, which copy it. `exprName` reads no format
+`indexedName` and `format` build in a buffer of the thread's and return a pointer valid until the thread's next call:
+hand it straight to `setName`, `AddLinearConstraint` or `addConstr`, which copy it. `indexedName` reads no format
 string - `std::format` reads one on every call - so a model that names tens of thousands of rows takes a fraction of
 the time.
 

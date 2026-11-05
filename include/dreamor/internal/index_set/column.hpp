@@ -54,7 +54,7 @@ ColumnName(const char (&)[N]) -> ColumnName<N>;  // NOLINT(*-avoid-c-arrays): de
 template <typename T, ColumnName Name>
 class Col {
  public:
-  using Value = T;
+  using value_type = T;
 
   static constexpr std::string_view kName = Name.view();
 
@@ -104,7 +104,7 @@ template <typename T, ColumnName Name>
 // anything with a template operator() constrained on argument COUNT rather than type.
 // Specialize with `using type = std::tuple<cNode, cPeriod>;`.
 template <typename Pred>
-struct PredicateColumns {};
+struct CallableColumns {};
 
 namespace internal::inline index_set {
 
@@ -142,7 +142,7 @@ template <typename Value, typename T>
 // are taken as they are, and an interval's value as the column's integer type.
 template <typename Column, typename Element>
 [[nodiscard]] Column toColumn(Element& element) {
-  using Value = Column::Value;
+  using Value = Column::value_type;
   if constexpr (std::is_pointer_v<Value>) {
     if constexpr (std::is_pointer_v<std::remove_cvref_t<Element>>) {
       return Column{static_cast<Value>(element)};

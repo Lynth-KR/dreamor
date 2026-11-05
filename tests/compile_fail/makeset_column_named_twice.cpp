@@ -6,5 +6,5 @@
 #include "prelude.hpp"
 int main() {
   const auto ij = IJ();
-  (void)dreamor::makeSet<cI>(ij, I).collect();
+  (void)dreamor::makeSet<cI>(ij, I).build();
 }

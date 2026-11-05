@@ -8,5 +8,5 @@ std::vector<std::size_t> next(cI i) {
   return {i.get() + 1};
 }
 int main() {
-  (void)dreamor::makeSet<cI, cJ>(I, next).collect();
+  (void)dreamor::makeSet<cI, cJ>(I, next).build();
 }

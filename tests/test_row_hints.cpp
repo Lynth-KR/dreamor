@@ -57,7 +57,7 @@ T valueOf(std::size_t i) {
 // A column's first n values, as makeSet takes them: an entity column, the entities themselves.
 template <typename C>
 auto valuesOf(std::size_t n, std::size_t shift) {
-  using T = C::Value;
+  using T = C::value_type;
   if constexpr (std::is_same_v<T, const Ent*>) {
     return std::span<const Ent>(kEnts).subspan(shift, n);
   } else {
@@ -75,7 +75,7 @@ auto valuesOf(std::size_t n, std::size_t shift) {
 template <typename... Cols>
 dreamor::IndexSet<Cols...> gridOf(std::size_t n, std::size_t shift) {
   auto values = std::make_tuple(valuesOf<Cols>(n, shift)...);
-  return std::apply([](auto&... v) { return dreamor::makeSet<Cols...>(v...).collect(); }, values);
+  return std::apply([](auto&... v) { return dreamor::makeSet<Cols...>(v...).build(); }, values);
 }
 
 // A few rows whatever the columns: 8 for one column, 2 a column from four on.
@@ -109,7 +109,7 @@ bool sweep(IloEnv env) {
   using Row       = std::tuple<Cols...>;
   const auto rows = rowsOf<Cols...>(0);
   const dreamor::concert::VarTable<Cols...> x{env, rows, 0, 1};
-  const Row absent{Cols{valueOf<typename Cols::Value>(kAbsent)}...};
+  const Row absent{Cols{valueOf<typename Cols::value_type>(kAbsent)}...};
   const auto first        = std::bit_cast<std::uintptr_t>(&*rows.begin());
   const std::size_t bytes = rows.size() * sizeof(Row);
 

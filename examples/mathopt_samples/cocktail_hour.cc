@@ -249,11 +249,11 @@ absl::StatusOr<Menu> SolveForMenu(
   const auto ingredients_of = [](cCocktail c) {
     return std::span<const std::string>(c->ingredients);
   };
-  const auto sINGREDIENTS = dreamor::makeSet<cIngredient>(kIngredients).collect();
-  const auto sCOCKTAILS = dreamor::makeSet<cCocktail>(all_cocktails).collect();
+  const auto sINGREDIENTS = dreamor::makeSet<cIngredient>(kIngredients).build();
+  const auto sCOCKTAILS = dreamor::makeSet<cCocktail>(all_cocktails).build();
   const auto sRECIPE =
       dreamor::makeSet<cCocktail, cIngredient>(all_cocktails, ingredients_of)
-          .collect();
+          .build();
 
   // var Buy {i in INGREDIENTS} integer, >= (if i in EXISTING then 1),
   //                                     <= (if i in UNAVAILABLE then 0 else 1);

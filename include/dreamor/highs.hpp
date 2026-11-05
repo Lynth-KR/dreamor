@@ -67,7 +67,7 @@
 //
 // The rest is the library's and the same as on every backend: bounds as numbers or column
 // callables, names "<name>_<key0>_<key1>...", vYield(row) throwing std::out_of_range for a row
-// outside the set, iteration in the set's order, and sumOf's where() / split(). As on MathOpt,
+// outside the set, iteration in the set's order, and sumOf's where() / whereEach(). As on MathOpt,
 // solution() throws std::logic_error when the model has no primal solution, and sumOf takes no
 // first argument. A HiGHS call that fails throws HighsError, which carries its HighsStatus.
 //
@@ -1318,7 +1318,7 @@ class VarTable : public internal::VarTableCore<HighsVar, Keys...> {
   using Core = internal::VarTableCore<HighsVar, Keys...>;
 
  public:
-  using Key = Core::Key;
+  using key_type = Core::key_type;
   // Lookup, contains(), size(), keys(), iteration and the constructor that stops on a set with
   // other key columns are the core's, as on Concert. Copy is deleted (a HighsVar names a column
   // of the model: a copy would alias it under two names) and move is fine; the columns belong
@@ -1337,10 +1337,10 @@ class VarTable : public internal::VarTableCore<HighsVar, Keys...> {
            HighsVarType type = HighsVarType::kContinuous,
            const char* name  = nullptr)
       : Core{set} {
-    internal::checkBound<Lb, Key>();
-    internal::checkBound<Ub, Key>();
-    const internal::Rows<Key>& rows = this->rows();
-    const std::size_t count         = rows.size();
+    internal::checkBound<Lb, key_type>();
+    internal::checkBound<Ub, key_type>();
+    const internal::Rows<key_type>& rows = this->rows();
+    const std::size_t count              = rows.size();
     if (count == 0) { return; }
     const auto bounds = [&](std::span<double> lower, std::span<double> upper) {
       for (std::size_t i = 0; i < count; ++i) {
@@ -1447,7 +1447,7 @@ HighsStatus maximize(HighsEnv& env, const Objective& objective) {
 }
 
 // sum {t in rows} term(t) as a HighsLinearExpression, or a HighsQuadraticExpression when the
-// term is quadratic (x * x, (x - 1) * (x - 1)); see concert.hpp for where(), split() and the
+// term is quadratic (x * x, (x - 1) * (x - 1)); see concert.hpp for where(), whereEach() and the
 // rules on rows and callables, which are the same here.
 template <typename... Columns, std::ranges::input_range Rows, typename Term>
 [[nodiscard]] auto sumOf(Rows&& rows, Term&& term) {

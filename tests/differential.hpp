@@ -110,12 +110,12 @@ template <typename T>
 }
 template <typename Column>
 [[nodiscard]] Column columnAt(std::size_t i) {
-  using Value = Column::Value;
+  using Value = Column::value_type;
   return Column{valueAt<Value>(i)};
 }
 template <typename Column>
 [[nodiscard]] std::size_t indexOf(const Column& column) {
-  using Value       = Column::Value;
+  using Value       = Column::value_type;
   const Value value = column.get();
   if constexpr (std::is_integral_v<Value>) {
     return static_cast<std::size_t>(value);
@@ -127,7 +127,7 @@ template <typename Column>
 }
 template <typename Column>
 [[nodiscard]] auto valuesOf(const std::vector<std::size_t>& indices) {
-  using Value = Column::Value;
+  using Value = Column::value_type;
   std::vector<Value> out;
   out.reserve(indices.size());
   for (const std::size_t i : indices) {
@@ -252,7 +252,7 @@ struct Differential {
   using B      = Layout::B;
   using C      = Layout::C;
   using D      = Layout::D;
-  using CValue = C::Value;
+  using CValue = C::value_type;
 
   template <typename Tup>
   [[nodiscard]] static Row plain(const Tup& row) {
@@ -284,7 +284,7 @@ struct Differential {
     const auto cs  = [&cs_of](A a) { return std::span<const CValue>(cs_of[indexOf(a)]); };
     const auto ac  = [&d](A a, C c) { return d.ac.keeps(indexOf(a), indexOf(c)); };
     const auto bok = [&d](B b) { return d.b_only.keeps(indexOf(b), 0); };
-    return dreamor::makeSet<A, B, C>(as, bs, cs).where(ac).where(bok).collect();
+    return dreamor::makeSet<A, B, C>(as, bs, cs).where(ac).where(bok).build();
   }
 
   static void check(std::mt19937& g, IloEnv env) {
@@ -358,7 +358,7 @@ struct Differential {
     const auto u_d_values               = valuesOf<D>(u_ds);
     const auto U                        = dreamor::makeSet<C, D>(u_c_values, u_d_values)
                                               .where([&cd](C c, D dv) { return cd.keeps(indexOf(c), indexOf(dv)); })
-                                              .collect();
+                                              .build();
     const auto keep_ad                  = [&ad](A a, D dv) { return ad.keeps(indexOf(a), indexOf(dv)); };
     std::vector<JoinRow> join_reference;
     for (const Row& r : s) {
@@ -377,9 +377,9 @@ struct Differential {
       return out;
     };
     std::ranges::sort(join_reference);
-    const auto SU = dreamor::makeSet<>(S, U).where(keep_ad).collect();
+    const auto SU = dreamor::makeSet<>(S, U).where(keep_ad).build();
     DREAMOR_CHECK(joinRows(SU) == join_reference);
-    DREAMOR_CHECK(joinRows(dreamor::makeSet<>(U, S).where(keep_ad).collect()) == join_reference);
+    DREAMOR_CHECK(joinRows(dreamor::makeSet<>(U, S).where(keep_ad).build()) == join_reference);
 
     // membership() over every possible row.
     const auto inS = S.membership();
@@ -401,14 +401,14 @@ struct Differential {
     const auto byA = S.template groupBy<A>();
     DREAMOR_CHECK(byA.size() == key_order.size());
     for (std::size_t i = 0; i < std::min(byA.size(), key_order.size()); ++i) {
-      DREAMOR_CHECK(indexOf(std::get<A>(byA.keyAt(i))) == key_order[i]);
-      DREAMOR_CHECK(rowsOf(byA.at(i)) == groups[key_order[i]]);
+      DREAMOR_CHECK(indexOf(std::get<A>(byA.at(i).key)) == key_order[i]);
+      DREAMOR_CHECK(rowsOf(byA.at(i).rows) == groups[key_order[i]]);
     }
     for (std::size_t a = 0; a < kValues; ++a) {
       const auto expected = groups.contains(a) ? groups[a] : std::vector<Row>{};
       DREAMOR_CHECK(rowsOf(byA.slice(columnAt<A>(a))) == expected);
       DREAMOR_CHECK(byA.contains(columnAt<A>(a)) == groups.contains(a) &&
-                    byA.sliceSize(columnAt<A>(a)) == expected.size());
+                    byA.slice(columnAt<A>(a)).size() == expected.size());
     }
     std::map<std::pair<std::size_t, std::size_t>, std::vector<Row>> by_bc;
     for (const Row& r : s) {
@@ -464,7 +464,7 @@ struct Differential {
     DREAMOR_CHECK(rowsOf(S.orderBy(key_of, dreamor::ascending)) == up);
     DREAMOR_CHECK(rowsOf(S.orderBy(key_of, dreamor::descending)) == down);
 
-    // sumOf: one term per row, narrowed by where(), one sum per split() predicate - a row may land
+    // sumOf: one term per row, narrowed by where(), one sum per whereEach() predicate - a row may land
     // in both.
     const dreamor::concert::VarTable<A, B, C> x{env, S, 0, 1, ILOFLOAT, "x"};
     const Rule keep       = randomRule(g);
@@ -484,8 +484,8 @@ struct Differential {
     all.end();
     auto split = dreamor::concert::sumOf(env, S, x)
                      .where([&keep](A a, B b) { return keep.keeps(indexOf(a), indexOf(b)); })
-                     .split([&first](B b, C c) { return first.keeps(indexOf(b), indexOf(c)); },
-                            [&second](A a, C c) { return second.keeps(indexOf(a), indexOf(c)); })
+                     .whereEach([&first](B b, C c) { return first.keeps(indexOf(b), indexOf(c)); },
+                                [&second](A a, C c) { return second.keeps(indexOf(a), indexOf(c)); })
                      .build();
     DREAMOR_CHECK(terms(split[0]) == in_first && terms(split[1]) == in_second && in_first <= kept);
     for (auto& sum : split) {

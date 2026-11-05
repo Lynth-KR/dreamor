@@ -201,5 +201,5 @@ int main() {
                               I,
                               I,
                               I)
-      .collect();
+      .build();
 }

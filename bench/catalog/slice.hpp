@@ -182,7 +182,7 @@ struct Dreamor<std::index_sequence<J...>> {
         rows.emplace_back(cK<I>{key[P]}...);
       }
     }(std::make_index_sequence<sizeof...(I)>{});
-    const auto sDriver = dreamor::makeSet<>(rows).collect();
+    const auto sDriver = dreamor::makeSet<>(rows).build();
     const auto check   = [](const Row& key) {
       return keyOf(std::array<std::uint32_t, kMaxColumns>{std::get<cK<I>>(key)->serial...}, sizeof...(I));
     };
@@ -202,7 +202,7 @@ struct Dreamor<std::index_sequence<J...>> {
     r.measure("split", [&] {
       std::uint64_t sum = 0;
       for (const auto& key : sDriver) {
-        auto parts            = dreamor::concert::sumOf(env, groups->slice(key), vX).split(Even{}, Odd{}).build();
+        auto parts            = dreamor::concert::sumOf(env, groups->slice(key), vX).whereEach(Even{}, Odd{}).build();
         const std::uint64_t h = check(key);
         sum += consume(parts[0], h) + consume(parts[1], ~h);
       }

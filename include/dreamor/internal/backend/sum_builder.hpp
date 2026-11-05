@@ -11,7 +11,7 @@
 //    3.   Constants: kPascal Case (i.e., kMyConstant)
 //    4.   Macros: Screaming Snake Case (i.e., MY_MACRO)
 //
-// The backend-free part of sumOf: the traversal, where() / split(), and the compile-time
+// The backend-free part of sumOf: the traversal, where() / whereEach(), and the compile-time
 // checks on rows and callables. A backend's sumOf only says how to make an empty
 // expression - see concert.hpp, which also carries the user-facing description.
 #pragma once
@@ -67,7 +67,7 @@ template <typename Rows, typename Term, typename Row>
 [[nodiscard]] consteval bool byPosition() {
   if constexpr (IsRowSlice<std::remove_cvref_t<Rows>>::value) {
     using Held = HeldTerm<Term>::type;
-    if constexpr (TakesRowNumber<Held>::value) { return std::is_same_v<typename Held::Key, Row>; }
+    if constexpr (TakesRowNumber<Held>::value) { return std::is_same_v<typename Held::key_type, Row>; }
   }
   return false;
 }
@@ -86,7 +86,7 @@ template <typename Term>
 
 // A held reference names the same columns as what it refers to, and takes what it takes.
 template <typename T>
-struct dreamor::PredicateColumns<dreamor::internal::TermRef<T>> : dreamor::PredicateColumns<T> {};
+struct dreamor::CallableColumns<dreamor::internal::TermRef<T>> : dreamor::CallableColumns<T> {};
 template <typename T>
 struct dreamor::internal::TakesWholeRow<dreamor::internal::TermRef<T>> : dreamor::internal::TakesWholeRow<T> {};
 
@@ -109,7 +109,7 @@ template <typename Column, typename Rows>
          std::views::transform([](auto&& element) { return std::tuple{toColumn<Column>(element)}; });
 }
 
-// sumOf()'s result before build(): rows, a term, and the where() / split() so far. It is not
+// sumOf()'s result before build(): rows, a term, and the where() / whereEach() so far. It is not
 // an expression yet, on purpose - so the chain can go on - and its name says what is missing
 // wherever a compiler prints it: "conversion from UnbuiltSum<...> to IloExpr".
 //
@@ -134,153 +134,153 @@ class UnbuiltSum {
   friend auto operator<=(const UnbuiltSum& /*sum*/, const Other& /*other*/) {
     static_assert(
         always_false<Other>,
-        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and split() can still be chained.");
+        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and whereEach() can still be chained.");
     return false;
   }
   template <typename Other>
   friend auto operator<=(const Other& /*other*/, const UnbuiltSum& /*sum*/) {
     static_assert(
         always_false<Other>,
-        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and split() can still be chained.");
+        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and whereEach() can still be chained.");
     return false;
   }
   template <typename Other>
   friend auto operator>=(const UnbuiltSum& /*sum*/, const Other& /*other*/) {
     static_assert(
         always_false<Other>,
-        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and split() can still be chained.");
+        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and whereEach() can still be chained.");
     return false;
   }
   template <typename Other>
   friend auto operator>=(const Other& /*other*/, const UnbuiltSum& /*sum*/) {
     static_assert(
         always_false<Other>,
-        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and split() can still be chained.");
+        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and whereEach() can still be chained.");
     return false;
   }
   template <typename Other>
   friend auto operator==(const UnbuiltSum& /*sum*/, const Other& /*other*/) {
     static_assert(
         always_false<Other>,
-        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and split() can still be chained.");
+        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and whereEach() can still be chained.");
     return false;
   }
   template <typename Other>
   friend auto operator==(const Other& /*other*/, const UnbuiltSum& /*sum*/) {
     static_assert(
         always_false<Other>,
-        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and split() can still be chained.");
+        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and whereEach() can still be chained.");
     return false;
   }
   template <typename Other>
   friend auto operator<(const UnbuiltSum& /*sum*/, const Other& /*other*/) {
     static_assert(
         always_false<Other>,
-        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and split() can still be chained.");
+        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and whereEach() can still be chained.");
     return false;
   }
   template <typename Other>
   friend auto operator<(const Other& /*other*/, const UnbuiltSum& /*sum*/) {
     static_assert(
         always_false<Other>,
-        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and split() can still be chained.");
+        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and whereEach() can still be chained.");
     return false;
   }
   template <typename Other>
   friend auto operator>(const UnbuiltSum& /*sum*/, const Other& /*other*/) {
     static_assert(
         always_false<Other>,
-        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and split() can still be chained.");
+        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and whereEach() can still be chained.");
     return false;
   }
   template <typename Other>
   friend auto operator>(const Other& /*other*/, const UnbuiltSum& /*sum*/) {
     static_assert(
         always_false<Other>,
-        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and split() can still be chained.");
+        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and whereEach() can still be chained.");
     return false;
   }
   template <typename Other>
   friend auto operator+(const UnbuiltSum& /*sum*/, const Other& /*other*/) {
     static_assert(
         always_false<Other>,
-        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and split() can still be chained.");
+        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and whereEach() can still be chained.");
     return 0;
   }
   template <typename Other>
   friend auto operator+(const Other& /*other*/, const UnbuiltSum& /*sum*/) {
     static_assert(
         always_false<Other>,
-        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and split() can still be chained.");
+        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and whereEach() can still be chained.");
     return 0;
   }
   template <typename Other>
   friend auto operator-(const UnbuiltSum& /*sum*/, const Other& /*other*/) {
     static_assert(
         always_false<Other>,
-        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and split() can still be chained.");
+        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and whereEach() can still be chained.");
     return 0;
   }
   template <typename Other>
   friend auto operator-(const Other& /*other*/, const UnbuiltSum& /*sum*/) {
     static_assert(
         always_false<Other>,
-        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and split() can still be chained.");
+        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and whereEach() can still be chained.");
     return 0;
   }
   template <typename Other>
   friend auto operator*(const UnbuiltSum& /*sum*/, const Other& /*other*/) {
     static_assert(
         always_false<Other>,
-        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and split() can still be chained.");
+        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and whereEach() can still be chained.");
     return 0;
   }
   template <typename Other>
   friend auto operator*(const Other& /*other*/, const UnbuiltSum& /*sum*/) {
     static_assert(
         always_false<Other>,
-        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and split() can still be chained.");
+        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and whereEach() can still be chained.");
     return 0;
   }
   template <typename Other>
   friend auto operator/(const UnbuiltSum& /*sum*/, const Other& /*other*/) {
     static_assert(
         always_false<Other>,
-        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and split() can still be chained.");
+        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and whereEach() can still be chained.");
     return 0;
   }
   template <typename Other>
   friend auto operator/(const Other& /*other*/, const UnbuiltSum& /*sum*/) {
     static_assert(
         always_false<Other>,
-        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and split() can still be chained.");
+        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and whereEach() can still be chained.");
     return 0;
   }
   template <typename Other>
   friend auto operator+=(Other& other, const UnbuiltSum& /*sum*/) {
     static_assert(
         always_false<Other>,
-        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and split() can still be chained.");
+        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and whereEach() can still be chained.");
     return other;
   }
   template <typename Other>
   friend auto operator-=(Other& other, const UnbuiltSum& /*sum*/) {
     static_assert(
         always_false<Other>,
-        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and split() can still be chained.");
+        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and whereEach() can still be chained.");
     return other;
   }
   template <typename Self = UnbuiltSum>
   friend auto operator-(const UnbuiltSum& /*sum*/) {
     static_assert(
         always_false<Self>,
-        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and split() can still be chained.");
+        "sumOf(...) is not an expression yet: add .build() - sumOf(env, rows, term).build() <= 1. It stays open until then so that where() and whereEach() can still be chained.");
     return 0;
   }
 
   using Row = std::remove_cvref_t<std::ranges::range_value_t<Rows>>;
 
-  // Built by sumOf() and rebuilt by where()/split(); not meant to be spelled out at call
+  // Built by sumOf() and rebuilt by where()/whereEach(); not meant to be spelled out at call
   // sites.
   UnbuiltSum(MakeZero zero, Rows rows, Term term, Filters filters, Splits splits)
       : zero_{std::move(zero)},
@@ -303,10 +303,10 @@ class UnbuiltSum {
   // result is an array in this order; term() still runs at most once per row.
   template <typename... Ps>
     requires(sizeof...(Ps) > 0)
-  [[nodiscard]] auto split(Ps... preds) const {
+  [[nodiscard]] auto whereEach(Ps... preds) const {
     (checkColumnCallable<Ps, Row>(), ...);
     static_assert(std::tuple_size_v<Splits> == 0,
-                  "split() once: pass every predicate together, `split(p1, p2, p3)`. They "
+                  "whereEach() once: pass every predicate together, `whereEach(p1, p2, p3)`. They "
                   "are alternatives sharing one traversal, not a chain that narrows.");
     auto next = std::tuple_cat(splits_, std::make_tuple(std::move(preds)...));
     return UnbuiltSum<Rows, Term, MakeZero, Filters, decltype(next)>{zero_, rows_, term_, filters_, std::move(next)};
@@ -439,8 +439,8 @@ template <typename... Columns, typename MakeZero, std::ranges::input_range Rows,
     return makeSum(std::move(zero), namedAsOneColumn<Columns...>(std::forward<Rows>(rows)), std::forward<Term>(term));
   } else {
     static_assert(IsTuple<Element>::value,
-                  "sumOf takes an index set: a range of column tuples, as makeSet(...)."
-                  "collect() returns. To sum over a plain container, name its column: "
+                  "sumOf takes an index set: a range of rows of columns, as makeSet(...)."
+                  "build() returns. To sum over a plain container, name its column: "
                   "sumOf<cMachine>(env, machines, cost).");
     if constexpr (IsTuple<Element>::value) {
       static_assert(allElementsAreColumns<Element>(std::make_index_sequence<std::tuple_size_v<Element>>{}),
@@ -453,7 +453,7 @@ template <typename... Columns, typename MakeZero, std::ranges::input_range Rows,
     auto view = std::views::all(std::forward<Rows>(rows));
     static_assert(std::copy_constructible<decltype(view)>,
                   "Bind the set to a variable first - `const auto sASSIGN = makeSet<cMachine, "
-                  "cItem>(machines, items).collect();` - then sumOf(env, sASSIGN, term). A "
+                  "cItem>(machines, items).build();` - then sumOf(env, sASSIGN, term). A "
                   "temporary container is held by an owning view, which cannot be copied.");
     return UnbuiltSum<decltype(view), Held, MakeZero>{
         std::move(zero),

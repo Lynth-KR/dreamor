@@ -7,7 +7,7 @@
 
 int main() try {
   const std::vector<std::size_t> values{1, 2, 3};
-  const auto sI       = dreamor::makeSet<cI>(values).collect();
+  const auto sI       = dreamor::makeSet<cI>(values).build();
   const auto orderedI = sI.ordered();
   return static_cast<int>(std::get<cI>(orderedI.prevOf(cI{1})).get());  // 1 is the first: nothing comes before it
 } catch (...) {

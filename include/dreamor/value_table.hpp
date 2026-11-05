@@ -49,15 +49,15 @@ struct ValueTableAccess;  // internal/backend/var_table_core.hpp
 template <typename... Keys>
 class ValueTable {
  public:
-  using Key = std::tuple<Keys...>;
+  using key_type = std::tuple<Keys...>;
 
   // Each row's value is `value`: a number, or a callable over the row's columns, as a VarTable's
   // bounds are. The set's row index is shared with every table built on it.
   template <typename Value>
   ValueTable(const IndexSet<Keys...>& keys, const Value& value) : keys_{keys}, index_{internal::sharedRowIndex(keys_)} {
-    internal::checkBound<Value, Key>();
+    internal::checkBound<Value, key_type>();
     values_.reserve(rows().size());
-    for (const Key& row : rows()) {
+    for (const key_type& row : rows()) {
       values_.push_back(internal::boundOf(value, row));
     }
   }
@@ -77,10 +77,10 @@ class ValueTable {
   // the key: a missing value read as 0 would pass silently for a variable at 0.
   template <typename... Args>
   [[nodiscard]] double operator()(const Args&... key) const {
-    if constexpr (internal::checkTableKey<Key, Args...>()) {
+    if constexpr (internal::checkTableKey<key_type, Args...>()) {
       const std::size_t at = index_->find(rows(), key...);
-      if (at == internal::RowIndex<Key>::kNotFound) {
-        throw std::out_of_range("ValueTable: this tuple is not in the table's set.");
+      if (at == internal::RowIndex<key_type>::kNotFound) {
+        throw std::out_of_range("ValueTable: this row is not in the table's set.");
       }
       return values_[at];
     } else {
@@ -89,30 +89,32 @@ class ValueTable {
   }
   template <typename... Args>
   [[nodiscard]] bool contains(const Args&... key) const {
-    if constexpr (internal::checkTableKey<Key, Args...>()) {
-      return index_->find(rows(), key...) != internal::RowIndex<Key>::kNotFound;
+    if constexpr (internal::checkTableKey<key_type, Args...>()) {
+      return index_->find(rows(), key...) != internal::RowIndex<key_type>::kNotFound;
     } else {
       return false;
     }
   }
   [[nodiscard]] std::size_t size() const noexcept { return values_.size(); }
   [[nodiscard]] const IndexSet<Keys...>& keys() const noexcept { return keys_; }
-  [[nodiscard]] internal::RowPairIterator<Key, const double*> begin() const noexcept {
+  [[nodiscard]] internal::RowPairIterator<key_type, const double*> begin() const noexcept {
     return {rows().data(), values_.data()};
   }
-  [[nodiscard]] internal::RowPairIterator<Key, const double*> end() const noexcept {
+  [[nodiscard]] internal::RowPairIterator<key_type, const double*> end() const noexcept {
     return {rows().data() + rows().size(), values_.data() + values_.size()};
   }
 
  private:
   friend struct internal::ValueTableAccess;
-  ValueTable(IndexSet<Keys...> keys, std::shared_ptr<const internal::RowIndex<Key>> index, std::vector<double> values)
+  ValueTable(IndexSet<Keys...> keys,
+             std::shared_ptr<const internal::RowIndex<key_type>> index,
+             std::vector<double> values)
       : keys_{std::move(keys)}, index_{std::move(index)}, values_{std::move(values)} {}
 
-  [[nodiscard]] const internal::Rows<Key>& rows() const noexcept { return internal::SetAccess::rows(keys_); }
+  [[nodiscard]] const internal::Rows<key_type>& rows() const noexcept { return internal::SetAccess::rows(keys_); }
 
   IndexSet<Keys...> keys_;
-  std::shared_ptr<const internal::RowIndex<Key>> index_;
+  std::shared_ptr<const internal::RowIndex<key_type>> index_;
   std::vector<double> values_;
 };
 
@@ -123,7 +125,7 @@ class ValueTable {
 // hours, ...} bounds each Run[m,t] by hours[m,t]. Given a row of its own set, it finds the value
 // by the row's address, as a VarTable finds a variable.
 template <typename... Keys>
-struct dreamor::PredicateColumns<dreamor::ValueTable<Keys...>> {
+struct dreamor::CallableColumns<dreamor::ValueTable<Keys...>> {
   using type = std::tuple<Keys...>;
 };
 template <typename... Keys>

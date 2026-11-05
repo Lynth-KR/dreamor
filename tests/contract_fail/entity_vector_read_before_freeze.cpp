@@ -8,7 +8,7 @@
 int main() try {
   dreamor::EntityVector<Entity> entities;
   entities.emplace(Entity{1});
-  const auto sE = dreamor::makeSet<cE>(entities).collect();  // freeze() forgotten
+  const auto sE = dreamor::makeSet<cE>(entities).build();  // freeze() forgotten
   return static_cast<int>(sE.size());
 } catch (...) {
   return 1;  // no message: the runner reports it

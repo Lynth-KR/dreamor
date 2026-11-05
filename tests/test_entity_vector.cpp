@@ -117,7 +117,7 @@ int main() try {
   two.emplace("B", 2.0);
   two.freeze();
   const std::vector<std::size_t> periods{1, 2, 3};
-  const auto sRUN = dreamor::makeSet<cMachine, cPeriod>(two, periods).collect();
+  const auto sRUN = dreamor::makeSet<cMachine, cPeriod>(two, periods).build();
   DREAMOR_CHECK(sRUN.size() == 6 && std::get<cMachine>(*sRUN.begin()).get() == &two.front());
   IloEnv env;
   const dreamor::concert::VarTable<cMachine, cPeriod> vRun{env, sRUN, 0, 1, ILOFLOAT, "run"};
@@ -131,8 +131,8 @@ int main() try {
     many.emplace("M" + std::to_string(i), static_cast<double>(i));
   }
   many.freeze();
-  const auto sALL  = dreamor::makeSet<cMachine>(many).collect();
-  const auto sSOME = dreamor::makeSet<cMachine>(many).where([](cMachine m) { return m->code != "M50"; }).collect();
+  const auto sALL  = dreamor::makeSet<cMachine>(many).build();
+  const auto sSOME = dreamor::makeSet<cMachine>(many).where([](cMachine m) { return m->code != "M50"; }).build();
   const dreamor::ValueTable<cMachine> capAll{sALL, [](cMachine m) { return m->capacity; }};
   const dreamor::ValueTable<cMachine> capSome{sSOME, [](cMachine m) { return m->capacity; }};
   bool byAddress = true;

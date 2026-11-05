@@ -13,19 +13,20 @@ last column.
 | `without braces` | `slice({i, t})` | `slice(i, t)` | `grouped_slice_braced` |
 | `Slice by this groupBy's key columns` | `slice(2, 1)`, or a column that is not a group key | Pass the `groupBy` key columns in order | `grouped_slice_raw_values`, `grouped_slice_wrong_key` |
 | `Name the Grouped first` | `S.groupBy<C>().slice(c)` | `const auto byC = S.groupBy<C>();` then `byC.slice(c)` | `grouped_slice_needs_a_name` |
-| `take a group's position, 0 to size() - 1, not a column` | `byI.at(i)` or `byI.keyAt(i)` with a column: it would convert to its value and be read as a position | `byI.slice(i)` for a key's group; `at(g)` with `g` from `0` to `size() - 1` | `grouped_at_takes_a_position` |
-| `ordered<Columns...>() orders within each group` | `S.ordered<A>().first()`, `at()`, `last()` | `first(a)`, `last(a)` for a group's ends, `ord()`, `isFirst()`, `isLast()` within a group, or `S.ordered()` for the whole set | `ordered_within_has_no_first` |
-| `first(m) and last(m) name a group's ends` | `S.ordered().first(a)` | `first()` over the whole set, or `S.ordered<A>().first(a)` | `ordered_whole_set_first_takes_no_group` |
-| `Name the group by the columns ordered<Columns...>() groups by` | `orderedT.first(1)`, or a column that is not a group key | Pass the group's columns in order (`cMachine{1}`) | `ordered_first_raw_value` |
+| `at() takes a group's position, 0 to size() - 1, not a column` | `byI.at(i)` with a column: it would convert to its value and be read as a position | `byI.slice(i)` for a key's group; `at(g)` with `g` from `0` to `size() - 1` | `grouped_at_takes_a_position` |
+| `orderedWithin<Columns...>() orders within each group` | `S.orderedWithin<A>().first()`, `at()`, `last()` | `first(a)`, `last(a)` for a group's ends, `positionOf()`, `isFirst()`, `isLast()` within a group, or `S.ordered()` for the whole set | `ordered_within_has_no_first` |
+| `first(m) and last(m) name a group's ends` | `S.ordered().first(a)` | `first()` over the whole set, or `S.orderedWithin<A>().first(a)` | `ordered_whole_set_first_takes_no_group` |
+| `Name the group by the columns orderedWithin<Columns...>() groups by` | `orderedT.first(1)`, or a column that is not a group key | Pass the group's columns in order (`cMachine{1}`) | `ordered_first_raw_value` |
 | `the direction is dreamor::ascending or dreamor::descending` | `S.orderBy(key, true)` | `S.orderBy(key, dreamor::descending)` | `orderby_direction_is_a_tag` |
 | `Name the Ordered first` | `S.ordered().prev(t)` | `const auto orderedT = S.ordered();` then `orderedT.prev(t)` | `ordered_needs_a_name` |
-| `at() takes a position, 0 to size() - 1, not a column` | `orderedPeriods.at(t)` with a column: it would be read as a position | `orderedPeriods.ord(t)` for its position; `at(n)` with a number | `ordered_at_takes_a_position` |
+| `at() takes a position, 0 to size() - 1, not a column` | `orderedPeriods.at(t)` with a column: it would be read as a position | `orderedPeriods.positionOf(t)` for its position; `at(n)` with a number | `ordered_at_takes_a_position` |
+| `ordered() takes no columns` | `S.ordered<cMachine>()`, positions within groups | `S.orderedWithin<cMachine>()` | `ordered_takes_no_columns` |
 | `Name an element of the ordered set` | `orderedT.prev(1)` | `orderedT.prev(cPeriod{1})` | `ordered_prev_raw_value` |
 | `Ask membership` | `in_ij(1, 2)` | Pass columns or a row | `membership_raw_values` |
 | `EntityVector<T> holds each entity once by its primary key` | `EntityVector<T>` for a `T` with no `primaryKey(const T&)` | Define `primaryKey(const T&)` next to `T`, returning its id, code, or a `std::tuple` of them | `entity_vector_needs_primary_key` |
 | `Take the columns themselves` | A callable takes `int` / `const T*` instead of the column type | Make the parameter the column type | `where_takes_columns`, `bound_takes_columns`, `sumof_term_takes_values` |
-| `Cannot read this callable's parameter list` | A generic lambda as a sum term, a bound, a `select(expr)` or an `orderBy` key | Column-typed parameters | `sumof_term_is_generic`, `bound_is_not_generic`, `select_is_not_generic`, `orderby_key_is_generic` |
-| `Cannot read this predicate's parameter list` | A generic lambda as a predicate | Column-typed parameters, or specialize `dreamor::PredicateColumns` | `where_is_not_generic` |
+| `Cannot read this callable's parameter list` | A generic lambda as a sum term, a bound, a `select(expr)` or an `orderBy` key | Column-typed parameters | `sumof_term_is_generic`, `bound_is_not_generic`, `select_is_not_generic`, `positionOferby_key_is_generic` |
+| `Cannot read this predicate's parameter list` | A generic lambda as a predicate | Column-typed parameters, or specialize `dreamor::CallableColumns` | `where_is_not_generic` |
 | `names a column these rows do not have` | A term or bound reads a column absent from the rows | Read only existing columns, or derive a set that has them | `sumof_term_reads_missing_column`, `vartable_bound_reads_missing_column` |
 | `names a column this set does not have` | A `where` predicate reads a column absent from the set | Same | `where_reads_missing_column` |
 | `select(expr) returns the new row's columns` | `expr` returns bare values (`std::tuple{j.get(), i.get()}`), or an empty tuple | Return one `Col` or a `std::tuple` of them: `std::tuple<cFrom, cTo>{j, i}` | `select_returns_values` |
@@ -47,7 +48,7 @@ last column.
 | `HiGHS takes quadratic terms only in the objective` | A quadratic expression in a row (`x * x <= 1`, a quadratic sum compared) | Put the square in `setObjective()`/`minimize()`, or bound an epigraph variable with linear rows | `highs/quadratic_row`, `highs/quadratic_sum_row` |
 | `addConstr takes a row` | `addConstr(env, x + y)`: an expression with no bounds | `addConstr(env, x + y <= 1)`, or `addConstr(env, (0 <= x - y) <= 5)` | `highs/constr_without_bounds` |
 | `An objective is an expression, not a row` | `setObjective(env, x + y <= 1)` | `setObjective(env, x + y)` | `highs/objective_row` |
-| `split() once` | `.split(...).split(...)` | One `split` with every predicate | `sumof_split_twice` |
+| `whereEach() once` | `.whereEach(...).whereEach(...)` | One `whereEach` with every predicate | `sumof_where_each_twice` |
 | `sumOf takes an index set` | `sumOf(env, plainVector, term)` | `sumOf<Col>(env, plainVector, term)`, or build a set | `sumof_container_needs_column` |
 | `Bind the set to a variable first` | `sumOf<Col>(env, std::vector<int>{...}, term)` | Store the container in a named variable | `sumof_container_is_temporary` |
 | `A container source must be a named variable` | `makeSet<C>(std::vector<...>{...})`: a temporary container as a source | Store the container in a named variable that outlives the set; a range of numbers is `interval::closed(first, last)` | `makeset_container_is_temporary` |
@@ -70,11 +71,11 @@ Also rejected, with no pinned message:
 
 | Exception | When |
 |---|---|
-| `std::out_of_range` | `VarTable` or `ValueTable` lookup of a row not in the set (all backends); `Grouped::at`/`keyAt` and `Ordered::at` past the end |
-| `std::runtime_error` | a name longer than its buffer: `exprName` past 255 chars, `NameBuilder` / `FormatBuffer` past `N - 1` under `OnFormatOverflow::kThrow` |
+| `std::out_of_range` | `VarTable` or `ValueTable` lookup of a row not in the set (all backends); `Grouped::at` and `Ordered::at` past the end |
+| `std::runtime_error` | a name longer than its buffer: `indexedName` past 255 chars, `NameBuilder` / `FormatBuffer` past `N - 1` under `OnFormatOverflow::kThrow` |
 | `std::logic_error` | `dreamor::mathopt::VarTable::solution` with no primal feasible solution; `dreamor::highs::VarTable::solution` with no primal solution |
 | `dreamor::highs::HighsError` | a HiGHS call that fails, with `call()` and `status()`; a model HiGHS refuses throws from the first `env.highs()` (`"passModel"`) |
-| `std::length_error` | more than 2^32 − 2 rows in a `VarTable`, a `groupBy`, or anything else that hashes rows (`select`, `unite`, `intersect`, `difference`, `membership`, `ordered`, a join in `makeSet`) |
+| `std::length_error` | more than 2^32 − 2 rows in a `VarTable`, a `groupBy`, or anything else that hashes rows (`select`, `unite`, `intersect`, `difference`, `membership`, `positionOfered`, a join in `makeSet`) |
 
 ## Broken contracts (debug builds)
 
@@ -100,4 +101,4 @@ A broken precondition is undefined behavior. A debug build (no `NDEBUG`) checks 
 Absences that do not throw:
 - `Grouped::slice` of a missing key returns an empty `RowSlice`, whose sum is 0.
 - `Ordered::next/prev/nextCyclic/prevCyclic` return `nullptr`.
-- `Ordered::ord` returns an empty `std::optional`.
+- `Ordered::positionOf` returns an empty `std::optional`.

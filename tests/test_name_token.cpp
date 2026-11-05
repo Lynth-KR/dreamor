@@ -96,26 +96,26 @@ int main() try {
   // a column declared before its entity was complete names it by the keyName defined with the entity
   const late::Batch b12{12};
   DREAMOR_CHECK(std::format("{}", cBatch{&b12}) == "12");
-  DREAMOR_CHECK(std::string{dreamor::exprName("Run", cBatch{&b12}, cPeriod{2})} == "Run_12_2");
+  DREAMOR_CHECK(std::string{dreamor::indexedName("Run", cBatch{&b12}, cPeriod{2})} == "Run_12_2");
 
   // a row name, the way VarTable names a variable
   DREAMOR_CHECK(std::format("Cap_{}_{}_{}", cMachine{&m3}, cNode{&n7}, cPeriod{2}) == "Cap_M3_7_2");
 
-  // exprName: the same name with no format string, from columns and plain values alike; one buffer of
-  // the thread's for every exprName, so a name lives until the next
+  // indexedName: the same name with no format string, from columns and plain values alike; one buffer of
+  // the thread's for every indexedName, so a name lives until the next
   const cMachine machine{&m3};
   const cNode node{&n7};
   const cPeriod second{2};
-  DREAMOR_CHECK(std::string{dreamor::exprName("Cap", machine, node, second)} == "Cap_M3_7_2");
-  DREAMOR_CHECK(std::string{dreamor::exprName("Stock", cItem{items.data()}, cGrade{"A"})} == "Stock_I-01_A");
-  DREAMOR_CHECK(std::string{dreamor::exprName("Tangent", node, std::size_t{3})} == "Tangent_7_3");
-  DREAMOR_CHECK(std::string{dreamor::exprName("Objective")} == "Objective");
-  const char* first = dreamor::exprName("A", node);
-  DREAMOR_CHECK(dreamor::exprName("B", machine, second) == first && std::string{first} == "B_M3_2");
+  DREAMOR_CHECK(std::string{dreamor::indexedName("Cap", machine, node, second)} == "Cap_M3_7_2");
+  DREAMOR_CHECK(std::string{dreamor::indexedName("Stock", cItem{items.data()}, cGrade{"A"})} == "Stock_I-01_A");
+  DREAMOR_CHECK(std::string{dreamor::indexedName("Tangent", node, std::size_t{3})} == "Tangent_7_3");
+  DREAMOR_CHECK(std::string{dreamor::indexedName("Objective")} == "Objective");
+  const char* first = dreamor::indexedName("A", node);
+  DREAMOR_CHECK(dreamor::indexedName("B", machine, second) == first && std::string{first} == "B_M3_2");
   const std::string tooLong(300, 'x');
   bool overflowed = false;
   try {
-    (void)dreamor::exprName(tooLong, node);
+    (void)dreamor::indexedName(tooLong, node);
   } catch (const std::runtime_error&) { overflowed = true; }
   DREAMOR_CHECK(overflowed);
 

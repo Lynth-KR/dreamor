@@ -141,7 +141,7 @@ template <typename Source>
 template <typename Range, typename Column>
 [[nodiscard]] consteval bool dependentRangeYieldsPointers() {
   using Bare = std::remove_cvref_t<Range>;
-  if constexpr (!is_column<Column> || !std::is_pointer_v<typename Column::Value>) {
+  if constexpr (!is_column<Column> || !std::is_pointer_v<typename Column::value_type>) {
     return true;  // A value column copies the value out.
   } else {
     return std::is_pointer_v<std::ranges::range_value_t<Bare>> || std::ranges::view<Bare>;

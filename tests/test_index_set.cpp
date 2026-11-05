@@ -27,8 +27,8 @@ constexpr bool canPushBack = requires(S& s) { s.push_back(std::declval<typename 
 int main() try {
   const std::vector<std::size_t> I{3, 1, 2, 4};
   const std::vector<std::size_t> J{10, 20, 30};
-  const auto IJ   = dreamor::makeSet<cI, cJ>(I, J).collect();
-  const auto II   = dreamor::makeSet<cI>(I).collect();
+  const auto IJ   = dreamor::makeSet<cI, cJ>(I, J).build();
+  const auto II   = dreamor::makeSet<cI>(I).build();
   const auto even = [](cI i) { return i.get() % 2 == 0; };
   const auto big  = [](cJ j) { return j.get() >= 20; };
 
@@ -42,11 +42,10 @@ int main() try {
   // where: AND of predicates, source untouched, order preserved
   DREAMOR_CHECK(IJ.where(even).size() == 6);
   DREAMOR_CHECK(IJ.where(even, big).size() == 4);
-  DREAMOR_CHECK(
-      std::ranges::equal(IJ.where(even, big), dreamor::makeSet<cI, cJ>(I, J).where(even).where(big).collect()));
+  DREAMOR_CHECK(std::ranges::equal(IJ.where(even, big), dreamor::makeSet<cI, cJ>(I, J).where(even).where(big).build()));
   // The builder's where() takes several predicates too, the same AND as chaining them.
-  DREAMOR_CHECK(std::ranges::equal(dreamor::makeSet<cI, cJ>(I, J).where(even, big).collect(),
-                                   dreamor::makeSet<cI, cJ>(I, J).where(even).where(big).collect()));
+  DREAMOR_CHECK(std::ranges::equal(dreamor::makeSet<cI, cJ>(I, J).where(even, big).build(),
+                                   dreamor::makeSet<cI, cJ>(I, J).where(even).where(big).build()));
   DREAMOR_CHECK(!IJ.empty() && dreamor::IndexSet<cI, cJ>{}.empty() && IJ.where(even, big).size() == 4);
   DREAMOR_CHECK(IJ.size() == 12);
 
@@ -82,14 +81,14 @@ int main() try {
 
   // groupBy: groups in first-appearance order, rows in set order, random-access slices
   const auto byI = IJ.groupBy<cI>();
-  DREAMOR_CHECK(byI.size() == 4 && std::get<cI>(byI.keyAt(0)).get() == 3);
+  DREAMOR_CHECK(byI.size() == 4 && std::get<cI>(byI.at(0).key).get() == 3);
   const auto s1 = byI.slice(cI{1});
   static_assert(std::ranges::random_access_range<decltype(s1)> && std::ranges::borrowed_range<decltype(s1)>);
   DREAMOR_CHECK(s1.size() == 3 && !s1.empty());
   DREAMOR_CHECK(std::get<cJ>(s1[0]).get() == 10 && std::get<cJ>(s1.back()).get() == 30 &&
                 std::get<cJ>(s1.front()).get() == 10);
   DREAMOR_CHECK((s1.end() - s1.begin()) == 3 && std::get<cJ>(*(s1.begin() + 2)).get() == 30);
-  DREAMOR_CHECK(byI.slice(cI{99}).empty() && !byI.contains(cI{99}) && byI.sliceSize(cI{2}) == 3);
+  DREAMOR_CHECK(byI.slice(cI{99}).empty() && !byI.contains(cI{99}) && byI.slice(cI{2}).size() == 3);
   std::size_t visited = 0;
   for (const auto& [groupI, rows] : byI) {
     for (const auto& [i, j] : rows) {
@@ -108,7 +107,7 @@ int main() try {
     ++pairs;
   }
   for (const auto& group : IJ.groupBy<cI>()) {
-    DREAMOR_CHECK(std::get<cI>(group.key) == std::get<cI>(group.tuples.front()));
+    DREAMOR_CHECK(std::get<cI>(group.key) == std::get<cI>(group.rows.front()));
     ++groups;
   }
   DREAMOR_CHECK(pairs == 12 && groups == 4);
@@ -117,7 +116,7 @@ int main() try {
 
   // membership: as a predicate in a builder where
   const auto inEven = IJ.where(even).membership();
-  DREAMOR_CHECK(dreamor::makeSet<cI, cJ>(I, J).where(inEven).collect().size() == 6);
+  DREAMOR_CHECK(dreamor::makeSet<cI, cJ>(I, J).where(inEven).build().size() == 6);
 
   // ordered
   const auto T          = II.ordered();
@@ -129,8 +128,8 @@ int main() try {
   {
     const std::vector<std::size_t> Js{10, 20, 30};
     const std::vector<std::size_t> Is{1, 2};
-    const auto rowsJI  = dreamor::makeSet<cJ, cI>(Js, Is).collect();  // (10,1) (10,2) (20,1) (20,2) ...
-    const auto withinI = rowsJI.ordered<cI>();
+    const auto rowsJI  = dreamor::makeSet<cJ, cI>(Js, Is).build();  // (10,1) (10,2) (20,1) (20,2) ...
+    const auto withinI = rowsJI.orderedWithin<cI>();
     const auto* after  = withinI.next(cJ{10}, cI{1});
     const auto* around = withinI.nextCyclic(cJ{30}, cI{2});
     const auto* behind = withinI.prevCyclic(cJ{10}, cI{1});
@@ -143,7 +142,7 @@ int main() try {
                   withinI.nextOf(cJ{10}, cI{1}, 2) == std::tuple{cJ{30}, cI{1}});
     DREAMOR_CHECK(withinI.prevOf(cJ{30}, cI{2}, 2) == std::tuple{cJ{10}, cI{2}} &&
                   withinI.prevOf(*after) == std::tuple{cJ{10}, cI{1}});
-    DREAMOR_CHECK(withinI.ord(cJ{20}, cI{2}) == std::optional<std::size_t>{1} && withinI.isFirst(cJ{10}, cI{2}));
+    DREAMOR_CHECK(withinI.positionOf(cJ{20}, cI{2}) == std::optional<std::size_t>{1} && withinI.isFirst(cJ{10}, cI{2}));
     DREAMOR_CHECK(withinI.isLast(cJ{30}, cI{1}) && !withinI.isLast(cJ{20}, cI{1}) && !withinI.isFirst(cJ{20}, cI{1}));
     DREAMOR_CHECK(withinI.next(cJ{40}, cI{1}) == nullptr && !withinI.contains(cJ{40}, cI{1}) &&
                   withinI.contains(*after));
@@ -154,7 +153,7 @@ int main() try {
     DREAMOR_CHECK(withinI.first(cI{2}) == std::tuple{cJ{10}, cI{2}} &&
                   withinI.last(cI{2}) == std::tuple{cJ{30}, cI{2}});
     DREAMOR_CHECK(withinI.isFirst(withinI.first(cI{2})) && withinI.isLast(withinI.last(cI{1})));
-    const auto alone = rowsJI.ordered<cJ, cI>();  // every row its own group
+    const auto alone = rowsJI.orderedWithin<cJ, cI>();  // every row its own group
     DREAMOR_CHECK(alone.next(cJ{10}, cI{1}) == nullptr && alone.isFirst(cJ{10}, cI{1}));
   }
 
@@ -181,37 +180,37 @@ int main() try {
     const auto c_of = [&Cs](cI) -> const std::vector<std::size_t>& { return Cs; };
     using Planned   = decltype(dreamor::makeSet<cI, cJ, cK>(As, Bs, c_of));
     static_assert(Planned::kVisitOrder == std::array<std::size_t, 3>{0, 2, 1});
-    DREAMOR_CHECK(dreamor::makeSet<cI, cJ, cK>(As, Bs, c_of).collect().size() == 8);
+    DREAMOR_CHECK(dreamor::makeSet<cI, cJ, cK>(As, Bs, c_of).build().size() == 8);
   }
 
   // a set spread into a new one
-  const auto IJK = dreamor::makeSet<>(IJ).collect();
+  const auto IJK = dreamor::makeSet<>(IJ).build();
   DREAMOR_CHECK(std::ranges::equal(IJK, IJ));
 
   // two sets sharing a column: the natural join on it - the rows of the product that agree
   const std::vector<std::size_t> K{5, 6};
   const auto JK =
-      dreamor::makeSet<cJ, cK>(J, K).where([](cJ j, cK k) { return (j.get() / 10) + k.get() != 8; }).collect();
-  const auto joined = dreamor::makeSet<>(IJ, JK).collect();
+      dreamor::makeSet<cJ, cK>(J, K).where([](cJ j, cK k) { return (j.get() / 10) + k.get() != 8; }).build();
+  const auto joined = dreamor::makeSet<>(IJ, JK).build();
   static_assert(std::is_same_v<std::ranges::range_value_t<decltype(joined)>, std::tuple<cI, cJ, cK>>);
   DREAMOR_CHECK(JK.size() == 4 && joined.size() == 16);
-  DREAMOR_CHECK(std::ranges::is_permutation(joined, dreamor::makeSet<cK>(IJ, K).where(JK.membership()).collect()));
-  DREAMOR_CHECK(std::ranges::is_permutation(joined, dreamor::makeSet<>(JK, IJ).collect().select<cI, cJ, cK>()));
-  DREAMOR_CHECK(dreamor::makeSet<>(IJ, JK).where(even).collect().size() == 8);
+  DREAMOR_CHECK(std::ranges::is_permutation(joined, dreamor::makeSet<cK>(IJ, K).where(JK.membership()).build()));
+  DREAMOR_CHECK(std::ranges::is_permutation(joined, dreamor::makeSet<>(JK, IJ).build().select<cI, cJ, cK>()));
+  DREAMOR_CHECK(dreamor::makeSet<>(IJ, JK).where(even).build().size() == 8);
   // a chain of three, each joined on what the one before it bound
   const std::vector<std::size_t> L{7, 8};
-  const auto KL    = dreamor::makeSet<cK, cL>(K, L).where([](cK k, cL l) { return k.get() + 2 == l.get(); }).collect();
-  const auto chain = dreamor::makeSet<>(IJ, JK, KL).collect();
+  const auto KL    = dreamor::makeSet<cK, cL>(K, L).where([](cK k, cL l) { return k.get() + 2 == l.get(); }).build();
+  const auto chain = dreamor::makeSet<>(IJ, JK, KL).build();
   DREAMOR_CHECK(chain.size() == 16 && std::ranges::all_of(chain, [](const auto& row) {
                   return std::get<cK>(row).get() + 2 == std::get<cL>(row).get();
                 }));
   // a set inside another one's columns filters it, as where(membership()) does
   const auto II_even = II.where(even);
-  DREAMOR_CHECK(std::ranges::equal(dreamor::makeSet<>(IJ, II_even).collect(), IJ.where(II_even.membership())));
-  DREAMOR_CHECK(std::ranges::is_permutation(dreamor::makeSet<>(II_even, IJ).collect(), IJ.where(even)));
+  DREAMOR_CHECK(std::ranges::equal(dreamor::makeSet<>(IJ, II_even).build(), IJ.where(II_even.membership())));
+  DREAMOR_CHECK(std::ranges::is_permutation(dreamor::makeSet<>(II_even, IJ).build(), IJ.where(even)));
   // no match, no row
   const auto IJ_big = IJ.where(big);
   const auto JK_ten = JK.where([](cJ j) { return j.get() == 10; });
-  DREAMOR_CHECK(dreamor::makeSet<>(IJ_big, JK_ten).collect().empty());
+  DREAMOR_CHECK(dreamor::makeSet<>(IJ_big, JK_ten).build().empty());
   return report("index_set");
 } catch (...) { return ::uncaught(); }

@@ -6,5 +6,5 @@
 #include "prelude.hpp"
 using cName = dreamor::Col<std::string, "name">;
 int main() {
-  (void)dreamor::makeSet<cName>(dreamor::interval::closed(0, 3)).collect();
+  (void)dreamor::makeSet<cName>(dreamor::interval::closed(0, 3)).build();
 }

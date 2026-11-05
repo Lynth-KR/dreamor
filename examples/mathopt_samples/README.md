@@ -56,7 +56,7 @@ The port declares the sets, then states each part of the model once:
 
 ```cpp
 const auto sRECIPE =
-    dreamor::makeSet<cCocktail, cIngredient>(all_cocktails, ingredients_of).collect();
+    dreamor::makeSet<cCocktail, cIngredient>(all_cocktails, ingredients_of).build();
 const dreamor::mathopt::VarTable<cCocktail> vMake{
     model, sCOCKTAILS, required, allowed, /*is_integer=*/true, "Make"};
 
@@ -116,8 +116,8 @@ as a set over that set:
 ```cpp
 // set START := {j in JOBS, s in release[j]..T-1};
 // set RUNNING := {(j,s) in START, t in s..min(s+p[j], T)-1};
-const auto sSTART = dreamor::makeSet<cJob, cStart>(job_ids, starts_of).collect();
-const auto sRUNNING = dreamor::makeSet<cTime>(sSTART, running_at).collect();
+const auto sSTART = dreamor::makeSet<cJob, cStart>(job_ids, starts_of).build();
+const auto sRUNNING = dreamor::makeSet<cTime>(sSTART, running_at).build();
 ...
 for (const auto& [t, rows] : sRUNNING.groupBy<cTime>()) {
   model.AddLinearConstraint(dreamor::mathopt::sumOf(rows, vStart).build() <= 1.0);

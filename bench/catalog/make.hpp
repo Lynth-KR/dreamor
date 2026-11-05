@@ -116,9 +116,9 @@ struct Dreamor<std::index_sequence<J...>> {
     IloEnv env;
     // A: k1 and the middle columns; B: k1 and the period.
     const auto sA = [&]<std::size_t... M>(std::index_sequence<M...>) {
-      return dreamor::makeSet<cK<0>, cK<M + 1>...>(d.k1s, typename G::template ListOf<M + 1>{&d}...).collect();
+      return dreamor::makeSet<cK<0>, cK<M + 1>...>(d.k1s, typename G::template ListOf<M + 1>{&d}...).build();
     }(std::make_index_sequence<kK - 2>{});
-    const auto sB = dreamor::makeSet<cK<0>, cK<kLast>>(d.k1s, typename G::template ListOf<kLast>{&d}).collect();
+    const auto sB = dreamor::makeSet<cK<0>, cK<kLast>>(d.k1s, typename G::template ListOf<kLast>{&d}).build();
 
     Set sX;
     r.measure("collect", [&] { sX = G::make(d); });
@@ -142,8 +142,8 @@ struct Dreamor<std::index_sequence<J...>> {
     }
     std::optional<Set> sJoined;
     r.measure("join", [&] {
-      sJoined.emplace(d.sparse ? dreamor::makeSet<>(sA, sB).where(typename G::Keep{&d}).collect()
-                               : dreamor::makeSet<>(sA, sB).collect());
+      sJoined.emplace(d.sparse ? dreamor::makeSet<>(sA, sB).where(typename G::Keep{&d}).build()
+                               : dreamor::makeSet<>(sA, sB).build());
     });
     if (sJoined) { r.check("join", check(*sJoined)); }
     env.end();

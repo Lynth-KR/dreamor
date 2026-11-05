@@ -11,7 +11,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <exception>
-#include <optional>  // IWYU pragma: keep // For std::optional in ord()
+#include <optional>  // IWYU pragma: keep // For std::optional in positionOf()
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -43,13 +43,13 @@ namespace dreamor {
 //
 // Positions are 0-based. Holds the set itself, sharing its rows.
 //
-// S.ordered<cMachine>() orders within each machine's rows instead - AMPL's next(t, S[m]) over an
+// S.orderedWithin<cMachine>() orders within each machine's rows instead - AMPL's next(t, S[m]) over an
 // indexed collection of ordered sets: a row's neighbours are the rows of its own group, in the
-// set's order, and the walk stops (or, cyclic, wraps) at the group's ends. ord() is then the
+// set's order, and the walk stops (or, cyclic, wraps) at the group's ends. positionOf() is then the
 // position within the group, isFirst / isLast the group's ends, first(m) and last(m) its first
 // and last rows; at(), first() and last(), which name positions of the whole set, are not there.
 //
-//     const auto periodsOfMachine = sRUN.ordered<cMachine>();
+//     const auto periodsOfMachine = sRUN.orderedWithin<cMachine>();
 //     periodsOfMachine.next(m, t)      // the period after t among m's, nullptr after m's last
 //     periodsOfMachine.isLast(m, t)    // ord(t, S[m]) = card(S[m])
 //     periodsOfMachine.first(m)        // first(S[m]): the row (m, t) of m's first period
@@ -75,12 +75,12 @@ class Ordered {
       group_of_.reserve(members_.size());
       group_starts_.push_back(0);
       for (const auto& group : groups) {
-        group_of_.insert(group_of_.end(), group.tuples.size(), static_cast<std::uint32_t>(group_starts_.size() - 1));
-        group_starts_.push_back(group_starts_.back() + group.tuples.size());
+        group_of_.insert(group_of_.end(), group.rows.size(), static_cast<std::uint32_t>(group_starts_.size() - 1));
+        group_starts_.push_back(group_starts_.back() + group.rows.size());
       }
       group_keys_.reserve(groups.size());
       for (std::size_t group = 0; group < groups.size(); ++group) {
-        group_keys_.push_back(groups.keyAt(group));
+        group_keys_.push_back(groups.at(group).key);
       }
       group_index_ = GroupIndex{group_keys_.size()};
       static_cast<void>(group_index_.insertAll(0, group_keys_.size(), groupKeysAt()));
@@ -108,7 +108,7 @@ class Ordered {
   [[nodiscard]] const Tup& at(std::size_t position) const& {
     static_assert(
         !kWithinGroups,
-        "ordered<Columns...>() orders within each group: at(), first() and last() name positions of the whole set. Use first(m) and last(m) for a group's ends, ord(), isFirst() and isLast() within a group, or S.ordered() for the whole set.");
+        "orderedWithin<Columns...>() orders within each group: at(), first() and last() name positions of the whole set. Use first(m) and last(m) for a group's ends, positionOf(), isFirst() and isLast() within a group, or S.ordered() for the whole set.");
     return rows().at(position);
   }
   template <typename Unused = void>
@@ -124,14 +124,14 @@ class Ordered {
   [[nodiscard]] const Tup& at(const Column& /*element*/) const {
     static_assert(internal::always_false<Column>,
                   "at() takes a position, 0 to size() - 1, not a column, which would be read as a position. For an "
-                  "element's position, call ord(element).");
+                  "element's position, call positionOf(element).");
     std::terminate();
   }
 
   [[nodiscard]] const Tup& first() const& {
     static_assert(
         !kWithinGroups,
-        "ordered<Columns...>() orders within each group: at(), first() and last() name positions of the whole set. Use first(m) and last(m) for a group's ends, ord(), isFirst() and isLast() within a group, or S.ordered() for the whole set.");
+        "orderedWithin<Columns...>() orders within each group: at(), first() and last() name positions of the whole set. Use first(m) and last(m) for a group's ends, positionOf(), isFirst() and isLast() within a group, or S.ordered() for the whole set.");
     return rows().front();
   }
   template <typename Unused = void>
@@ -145,7 +145,7 @@ class Ordered {
   [[nodiscard]] const Tup& last() const& {
     static_assert(
         !kWithinGroups,
-        "ordered<Columns...>() orders within each group: at(), first() and last() name positions of the whole set. Use first(m) and last(m) for a group's ends, ord(), isFirst() and isLast() within a group, or S.ordered() for the whole set.");
+        "orderedWithin<Columns...>() orders within each group: at(), first() and last() name positions of the whole set. Use first(m) and last(m) for a group's ends, positionOf(), isFirst() and isLast() within a group, or S.ordered() for the whole set.");
     return rows().back();
   }
   template <typename Unused = void>
@@ -156,7 +156,7 @@ class Ordered {
     std::terminate();
   }
 
-  // A group's first and last row, under ordered<Within...>() - AMPL's first(S[m]) and last(S[m]) -
+  // A group's first and last row, under orderedWithin<Within...>() - AMPL's first(S[m]) and last(S[m]) -
   // the group named by its columns: periodsOfMachine.first(m). The group must have a row: a debug
   // build stops on a sentence if it has none; a release build does not check.
   template <typename Arg, typename... Args>
@@ -182,14 +182,14 @@ class Ordered {
     std::terminate();
   }
 
-  // An element is named by the set's columns themselves, in order - orderedPeriods.ord(t) -
+  // An element is named by the set's columns themselves, in order - orderedPeriods.positionOf(t) -
   // or by a row of the set (see key_args.hpp).
 
-  // 0-based position - within its group, under ordered<Within...>() - or nullopt for a non-member.
+  // 0-based position - within its group, under orderedWithin<Within...>() - or nullopt for a non-member.
   template <typename... Args>
-  [[nodiscard]] std::optional<std::size_t> ord(const Args&... element) const {
+  [[nodiscard]] std::optional<std::size_t> positionOf(const Args&... element) const {
     if constexpr (internal::checkOrderedKey<Tup, Args...>()) {
-      const auto position = positionOf(internal::keyOf<Tup>(element...));
+      const auto position = positionInMembers(internal::keyOf<Tup>(element...));
       if (!position.has_value()) { return std::nullopt; }
       return *position - spanOf(*position).first;
     } else {
@@ -274,7 +274,7 @@ class Ordered {
   template <typename... Args>
   [[nodiscard]] bool isFirst(const Args&... element) const {
     if constexpr (internal::checkOrderedKey<Tup, Args...>()) {
-      return ord(element...) == std::optional<std::size_t>{0};
+      return positionOf(element...) == std::optional<std::size_t>{0};
     } else {
       return false;
     }
@@ -282,7 +282,7 @@ class Ordered {
   template <typename... Args>
   [[nodiscard]] bool isLast(const Args&... element) const {
     if constexpr (internal::checkOrderedKey<Tup, Args...>()) {
-      const auto position = positionOf(internal::keyOf<Tup>(element...));
+      const auto position = positionInMembers(internal::keyOf<Tup>(element...));
       return position.has_value() && *position + 1 == spanOf(*position).second;
     } else {
       return false;
@@ -298,7 +298,7 @@ class Ordered {
   }
   // prev({t}) and the like: braces are not an element.
   template <typename Unused = void>
-  [[nodiscard]] std::optional<std::size_t> ord(internal::BracedKey /*key*/) const {
+  [[nodiscard]] std::optional<std::size_t> positionOf(internal::BracedKey /*key*/) const {
     static_assert(internal::always_false<Unused>, DREAMOR_INTERNAL_NO_BRACES_MESSAGE);
     std::terminate();
   }
@@ -364,7 +364,7 @@ class Ordered {
   [[nodiscard]] const Tup& groupEnd([[maybe_unused]] const char* what, const Args&... group) const {
     static_assert(
         kWithinGroups,
-        "first(m) and last(m) name a group's ends under ordered<Columns...>(). Over the whole set, first() and "
+        "first(m) and last(m) name a group's ends under orderedWithin<Columns...>(). Over the whole set, first() and "
         "last() take no argument.");
     if constexpr (kWithinGroups && internal::checkOrderedGroup<GroupKey, Args...>()) {
       const std::size_t index = group_index_.find(internal::keyOf<GroupKey>(group...), groupKeysAt());
@@ -381,7 +381,7 @@ class Ordered {
   }
 
   // The element's position among the laid-out rows, or nullopt for a non-member.
-  [[nodiscard]] std::optional<std::size_t> positionOf(const Tup& element) const {
+  [[nodiscard]] std::optional<std::size_t> positionInMembers(const Tup& element) const {
     const std::size_t position = positions_.find(element, rowsAt());
     return (position == kNotMember) ? std::nullopt : std::optional{position};
   }
@@ -399,7 +399,7 @@ class Ordered {
   // The element `steps` away from `element` within its span, wrapping when Cyclic; nullptr for a
   // non-member or past either end (not Cyclic).
   [[nodiscard]] const Tup* stepFrom(const Tup& element, std::ptrdiff_t steps, bool cyclic) const {
-    const auto position = positionOf(element);
+    const auto position = positionInMembers(element);
     if (!position.has_value()) { return nullptr; }
     const auto [first, last] = spanOf(*position);
     const auto count         = static_cast<std::ptrdiff_t>(last - first);
@@ -448,12 +448,27 @@ class Ordered {
   GroupIndex group_index_;                         // Within groups: group key -> group, over group_keys_.
 };
 
-// S.ordered() over the whole set; S.ordered<cMachine>() within each machine's rows.
+// S.ordered() over the whole set; S.orderedWithin<cMachine>() within each machine's rows.
+template <typename... Columns>
+Ordered<IndexSet<Columns...>> IndexSet<Columns...>::ordered() const {
+  return Ordered<IndexSet>{*this};
+}
 template <typename... Columns>
 template <typename... Within>
-Ordered<IndexSet<Columns...>, Within...> IndexSet<Columns...>::ordered() const {
-  if constexpr (sizeof...(Within) > 0) { internal::checkColumns<Tup, Within...>(); }
+Ordered<IndexSet<Columns...>, Within...> IndexSet<Columns...>::orderedWithin() const {
+  static_assert(sizeof...(Within) > 0,
+                "orderedWithin<Columns...>() names the columns whose groups it orders within; S.ordered() orders the "
+                "whole set.");
+  internal::checkColumns<Tup, Within...>();
   return Ordered<IndexSet, Within...>{*this};
+}
+template <typename... Columns>
+template <typename First, typename... Rest>
+Ordered<IndexSet<Columns...>> IndexSet<Columns...>::ordered() const {
+  static_assert(internal::always_false<First>,
+                "ordered() takes no columns: positions within each group of rows that agree on some columns are "
+                "orderedWithin<Columns...>() - S.orderedWithin<cMachine>().");
+  return Ordered<IndexSet>{*this};
 }
 
 }  // namespace dreamor

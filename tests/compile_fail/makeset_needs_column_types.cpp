@@ -5,5 +5,5 @@
 // expect: Every column needs a name
 #include "prelude.hpp"
 int main() {
-  (void)dreamor::makeSet<std::size_t>(I).collect();
+  (void)dreamor::makeSet<std::size_t>(I).build();
 }

@@ -34,7 +34,7 @@ static void varTable() {
   math_opt::Model model("vartable");
   const std::vector<std::size_t> I{3, 1, 2};
   const std::vector<std::size_t> J{10, 20};
-  const auto IJ = dreamor::makeSet<cI, cJ>(I, J).collect();
+  const auto IJ = dreamor::makeSet<cI, cJ>(I, J).build();
 
   static_assert(!std::is_copy_constructible_v<dreamor::mathopt::VarTable<cI, cJ>>);
   static_assert(std::is_nothrow_move_constructible_v<dreamor::mathopt::VarTable<cI, cJ>>);
@@ -98,7 +98,7 @@ static void sum() {
   math_opt::Model model("sum");
   const std::vector<std::size_t> I{1, 2, 3};
   const std::vector<std::size_t> J{10, 20};
-  const auto IJ = dreamor::makeSet<cI, cJ>(I, J).collect();
+  const auto IJ = dreamor::makeSet<cI, cJ>(I, J).build();
   const dreamor::mathopt::VarTable<cI, cJ> x{model, IJ, 0, 1, true, "x"};
   const auto var      = [&x](cI i, cJ j) { return x(i, j); };
   const auto weighted = [&x](cI i, cJ j) { return static_cast<double>(i.get()) * x(i, j); };
@@ -111,8 +111,9 @@ static void sum() {
     DREAMOR_CHECK(terms(dreamor::mathopt::sumOf(rows, var).build()) == 3);
   }
 
-  const auto sums =
-      dreamor::mathopt::sumOf(IJ, weighted).split([](cJ j) { return j.get() == 10; }, [](cJ) { return true; }).build();
+  const auto sums = dreamor::mathopt::sumOf(IJ, weighted)
+                        .whereEach([](cJ j) { return j.get() == 10; }, [](cJ) { return true; })
+                        .build();
   DREAMOR_CHECK(terms(sums[0]) == 3 && terms(sums[1]) == 6);
   double coef = 0;
   for (const auto& [v, c] : sums[0].terms()) {
@@ -128,7 +129,7 @@ static void sum() {
   DREAMOR_CHECK(terms(dreamor::mathopt::sumOf(IJ, var).where([](cI) { return false; }).build()) == 0);
 
   // a plain container as a one-column set
-  const dreamor::mathopt::VarTable<cI> y{model, dreamor::makeSet<cI>(I).collect(), 0, 1};
+  const dreamor::mathopt::VarTable<cI> y{model, dreamor::makeSet<cI>(I).build(), 0, 1};
   DREAMOR_CHECK(terms(dreamor::mathopt::sumOf<cI>(I, [&y](cI i) { return y(i); }).build()) == 3);
 
   // linear terms make a LinearExpression, quadratic ones a QuadraticExpression
@@ -143,11 +144,11 @@ static void sum() {
   }
   DREAMOR_CHECK(exactlyEqual(squareCoef, 2 * (1 + 2 + 3)));
 
-  // a QuadraticExpression term, under where() and split()
+  // a QuadraticExpression term, under where() and whereEach()
   const auto deviation = [&x](cI i, cJ j) { return (x(i, j) - 1) * (x(i, j) - 1); };
   const auto parts     = dreamor::mathopt::sumOf(IJ, deviation)
                              .where([](cI i) { return i.get() > 1; })
-                             .split([](cJ j) { return j.get() == 10; }, [](cJ) { return true; })
+                             .whereEach([](cJ j) { return j.get() == 10; }, [](cJ) { return true; })
                              .build();
   static_assert(std::is_same_v<std::remove_cvref_t<decltype(parts[0])>, math_opt::QuadraticExpression>);
   DREAMOR_CHECK(parts[0].quadratic_terms().size() == 2 && parts[1].quadratic_terms().size() == 4);
@@ -162,7 +163,7 @@ static void sum() {
 static void quadraticObjective() {
   math_opt::Model model("least squares");
   const std::vector<std::size_t> I{1, 2, 3};
-  const auto sI = dreamor::makeSet<cI>(I).collect();
+  const auto sI = dreamor::makeSet<cI>(I).build();
   const dreamor::mathopt::VarTable<cI> vFit{model, sI, -10, 10, true, "Fit"};
   const auto off_target = [&vFit](cI i) {
     const double target = 1.4 * static_cast<double>(i.get());
@@ -181,7 +182,7 @@ static void solution() {
   // max sum i * x_i, sum x_i <= 2, x binary over I = {1, 2, 3}: x_2 = x_3 = 1.
   math_opt::Model model("solution");
   const std::vector<std::size_t> I{1, 2, 3};
-  const auto sI = dreamor::makeSet<cI>(I).collect();
+  const auto sI = dreamor::makeSet<cI>(I).build();
   const dreamor::mathopt::VarTable<cI> vPick{model, sI, 0, 1, true, "Pick"};
   model.AddLinearConstraint(dreamor::mathopt::sumOf(sI, [&vPick](cI i) { return vPick(i); }).build() <= 2);
   model.Maximize(

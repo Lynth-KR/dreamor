@@ -85,7 +85,7 @@ struct Dreamor<std::index_sequence<J...>> {
   static void run(const Data& d, Result& r) {
     IloEnv env;
     const std::vector<const Ent*> periods = periodsOf(d);
-    const auto sPERIODS                   = dreamor::makeSet<cK<kLast>>(periods).collect();
+    const auto sPERIODS                   = dreamor::makeSet<cK<kLast>>(periods).build();
     Set sX;
     std::optional<Table> vX;
     r.measure("build", [&] {

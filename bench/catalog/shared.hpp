@@ -120,8 +120,8 @@ struct Gen<std::index_sequence<J...>> {
 
   static Set make(const Data& d) {
     return [&]<std::size_t... I>(std::index_sequence<I...>) {
-      return d.sparse ? dreamor::makeSet<cK<J>...>(d.k1s, ListOf<I + 1>{&d}...).where(Keep{&d}).collect()
-                      : dreamor::makeSet<cK<J>...>(d.k1s, ListOf<I + 1>{&d}...).collect();
+      return d.sparse ? dreamor::makeSet<cK<J>...>(d.k1s, ListOf<I + 1>{&d}...).where(Keep{&d}).build()
+                      : dreamor::makeSet<cK<J>...>(d.k1s, ListOf<I + 1>{&d}...).build();
     }(std::make_index_sequence<kK - 1>{});
   }
 };

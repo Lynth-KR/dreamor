@@ -274,7 +274,7 @@ class Membership {
 
   // The set's columns, in order - where() calls pred(a, b), and so can you: in_routes(m, i) -
   // or a whole row (see key_args.hpp). The parameter list cannot say which columns these are
-  // to where(); PredicateColumns below does that.
+  // to where(); CallableColumns below does that.
   template <typename... Args>
   [[nodiscard]] bool operator()(const Args&... key) const {
     if constexpr (internal::checkMembershipKey<Tup, Args...>()) {
@@ -293,7 +293,7 @@ class Membership {
 // Declares this membership's columns, so where() places it by them rather than by probing
 // its signature - which would match any call with the right number of arguments.
 template <typename Set>
-struct PredicateColumns<Membership<Set>> {
+struct CallableColumns<Membership<Set>> {
   using type = Set::value_type;
 };
 

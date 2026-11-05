@@ -81,7 +81,7 @@ consteval void checkColumnCallable() {
     static_assert(ColumnsOfPredicate<Callable>::known,
                   "Cannot read this callable's parameter list. Give it one concrete "
                   "signature: `[](auto, auto)` does not say which columns it reads. A "
-                  "callable with a template operator() specializes PredicateColumns "
+                  "callable with a template operator() specializes CallableColumns "
                   "instead.");
     static_assert(PlacementOf<Callable, Row>::all_named,
                   "Take the columns themselves: `[](cMachine m, cItem i)`, not "

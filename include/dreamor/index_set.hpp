@@ -7,16 +7,16 @@
 // the way an AMPL set declaration does:
 //
 //     {m in MACHINES, i in ITEMS[m]: fits[m,i]}
-//     makeSet<cMachine, cItem>(machines, items_of).where(fits).collect()
+//     makeSet<cMachine, cItem>(machines, items_of).where(fits).build()
 //
 //     {(m,i) in ASSIGN, o in ORDERS: orderFits[i,o]}
-//     makeSet<cOrder>(sASSIGN, orders).where(order_fits).collect()
+//     makeSet<cOrder>(sASSIGN, orders).where(order_fits).build()
 //
 //     {(m,i) in ASSIGN: early[i]}
 //     sASSIGN.where(early)
 //
 //     {(m,i,o) in ASSIGN, (i,t) in OPEN}
-//     makeSet<>(sASSIGN, sOPEN).collect()
+//     makeSet<>(sASSIGN, sOPEN).build()
 //
 // Everything is addressed by column name - `using cMachine = Col<const Machine*, "machine">;` -
 // never by position, and that holds for every callable the DSL takes. A predicate's

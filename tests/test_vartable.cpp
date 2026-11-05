@@ -80,7 +80,7 @@ int main() try {
   const IloEnv env;
   const std::vector<std::size_t> I{3, 1, 2};
   const std::vector<std::size_t> J{10, 20};
-  const auto IJ = dreamor::makeSet<cI, cJ>(I, J).collect();
+  const auto IJ = dreamor::makeSet<cI, cJ>(I, J).build();
 
   static_assert(!std::is_copy_constructible_v<dreamor::concert::VarTable<cI, cJ>>);
   static_assert(std::is_nothrow_move_constructible_v<dreamor::concert::VarTable<cI, cJ>>);
@@ -127,7 +127,7 @@ int main() try {
   // row, the row after it - before hashing; a hint, never trusted: any three lookups in a row, in
   // this table, in a table on another set or of an absent key, give what the row's address gives
   const std::vector<std::size_t> I2{2, 1};
-  const auto IJ2 = dreamor::makeSet<cI, cJ>(I2, J).collect();
+  const auto IJ2 = dreamor::makeSet<cI, cJ>(I2, J).build();
   const dreamor::concert::VarTable<cI, cJ> x2{env, IJ2, 0, 1};
   std::vector<std::tuple<cI, cJ>> keys(IJ.begin(), IJ.end());
   keys.emplace_back(cI{9}, cJ{9});
@@ -155,7 +155,7 @@ int main() try {
     sets.reserve(6);
     for (std::size_t s = 0; s < 6; ++s) {
       const std::vector<std::size_t> Is{s + round, s + round + 1};
-      sets.push_back(dreamor::makeSet<cI, cJ>(Is, J).collect());
+      sets.push_back(dreamor::makeSet<cI, cJ>(Is, J).build());
     }
     std::vector<dreamor::concert::VarTable<cI, cJ>> tables;
     tables.reserve(sets.size());
@@ -178,7 +178,7 @@ int main() try {
   // a set now is - on rows of 24 bytes, whose size is no power of two: every lookup still gives what
   // the row's address gives. Small values, so that the bytes across two rows read as a row's columns.
   const std::vector<std::size_t> V{0, 1, 2};
-  const auto IJK = dreamor::makeSet<cI, cJ, cK>(V, V, V).collect();
+  const auto IJK = dreamor::makeSet<cI, cJ, cK>(V, V, V).build();
   const dreamor::concert::VarTable<cI, cJ, cK> w{env, IJK, 0, 1};
   bool insideAgrees = true;
   for (const auto& hinted : IJK) {
@@ -222,7 +222,7 @@ int main() try {
   // table on the set is gone, a value table that outlives its table, and tables built on several
   // threads at once - one env each, as Concert requires - all find every row
   const std::vector<std::size_t> I3{7, 8, 9};
-  const auto IJ3           = dreamor::makeSet<cI, cJ>(I3, J).collect();
+  const auto IJ3           = dreamor::makeSet<cI, cJ>(I3, J).build();
   const auto findsEveryRow = [&IJ3](const dreamor::concert::VarTable<cI, cJ>& t) {
     bool all = t.size() == IJ3.size();
     for (const auto& [row, var] : t) {
@@ -295,7 +295,7 @@ int main() try {
   // a ValueTable is a column callable: a VarTable's bound, and the value of another ValueTable on fewer or more columns
   const dreamor::concert::VarTable<cI, cJ> capped{env, IJ, 0, sums};
   DREAMOR_CHECK(exactlyEqual(capped(cI{2}, cJ{20}).getUB(), 22.0) && exactlyEqual(capped(cI{3}, cJ{10}).getUB(), 13.0));
-  const auto II                          = dreamor::makeSet<cI>(I).collect();
+  const auto II                          = dreamor::makeSet<cI>(I).build();
   const dreamor::ValueTable<cI> tens     = {II, ten_i};
   const dreamor::ValueTable<cI, cJ> wide = {IJ, tens};  // reads the cI of each row
   DREAMOR_CHECK(exactlyEqual(wide(cI{2}, cJ{20}), 20.0) && exactlyEqual(wide(cI{3}, cJ{10}), 30.0));
@@ -313,7 +313,7 @@ int main() try {
 
   // a name token whose formatter throws: the name stops after the separator (and a warning)
   const std::vector<throwing::Thing> things(1);
-  const auto sTHINGS = dreamor::makeSet<cThing>(things).collect();
+  const auto sTHINGS = dreamor::makeSet<cThing>(things).build();
   const dreamor::concert::VarTable<cThing> t{env, sTHINGS, 0, 1, ILOFLOAT, "t"};
   DREAMOR_CHECK(std::string{t(cThing{things.data()}).getName()} == "t_");
 
@@ -321,9 +321,9 @@ int main() try {
   // at the buffer (and a warning)
   const std::vector<named::Thing> named_things{{"M3"}, {std::string(300, 'z')}};
   const std::vector<std::size_t> seven{7};
-  const auto sNAMED = dreamor::makeSet<cNamed>(named_things).collect();
+  const auto sNAMED = dreamor::makeSet<cNamed>(named_things).build();
   const dreamor::concert::VarTable<cNamed, cJ> vNamed{
-      env, dreamor::makeSet<cJ>(sNAMED, seven).collect(), 0, 1, ILOFLOAT, "n"};
+      env, dreamor::makeSet<cJ>(sNAMED, seven).build(), 0, 1, ILOFLOAT, "n"};
   DREAMOR_CHECK(std::string{vNamed(cNamed{named_things.data()}, cJ{7}).getName()} == "n_M3_7");
   // a column under std::format prints the token its variable's name has
   DREAMOR_CHECK(std::format("n_{}_{}", cNamed{named_things.data()}, cJ{7}) ==

@@ -97,7 +97,7 @@ class RowIndex {
 
   explicit RowIndex(const Rows<Key>& rows) {
     if (rows.size() >= std::numeric_limits<std::uint32_t>::max()) {
-      throw std::length_error("VarTable: more than 2^32 - 2 index tuples.");
+      throw std::length_error("VarTable: more than 2^32 - 2 rows.");
     }
     if constexpr (kOneEntity) {
       if (rows.empty()) { return; }
@@ -138,7 +138,7 @@ class RowIndex {
   // One column of pointers to complete objects: its rows may be an array's elements, in order.
   [[nodiscard]] static consteval bool oneEntity() {
     if constexpr (std::tuple_size_v<Key> == 1) {
-      using Value = std::tuple_element_t<0, Key>::Value;
+      using Value = std::tuple_element_t<0, Key>::value_type;
       if constexpr (std::is_pointer_v<Value>) {
         return requires { sizeof(std::remove_pointer_t<Value>); };
       }
@@ -148,7 +148,7 @@ class RowIndex {
   static constexpr bool kOneEntity         = oneEntity();
   static constexpr std::size_t kEntitySize = [] {
     if constexpr (kOneEntity) {
-      return sizeof(std::remove_pointer_t<typename std::tuple_element_t<0, Key>::Value>);
+      return sizeof(std::remove_pointer_t<typename std::tuple_element_t<0, Key>::value_type>);
     } else {
       return std::size_t{1};
     }

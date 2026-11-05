@@ -167,10 +167,10 @@ struct Network {
     const auto node_ids = std::views::iota(0, graph.num_nodes);
     const auto tail_of = [](cArc a) { return std::views::single(a->i); };
     const auto head_of = [](cArc a) { return std::views::single(a->j); };
-    sNODES = dreamor::makeSet<cNode>(node_ids).collect();
+    sNODES = dreamor::makeSet<cNode>(node_ids).build();
     sARC_ENDS = dreamor::makeSet<cArc, cTail, cHead>(graph.arcs, tail_of,
                                                           head_of)
-                    .collect();
+                    .build();
     sARCS = sARC_ENDS.select<cArc>();
   }
   dreamor::IndexSet<cNode> sNODES;

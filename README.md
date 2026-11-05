@@ -30,7 +30,7 @@ more), and HiGHS through its own C++ API.
 
 ```cpp
 // set PRODUCE := {m in MACHINES, i in ITEMS[m], t in PERIODS};
-const auto sPRODUCE = dreamor::makeSet<cMachine, cItem, cPeriod>(machines, items_of, periods).collect();
+const auto sPRODUCE = dreamor::makeSet<cMachine, cItem, cPeriod>(machines, items_of, periods).build();
 
 // var Yield {(m,i,t) in PRODUCE} >= 0, <= cap[m] / time[i];
 const auto max_possible_qty = [](cMachine m, cItem i) { return m->capacity / i->time; };
@@ -79,7 +79,7 @@ holds only values, so it is `dreamor::ValueTable` regardless of backend.
 
 The same across backends: bounds given as numbers or column functions, variable names
 `<name>_<key0>_<key1>...`, `std::out_of_range` when looking up a row that is not in the set (`vYield(row)`),
-iteration in set order, and `sumOf`'s `where()`/`split()`.
+iteration in set order, and `sumOf`'s `where()`/`whereEach()`.
 
 Everything that differs in MathOpt is MathOpt's own notation.
 
@@ -179,17 +179,17 @@ using cItem    = dreamor::Col<const Item*, "item">;
 using cPeriod  = dreamor::Col<std::size_t, "period">;
 
 // 3) The model. Its sets come first - members are built in declaration order, and a VarTable takes its set.
-//    exprName names its rows the way VarTable names variables
+//    indexedName names its rows the way VarTable names variables
 class LotSizing {
  public:
   LotSizing(IloEnv environment, const std::vector<const Machine*>& machines, const std::vector<const Item*>& items,
             const std::vector<std::size_t>& periods)
       : env(environment),
         model(environment),
-        sPERIODS(dreamor::makeSet<cPeriod>(periods).collect()),
-        sROUTES(dreamor::makeSet<cMachine, cItem>(machines, items_of).collect()),
-        sPRODUCE(dreamor::makeSet<cPeriod>(sROUTES, periods).collect()),     // expand an existing set
-        sSTOCK(dreamor::makeSet<cItem, cPeriod>(items, periods).collect()) {
+        sPERIODS(dreamor::makeSet<cPeriod>(periods).build()),
+        sROUTES(dreamor::makeSet<cMachine, cItem>(machines, items_of).build()),
+        sPRODUCE(dreamor::makeSet<cPeriod>(sROUTES, periods).build()),     // expand an existing set
+        sSTOCK(dreamor::makeSet<cItem, cPeriod>(items, periods).build()) {
     addInventoryBalance();
     addCapacity();
     addSetupLinks();
@@ -234,7 +234,7 @@ class LotSizing {
     const auto machine_usage = [this](cMachine m, cItem i, cPeriod t) { return i->time * vYield(m, i, t); };
     for (const auto& [machine, period, rows] : sPRODUCE.groupBy<cMachine, cPeriod>()) {
       IloExpr totalLoad = dreamor::concert::sumOf(env, rows, machine_usage).build();
-      model.add(totalLoad <= machine->capacity).setName(dreamor::exprName("Capacity", machine, period));
+      model.add(totalLoad <= machine->capacity).setName(dreamor::indexedName("Capacity", machine, period));
       totalLoad.end();
     }
   }
@@ -287,7 +287,7 @@ Two headers dreamor uses itself, there for model code too. Neither depends on a 
 
 | Header | |
 |---|---|
-| `dreamor/index_set.hpp`, `dreamor/format_buffer.hpp` | `dreamor::exprName("Capacity", m, t)` names a row the way `VarTable` names variables - `Capacity_M1_3`, each column by its token - in a buffer of the thread's, with no allocation and no format string: `model.add(load <= cap).setName(dreamor::exprName("Capacity", m, t))`. `NameBuilder<N>` builds such names part by part, and `FormatBuffer<N>` formats any other name (`format(...)`, a column printing as its token) |
+| `dreamor/index_set.hpp`, `dreamor/format_buffer.hpp` | `dreamor::indexedName("Capacity", m, t)` names a row the way `VarTable` names variables - `Capacity_M1_3`, each column by its token - in a buffer of the thread's, with no allocation and no format string: `model.add(load <= cap).setName(dreamor::indexedName("Capacity", m, t))`. `NameBuilder<N>` builds such names part by part, and `FormatBuffer<N>` formats any other name (`format(...)`, a column printing as its token) |
 | `dreamor/logger.hpp` | `DREAMOR_LOG_INFO` / `WARNING` / `ERROR` / `FATAL(fmt, args...)` write a line with the elapsed time, the call site and the level, the text through `std::format`, checked at compile time. `DREAMOR_DEBUG_*` vanish under `NDEBUG`, arguments and all. `dreamor::logger::FileSink sink{"model.log"};` sends the thread's lines to a file until the scope ends |
 
 The [API reference](docs/reference.md#utilities) lists the rest.

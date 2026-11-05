@@ -3,7 +3,7 @@
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
 // File: set.hpp
-// The index set builder: makeSet(...).where(...).collect().
+// The index set builder: makeSet(...).where(...).build().
 #pragma once
 
 #include <algorithm>
@@ -96,7 +96,7 @@ enum class RepeatIn : std::uint8_t { kContainer, kSpread, kDependent };
 }
 
 // What a debug build checks of the contract every set rests on (index_set.hpp): no source
-// holds an element twice. A container or a spread range is checked once per collect(), a set
+// holds an element twice. A container or a spread range is checked once per build(), a set
 // not at all - it holds no row twice already. A dependent source's range is checked each time
 // it is returned, unless it is borrowed (std::ranges::borrowed_range) and contiguous: its
 // elements then outlive the call, so the same address and size is the same range, checked once.
@@ -134,7 +134,8 @@ class SourceChecks {
  private:
   // What the column holds, as the key the repeat check compares.
   template <typename Column>
-  using KeyOf = std::conditional_t<std::is_pointer_v<typename Column::Value>, const void*, typename Column::Value>;
+  using KeyOf =
+      std::conditional_t<std::is_pointer_v<typename Column::value_type>, const void*, typename Column::value_type>;
 
   template <typename Column, typename Range>
   [[nodiscard]] static std::vector<std::tuple<KeyOf<Column>>> keysOf(Range& range) {
@@ -151,7 +152,7 @@ class SourceChecks {
 #endif  // NDEBUG
 }  // namespace internal::inline index_set
 
-// Lazy builder. Nothing is generated until collect().
+// Lazy builder. Nothing is generated until build().
 template <typename ElemTuple, typename RangeTuple, typename PredTuple>
 class Set {
  public:
@@ -172,7 +173,7 @@ class Set {
 
   // Non-const on purpose: views such as filter_view have no const begin(). This is a
   // one-shot factory call, not an observer.
-  [[nodiscard]] internal::SetFor<ElemTuple> collect() {
+  [[nodiscard]] internal::SetFor<ElemTuple> build() {
 #ifndef NDEBUG
     internal::SourceChecks checks;
     checks_ = &checks;
@@ -191,12 +192,12 @@ class Set {
   static consteval void checkPredicate() {
     static_assert(internal::no_indirect_call<Pred>,
                   "A bare function name decays to a function pointer and std::function "
-                  "type-erases; either is an indirect call per candidate tuple. Pass a "
+                  "type-erases; either is an indirect call per candidate row. Pass a "
                   "lambda or a function object.");
     static_assert(internal::ColumnsOfPredicate<Pred>::known,
                   "Cannot read this predicate's parameter list. Give it one concrete "
                   "signature: `[](auto, auto)` does not say which columns it reads. A "
-                  "callable with a template operator() specializes PredicateColumns "
+                  "callable with a template operator() specializes CallableColumns "
                   "instead.");
     static_assert(internal::PlacementOf<Pred, ElemTuple>::all_named,
                   "Take the columns themselves: `[](cItem i, cOrder o)`, not "
@@ -214,7 +215,7 @@ class Set {
                   "columns it tests.");
   }
 
-  // How many rows collect() makes, when that is known before it makes them: every source a sized
+  // How many rows build() makes, when that is known before it makes them: every source a sized
   // range of its own - no dependent column, no join, no predicate - so the rows are the product of
   // the sources' sizes. Reserved, it spares the vector its doublings, each a copy of every row so
   // far into memory the system has to fault in. 0 when it is not known (or does not fit).
@@ -407,7 +408,7 @@ class Set {
 
   // --- Joins --------------------------------------------------------------------------
   // A spread source visited after some of its columns are bound - by a spread source that
-  // shares them - is joined on those columns: looked up in an index built once per collect()
+  // shares them - is joined on those columns: looked up in an index built once per build()
   // instead of scanned and compared row by row.
 
   // The columns already bound when each source is visited.
@@ -563,7 +564,7 @@ class Set {
   template <std::size_t Step, std::size_t Source, typename BoundCols, typename... Bound>
   void visitSpread(internal::Rows<ElemTuple>& out, const Bound&... bound) {
     if constexpr (kJoins<Source>) {
-      if (const auto& grouped = std::get<Source>(indexes_)) {  // Built by collect() before generate().
+      if (const auto& grouped = std::get<Source>(indexes_)) {  // Built by build() before generate().
         for (const auto& tuple : grouped->slice(boundKey<typename JoinIndex<Source>::Key, BoundCols>(bound...))) {
           spread<Step, Source, 0, BoundCols>(out, tuple, bound...);
         }
@@ -604,7 +605,7 @@ class Set {
   RangeTuple ranges_;
   PredTuple preds_;
   JoinIndexes<std::make_index_sequence<kSourceCount>>::type indexes_;
-  internal::SourceChecks* checks_ = nullptr;  // a debug build's, while collect() runs
+  internal::SourceChecks* checks_ = nullptr;  // a debug build's, while build() runs
 };
 
 // Each argument is a source of columns; each explicit type names one NEW column:
@@ -686,7 +687,7 @@ template <typename... Columns>
 template <typename... Preds>
 IndexSet<Columns...> IndexSet<Columns...>::where(Preds... preds) const {
   static_assert(sizeof...(Preds) > 0, "where() needs at least one predicate.");
-  return internal::applyWhere(makeSet<>(*this), std::move(preds)...).collect();
+  return internal::applyWhere(makeSet<>(*this), std::move(preds)...).build();
 }
 
 }  // namespace dreamor

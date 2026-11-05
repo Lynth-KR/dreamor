@@ -14,7 +14,7 @@
 //
 // It builds only the variables of one cell - K1 x K2 x K3, every route kept, ids in loop order -
 // F families, both arms, in one fresh process per run:
-//   dreamor  makeSet(...).collect(), then one VarTable per family
+//   dreamor  makeSet(...).build(), then one VarTable per family
 //   flat     rows as ids, one std::vector of variables per family, an unordered_map index
 //
 // Bounds (--bounds):
@@ -162,7 +162,7 @@ int main(int argc, char** argv) {
   const Clock total;
   if (arm == "dreamor") {
     Clock c;
-    const auto set = dreamor::makeSet<cK1, cK2, cK3>(k1s, k2s, k3s).collect();
+    const auto set = dreamor::makeSet<cK1, cK2, cK3>(k1s, k2s, k3s).build();
     keys_ms        = c.wallMs();
     std::vector<Table> tables;
     tables.reserve(families);

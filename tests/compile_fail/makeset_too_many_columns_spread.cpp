@@ -199,6 +199,6 @@ int main() {
                                          I,
                                          I,
                                          I)
-                       .collect();
-  (void)dreamor::makeSet<C64>(s64, I).collect();
+                       .build();
+  (void)dreamor::makeSet<C64>(s64, I).build();
 }

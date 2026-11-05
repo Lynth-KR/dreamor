@@ -60,14 +60,14 @@ struct ColumnsOfPredicate {
   using type = std::tuple<>;
 };
 template <typename Pred>
-  requires requires { typename PredicateColumns<std::remove_cvref_t<Pred>>::type; }
+  requires requires { typename CallableColumns<std::remove_cvref_t<Pred>>::type; }
 struct ColumnsOfPredicate<Pred> {
   static constexpr bool known = true;
 
-  using type = PredicateColumns<std::remove_cvref_t<Pred>>::type;
+  using type = CallableColumns<std::remove_cvref_t<Pred>>::type;
 };
 template <typename Pred>
-  requires(!requires { typename PredicateColumns<std::remove_cvref_t<Pred>>::type; } && has_deducible_signature<Pred>)
+  requires(!requires { typename CallableColumns<std::remove_cvref_t<Pred>>::type; } && has_deducible_signature<Pred>)
 struct ColumnsOfPredicate<Pred> {
   static constexpr bool known = true;
 

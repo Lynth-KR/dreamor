@@ -12,5 +12,5 @@ namespace hs = dreamor::highs;  // NOLINT(misc-unused-alias-decls): the cases us
 using cI = dreamor::Col<std::size_t, "i">;
 inline auto sI() {
   static const std::vector<std::size_t> i{1, 2};
-  return dreamor::makeSet<cI>(i).collect();
+  return dreamor::makeSet<cI>(i).build();
 }

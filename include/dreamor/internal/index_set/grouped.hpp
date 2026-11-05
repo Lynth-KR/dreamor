@@ -152,12 +152,12 @@ struct IsRowSlice<RowSlice<Tup>> : std::true_type {};
 //
 //     for (const auto& [machine, period, rows] : sPRODUCE.groupBy<cMachine, cPeriod>()) ...
 //
-// `key` (the whole tuple) and `tuples` are there too. The rows borrow from the Grouped,
+// `key` (the whole tuple) and `rows` are there too. The rows borrow from the Grouped,
 // like slice()'s.
 template <typename Tup, typename... Columns>
 struct Group {
   std::tuple<Columns...> key;
-  RowSlice<Tup> tuples;
+  RowSlice<Tup> rows;
 
   // Tuple protocol for structured bindings: get<0..N-1> are the key's columns, get<N> the rows.
   template <std::size_t I>
@@ -166,7 +166,7 @@ struct Group {
     if constexpr (I < sizeof...(Columns)) {
       return std::get<I>(key);
     } else {
-      return tuples;
+      return rows;
     }
   }
 };
@@ -174,7 +174,7 @@ struct Group {
 // Covers the two things constraint code needs:
 //
 //   1) walk every group          {c in C}: sum {(a,b,c) in S} x[a,b,c]
-//        for (const auto& [c, tuples] : byC) ...
+//        for (const auto& [c, rows] : byC) ...
 //
 //   2) slice by a specific key   {(i,j) in ARCS}: sum {(i,k) in LINKS} ...
 //        for (const auto& [a, b] : byFirst.slice(i)) ...
@@ -184,7 +184,7 @@ struct Group {
 //
 // A Grouped is the range of its groups. Walking it needs no name: range-for keeps the
 // range expression alive for the whole loop, so `for (... : S.groupBy<C>())` is safe. What
-// borrows beyond one expression - slice(), at(), keyAt() - needs the Grouped named first.
+// borrows beyond one expression - slice(), at() - needs the Grouped named first.
 //
 // Walking yields only the groups that exist. When the driver set has keys this one does
 // not - a machine with no batches, a batch with no items - a constraint family written by
@@ -200,8 +200,8 @@ class Grouped {
   using Tup = Set::value_type;
 
  public:
-  using Key   = std::tuple<Columns...>;
-  using Group = ::dreamor::Group<Tup, Columns...>;
+  using key_type = std::tuple<Columns...>;
+  using Group    = ::dreamor::Group<Tup, Columns...>;
 
   // Forward iterator over the groups, first appearance first; each step makes a Group.
   class GroupIterator {
@@ -251,7 +251,7 @@ class Grouped {
     bool runs            = true;
     std::size_t previous = kNoGroup;  // The previous row's group.
     for (std::size_t i = 0; i < rows.size(); ++i) {
-      const Key key = keyOf(rows[i]);
+      const key_type key = keyOf(rows[i]);
       if (previous == kNoGroup || !(keys_[previous] == key)) {
         previous = index_.insert(key, keys_.size(), keysAt());
         if (previous == kNoGroup) {
@@ -301,54 +301,38 @@ class Grouped {
 
   // The accessors below borrow from this object's storage, so on an rvalue they stop with a
   // sentence: the object has to be named first, `const auto byMachine = S.groupBy<cMachine>();`.
-  [[nodiscard]] const Key& keyAt(std::size_t group) const& { return keys_.at(group); }
-  template <typename Unused = void>
-  [[nodiscard]] const Key& keyAt(std::size_t /*group*/) const&& {
-    static_assert(
-        internal::always_false<Unused>,
-        "Name the Grouped first - const auto byMachine = S.groupBy<cMachine>(); - slice(), at() and keyAt() hand out views into it, which would dangle once a temporary is gone. Walking it needs no name: for (... : S.groupBy<cMachine>()) is fine.");
-    std::terminate();
-  }
 
-  // Checked: for an empty set offsets_ is just {0}, so an unchecked at(0) would read
-  // offsets_[1] out of bounds.
-  [[nodiscard]] RowSlice<Tup> at(std::size_t group) const& {
+  // The g-th group, as walking the Grouped gives it: its key and its rows. Checked: for an empty
+  // set offsets_ is just {0}, so an unchecked at(0) would read offsets_[1] out of bounds.
+  [[nodiscard]] Group at(std::size_t group) const& {
     if (group >= keys_.size()) { throw std::out_of_range("Grouped::at: group index out of range."); }
-    return sliceOf(group);
+    return Group{keys_[group], sliceOf(group)};
   }
   template <typename Unused = void>
-  [[nodiscard]] RowSlice<Tup> at(std::size_t /*group*/) const&& {
+  [[nodiscard]] Group at(std::size_t /*group*/) const&& {
     static_assert(
         internal::always_false<Unused>,
-        "Name the Grouped first - const auto byMachine = S.groupBy<cMachine>(); - slice(), at() and keyAt() hand out views into it, which would dangle once a temporary is gone. Walking it needs no name: for (... : S.groupBy<cMachine>()) is fine.");
+        "Name the Grouped first - const auto byMachine = S.groupBy<cMachine>(); - slice() and at() hand out views into it, which would dangle once a temporary is gone. Walking it needs no name: for (... : S.groupBy<cMachine>()) is fine.");
     std::terminate();
   }
 
   // A group's position, not a key: a column converts to its value, which would be read as a position.
   template <typename Column>
     requires internal::is_column<Column>
-  [[nodiscard]] RowSlice<Tup> at(const Column& /*key*/) const {
+  [[nodiscard]] Group at(const Column& /*key*/) const {
     static_assert(internal::always_false<Column>,
-                  "at() and keyAt() take a group's position, 0 to size() - 1, not a column, which would be read as "
-                  "a position. For a key's group, call slice(key).");
-    std::terminate();
-  }
-  template <typename Column>
-    requires internal::is_column<Column>
-  [[nodiscard]] const Key& keyAt(const Column& /*key*/) const {
-    static_assert(internal::always_false<Column>,
-                  "at() and keyAt() take a group's position, 0 to size() - 1, not a column, which would be read as "
-                  "a position. For a key's group, call slice(key).");
+                  "at() takes a group's position, 0 to size() - 1, not a column, which would be read as a "
+                  "position. For a key's group, call slice(key).");
     std::terminate();
   }
 
-  // The rows of a key - byItemPeriod.slice(i, t), or slice(key) with a key from keyAt() - or an
+  // The rows of a key - byItemPeriod.slice(i, t), or slice(key) with a group's key - or an
   // empty slice when the key is absent, so callers need no membership check first. The key's
   // columns themselves, in order (see key_args.hpp).
   template <typename... Args>
   [[nodiscard]] RowSlice<Tup> slice(const Args&... key) const& {
-    if constexpr (internal::checkGroupKey<Key, Args...>()) {
-      const std::size_t group = index_.find(internal::keyOf<Key>(key...), keysAt());
+    if constexpr (internal::checkGroupKey<key_type, Args...>()) {
+      const std::size_t group = index_.find(internal::keyOf<key_type>(key...), keysAt());
       return (group == kNoGroup) ? RowSlice<Tup>{} : sliceOf(group);
     } else {
       return RowSlice<Tup>{};
@@ -358,24 +342,15 @@ class Grouped {
   RowSlice<Tup> slice(const Args&... /*key*/) const&& {
     static_assert(
         internal::always_false<Args...>,
-        "Name the Grouped first - const auto byMachine = S.groupBy<cMachine>(); - slice(), at() and keyAt() hand out views into it, which would dangle once a temporary is gone. Walking it needs no name: for (... : S.groupBy<cMachine>()) is fine.");
+        "Name the Grouped first - const auto byMachine = S.groupBy<cMachine>(); - slice() and at() hand out views into it, which would dangle once a temporary is gone. Walking it needs no name: for (... : S.groupBy<cMachine>()) is fine.");
     std::terminate();
   }
   template <typename... Args>
   [[nodiscard]] bool contains(const Args&... key) const {
-    if constexpr (internal::checkGroupKey<Key, Args...>()) {
-      return index_.find(internal::keyOf<Key>(key...), keysAt()) != kNoGroup;
+    if constexpr (internal::checkGroupKey<key_type, Args...>()) {
+      return index_.find(internal::keyOf<key_type>(key...), keysAt()) != kNoGroup;
     } else {
       return false;
-    }
-  }
-  template <typename... Args>
-  [[nodiscard]] std::size_t sliceSize(const Args&... key) const {
-    if constexpr (internal::checkGroupKey<Key, Args...>()) {
-      const std::size_t group = index_.find(internal::keyOf<Key>(key...), keysAt());
-      return (group == kNoGroup) ? 0 : offsets_[group + 1] - offsets_[group];
-    } else {
-      return 0;
     }
   }
   // slice({i, t}) and the like: braces are not a key.
@@ -386,11 +361,6 @@ class Grouped {
   }
   template <typename Unused = void>
   [[nodiscard]] bool contains(internal::BracedKey /*key*/) const {
-    static_assert(internal::always_false<Unused>, DREAMOR_INTERNAL_NO_BRACES_MESSAGE);
-    std::terminate();
-  }
-  template <typename Unused = void>
-  [[nodiscard]] std::size_t sliceSize(internal::BracedKey /*key*/) const {
     static_assert(internal::always_false<Unused>, DREAMOR_INTERNAL_NO_BRACES_MESSAGE);
     std::terminate();
   }
@@ -415,9 +385,9 @@ class Grouped {
   }
 
  private:
-  static constexpr std::size_t kNoGroup = ::dreamor::internal::FlatIndex<Key>::kNotFound;
+  static constexpr std::size_t kNoGroup = ::dreamor::internal::FlatIndex<key_type>::kNotFound;
 
-  [[nodiscard]] static Key keyOf(const Tup& tuple) { return Key{std::get<Columns>(tuple)...}; }
+  [[nodiscard]] static key_type keyOf(const Tup& tuple) { return key_type{std::get<Columns>(tuple)...}; }
 
   // The row-to-group array of rows that came in runs, one group after another: the first
   // offsets_[0] rows are group 0, and so on - offsets_ still holds the counts.
@@ -434,7 +404,7 @@ class Grouped {
 
   // The index's entries are group numbers; their keys live in keys_.
   [[nodiscard]] auto keysAt() const {
-    return [this](std::size_t group) -> const Key& { return keys_[group]; };
+    return [this](std::size_t group) -> const key_type& { return keys_[group]; };
   }
 
   // Unchecked: the group index provably comes from index_ or from walking keys_.
@@ -448,9 +418,9 @@ class Grouped {
 
   Set set_;                          // Shared with the caller's set: no row is copied.
   std::vector<std::uint32_t> rows_;  // Row numbers of set_, group by group.
-  std::vector<Key> keys_;
-  std::vector<std::size_t> offsets_;           // Size K + 1; CSR row pointers into rows_.
-  ::dreamor::internal::FlatIndex<Key> index_;  // Key -> group number, over keys_.
+  std::vector<key_type> keys_;
+  std::vector<std::size_t> offsets_;                // Size K + 1; CSR row pointers into rows_.
+  ::dreamor::internal::FlatIndex<key_type> index_;  // key_type -> group number, over keys_.
 };
 
 // S.groupBy<cItem>() groups by the item column; S.groupBy<cMachine, cOrder>() by two.

@@ -158,9 +158,9 @@ absl::StatusOr<Schedule> Solve(absl::Span<const Job> jobs,
   const auto running_at = [&](cJob j, cStart s) {
     return std::views::iota(s.get(), std::min(s + jobs[j].processing_time, kTimeHorizon));
   };
-  const auto sJOBS = dreamor::makeSet<cJob>(job_ids).collect();
-  const auto sSTART = dreamor::makeSet<cJob, cStart>(job_ids, starts_of).collect();
-  const auto sRUNNING = dreamor::makeSet<cTime>(sSTART, running_at).collect();
+  const auto sJOBS = dreamor::makeSet<cJob>(job_ids).build();
+  const auto sSTART = dreamor::makeSet<cJob, cStart>(job_ids, starts_of).build();
+  const auto sRUNNING = dreamor::makeSet<cTime>(sSTART, running_at).build();
 
   math_opt::Model model;
   // var x {START} binary;  - x[j,s] = 1 if job j starts at time s

@@ -43,10 +43,10 @@ struct Sets {
   explicit Sets(const Instance& in) {
     const auto items_of = [](cMachine m) { return m->items; };
 
-    sPERIODS = dreamor::makeSet<cPeriod>(in.periods).collect();
-    sROUTES  = dreamor::makeSet<cMachine, cItem>(in.machines, items_of).collect();
-    sPRODUCE = dreamor::makeSet<cPeriod>(sROUTES, in.periods).collect();
-    sSTOCK   = dreamor::makeSet<cItem, cPeriod>(in.items, in.periods).collect();
+    sPERIODS = dreamor::makeSet<cPeriod>(in.periods).build();
+    sROUTES  = dreamor::makeSet<cMachine, cItem>(in.machines, items_of).build();
+    sPRODUCE = dreamor::makeSet<cPeriod>(sROUTES, in.periods).build();
+    sSTOCK   = dreamor::makeSet<cItem, cPeriod>(in.items, in.periods).build();
   }
 };
 }  // namespace planning

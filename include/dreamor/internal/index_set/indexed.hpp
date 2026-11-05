@@ -3,7 +3,7 @@
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
 // File: indexed.hpp
-// The materialized index set: what makeSet(...).collect() and every set operation return.
+// The materialized index set: what makeSet(...).build() and every set operation return.
 //
 // Read-only. A set is a fact about the model - which index tuples exist - so code that
 // receives one can walk it but not edit it:
@@ -21,8 +21,8 @@
 //     S.select(expr)             each row as expr makes it, as a set   setof {(i,j) in S} (j,i)
 //     S.groupBy<cOrder>()       Grouped: walk groups, slice by key
 //     S.membership()             O(1) membership predicate over S's columns
-//     S.ordered()                ord / next / prev
-//     S.ordered<cMachine>()    the same within each machine's rows   next(t, S[m])
+//     S.ordered()                positionOf / next / prev
+//     S.orderedWithin<cMachine>()    the same within each machine's rows   next(t, S[m])
 //     unite(A, B), intersect(A, B), difference(A, B)
 //
 // The members are defined in the headers that implement them; include
@@ -171,8 +171,12 @@ class IndexSet : public std::ranges::view_base {
   template <typename... By>
   [[nodiscard]] Grouped<IndexSet, By...> groupBy() const;
   [[nodiscard]] Membership<IndexSet> membership() const;
+  [[nodiscard]] Ordered<IndexSet> ordered() const;
   template <typename... Within>
-  [[nodiscard]] Ordered<IndexSet, Within...> ordered() const;
+  [[nodiscard]] Ordered<IndexSet, Within...> orderedWithin() const;
+  // ordered<Columns...>() was positions within groups; it is orderedWithin<Columns...>() now.
+  template <typename First, typename... Rest>
+  [[nodiscard]] Ordered<IndexSet> ordered() const;
 
  private:
   friend struct internal::SetAccess;

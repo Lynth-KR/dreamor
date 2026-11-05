@@ -122,7 +122,7 @@ template <typename Key, typename... Args>
 consteval bool checkGroupKey() {
   static_assert(isKey<Key, Args...>(),
                 "Slice by this groupBy's key columns, in its order - byMachinePeriod.slice(m, t) for "
-                "groupBy<cMachine, cPeriod>() - or by a key from keyAt(). A plain value (2, a raw "
+                "groupBy<cMachine, cPeriod>() - or by a group's key, Group::key. A plain value (2, a raw "
                 "pointer) is not a column: write cPeriod{2}.");
   return isKey<Key, Args...>();
 }
@@ -130,7 +130,7 @@ consteval bool checkGroupKey() {
 template <typename Tup, typename... Args>
 consteval bool checkOrderedKey() {
   static_assert(isKey<Tup, Args...>(),
-                "Name an element of the ordered set by its columns, in order - orderedPeriods.ord(t) - "
+                "Name an element of the ordered set by its columns, in order - orderedPeriods.positionOf(t) - "
                 "or by a row of the set. A plain value (2, a raw pointer) is not a column: write "
                 "cPeriod{2}.");
   return isKey<Tup, Args...>();
@@ -139,8 +139,8 @@ consteval bool checkOrderedKey() {
 template <typename Key, typename... Args>
 consteval bool checkOrderedGroup() {
   static_assert(isKey<Key, Args...>(),
-                "Name the group by the columns ordered<Columns...>() groups by, in order - "
-                "periodsOfMachine.first(m) for ordered<cMachine>(). A plain value (2, a raw pointer) is not a "
+                "Name the group by the columns orderedWithin<Columns...>() groups by, in order - "
+                "periodsOfMachine.first(m) for orderedWithin<cMachine>(). A plain value (2, a raw pointer) is not a "
                 "column: write cMachine{2}.");
   return isKey<Key, Args...>();
 }

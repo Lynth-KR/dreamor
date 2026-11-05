@@ -7,8 +7,8 @@
 
 int main() try {
   const std::vector<std::size_t> values{1, 2, 3};
-  const auto sII     = dreamor::makeSet<cI, cJ>(values, values).collect();
-  const auto withinI = sII.ordered<cI>();
+  const auto sII     = dreamor::makeSet<cI, cJ>(values, values).build();
+  const auto withinI = sII.orderedWithin<cI>();
   return static_cast<int>(std::get<cJ>(withinI.first(cI{4})).get());  // no row has i = 4: the group is not there
 } catch (...) {
   return 1;  // no message: the runner reports it

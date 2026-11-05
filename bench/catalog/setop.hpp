@@ -126,7 +126,7 @@ struct Dreamor<std::index_sequence<J...>> {
     const Set sA = sX.where(InA{});
     const Set sB = [&]<std::size_t... I>(std::index_sequence<I...>) {
       auto gen = dreamor::makeSet<cK<J>...>(d.k1s, ListOfB<I + 1>{&d, &moved}...);
-      return d.sparse ? gen.where(typename G::Keep{&d}).where(InB{}).collect() : gen.where(InB{}).collect();
+      return d.sparse ? gen.where(typename G::Keep{&d}).where(InB{}).build() : gen.where(InB{}).build();
     }(std::make_index_sequence<kK - 1>{});
     select(decltype(shifted<1>(std::make_index_sequence<kK - 1>{})){}, sX, r);
     {
