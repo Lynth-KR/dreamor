@@ -132,6 +132,8 @@ template <typename Column, typename Element>
   using Bare  = std::remove_cvref_t<Element>;
   if constexpr (OneColumnRow<Bare>::value) {
     return toColumn<Column>(std::get<0>(element));
+  } else if constexpr (std::same_as<Bare, Column>) {
+    return element;  // the column itself, copied once
   } else if constexpr (ref<Value>) {
     if constexpr (ref<Bare>) {
       return Column{element};
@@ -143,7 +145,7 @@ template <typename Column, typename Element>
   } else if constexpr (IsIntervalPoint<Bare>::value) {
     return Column{intervalValueAs<Value>(element.value)};
   } else if constexpr (column<Bare>) {
-    auto value = element.get();
+    const auto& value = element.get();  // a column of another name: its value fills this one, not copied first
     return toColumn<Column>(value);
   } else if constexpr (std::same_as<Bare, Value>) {
     return Column{element};

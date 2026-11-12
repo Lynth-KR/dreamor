@@ -49,9 +49,9 @@ whether a condition holds, and whether a join finds its key. The situations, by 
 ### Value types: where a value fills or matches a column
 
 The engine's code is the same for every value type except in two places. `toColumn` (`column.hpp`) chooses by the
-element's type and the column's: the same type, a `Ref`, a column holding a `Ref`, an entity of a frozen
-`EntityVector`, an interval's value of another integer type, an integer of another type, text into a `std::string`
-column, another convertible value. `AmongListOf` compares a bound column with what a callable returns: a value of
+element's type and the column's: the column itself, the same type, a `Ref`, a column holding a `Ref`, an entity of a
+frozen `EntityVector`, an interval's value of another integer type, an integer of another type, text into a
+`std::string` column, another convertible value. `AmongListOf` compares a bound column with what a callable returns: a value of
 another integer type goes through `std::cmp_equal`. These are situation **F**: F1 the same type, F1r a `Ref`, F2 an
 integer of another type, F3 an interval of another integer type, F4 a column holding a `Ref`, F5 an entity of a frozen
 `EntityVector`, F6 text into a `std::string` column, F7 string literals into a `std::string_view` column, F8 an integer
