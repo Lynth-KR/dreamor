@@ -74,7 +74,9 @@ Each is a rule of the reference or the guide, linked; the compile-time ones stop
   container of the text a `std::string_view` column shows (`docs/reference/debug-build-checks.md`).
 - **A family of rows runs over its domain**: a condition on a row's keys is a `where` on the set the loop runs over,
   not an `if` around the row; an `if` inside a row chooses a term. A family over every key loops over the key's set
-  and `slice`s a named `Grouped` - an empty slice sums to 0 (`docs/guide/ordered-sets.md`, `grouping.md`).
+  and `slice`s a named `Grouped` - an empty slice sums to 0 (`docs/guide/ordered-sets.md`, `grouping.md`). A part
+  of the model left out builds its set as `IndexSet<...>::none()`, and its families, rows and sums are empty with it
+  (`docs/guide/variable-families.md`).
 - **One `VarTable` a family**, its keys its set's columns in the same order; reach a subset's variables through it.
   Tables are built after their sets, as members in the initializer list (`docs/guide/variable-families.md`).
 - **`sumExpr(...)` is a builder until `.build()`**; on Concert it takes the environment first,

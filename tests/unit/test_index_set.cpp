@@ -3,7 +3,8 @@
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
 // IndexSet and its derivations: where, orderBy, select, groupBy, membership, ordered, and the
-// binary operations; and a set, a Grouped and an Ordered that are moved from, which are empty.
+// binary operations; the empty set none() returns; and a set, a Grouped and an Ordered that are moved from, which
+// are empty.
 #include <algorithm>
 #include <array>
 #include <compare>
@@ -260,6 +261,33 @@ void movedFrom() {
   DREAMOR_CHECK(ordered.next(cI{1}, cJ{10}) != nullptr && within.empty() && within.next(cI{1}, cJ{10}) == nullptr);
   DREAMOR_CHECK(!within.positionOf(cI{1}, cJ{10}).has_value() && !within.contains(cI{1}, cJ{10}));
   // NOLINTEND(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
+}
+
+// none(): a set of the type's columns with no rows, allocating nothing. Every derivation and operation takes it, and
+// it equals an empty set built otherwise; the empty storage it shares, index included, serves every none() alike.
+void noRows() {
+  namespace rel = dreamor::index_set::relational;
+  const std::vector<std::size_t> as{1, 2, 3};
+  const auto sIJ     = rel::from<cI>(as).cross<cJ>(as).build();
+  const auto sNONE   = dreamor::IndexSet<cI, cJ>::none();
+  const auto any_row = [](cI /*i*/) { return true; };
+  static_assert(noexcept(dreamor::IndexSet<cI, cJ>::none()));
+  static_assert(std::is_same_v<decltype(sNONE), const dreamor::IndexSet<cI, cJ>>);
+  DREAMOR_CHECK(sNONE.empty() && sNONE.begin() == sNONE.end() && !sNONE.contains(cI{1}, cJ{1}));
+  DREAMOR_CHECK(sNONE == rel::from<cI>(std::vector<std::size_t>{}).cross<cJ>(as).build());
+  DREAMOR_CHECK(sNONE.where(any_row).empty() && sNONE.select<cJ>().empty() && sNONE.orderBy(any_row).empty());
+  DREAMOR_CHECK(sNONE.groupBy<cI>().empty() && sNONE.ordered().empty() && sNONE.orderedWithin<cI>().empty());
+  DREAMOR_CHECK(dreamor::unite(sIJ, sNONE) == sIJ && dreamor::unite(sNONE, sIJ) == sIJ);
+  DREAMOR_CHECK(dreamor::intersect(sIJ, sNONE).empty() && dreamor::difference(sIJ, sNONE) == sIJ);
+  DREAMOR_CHECK(dreamor::difference(sNONE, sIJ).empty() && dreamor::within(sNONE, sIJ) && !dreamor::within(sIJ, sNONE));
+  // The opposite condition is called, not passed to where: GCC 16 with -g warns -Wmaybe-uninitialized on the
+  // Membership<..., false> that where copies here, and not without -g (a false positive; difference covers the set).
+  const auto not_in_none = !sNONE.membership();
+  DREAMOR_CHECK(sIJ.where(sNONE.membership()).empty() && not_in_none(cI{1}, cJ{1}));
+  DREAMOR_CHECK(rel::from(sIJ).join(sNONE).build().empty() && rel::from(sNONE).cross<cK>(as).build().empty());
+  // A second none() shares the storage, and the index the first built: it still finds nothing.
+  const auto sALSO_NONE = dreamor::IndexSet<cI, cJ>::none();
+  DREAMOR_CHECK(sALSO_NONE.empty() && !sALSO_NONE.contains(cI{2}, cJ{3}) && sALSO_NONE == sNONE);
 }
 
 // A step count anywhere in its type's range: a walk past an end of the set gives no row, a cyclic walk wraps by the
@@ -667,6 +695,7 @@ int main() try {
   valuesInBraces();
   rowsInADeclaredOrder();
   movedFrom();
+  noRows();
   extremeSteps();
   stepForms();
   groupIterators();

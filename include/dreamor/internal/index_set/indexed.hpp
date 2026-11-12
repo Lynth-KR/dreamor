@@ -164,6 +164,7 @@ namespace dreamor {
 ///
 /// - by `build()` of a chain, or of set-builder notation;
 /// - by the constructor that makes a row from each record of a range;
+/// - by `none()`, which returns a set with no rows;
 /// - by a derivation from another set, such as `where`, `orderBy`, `select`, or an operation of the Set algebra
 ///   section.
 ///
@@ -196,7 +197,8 @@ inline constexpr Descending descending{};  // NOLINT(readability-identifier-nami
 ///
 /// `IndexSet` has no default constructor, so a set is made where it is declared: from a chain, from a derivation, or
 /// from records. A set that is a member of a class is made in the class's member initializer list. An empty set is
-/// built by a chain over an empty source. A set that is moved from is empty, as a `std::vector` that is moved from is.
+/// returned by `none()`, or built by a chain over an empty source. A set that is moved from is empty, as a
+/// `std::vector` that is moved from is.
 ///
 /// Takes: `Columns...` must be at most 64 columns. Each column must be declared by `DREAMOR_ENTITY_COLUMN` or
 /// `DREAMOR_VALUE_COLUMN`.
@@ -247,6 +249,14 @@ class IndexSet : public std::ranges::view_base {
   /// Contract: source_holds_no_repeat, source_holds_no_empty_ref
   template <typename Range, typename RowOf>
   IndexSet(Range&& records, const RowOf& row_of);  // Defined in set.hpp.
+
+  /// Returns a set with no rows.
+  ///
+  /// A set derived from the empty set is empty too. A variable family over the empty set holds no variables, and a
+  /// sum over the empty set has no terms.
+  ///
+  /// Cost: No memory is allocated. Every empty set of the same columns shares one empty storage.
+  [[nodiscard]] static IndexSet none() noexcept { return internal::SetAccess::empty<Tup>(); }
 
   /// Returns an iterator to the first row.
   ///

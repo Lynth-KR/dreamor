@@ -1,4 +1,4 @@
-<!-- Copied from docs/guide/variable-families.md (blob 124e498eda16), tests/docs/highs/plan.hpp (blob af7828ef1f9b), tests/docs/highs/variable_families.cpp (blob f1d35f0599d0) by tools/sync_skill_docs.py - edit the source, not this copy. -->
+<!-- Copied from docs/guide/variable-families.md (blob fb6cb88c092c), tests/docs/highs/plan.hpp (blob af7828ef1f9b), tests/docs/highs/variable_families.cpp (blob bc25092401ce) by tools/sync_skill_docs.py - edit the source, not this copy. -->
 
 # Variable families
 
@@ -112,6 +112,37 @@ family reads them in every period.
 
 For how to fill a table with your own values, see [Data on a set](data-on-a-set.md). For what a bound may be, see
 [`VarTable`](../reference/dreamor-highs.md#vartable-constructor).
+
+## Leave a family out
+
+Suppose some plans allow no overtime, and you want one model that serves both kinds of plan, with no branch around
+the overtime variables or the sums that read them. Choose where you build the set: build the family's set as usual
+when the plan allows overtime, and as the empty set when it does not. The family and every sum over the set then
+follow the set:
+
+```cpp
+using dreamor::index_set::relational::from;
+const bool overtime_allowed = false;  // this plan's choice
+
+const dreamor::IndexSet<cMachine, cPeriod> sOVERTIME = overtime_allowed
+                                                           ? from<cMachine>(machines).cross(s.periods).build()
+                                                           : dreamor::IndexSet<cMachine, cPeriod>::none();
+
+const VarTable<cMachine, cPeriod> vOvertime{env, sOVERTIME, 0, 2, HighsVarType::kContinuous, "Overtime"};
+const HighsLinearExpression extraHours = sumExpr(sOVERTIME, vOvertime).build();
+```
+
+- `overtime_allowed` holds the plan's choice.
+- `dreamor::IndexSet<cMachine, cPeriod>::none()` returns a set of `cMachine` and `cPeriod` with no rows. Both
+  operands of `?:` are sets of the same columns, so `sOVERTIME` takes either one.
+- `vOvertime` adds a variable for each row of `sOVERTIME`.
+- `sumExpr(sOVERTIME, vOvertime)` adds up the family's variables over the rows of `sOVERTIME`.
+
+This plan allows no overtime, so `sOVERTIME` holds no rows. `vOvertime` holds no variables, and the model gets no
+column. `extraHours` has no terms, so a row or a cost that adds it reads it as 0. With `overtime_allowed` true, the
+same lines make a variable for each machine in each period: 6 variables.
+
+For what `none()` returns, see [`none`](../reference/indexset.md#indexset-none).
 
 ## Read a family
 

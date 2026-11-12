@@ -112,6 +112,29 @@ void boundFromData(const Plant& p, const Sets& s) {
   DREAMOR_CHECK(asAgreed == 6);  // M1's 3 periods up to 2 hours, M2's 3 up to 1
 }
 
+void leaveOut(const Plant& p, const Sets& s) {
+  const dreamor::EntityVector<Machine>& machines = p.machines;
+  HighsEnv env{quietOptions()};
+
+  // --8<-- [start:leave-out]
+  using dreamor::index_set::relational::from;
+  const bool overtime_allowed = false;  // this plan's choice
+
+  const dreamor::IndexSet<cMachine, cPeriod> sOVERTIME = overtime_allowed
+                                                             ? from<cMachine>(machines).cross(s.periods).build()
+                                                             : dreamor::IndexSet<cMachine, cPeriod>::none();
+
+  const VarTable<cMachine, cPeriod> vOvertime{env, sOVERTIME, 0, 2, HighsVarType::kContinuous, "Overtime"};
+  const HighsLinearExpression extraHours = sumExpr(sOVERTIME, vOvertime).build();
+  // --8<-- [end:leave-out]
+  DREAMOR_CHECK(sOVERTIME.empty());
+  DREAMOR_CHECK(vOvertime.size() == 0 && env.highs().getLp().num_col_ == 0);  // no variable reached the model
+  DREAMOR_CHECK(extraHours.size() == 0 && isExactlyZero(extraHours.constant()));
+  // With overtime allowed, the same lines make a variable for each machine in each period.
+  const auto sALLOWED = from<cMachine>(machines).cross(s.periods).build();
+  DREAMOR_CHECK(sALLOWED.size() == 6 && dreamor::within(sOVERTIME, sALLOWED));
+}
+
 void read(const Plant& p, const Sets& s, const highs::Plan& plan) {
   const auto m1    = p.machines.at("M1");
   const auto m2    = p.machines.at("M2");
@@ -200,6 +223,7 @@ int main() try {
   const highs::Plan plan{s, quantity, quietOptions()};
   makeFamilies(p, s, plan);
   boundFromData(p, s);
+  leaveOut(p, s);
   read(p, s, plan);
   walk(p, s, plan);
   changeBound(p, s, quantity);
