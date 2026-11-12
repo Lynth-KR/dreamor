@@ -1,4 +1,4 @@
-<!-- Copied from docs/guide/columns.md (blob 621f06a29b6c), tests/docs/guide/model.hpp (blob b2d1db7441b4), tests/docs/guide/columns.cpp (blob 7d4f35934698) by tools/sync_skill_docs.py - edit the source, not this copy. -->
+<!-- Copied from docs/guide/columns.md (blob bbb7b6caf7b6), tests/docs/guide/model.hpp (blob b2d1db7441b4), tests/docs/guide/columns.cpp (blob bd497296e976) by tools/sync_skill_docs.py - edit the source, not this copy. -->
 
 # Columns
 
@@ -213,6 +213,75 @@ const bool fromAcme = supplier == "Acme";
 `atNight` and `fromAcme` are true.
 
 For every type that a value column may hold, see [`Col`](../reference/columns.md#col).
+
+## Declare a column of a type of your own
+
+Suppose your model has a step for each distinct number of hours that a unit of an item takes, such as the steps of a
+staircase cost, and links each item to the step of its hours. The members of the set of steps are measured values.
+A column of `double` does not compile, so that a quantity goes into a table on a set or into an entity. To make
+measured values the members of a set, hold each value in a type of your own, with `==` and `std::hash`. `Hours` and
+`cHours` are this page's own, not part of the model:
+
+```cpp
+struct Hours {  // the hours a unit takes, as your data gives them
+  double value;
+
+  friend bool operator==(const Hours& a, const Hours& b) {  // exact: equal hours are one row
+    return std::equal_to<>{}(a.value, b.value);
+  }
+};
+
+
+template <>
+struct std::hash<Hours> {
+  std::size_t operator()(const Hours& h) const noexcept { return std::hash<double>{}(h.value); }
+};
+
+template <>
+struct std::formatter<Hours> : std::formatter<double> {  // writes the value in a name
+
+  auto format(const Hours& h, std::format_context& context) const {
+    return std::formatter<double>::format(h.value, context);
+  }
+};
+
+
+DREAMOR_VALUE_COLUMN(cHours, Hours);
+```
+
+```cpp
+const auto with_hours = [](cItem i) { return std::tuple<cItem, cHours>{i, Hours{i->time}}; };
+const auto by_hours   = [](cHours h) { return h.get().value; };
+
+const auto sHOURS_OF = from<cItem>(p.items).build().select(with_hours);                    // each item with its hours
+const auto sSTEPS    = sHOURS_OF.select<cHours>().orderBy(by_hours, dreamor::descending);  // each value once
+
+const auto itemsByHours = sHOURS_OF.groupBy<cHours>();
+const std::size_t quick = itemsByHours.slice(Hours{0.1}).size();
+const std::string top   = dreamor::indexedName("Step", *sSTEPS.begin());
+```
+
+- `Hours` holds the hours that a unit takes. Its `==` compares the hours exactly, and its `std::hash` hashes them,
+  so the column finds a row by its hours.
+- `std::formatter<Hours>` writes the hours in a name, as `std::format` writes a `double`.
+- `DREAMOR_VALUE_COLUMN(cHours, Hours)` declares a column that holds an `Hours`. The specialization of `std::hash`
+  comes before it.
+- `select(with_hours)` makes a set of each item with its hours, in a new column `cHours`.
+- `select<cHours>()` keeps the column `cHours` alone, and drops each row that repeats an earlier one.
+  `orderBy(by_hours, dreamor::descending)` puts the largest hours first.
+- `groupBy<cHours>()` groups the items by their hours, and `slice(Hours{0.1})` returns the items that take 0.1 hours.
+- `indexedName("Step", ...)` writes the name of the first step, as a `VarTable` names a variable.
+
+The frame takes 1 hour, the plate and the bracket take 0.5 hours each, and the bolt and the nut take 0.1 hours each.
+So `sHOURS_OF` holds 5 rows, and `sSTEPS` holds the three distinct values, 1, 0.5 and 0.1, in that order. `quick` is
+2, for the bolt and the nut, and `top` is `Step_1`.
+
+A row is found by the `==` and the hash of your type, so the values that you mean as one member must be equal to the
+last bit. Hours that your data gives are, but hours computed in two ways, such as `0.1 + 0.2` and `0.3`, may differ
+in the last bit and make two rows.
+
+For the rules of a type of your own in a column, see [`Col`](../reference/columns.md#col). For how a value is
+written in a name, see [Names](../reference/names.md).
 
 ## See also
 

@@ -275,7 +275,8 @@ namespace dreamor {
 /// - An integer type, an enum, or `char`.
 /// - `std::string_view`, whose characters must outlive every set whose rows hold the column.
 /// - `std::string`, which holds its own characters.
-/// - A type of the user's that has `==` and a specialization of `std::hash`.
+/// - A type of the user's that has `==` and a specialization of `std::hash`, such as a struct that holds a measured
+///   value that is itself a set's member.
 ///
 /// A default-constructed column holds a value-initialized `T`: an empty `Ref`, zero, or an empty text. Two columns of
 /// the same type are equal if their values are equal.
@@ -295,7 +296,8 @@ class Col {
       "gives (at, find).");
   static_assert(!std::is_floating_point_v<T>,
                 "A column identifies its rows by ==, which a floating-point number does not keep: a quantity is "
-                "data on a set - a ParamTable - or an entity's attribute.");
+                "data on a set - a ParamTable - or an entity's attribute, and a measured value that is itself a "
+                "set's member, such as a breakpoint, goes in a type of yours with == and std::hash.");
   static_assert(!internal::kOtherCharacter<T>,
                 "A column holds a char, not a wchar_t, char8_t, char16_t or char32_t: those differ between platforms "
                 "or cannot be printed in a name - hold a std::string_view of the text, or its code as an integer.");

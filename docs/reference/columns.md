@@ -33,7 +33,8 @@ In use: [the guide](../guide/columns.md).
     - An integer type, an enum, or `char`.
     - `std::string_view`, whose characters must outlive every set whose rows hold the column.
     - `std::string`, which holds its own characters.
-    - A type of the user's that has `==` and a specialization of `std::hash`.
+    - A type of the user's that has `==` and a specialization of `std::hash`, such as a struct that holds a measured
+      value that is itself a set's member.
 
     A default-constructed column holds a value-initialized `T`: an empty `Ref`, zero, or an empty text. Two columns of
     the same type are equal if their values are equal.

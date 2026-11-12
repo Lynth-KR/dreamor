@@ -3,6 +3,8 @@
 // docs/guide/columns.md: the page shows the regions between --8<-- lines, and the checks stay here.
 #include <algorithm>
 #include <cstddef>
+#include <format>
+#include <functional>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -24,6 +26,42 @@ enum class Shift { kDay, kNight };
 DREAMOR_VALUE_COLUMN(cShift, Shift);           // the shift a machine runs in
 DREAMOR_VALUE_COLUMN(cSupplier, std::string);  // who supplies a bought item, by name
 // --8<-- [end:enum-text-columns]
+
+// --8<-- [start:own-type]
+struct Hours {  // the hours a unit takes, as your data gives them
+  double value;
+
+  friend bool operator==(const Hours& a, const Hours& b) {  // exact: equal hours are one row
+    return std::equal_to<>{}(a.value, b.value);
+  }
+};
+
+// --8<-- [end:own-type]
+
+}  // namespace
+
+// std::hash and std::formatter are specialized at global scope, outside the anonymous namespace.
+// --8<-- [start:own-type-hash]
+template <>
+struct std::hash<Hours> {
+  std::size_t operator()(const Hours& h) const noexcept { return std::hash<double>{}(h.value); }
+};
+
+template <>
+struct std::formatter<Hours> : std::formatter<double> {  // writes the value in a name
+
+  auto format(const Hours& h, std::format_context& context) const {
+    return std::formatter<double>::format(h.value, context);
+  }
+};
+
+// --8<-- [end:own-type-hash]
+
+namespace {
+
+// --8<-- [start:own-type-column]
+DREAMOR_VALUE_COLUMN(cHours, Hours);
+// --8<-- [end:own-type-column]
 
 // The model's columns: two entity columns over Machine and Item, a value column of int, and cParent and cChild,
 // two more entity columns over Item.
@@ -164,6 +202,41 @@ void enumAndText() {
   DREAMOR_CHECK(shift.get() == Shift::kNight && supplier.get() == std::string{"Acme"});
 }
 
+void ownType(const Plant& p) {
+  using dreamor::index_set::relational::from;
+
+  // --8<-- [start:own-type-sets]
+  const auto with_hours = [](cItem i) { return std::tuple<cItem, cHours>{i, Hours{i->time}}; };
+  const auto by_hours   = [](cHours h) { return h.get().value; };
+
+  const auto sHOURS_OF = from<cItem>(p.items).build().select(with_hours);                    // each item with its hours
+  const auto sSTEPS    = sHOURS_OF.select<cHours>().orderBy(by_hours, dreamor::descending);  // each value once
+
+  const auto itemsByHours = sHOURS_OF.groupBy<cHours>();
+  const std::size_t quick = itemsByHours.slice(Hours{0.1}).size();
+  const std::string top   = dreamor::indexedName("Step", *sSTEPS.begin());
+  // --8<-- [end:own-type-sets]
+  static_assert(std::is_same_v<decltype(sHOURS_OF), const dreamor::IndexSet<cItem, cHours>>);
+  static_assert(std::is_same_v<decltype(sSTEPS), const dreamor::IndexSet<cHours>>);
+  // Five items: the frame takes 1 hour, the plate and the bracket 0.5, the bolt and the nut 0.1.
+  DREAMOR_CHECK(sHOURS_OF.size() == 5);
+  DREAMOR_CHECK(sHOURS_OF.contains(p.items.at("bolt"), Hours{0.1}) &&
+                sHOURS_OF.contains(p.items.at("frame"), Hours{1.0}));
+  // Three distinct values, the largest first.
+  DREAMOR_CHECK(sSTEPS.size() == 3);
+  auto step = sSTEPS.begin();
+  DREAMOR_CHECK(std::get<cHours>(*step) == Hours{1.0});
+  ++step;
+  DREAMOR_CHECK(std::get<cHours>(*step) == Hours{0.5});
+  ++step;
+  DREAMOR_CHECK(std::get<cHours>(*step) == Hours{0.1});
+  DREAMOR_CHECK(quick == 2);  // the bolt and the nut
+  for (const auto& [item, hours] : itemsByHours.slice(Hours{0.1})) {
+    DREAMOR_CHECK(item == p.items.at("bolt") || item == p.items.at("nut"));
+  }
+  DREAMOR_CHECK(top == "Step_1");  // 1.0 written as std::format writes it for {}
+}
+
 }  // namespace
 
 int main() try {
@@ -174,5 +247,6 @@ int main() try {
   key(p, sMAKE);
   namedKey(p);
   enumAndText();
+  ownType(p);
   return ::report("guide/columns");
 } catch (...) { return ::uncaught(); }
