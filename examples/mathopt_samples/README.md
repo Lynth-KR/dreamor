@@ -1,6 +1,5 @@
 # OR-Tools MathOpt samples, ported to dreamor
 
-
 Three of the C++ samples that ship with OR-Tools MathOpt, rewritten the way dreamor is meant to
 be used. The point is not speed - the instances are tiny - but how the model code changes when
 the index sets are declared instead of implied by loops and hash maps.
@@ -9,7 +8,9 @@ The originals are in [`ortools/math_opt/samples/cpp`](https://github.com/google/
 at google/or-tools@100f66e. Each port keeps the original's license header and says what changed.
 Everything around the model is left as it was: flags, data, the solve loop, LaTeX export. The
 only other change is output, which goes through `dreamor/logger.hpp` instead of
-`std::cout` (LaTeX output still goes to standard out, since it is meant for a pipe).
+`std::cout` (LaTeX output still goes to standard out, since it is meant for a pipe). The sets
+are written in set-builder notation, `of<...>(in<...>(...), ...)`, with `using` declarations for
+dreamor's names, as the other examples write them.
 
 | Sample | What the port shows |
 |---|---|
@@ -29,12 +30,9 @@ from the same commit on the same OR-Tools release (v9.15):
 
 ## cocktail_hour
 
-Pick ingredients to buy so that as many cocktails as possible can be made.
-
-```
-set RECIPE := {c in COCKTAILS, i in INGREDIENTS_OF[c]};
-subject to NeedAll {(c,i) in RECIPE}: Make[c] <= Buy[i];
-```
+Pick ingredients to buy so that as many cocktails as possible can be made. A cocktail is made
+only if each of its ingredients is bought: `Make[c] <= Buy[i]` for each cocktail `c` and each of
+its ingredients `i`.
 
 The original keeps a `flat_hash_map<std::string, Variable>` per variable family. The recipe
 constraint lives inside the loop that creates the cocktail variables, looking each ingredient up
@@ -55,9 +53,11 @@ for (const Cocktail& cocktail : all_cocktails) {
 The port declares the sets, then states each part of the model once:
 
 ```cpp
-const auto sRECIPE =
-    dreamor::index_set::relational::from<cCocktail>(all_cocktails).lateral<cIngredient>(ingredients_of).build();
-const dreamor::mathopt::VarTable<cCocktail> vMake{
+const auto sRECIPE = of<cCocktail, cIngredient>(
+                         in<cCocktail>(all_cocktails),
+                         in<cIngredient>(ingredients_of))
+                         .build();
+const VarTable<cCocktail> vMake{
     model, sCOCKTAILS, required, allowed, /*is_integer=*/true, "Make"};
 
 for (const auto& [c, i] : sRECIPE) {
@@ -69,7 +69,7 @@ What changes:
 - **Bounds.** The conditional bounds become column functions (`required`, `allowed`) passed to
   the table, instead of locals computed inside the creation loop.
 - **Variable creation and constraints.** These are separate statements. No `InsertOrDie` or
-  `FindOrDie`: a recipe naming an ingredient that is not in `INGREDIENTS` throws
+  `FindOrDie`: a recipe naming an ingredient that is not in `sINGREDIENTS` throws
   `std::out_of_range` at `vBuy(i)`, where the original would `FindOrDie`.
 - **Reading the solution.** The hash maps have no order, so the original re-walks `kIngredients`
   and `AllCocktails()` and looks every variable up twice
@@ -111,16 +111,24 @@ for (int t = 0; t < kTimeHorizon; ++t) {
 ```
 
 The port makes the release dates part of the index set and builds the "running at" relation
-as a set over that set:
+as a set over that set: a job starts at any time from its release to the horizon
+(`starts_of`), and runs from its start until it completes or the horizon comes (`running_at`).
 
 ```cpp
-// set START := {j in JOBS, s in release[j]..T-1};
-// set RUNNING := {(j,s) in START, t in s..min(s+p[j], T)-1};
-const auto sSTART = dreamor::index_set::relational::from<cJob>(job_ids).lateral<cStart>(starts_of).build();
-const auto sRUNNING = dreamor::index_set::relational::from(sSTART).lateral<cTime>(running_at).build();
+const auto starts_of = [&](cJob j) {
+  return closedOpen(jobs[j].release_time, kTimeHorizon);
+};
+const auto running_at = [&](cJob j, cStart s) {
+  return closedOpen(s, std::min(s + jobs[j].processing_time, kTimeHorizon));
+};
+const auto sSTART =
+    of<cJob, cStart>(in<cJob>(sJOBS), in<cStart>(starts_of)).build();
+const auto sRUNNING = of<cJob, cStart, cTime>(in<cJob, cStart>(sSTART),
+                                              in<cTime>(running_at))
+                          .build();
 ...
 for (const auto& [t, rows] : sRUNNING.groupBy<cTime>()) {
-  model.AddLinearConstraint(dreamor::mathopt::sumExpr(rows, vStart).build() <= 1.0);
+  model.AddLinearConstraint(sumExpr(rows, vStart).build() <= 1.0);
 }
 ```
 
@@ -128,11 +136,11 @@ What changes:
 - **Fewer variables.** Variables before the release time are never created. On the 30-job
   random instance (the default size), the model has 12,896 variables instead of 18,060, and 615
   constraints instead of 632.
-- **No-overlap constraints.** "Which starts are running at time t" is the set `RUNNING`, grouped
+- **No-overlap constraints.** "Which starts are running at time t" is the set `sRUNNING`, grouped
   by `t`. Times when nothing can run get no constraint; there the sum would be empty and the
   constraint would say nothing.
-- **"Each job starts once."** This constraint iterates `JOBS` and calls `slice()`, rather than
-  iterating `START`'s groups. A job left with no feasible start would otherwise drop out of the
+- **"Each job starts once."** This constraint iterates `sJOBS` and calls `slice()`, rather than
+  iterating `sSTART`'s groups. A job left with no feasible start would otherwise drop out of the
   model silently; this way it gets `0 = 1`, and the model is infeasible as in the original.
 - **The objective.** It is `sumExpr(sSTART, completion_time)`, where `completion_time` reads
   `(s + p[j]) * x[j,s]` off the row's columns.
@@ -165,24 +173,29 @@ The port groups the arcs by tail and by head, and states the balance per node:
 const auto outOf = sARC_ENDS.groupBy<cTail>();
 const auto into = sARC_ENDS.groupBy<cHead>();
 for (const auto& [n] : sNODES) {
-  model->AddLinearConstraint(
-      dreamor::mathopt::sumExpr(outOf.slice(cTail{n.get()}), vFlow).build() -
-          dreamor::mathopt::sumExpr(into.slice(cHead{n.get()}), vFlow).build() == rhs);
+  const int rhs = n == graph.source ? 1 : n == graph.sink ? -1 : 0;
+  model->AddLinearConstraint(sumExpr(outOf.slice(n), vFlow).build() -
+                                 sumExpr(into.slice(n), vFlow).build() ==
+                             rhs);
 }
 ```
+
+A node slices the groups of tails and of heads directly: `cNode`, `cTail` and `cHead` all hold
+an `int`.
 
 What changes:
 - **The model is a struct.** The sets live in a base class (`Network`) and the table and
   expressions in a derived one (`FlowModel`), so one constructor serves both the MIP and the
   Lagrangian subproblem. The constructor only differs in `integer`.
-- **Arcs are entities.** `vFlow(a)` replaces `flow_vars[arc_index]`. Code that walks the
-  variables (relaxing, re-integralizing) iterates the table: `for (const auto& [arc, var] : vFlow)`.
-- **Tail and head are columns of `ARC_ENDS`.** dreamor has no derived columns, so each is a
-  one-element lateral source (`std::views::single(a->i)`).
+- **Arcs are entities.** An arc is keyed by its two ends, which also name its variable
+  (`x_0_1`). `vFlow(a)` replaces `flow_vars[arc_index]`. Code that walks the variables (relaxing,
+  re-integralizing) iterates the table: `for (const auto& [arc, var] : vFlow)`.
+- **Tail and head are columns of `sARC_ENDS`.** `sARCS.select(ends_of)` makes them from each
+  arc, `ends_of` returning the arc with its tail and its head.
 - **Lifetimes.** The sets point into `graph.arcs`, so the graph is passed by reference
   (`const Graph&`) where the original took it by value. A `FlowModel` built on a copy would
   outlive the copy.
-- **Balance per node.** The constraint iterates `NODES` and slices, so the source (no arc in)
+- **Balance per node.** The constraint iterates `sNODES` and slices, so the source (no arc in)
   and the sink (no arc out) still get their rows.
 
 This sample is where the port gains least. The original's per-node expression vectors are

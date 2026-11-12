@@ -82,6 +82,10 @@ ABSL_FLAG(std::vector<std::string>, blocked_cocktails, {},
 namespace {
 
 namespace math_opt = ::operations_research::math_opt;
+using ::dreamor::index_set::set_builder::in;
+using ::dreamor::index_set::set_builder::of;
+using ::dreamor::mathopt::sumExpr;
+using ::dreamor::mathopt::VarTable;
 
 constexpr absl::string_view kIngredients[] = {"Amaro Nonino",
                                               "All Spice Dram",
@@ -223,7 +227,9 @@ std::vector<Cocktail> AllCocktails() {
 }
 
 // The token a cocktail contributes to its variable's name: Make_<name>.
-inline const std::string& primaryKey(const Cocktail& cocktail) { return cocktail.name; }
+inline const std::string& primaryKey(const Cocktail& cocktail) {
+  return cocktail.name;
+}
 
 // An ingredient is a name, so its column holds the name itself (a value column,
 // named in variables as Buy_<name>); a cocktail is an entity, so its column
@@ -248,27 +254,28 @@ absl::StatusOr<Menu> SolveForMenu(
   }
   all_cocktails.freeze();
 
-  // set INGREDIENTS; set COCKTAILS;
-  // set RECIPE := {c in COCKTAILS, i in INGREDIENTS_OF[c]};
+  // The recipe: each cocktail with each of its ingredients.
   const auto ingredients_of = [](cCocktail c) {
     return std::span<const std::string>(c->ingredients);
   };
-  const auto sINGREDIENTS = dreamor::index_set::relational::from<cIngredient>(kIngredients).build();
-  const auto sCOCKTAILS = dreamor::index_set::relational::from<cCocktail>(all_cocktails).build();
-  const auto sRECIPE =
-      dreamor::index_set::relational::from<cCocktail>(all_cocktails).lateral<cIngredient>(ingredients_of)
-          .build();
+  const auto sINGREDIENTS =
+      of<cIngredient>(in<cIngredient>(kIngredients)).build();
+  const auto sCOCKTAILS = of<cCocktail>(in<cCocktail>(all_cocktails)).build();
+  const auto sRECIPE = of<cCocktail, cIngredient>(
+                           in<cCocktail>(all_cocktails),
+                           in<cIngredient>(ingredients_of))
+                           .build();
 
-  // var Buy {i in INGREDIENTS} integer, >= (if i in EXISTING then 1),
-  //                                     <= (if i in UNAVAILABLE then 0 else 1);
+  // Buy[i] is 1 if ingredient i is bought: at least 1 if it is already there,
+  // at most 0 if it cannot be had.
   const auto already_have = [&](cIngredient i) {
     return existing_ingredients.contains(i.get()) ? 1.0 : 0.0;
   };
   const auto can_get = [&](cIngredient i) {
     return unavailable_ingredients.contains(i.get()) ? 0.0 : 1.0;
   };
-  // var Make {c in COCKTAILS} integer, >= (if c in REQUIRED then 1),
-  //                                   <= (if c in BLOCKED then 0 else 1);
+  // Make[c] is 1 if cocktail c is on the menu: at least 1 if it is required, at
+  // most 0 if it is blocked.
   const auto required = [&](cCocktail c) {
     return required_cocktails.contains(c->name) ? 1.0 : 0.0;
   };
@@ -277,20 +284,20 @@ absl::StatusOr<Menu> SolveForMenu(
   };
 
   math_opt::Model model("Cocktail hour");
-  const dreamor::mathopt::VarTable<cIngredient> vBuy{
+  const VarTable<cIngredient> vBuy{
       model, sINGREDIENTS, already_have, can_get, /*is_integer=*/true, "Buy"};
-  const dreamor::mathopt::VarTable<cCocktail> vMake{
+  const VarTable<cCocktail> vMake{
       model, sCOCKTAILS, required, allowed, /*is_integer=*/true, "Make"};
 
-  // subject to Budget: sum {i in INGREDIENTS} Buy[i] <= max_new + card(EXISTING);
-  model.AddLinearConstraint(dreamor::mathopt::sumExpr(sINGREDIENTS, vBuy).build() <=
+  // The budget: at most max_new_ingredients bought beyond those already there.
+  model.AddLinearConstraint(sumExpr(sINGREDIENTS, vBuy).build() <=
                             max_new_ingredients + existing_ingredients.size());
-  // subject to NeedAll {(c,i) in RECIPE}: Make[c] <= Buy[i];
+  // A cocktail is made only if each of its ingredients is bought.
   for (const auto& [c, i] : sRECIPE) {
     model.AddLinearConstraint(vMake(c) <= vBuy(i));
   }
-  // maximize Cocktails: sum {c in COCKTAILS} Make[c];
-  model.Maximize(dreamor::mathopt::sumExpr(sCOCKTAILS, vMake).build());
+  // As many cocktails as possible.
+  model.Maximize(sumExpr(sCOCKTAILS, vMake).build());
 
   const math_opt::SolveArguments args = {
       .parameters = {.enable_output = enable_solver_output}};
@@ -308,7 +315,7 @@ absl::StatusOr<Menu> SolveForMenu(
   }
   for (const auto& [row, made] : vMake.solution(result)) {
     if (made > 0.5) {
-      menu.cocktails.push_back(*std::get<cCocktail>(row).get());
+      menu.cocktails.push_back(*std::get<cCocktail>(row));
     }
   }
   return menu;

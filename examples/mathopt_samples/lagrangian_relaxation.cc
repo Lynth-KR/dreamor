@@ -87,9 +87,8 @@
 #include <algorithm>
 #include <limits>
 #include <memory>
-#include <ranges>
 #include <sstream>
-#include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -97,7 +96,6 @@
 #include "absl/log/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "ortools/base/container_logging.h"
 #include "ortools/base/init_google.h"
@@ -129,6 +127,11 @@ namespace {
 using ::operations_research::MathUtil;
 
 namespace math_opt = ::operations_research::math_opt;
+using ::dreamor::index_set::set_builder::in;
+using ::dreamor::index_set::set_builder::of;
+using ::dreamor::interval::closedOpen;
+using ::dreamor::mathopt::sumExpr;
+using ::dreamor::mathopt::VarTable;
 
 struct Arc {
   int i;
@@ -138,10 +141,10 @@ struct Arc {
   double resource_2;
 };
 
-// What identifies an arc in its EntityVector, and the token it contributes to its
-// variable's name: x_<i>_<j>.
-inline std::string primaryKey(const Arc& arc) {
-  return absl::StrFormat("%d_%d", arc.i, arc.j);
+// What identifies an arc in its EntityVector: its two ends, which also name its
+// variable, x_<i>_<j>.
+inline std::tuple<int, int> primaryKey(const Arc& arc) {
+  return {arc.i, arc.j};
 }
 
 struct Graph {
@@ -157,29 +160,21 @@ DREAMOR_VALUE_COLUMN(cNode, int);
 DREAMOR_VALUE_COLUMN(cTail, int);
 DREAMOR_VALUE_COLUMN(cHead, int);
 
-// set NODES := 0..num_nodes-1;
-// set ARCS;
-// set ARC_ENDS := {a in ARCS, t in {tail[a]}, h in {head[a]}};
-//
-// The sets refer into graph.arcs, so the graph must outlive them (and every
-// FlowModel built on it).
+// The nodes, the arcs, and each arc with its tail and its head. The sets refer
+// into graph.arcs, so the graph must outlive them (and every FlowModel built on
+// it).
 struct Network {
-  static constexpr auto tail_of = [](cArc a) {
-    return std::views::single(a->i);
-  };
-  static constexpr auto head_of = [](cArc a) {
-    return std::views::single(a->j);
+  static constexpr auto ends_of = [](cArc a) {
+    return std::tuple<cArc, cTail, cHead>{a, a->i, a->j};
   };
   // Each set is built where it is declared, in declaration order.
   explicit Network(const Graph& graph)
-      : sNODES(dreamor::index_set::relational::from<cNode>(std::views::iota(0, graph.num_nodes))
-                   .build()),
-        sARC_ENDS(dreamor::index_set::relational::from<cArc>(graph.arcs).lateral<cTail>(tail_of).lateral<cHead>(head_of)
-                      .build()),
-        sARCS(sARC_ENDS.select<cArc>()) {}
+      : sNODES(of<cNode>(in<cNode>(closedOpen(0, graph.num_nodes))).build()),
+        sARCS(of<cArc>(in<cArc>(graph.arcs)).build()),
+        sARC_ENDS(sARCS.select(ends_of)) {}
   const dreamor::IndexSet<cNode> sNODES;
-  const dreamor::IndexSet<cArc, cTail, cHead> sARC_ENDS;
   const dreamor::IndexSet<cArc> sARCS;
+  const dreamor::IndexSet<cArc, cTail, cHead> sARC_ENDS;
 };
 
 // The shortest path model: flow variables, the cost and resource expressions,
@@ -188,7 +183,7 @@ struct Network {
 struct FlowModel : Network {
   FlowModel(const Graph& graph, bool integer);
   std::unique_ptr<math_opt::Model> model;
-  dreamor::mathopt::VarTable<cArc> vFlow;  // var x {ARCS} >= 0, <= 1;
+  VarTable<cArc> vFlow;  // x[a], the flow on arc a, from 0 to 1
   math_opt::LinearExpression cost;
   math_opt::LinearExpression resource_1;
   math_opt::LinearExpression resource_2;
@@ -197,31 +192,30 @@ struct FlowModel : Network {
 FlowModel::FlowModel(const Graph& graph, const bool integer)
     : Network(graph),
       model(std::make_unique<math_opt::Model>("LagrangianProblem")),
-      vFlow(*model, sARCS, 0, 1, integer, "x"),
-      // sum {a in ARCS} cost[a] * x[a], and the same for each resource
-      cost(dreamor::mathopt::sumExpr(sARCS, [this](cArc a) {
-             return a->cost * vFlow(a);
-           }).build()),
-      resource_1(dreamor::mathopt::sumExpr(sARCS, [this](cArc a) {
-                   return a->resource_1 * vFlow(a);
-                 }).build()),
-      resource_2(dreamor::mathopt::sumExpr(sARCS, [this](cArc a) {
-                   return a->resource_2 * vFlow(a);
-                 }).build()) {
-  // subject to Balance {n in NODES}:
-  //   sum {(a,n,h) in ARC_ENDS} x[a] - sum {(a,t,n) in ARC_ENDS} x[a] = b[n];
-  // Over NODES, not over the arcs' groups: a node with no arc out (the sink)
-  // or no arc in (the source) still gets its row.
+      vFlow(*model, sARCS, 0, 1, integer, "x") {
+  // The path's cost and its use of each resource.
+  const auto arc_cost = [this](cArc a) { return a->cost * vFlow(a); };
+  const auto arc_resource_1 = [this](cArc a) {
+    return a->resource_1 * vFlow(a);
+  };
+  const auto arc_resource_2 = [this](cArc a) {
+    return a->resource_2 * vFlow(a);
+  };
+  cost = sumExpr(sARCS, arc_cost).build();
+  resource_1 = sumExpr(sARCS, arc_resource_1).build();
+  resource_2 = sumExpr(sARCS, arc_resource_2).build();
+
+  // Flow balance: at each node, the flow out less the flow in is 1 at the
+  // source, -1 at the sink and 0 elsewhere. Over the nodes, not over the arcs'
+  // groups: a node with no arc out (the sink) or no arc in (the source) still
+  // gets its row.
   const auto outOf = sARC_ENDS.groupBy<cTail>();
   const auto into = sARC_ENDS.groupBy<cHead>();
   for (const auto& [n] : sNODES) {
-    const int rhs = n.get() == graph.source ? 1
-                    : n.get() == graph.sink ? -1
-                                            : 0;
-    model->AddLinearConstraint(
-        dreamor::mathopt::sumExpr(outOf.slice(cTail{n.get()}), vFlow).build() -
-            dreamor::mathopt::sumExpr(into.slice(cHead{n.get()}), vFlow).build() ==
-        rhs);
+    const int rhs = n == graph.source ? 1 : n == graph.sink ? -1 : 0;
+    model->AddLinearConstraint(sumExpr(outOf.slice(n), vFlow).build() -
+                                   sumExpr(into.slice(n), vFlow).build() ==
+                               rhs);
   }
 }
 
@@ -365,8 +359,8 @@ absl::Status SolveLagrangianRelaxation(const Graph& graph,
 
   if (lagrangian_output) {
     DREAMOR_LOG_INFO("Starting gradient ascent...");
-    DREAMOR_LOG_INFO("{:>4} {:>6} {:>6} {:>9} {:>10} {:>10}", "Iter", "LB", "UB",
-                     "Step size", "mu_t", "grad_mu_t");
+    DREAMOR_LOG_INFO("{:>4} {:>6} {:>6} {:>9} {:>10} {:>10}", "Iter", "LB",
+                     "UB", "Step size", "mu_t", "grad_mu_t");
   }
 
   while (!termination) {
@@ -441,8 +435,10 @@ absl::Status SolveLagrangianRelaxation(const Graph& graph,
   }
 
   DREAMOR_LOG_INFO("Lagrangian relaxation with 2 side constraints");
-  DREAMOR_LOG_INFO("Constraint for resource 1 dualized: {}", dualized_resource_1);
-  DREAMOR_LOG_INFO("Constraint for resource 2 dualized: {}", dualized_resource_2);
+  DREAMOR_LOG_INFO("Constraint for resource 1 dualized: {}",
+                   dualized_resource_1);
+  DREAMOR_LOG_INFO("Constraint for resource 2 dualized: {}",
+                   dualized_resource_2);
   DREAMOR_LOG_INFO("Lower bound: {:6.3f}", lower_bound);
   DREAMOR_LOG_INFO("Upper bound: {:6.3f} (Integer solution)", upper_bound);
   DREAMOR_LOG_INFO("========================================");

@@ -91,8 +91,9 @@ nothing else, and goes into `.git-blame-ignore-revs`.
 
 ### Model code in this repository
 
-The code that shows dreamor in use: the code blocks of the README, the guide's code (`tests/docs/`), `examples/` (but for the
-ported `mathopt_samples/`, left as Google wrote them), and the benchmarks' dreamor models. Review holds it; `examples/.clang-tidy` turns the library's naming check off.
+The code that shows dreamor in use: the code blocks of the README, the guide's code (`tests/docs/`), `examples/` (in the
+ported `mathopt_samples/`, the code that uses dreamor, in Google's format by hand; the rest stays as Google wrote it),
+and the benchmarks' dreamor models. Review holds it; `examples/.clang-tidy` turns the library's naming check off.
 
 - **Names.** Columns `cPascalCase`, sets `sSCREAMING_SNAKE`, variable families `vPascalCase`; callables that take
   columns in `snake_case`; everything else in `camelCase`.

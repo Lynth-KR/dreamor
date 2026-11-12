@@ -53,7 +53,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <ranges>
 #include <utility>
 #include <vector>
 
@@ -82,6 +81,11 @@ ABSL_FLAG(bool, use_test_data, false,
 namespace {
 
 namespace math_opt = operations_research::math_opt;
+using ::dreamor::index_set::set_builder::in;
+using ::dreamor::index_set::set_builder::of;
+using ::dreamor::interval::closedOpen;
+using ::dreamor::mathopt::sumExpr;
+using ::dreamor::mathopt::VarTable;
 
 struct Job {
   int processing_time = 0;
@@ -146,44 +150,46 @@ DREAMOR_VALUE_COLUMN(cTime, int);
 absl::StatusOr<Schedule> Solve(absl::Span<const Job> jobs,
                                const math_opt::SolverType solver_type) {
   const int kTimeHorizon = TimeHorizon(jobs);
-  const auto job_ids = std::views::iota(0, static_cast<int>(jobs.size()));
 
-  // set JOBS;
-  // set START := {j in JOBS, s in release[j]..T-1};                        (3)
-  // set RUNNING := {(j,s) in START, t in s..min(s+p[j], T)-1};
+  // A job may start at any time from its release on (3), and runs from its
+  // start until it completes or the horizon comes.
   const auto starts_of = [&](cJob j) {
-    return std::views::iota(jobs[j].release_time, kTimeHorizon);
+    return closedOpen(jobs[j].release_time, kTimeHorizon);
   };
   const auto running_at = [&](cJob j, cStart s) {
-    return std::views::iota(static_cast<int>(s), std::min(s + jobs[j].processing_time, kTimeHorizon));
+    return closedOpen(s, std::min(s + jobs[j].processing_time, kTimeHorizon));
   };
-  const auto sJOBS = dreamor::index_set::relational::from<cJob>(job_ids).build();
-  const auto sSTART = dreamor::index_set::relational::from<cJob>(job_ids).lateral<cStart>(starts_of).build();
-  const auto sRUNNING = dreamor::index_set::relational::from(sSTART).lateral<cTime>(running_at).build();
+  const auto sJOBS = of<cJob>(in<cJob>(closedOpen(0, jobs.size()))).build();
+  const auto sSTART =
+      of<cJob, cStart>(in<cJob>(sJOBS), in<cStart>(starts_of)).build();
+  const auto sRUNNING = of<cJob, cStart, cTime>(in<cJob, cStart>(sSTART),
+                                                in<cTime>(running_at))
+                            .build();
 
   math_opt::Model model;
-  // var x {START} binary;  - x[j,s] = 1 if job j starts at time s
-  const dreamor::mathopt::VarTable<cJob, cStart> vStart{
-      model, sSTART, 0, 1, /*is_integer=*/true, "x"};
+  // x[j,s] = 1 if job j starts at time s.
+  const VarTable<cJob, cStart> vStart{model, sSTART, 0, 1,
+                                      /*is_integer=*/true, "x"};
 
-  // minimize SumCompletion: sum {(j,s) in START} (s + p[j]) * x[j,s];
+  // The sum of the completion times.
   const auto completion_time = [&](cJob j, cStart s) {
     return (s + jobs[j].processing_time) * vStart(j, s);
   };
   const math_opt::LinearExpression sum_completion_times =
-      dreamor::mathopt::sumExpr(sSTART, completion_time).build();
+      sumExpr(sSTART, completion_time).build();
   model.Minimize(sum_completion_times);
 
-  // subject to Once {j in JOBS}: sum {(j,s) in START} x[j,s] = 1;            (1)
-  // Over JOBS, not over START's groups: a job with no start left would get no
-  // row from groupBy and silently vanish from the model; here it gets 0 = 1.
+  // Each job starts once (1). Over the jobs, not over START's groups: a job
+  // with no start left would get no row from groupBy and silently vanish from
+  // the model; here it gets 0 = 1.
   const auto startsByJob = sSTART.groupBy<cJob>();
   for (const auto& [j] : sJOBS) {
-    model.AddLinearConstraint(dreamor::mathopt::sumExpr(startsByJob.slice(j), vStart).build() == 1.0);
+    model.AddLinearConstraint(sumExpr(startsByJob.slice(j), vStart).build() ==
+                              1.0);
   }
-  // subject to OneAtATime {t in TIMES}: sum {(j,s,t) in RUNNING} x[j,s] <= 1;  (2)
+  // At most one job runs at a time (2).
   for (const auto& [t, rows] : sRUNNING.groupBy<cTime>()) {
-    model.AddLinearConstraint(dreamor::mathopt::sumExpr(rows, vStart).build() <= 1.0);
+    model.AddLinearConstraint(sumExpr(rows, vStart).build() <= 1.0);
   }
 
   ASSIGN_OR_RETURN(const math_opt::SolveResult result,
@@ -210,7 +216,8 @@ absl::StatusOr<Schedule> Solve(absl::Span<const Job> jobs,
 }
 
 void PrintSchedule(absl::Span<const Job> jobs, const Schedule& schedule) {
-  DREAMOR_LOG_INFO("sum of completion times: {}", schedule.sum_of_completion_times);
+  DREAMOR_LOG_INFO("sum of completion times: {}",
+                   schedule.sum_of_completion_times);
   std::vector<std::pair<int, Job>> jobs_by_start_time;
   for (int i = 0; i < jobs.size(); ++i) {
     jobs_by_start_time.push_back({schedule.start_times[i], jobs[i]});
@@ -220,7 +227,8 @@ void PrintSchedule(absl::Span<const Job> jobs, const Schedule& schedule) {
   });
   DREAMOR_LOG_INFO("start time, processing time, release time");
   for (const auto [start_time, job] : jobs_by_start_time) {
-    DREAMOR_LOG_INFO("{}, {}, {}", start_time, job.processing_time, job.release_time);
+    DREAMOR_LOG_INFO("{}, {}, {}", start_time, job.processing_time,
+                     job.release_time);
   }
 }
 
