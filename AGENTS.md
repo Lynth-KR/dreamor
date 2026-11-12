@@ -7,7 +7,7 @@ writing models **with** dreamor, see the skill in `skills/dreamor/` (or `README.
 dreamor is a header-only C++20 modeling layer: index sets (solver-independent), variable families (`VarTable`), and
 sums (`sumExpr`), with three backends, CPLEX Concert (`dreamor::concert`), OR-Tools MathOpt (`dreamor::mathopt`) and
 HiGHS on its own C++ API (`dreamor::highs`).
-Version 0.8.0, MPL 2.0 (releases up to 0.5.0 were Apache 2.0).
+Version 0.9.0, MPL 2.0 (releases up to 0.5.0 were Apache 2.0).
 
 ## Layout
 
@@ -103,4 +103,4 @@ Several documents are mirrored by code, so they change together:
 | A compile-time message | its `// expect:` line and `skills/dreamor/references/diagnostics.md` |
 | What generating a set costs to compile (`set.hpp`, `plan.hpp`) | the compile-cost table in `docs/guide/cost.md`: `python3 tools/measure_compile_cost.py` |
 | A CI job (`.github/workflows/ci.yml`, its preset in `CMakePresets.json`) | the same job in `ci/local.py`, and `docs/dev/ci.md` |
-| The version | `project(... VERSION ...)` in `CMakeLists.txt` (packages use `SameMinorVersion` compatibility), the `find_package(dreamor 0.8 ...)` lines in the README, the skill and `tests/cmake_consumer*`, and the skill's title |
+| The version | `project(... VERSION ...)` in `CMakeLists.txt` (packages use `SameMinorVersion` compatibility), the `find_package(dreamor 0.9 ...)` lines in the README, the skill and `tests/cmake_consumer*`, and the skill's title |

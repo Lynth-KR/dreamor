@@ -3,7 +3,7 @@ name: dreamor
 description: Write, review, and fix C++ optimization models that use dreamor (entities in EntityVector, Ref, columns of entities and of plain values, index sets, ParamTable, VarTable, sumExpr, SolutionTable) on HiGHS, CPLEX Concert, or OR-Tools MathOpt. Use this skill whenever code includes "dreamor/..." headers or uses dreamor::index_set::relational::from (set chains - cross, lateral, join, where, build), dreamor::index_set::set_builder (of, in), IndexSet, EntityVector, Ref, DREAMOR_ENTITY_COLUMN, DREAMOR_VALUE_COLUMN, groupBy, slice, ordered, orderedWithin, ParamTable, VarTable, SolutionTable, sumExpr, indexedName, or HighsEnv, addConstr and minimize from dreamor::highs; whenever the user wants to write a model (sets, data on them, indexed variables, sums, constraint families) in C++ with dreamor; and whenever a compile error or a debug-build abort mentions dreamor, VarTable, sumExpr, UnbuiltSum, or messages such as "Look a variable or value up by the table's key columns", "is not an expression yet" or "a broken contract".
 ---
 
-# dreamor (0.8)
+# dreamor (0.9)
 
 dreamor is a header-only C++20 modeling layer: a model's data as entities, the index sets over them, and on those
 sets data, variable families and sums, checked by the compiler. Constraints, objectives, solving, options, bounds
@@ -53,7 +53,7 @@ In this order - each step takes what the one before made:
 7. **Solve, then read**: `solution()` gives a `SolutionTable`.
 
 `VarTable` and `sumExpr` are a backend's (`dreamor::highs`, `concert`, `mathopt`): there is no `dreamor::VarTable`. A
-backend header brings the set layer with it. CMake: `find_package(dreamor 0.8 CONFIG REQUIRED)`, link
+backend header brings the set layer with it. CMake: `find_package(dreamor 0.9 CONFIG REQUIRED)`, link
 `dreamor::dreamor` and the solver. Build without `NDEBUG` while writing a model: the debug build checks the contracts.
 
 ## What agents get wrong
