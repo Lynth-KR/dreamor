@@ -109,6 +109,47 @@ of `sPRODUCE`. The rows of period 2 come next, then the rows of period 3. `sBY_P
 
 For the order of the new set's rows, see [`regrouped`](../reference/grouped.md#grouped-regrouped).
 
+## Pick the first row of each group
+
+Suppose the plant buys the bolt and the nut from Acme and makes the other items, and you order the items in lots:
+one lot for each supplier, and one lot for what the plant makes. You want one variable for each lot, and each item
+linked to its lot. A lot has no name of its own, because what defines it is a supplier that a made item does not
+have. So name each lot by its first item: the rows of a group keep the order of the set, so the first row of each
+group is the same on every run. `cSource` and `cLead` are this page's own, not part of the model:
+
+```cpp
+--8<-- "tests/docs/guide/grouping.cpp:first-of-group-columns"
+```
+
+```cpp
+--8<-- "tests/docs/guide/grouping.cpp:first-of-group"
+```
+
+- `cSource` holds a `std::optional<std::string>`: the supplier's name, or no value for an item that the plant makes.
+  A `std::optional` has `==` and `std::hash`, so it can be a column, and two rows with no value are equal.
+- `select(with_source)` makes `sSOURCED`, each item with its supplier or none, and `groupBy<cSource>()` groups the
+  items by their supplier: one group for each lot.
+- `lead_of` takes a group and returns the item of its first row, as a `cLead`, with the group's supplier.
+  `IndexSet{lots, lead_of}` makes `sLEADS` from the groups: one row for each lot, in the order of the groups.
+- `with_lead` looks up the group of an item's supplier with `slice` and returns the item with the first item of that
+  group. `select(with_lead)` makes `sLOTS`, each item with its lot, in the order of `sSOURCED`.
+- `itemsOfLot` groups the items by their lot, and `indexedName` writes the name of the first lot.
+
+The items are in the order of their names: the bolt, the bracket, the frame, the nut and the plate. The bolt and the
+nut come from Acme, so they make one lot, whose first item is the bolt. The bracket, the frame and the plate have no
+supplier, and two missing suppliers are equal, so the three make the other lot, whose first item is the bracket.
+`sLEADS` holds the bolt and the bracket, and `sLOTS` holds every item with its lot: 5 rows. `boughtTogether` is 2,
+and `firstLot` is `Lot_bolt`.
+
+Use a `std::optional` column where having no value is a fact about the row, such as an item that no supplier sells.
+Do not use one for a value that is unknown, because two unknown values are not known to be equal. Do not use one for
+a row that is not there: leave the row out of the set, or build the set as
+[`none()`](../reference/indexset.md#indexset-none).
+
+For what each step takes, see [`groupBy`](../reference/indexset.md#indexset-groupby),
+[`front`](../reference/grouped.md#rowslice-front), [`IndexSet{records, row_of}`](../reference/indexset.md#indexset-constructor)
+and [`indexedName`](../reference/names.md#indexedname).
+
 ## See also
 
 - [Grouped](../reference/grouped.md): every member of `Grouped`, `Group` and `RowSlice`, and the calls that do not
@@ -116,3 +157,4 @@ For the order of the new set's rows, see [`regrouped`](../reference/grouped.md#g
 - [Ordered sets](ordered-sets.md): positions and neighbours within each group.
 - [Values over a set](values-over-a-set.md): a value taken over a group's rows.
 - [Deriving sets](deriving-sets.md): a set derived from one set.
+- Debug-build checks: [`front()` or `back()` of an empty slice](../reference/debug-build-checks.md#slice_has_row).

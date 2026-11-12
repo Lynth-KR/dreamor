@@ -3,6 +3,8 @@
 // docs/guide/grouping.md: the page shows the regions between --8<-- lines, and the checks stay here.
 #include <cstddef>
 #include <format>
+#include <map>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -17,6 +19,11 @@
 namespace {
 
 using namespace guide;
+
+// --8<-- [start:first-of-group-columns]
+DREAMOR_VALUE_COLUMN(cSource, std::optional<std::string>);  // who supplies an item; none for an item the plant makes
+DREAMOR_ENTITY_COLUMN(cLead, Item);                         // the first item of a lot
+// --8<-- [end:first-of-group-columns]
 
 using Produce = dreamor::IndexSet<cMachine, cItem, cPeriod>;
 
@@ -95,10 +102,58 @@ void grouping(const Plant& p) {
   DREAMOR_CHECK(regrouped[14] == Produce::value_type{m2, items.at("nut"), 3});
 }
 
+void firstOfGroup(const Plant& p) {
+  const dreamor::EntityVector<Item>& items = p.items;
+
+  // --8<-- [start:first-of-group]
+  using dreamor::index_set::relational::from;
+
+  const std::map<std::string, std::string> suppliers = {{"bolt", "Acme"}, {"nut", "Acme"}};  // the others are made
+  const auto with_source                             = [&suppliers](cItem i) {
+    const auto found = suppliers.find(i->name);
+    return std::tuple<cItem, cSource>{i, found == suppliers.end() ? cSource{} : cSource{found->second}};
+  };
+  const auto sSOURCED = from<cItem>(items).build().select(with_source);  // each item with its supplier, or none
+  const auto lots     = sSOURCED.groupBy<cSource>();                     // a lot: the items of one supplier
+
+  const auto lead_of = [](const auto& lot) {
+    return std::tuple<cLead, cSource>{cLead{std::get<cItem>(lot.rows.front())}, std::get<cSource>(lot.key)};
+  };
+  const auto with_lead = [&lots](cItem i, const cSource& s) {
+    return std::tuple<cLead, cItem>{cLead{std::get<cItem>(lots.slice(s).front())}, i};
+  };
+  const dreamor::IndexSet<cLead, cSource> sLEADS{lots, lead_of};  // the first item of each lot
+  const auto sLOTS = sSOURCED.select(with_lead);                  // each item with its lot's first item
+
+  const auto itemsOfLot            = sLOTS.groupBy<cLead>();
+  const std::size_t boughtTogether = itemsOfLot.slice(items.at("bolt")).size();
+  const std::string firstLot       = dreamor::indexedName("Lot", std::get<cLead>(*sLEADS.begin()));
+  // --8<-- [end:first-of-group]
+  // The items are sorted by name: bolt, bracket, frame, nut, plate. The bolt and the nut come from Acme; the bracket,
+  // the frame and the plate have no supplier, and two missing suppliers are equal, so they make one lot.
+  const auto bolt    = items.at("bolt");
+  const auto bracket = items.at("bracket");
+  DREAMOR_CHECK(sSOURCED.size() == 5 && sSOURCED.contains(items.at("frame"), cSource{}) &&
+                sSOURCED.contains(items.at("nut"), cSource{std::string{"Acme"}}));
+  DREAMOR_CHECK(lots.size() == 2);
+  DREAMOR_CHECK(sLEADS.size() == 2 && std::get<cLead>(sLEADS.begin()[0]) == bolt &&
+                std::get<cLead>(sLEADS.begin()[1]) == bracket);  // the lots in the order their first items come
+  DREAMOR_CHECK(sLOTS.size() == 5);                              // every item, in the order of sSOURCED
+  // Both columns of sLOTS hold an Item, so a key names each value's column.
+  DREAMOR_CHECK(sLOTS.contains(cLead{bolt}, cItem{bolt}) && sLOTS.contains(cLead{bolt}, cItem{items.at("nut")}));
+  DREAMOR_CHECK(sLOTS.contains(cLead{bracket}, cItem{bracket}) &&
+                sLOTS.contains(cLead{bracket}, cItem{items.at("frame")}) &&
+                sLOTS.contains(cLead{bracket}, cItem{items.at("plate")}));
+  DREAMOR_CHECK(std::get<cItem>(sLOTS.begin()[3]) == items.at("nut") && std::get<cLead>(sLOTS.begin()[3]) == bolt);
+  DREAMOR_CHECK(boughtTogether == 2 && itemsOfLot.slice(bracket).size() == 3);
+  DREAMOR_CHECK(firstLot == "Lot_bolt");
+}
+
 }  // namespace
 
 int main() try {
   const Plant p = plant();
   grouping(p);
+  firstOfGroup(p);
   return ::report("guide/grouping");
 } catch (...) { return ::uncaught(); }

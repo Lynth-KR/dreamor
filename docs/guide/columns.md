@@ -216,6 +216,9 @@ A row is found by the `==` and the hash of your type, so the values that you mea
 last bit. Hours that your data gives are, but hours computed in two ways, such as `0.1 + 0.2` and `0.3`, may differ
 in the last bit and make two rows.
 
+A `std::optional` of such a value has `==` and `std::hash` too, so it can be a column for a key part that some rows
+have and others lack. [Pick the first row of each group](grouping.md#pick-the-first-row-of-each-group) shows one.
+
 For the rules of a type of your own in a column, see [`Col`](../reference/columns.md#col). For how a value is
 written in a name, see [Names](../reference/names.md).
 
