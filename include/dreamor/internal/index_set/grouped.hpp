@@ -22,9 +22,11 @@
 #include <vector>
 
 #include "dreamor/internal/base/flat_index.hpp"
+#include "dreamor/internal/base/unreachable.hpp"
 #include "dreamor/internal/index_set/column.hpp"
 #include "dreamor/internal/index_set/indexed.hpp"
 #include "dreamor/internal/index_set/key_args.hpp"
+#include "dreamor/logger.hpp"
 
 // The message for a call of slice() or at() on a temporary Grouped.
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage): a static_assert message has to be a string literal
@@ -192,15 +194,31 @@ class RowSlice : public std::ranges::view_base {
 
   /// Returns the first row.
   ///
-  /// If the slice is empty, the behavior is undefined.
-  [[nodiscard]] const Tup& front() const noexcept { return (*this)[0]; }
+  /// Contract: slice_has_row
+  [[nodiscard]] const Tup& front() const noexcept { return endRow("front", true); }
 
   /// Returns the last row.
   ///
-  /// If the slice is empty, the behavior is undefined.
-  [[nodiscard]] const Tup& back() const noexcept { return (*this)[count_ - 1]; }
+  /// Contract: slice_has_row
+  [[nodiscard]] const Tup& back() const noexcept { return endRow("back", false); }
 
  private:
+  /// @contract slice_has_row: When `front` or `back` of a slice is called, the slice has at least one row. A slice
+  /// that `slice` returns for a key with no row in the set is empty.
+
+  // The first or the last row. A release build reaches unreachable() where a debug build stops, so that the compiler
+  // sees no path on which an empty slice is read (GCC warned -Wnull-dereference on slice(key).front() otherwise).
+  [[nodiscard]] const Tup& endRow([[maybe_unused]] const char* what, bool first) const noexcept {
+    if (count_ == 0) {
+      DREAMOR_DEBUG_FATAL(
+          "RowSlice::{} has no row to return - a broken contract: the slice is empty. Ask it of a key with rows, or "
+          "check empty() first.",
+          what);
+      internal::unreachable();
+    }
+    return (*this)[first ? 0 : count_ - 1];
+  }
+
   template <typename, typename...>
   friend class Grouped;
   friend struct internal::SliceAccess;

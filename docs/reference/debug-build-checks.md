@@ -126,6 +126,14 @@ A `Ref` that is read through `->` or `*` refers to an entity.
 - **A debug build stops with:** `Ref: an empty Ref read - it refers to no entity`
 - **Cases:** `ref_read_empty` (tests/contract_fail/entity_vector.cpp)
 
+## slice_has_row {#slice_has_row}
+
+When `front` or `back` of a slice is called, the slice has at least one row. A slice that `slice` returns for a key with no row in the set is empty.
+
+- **Named by:** `dreamor::RowSlice::front`, `dreamor::RowSlice::back`
+- **A debug build stops with:** `RowSlice::back has no row to return - a broken contract: the slice is empty`; `RowSlice::front has no row to return - a broken contract: the slice is empty`
+- **Cases:** `slice_front_of_absent_group` (tests/contract_fail/grouped.cpp), `slice_back_of_absent_group` (tests/contract_fail/grouped.cpp)
+
 ## source_holds_no_empty_ref {#source_holds_no_empty_ref}
 
 No source fills an entity column with an empty `Ref`.

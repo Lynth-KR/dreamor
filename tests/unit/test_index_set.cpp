@@ -3,8 +3,8 @@
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
 // IndexSet and its derivations: where, orderBy, select, groupBy, membership, ordered, and the
-// binary operations; the empty set none() returns; and a set, a Grouped and an Ordered that are moved from, which
-// are empty.
+// binary operations; the empty set none() returns; a slice's front() and back() read from a temporary slice inside a
+// callable; and a set, a Grouped and an Ordered that are moved from, which are empty.
 #include <algorithm>
 #include <array>
 #include <compare>
@@ -288,6 +288,26 @@ void noRows() {
   // A second none() shares the storage, and the index the first built: it still finds nothing.
   const auto sALSO_NONE = dreamor::IndexSet<cI, cJ>::none();
   DREAMOR_CHECK(sALSO_NONE.empty() && !sALSO_NONE.contains(cI{2}, cJ{3}) && sALSO_NONE == sNONE);
+}
+
+// Each row with the first and last rows of its group, read through a temporary slice's front() and back() inside a
+// callable: the shape in which GCC warned -Wnull-dereference before they reached unreachable() on an empty slice.
+void frontOfSlices() {
+  namespace rel = dreamor::index_set::relational;
+  const std::vector<std::size_t> as{3, 1, 2};
+  const auto sIJ       = rel::from<cI>(as).cross<cJ>(as).build();
+  const auto byI       = sIJ.groupBy<cI>();
+  const auto with_head = [&byI](cI i, cJ j) {
+    // The slice a temporary, the rows copied: GCC 13 takes a reference from a temporary's front() as dangling.
+    const auto [gi, firstJ] = byI.slice(i).front();
+    const auto [li, lastJ]  = byI.slice(i).back();
+    return std::tuple<cI, cJ, cK, cL>{i, j, cK{firstJ.get()}, cL{lastJ.get()}};
+  };
+  const auto sHEADS = sIJ.select(with_head);
+  DREAMOR_CHECK(sHEADS.size() == 9);
+  DREAMOR_CHECK(std::ranges::all_of(sHEADS, [](const auto& row) {
+    return std::get<cK>(row) == 3 && std::get<cL>(row) == 2;  // each i's j come 3, 1, 2
+  }));
 }
 
 // A step count anywhere in its type's range: a walk past an end of the set gives no row, a cyclic walk wraps by the
@@ -696,6 +716,7 @@ int main() try {
   rowsInADeclaredOrder();
   movedFrom();
   noRows();
+  frontOfSlices();
   extremeSteps();
   stepForms();
   groupIterators();

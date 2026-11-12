@@ -99,7 +99,7 @@ In use: [the guide](../guide/grouping.md).
 
     Returns the first row.
 
-    If the slice is empty, the behavior is undefined.
+    - **Contract:** When `front` or `back` of a slice is called, the slice has at least one row. ([checked in a debug build](debug-build-checks.md#slice_has_row))
 
 ### `back` {#rowslice-back}
 
@@ -111,7 +111,7 @@ In use: [the guide](../guide/grouping.md).
 
     Returns the last row.
 
-    If the slice is empty, the behavior is undefined.
+    - **Contract:** When `front` or `back` of a slice is called, the slice has at least one row. ([checked in a debug build](debug-build-checks.md#slice_has_row))
 
 ## `Group` {#group}
 
