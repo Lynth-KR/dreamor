@@ -2,7 +2,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// catalog/data.hpp - the cell's data: entities, rows of k columns, and the samples lookups draw from
+// catalog/data.hpp - the data of a cell: entities, rows of k columns, and the samples that lookups draw from.
 #pragma once
 
 #include <algorithm>
@@ -18,69 +18,33 @@
 #include <utility>
 #include <vector>
 
-// Built twice (build.sh): CATALOG_DREAMOR=1 is ./catalog, the dreamor arm alone; 0 is ./catalog_hand, the
-// hand-written arms, with no dreamor header but the logger - so a change to the library leaves it as it is.
-#ifndef CATALOG_DREAMOR
-#  error "Build with -DCATALOG_DREAMOR=1 (./catalog) or 0 (./catalog_hand), as build.sh does."
-#endif
-#if CATALOG_DREAMOR
-#  include "dreamor/index_set.hpp"
-#endif
+// build.sh compiles this header into both builds: ./catalog, the dreamor arm from dreamor.cpp, and ./catalog_hand,
+// the hand-written arms from hand.cpp. The hand-written build has no include path to dreamor, so that a change to the
+// library leaves that build as it is. So this header includes no dreamor header, and what differs by arm comes from
+// the arm's trait.
 
-// One entity type for every column: a column is told apart by its name, not by what it holds.
-// serial is the entity's place in the data, id the integer a hand-written arm packs into its keys.
+// The entity of every column. Columns are told apart by their names, not by the type that they hold. serial is the
+// entity's place in the array of its column, and id is the integer that a hand-written arm packs into its keys.
 struct Ent {
   std::uint32_t id, serial;
 };
-// Variable names: <name>_<id>_..., as a hand-coder's would read.
-inline std::uint32_t keyName(const Ent* e) {
-  return e->id;
+
+// The primary key of an entity is its id. So dreamor names a variable <name>_<id>_..., as the hand-written arms do.
+inline std::uint32_t primaryKey(const Ent& e) {
+  return e.id;
 }
 
-#if CATALOG_DREAMOR
-// Column j of a row: k1 (outer), k2 .. k(k-1) (by k1), and the last one, the period (by k1).
-template <std::size_t J>
-struct KName;
-template <>
-struct KName<0> {
-  static constexpr dreamor::ColumnName value{"k1"};
-};
-template <>
-struct KName<1> {
-  static constexpr dreamor::ColumnName value{"k2"};
-};
-template <>
-struct KName<2> {
-  static constexpr dreamor::ColumnName value{"k3"};
-};
-template <>
-struct KName<3> {
-  static constexpr dreamor::ColumnName value{"k4"};
-};
-template <>
-struct KName<4> {
-  static constexpr dreamor::ColumnName value{"k5"};
-};
-template <>
-struct KName<5> {
-  static constexpr dreamor::ColumnName value{"k6"};
-};
-template <>
-struct KName<6> {
-  static constexpr dreamor::ColumnName value{"k7"};
-};
-template <>
-struct KName<7> {
-  static constexpr dreamor::ColumnName value{"k8"};
-};
-template <std::size_t J>
-using cK = dreamor::Col<const Ent*, KName<J>::value>;
-#endif
+// A row holds an Arm::Handle for each of its entities. The handle refers into Arm::Ents, the array of the column's
+// entities in serial order. The handle is a Ref in the dreamor arm, and a pointer in the hand-written arms. The trait
+// of an arm, in dreamor/arm.hpp or hand/arm.hpp, holds the two types and the three functions that settle() calls:
+// - add(ents, e) puts a copy of e at the back of ents.
+// - freeze(ents) ends the filling of ents.
+// - handle(ents, e) returns the handle of e, which must be an element of ents.
 
-// The widest k this build runs. The hand-written arms and the samples hold a row in an array this
-// wide, the columns past k null, so the width is part of what they cost: build.sh builds ./catalog
-// at 5, for k <= 5, and ./catalog8 at 8, for k = 8 alone, so that k <= 5 runs the arrays it always
-// has and k = 8 has no column to spare.
+// The widest k that this build runs. The hand-written arms and the samples hold a row in an array this wide, with
+// the columns past k null. So the width is part of what those arms cost. build.sh builds ./catalog with width 5, for
+// k <= 5, and ./catalog8 with width 8, for k = 8 alone. So a run at k <= 5 does not pay for the columns that only
+// k = 8 needs, and a run at k = 8 has no column to spare.
 #ifndef CATALOG_MAX_COLUMNS
 #  define CATALOG_MAX_COLUMNS 5
 #endif
@@ -94,55 +58,88 @@ static inline std::uint64_t mix(std::uint64_t x) {
   return x ^ (x >> 31);
 }
 
-// The cell: the data's shape. Two-level factors keep the benchmark's names and meanings; L and I
-// are the two halves of its A.
+// A cell: the shape of the data, as two-level factors (docs/bench/catalog/design.md, "Factors"). L and I split one
+// factor, the order of the data, in two.
 struct Cell {
-  std::size_t k        = 3;        // columns: 1, 2, 3, 5 or 8
-  std::size_t n_target = 1000000;  // rows
-  bool owned           = false;    // O: the middle columns' entities belong to one k1 each
-  bool sparse          = false;    // D: one candidate in ten is a row, by a predicate
-  bool skewed          = false;    // S: Pareto list sizes with the same mean
-  bool small           = false;    // G: short lists (5 middle, 10 periods) instead of long (50, 100)
-  bool shuffled        = false;    // L: the lists in a random order, so rows are generated in it
-  bool permuted        = false;    // I: every column's ids in a random order
+  std::size_t k        = 3;        // The number of columns: 1, 2, 3, 5 or 8.
+  std::size_t n_target = 1000000;  // The number of rows to reach.
+  bool owned           = false;    // O: whether each entity of a middle column belongs to one k1.
+  bool sparse          = false;    // D: whether a predicate keeps one candidate row in ten.
+  bool skewed          = false;    // S: whether list sizes follow a Pareto law around the same mean.
+  bool small           = false;    // G: whether lists are short, 5 middle combinations and 10 periods, not 50 and 100.
+  bool shuffled        = false;    // L: whether the lists are in a random order, so that rows are generated in it.
+  bool permuted        = false;    // I: whether the ids of every column are in a random order.
   std::uint64_t seed   = 1;
 };
 
-struct Data {
+// Checks whether a candidate row, given as the serials of its entities, is a row. If the cell is dense, every
+// candidate is a row. If it is sparse, a hash of the serials keeps about one candidate in ten.
+template <typename Serials>
+[[nodiscard]] inline bool keepRow(bool sparse, std::size_t k, const Serials& serials) {
+  if (!sparse) { return true; }
+  std::uint64_t h = 0;
+  for (std::size_t j = 0; j < k; ++j) {
+    h = mix(h ^ (std::uint64_t{serials[j]} << (8 * j)));
+  }
+  return h % 10 == 0;
+}
+
+// The data while it is drawn. Each entity is allocated on its own, so that the lists can point to it while more
+// entities are added. makeData permutes the ids here. settle() then puts the entities of each column in one array,
+// which every arm reads.
+struct Draft {
   std::size_t k = 0;
-  // ents[j]: column j's entities in serial order. The last column's last entity is a period in
-  // no list: the absent key of the misses. At k = 1, k1s in no row follow the rows' (absents).
   std::array<std::vector<std::unique_ptr<Ent>>, kMaxColumns> ents;
-  std::vector<const Ent*> k1s;  // the order the data is read in
-  // lists[j][k1->serial] for j = 1 .. k-1: what k1 offers for column j, in list order.
+  std::vector<const Ent*> k1s;
   std::array<std::vector<std::vector<const Ent*>>, kMaxColumns> lists;
   const Ent* absent = nullptr;
-  std::vector<const Ent*> absents;  // k = 1: one k1 in no row a row, the misses' keys; absent the first
+  std::vector<const Ent*> absents;
+  bool sparse      = false;
+  std::size_t rows = 0;
+
+  template <typename Serials>
+  [[nodiscard]] bool keep(const Serials& serials) const {
+    return keepRow(sparse, k, serials);
+  }
+};
+
+template <typename Arm>
+struct DataOf {
+  using Ents   = typename Arm::Ents;
+  using Handle = typename Arm::Handle;
+
+  std::size_t k = 0;
+  // ents[j] holds the entities of column j in serial order, and handles[j][serial] holds the handle of each. If
+  // k > 1, the last entity of the last column is a period in no list, and absent refers to it. At k = 1, the k1s in
+  // no row come after the k1s of the rows, and absents refers to them.
+  std::array<Ents, kMaxColumns> ents;
+  std::array<std::vector<Handle>, kMaxColumns> handles;
+  std::vector<Handle> k1s;  // The k1s, in the order in which the rows are generated.
+  // lists[j][k1->serial], for j from 1 to k - 1: the entities that k1 offers for column j, in list order.
+  std::array<std::vector<std::vector<Handle>>, kMaxColumns> lists;
+  Handle absent{};
+  std::vector<Handle> absents;  // At k = 1, a k1 in no row for each row: the keys of the misses.
   bool sparse      = false;
   std::size_t rows = 0;
 
   [[nodiscard]] std::size_t last() const { return k - 1; }
-  // A candidate row - its entities' serials - is a row when the predicate keeps it.
+
   template <typename Serials>
   [[nodiscard]] bool keep(const Serials& serials) const {
-    if (!sparse) { return true; }
-    std::uint64_t h = 0;
-    for (std::size_t j = 0; j < k; ++j) {
-      h = mix(h ^ (std::uint64_t{serials[j]} << (8 * j)));
-    }
-    return h % 10 == 0;
+    return keepRow(sparse, k, serials);
   }
-  // The period before: one serial earlier, as orderedPeriods.prev(t) would give it.
-  [[nodiscard]] const Ent* prev(const Ent* t) const {
-    return t->serial == 0 ? nullptr : ents[last()][t->serial - 1].get();
-  }
-  // Calls f(entities of the row) for every row, in generation order: k1 by k1, then each list in
-  // turn, the period innermost.
+
+  // Returns the period one serial before t, or an empty handle if t is the first period. Ordered::prev over the
+  // periods returns the same period.
+  [[nodiscard]] Handle prev(Handle t) const { return t->serial == 0 ? Handle{} : handles[last()][t->serial - 1]; }
+
+  // Calls f with the entities of each row, in generation order: k1 by k1, then the lists of the k1 in nested loops,
+  // with the period innermost. If the cell is sparse, f sees only the rows that the predicate keeps.
   template <typename F>
   void forEachRow(F&& f) const {
-    std::array<const Ent*, kMaxColumns> row{};
+    std::array<Handle, kMaxColumns> row{};
     std::array<std::uint32_t, kMaxColumns> serials{};
-    for (const Ent* a : k1s) {
+    for (const Handle a : k1s) {
       row[0]     = a;
       serials[0] = a->serial;
       if (k == 1) {
@@ -157,13 +154,13 @@ struct Data {
   template <typename F>
   void walk(std::size_t j,
             std::uint32_t k1,
-            std::array<const Ent*, kMaxColumns>& row,
+            std::array<Handle, kMaxColumns>& row,
             std::array<std::uint32_t, kMaxColumns>& serials,
             F& f) const {
     if (j >= kMaxColumns) {
-      return;  // k <= kMaxColumns: never taken, but the compiler cannot tell
+      return;  // Never taken, because k <= kMaxColumns. The compiler cannot prove that, so the branch tells it.
     }
-    for (const Ent* e : lists[j][k1]) {
+    for (const Handle e : lists[j][k1]) {
       row[j]     = e;
       serials[j] = e->serial;
       if (j + 1 < k) {
@@ -175,22 +172,64 @@ struct Data {
   }
 };
 
-// Mean list size of a middle column (1 .. k-2). The middle columns share 50 combinations, or 5 on
-// small lists, between them; k = 3 and 5 take the (k-2)th root, which k = 5 rounds to 4 x 4 x 4 = 64
-// and 2 x 2 x 2 = 8. k = 8 takes those same 64 and 8 - 2 a column, or 2 on three columns and 1 on
-// the rest - where the root would round to 2 and 1 (64 and 1): k = 5 and 8 then differ in their
-// columns alone.
+// Returns the data of an arm: the entities of each column in one array, in serial order, and each reference to an
+// entity turned into the arm's handle.
+template <typename Arm>
+static DataOf<Arm> settle(const Draft& draft) {
+  using Handle = typename Arm::Handle;
+  DataOf<Arm> d;
+  d.k      = draft.k;
+  d.sparse = draft.sparse;
+  d.rows   = draft.rows;
+  for (std::size_t j = 0; j < kMaxColumns; ++j) {
+    d.ents[j].reserve(draft.ents[j].size());
+    for (const auto& e : draft.ents[j]) {
+      Arm::add(d.ents[j], *e);
+    }
+    Arm::freeze(d.ents[j]);
+    d.handles[j].reserve(d.ents[j].size());
+    for (const Ent& e : d.ents[j]) {
+      d.handles[j].push_back(Arm::handle(d.ents[j], e));
+    }
+  }
+  const auto handleOf = [&d](std::size_t j, const Ent* e) { return d.handles[j][e->serial]; };
+  for (const Ent* a : draft.k1s) {
+    d.k1s.push_back(handleOf(0, a));
+  }
+  for (std::size_t j = 1; j < draft.k; ++j) {
+    for (const auto& list : draft.lists[j]) {
+      std::vector<Handle>& to = d.lists[j].emplace_back();
+      to.reserve(list.size());
+      for (const Ent* e : list) {
+        to.push_back(handleOf(j, e));
+      }
+    }
+  }
+  d.absent = handleOf(d.last(), draft.absent);
+  for (const Ent* e : draft.absents) {
+    d.absents.push_back(handleOf(0, e));
+  }
+  return d;
+}
+
+// Returns the mean list size of the middle column j, for j from 1 to k - 2. Together the middle columns make about 50
+// combinations, or 5 on small lists. At k = 3 and k = 5 each column takes the (k - 2)th root of that number. At k = 5
+// the list sizes round to 4, which makes 4 x 4 x 4 = 64 combinations, and to 2 on small lists, which makes
+// 2 x 2 x 2 = 8. At k = 8 the root would round to 2 and 1, which makes 64 and 1. So k = 8 takes the same 64 and 8 as
+// k = 5: 2 on every column, or, on small lists, 2 on the first three columns and 1 on the rest. Then k = 5 and k = 8
+// differ in their columns alone.
 static double middleMean(const Cell& c, std::size_t j) {
   if (c.k == 8) { return c.small && j > 3 ? 1.0 : 2.0; }
   return c.k > 2 ? std::pow(c.small ? 5.0 : 50.0, 1.0 / static_cast<double>(c.k - 2)) : 1.0;
 }
 
-// k = 1: the rows are the k1s alone, kept by the predicate when the cell is sparse. As many k1s
-// again, in no row, are the misses' keys: one absent key would be one slot, in cache from the
-// second miss on, where k > 1 spreads its misses over the rows' k1s. The list factors (O, S, G, L)
-// have nothing to act on.
-static Data makeSingle(const Cell& c) {
-  Data d;
+// Returns the data at k = 1, where the rows are the k1s alone. If the cell is sparse, a k1 is a row only if the
+// predicate keeps it. One more k1 for each row is in no row, and these k1s are the keys of the misses. A single absent
+// key would be one slot, in cache from the second miss on. At k > 1 the misses spread over the k1s of the rows, and at
+// k = 1 they spread over these k1s. The list factors O, S, G and L have nothing to act on.
+template <typename Arm>
+static DataOf<Arm> makeSingle(const Cell& c) {
+  Draft d;
   d.k      = 1;
   d.sparse = c.sparse;
   std::array<std::uint32_t, kMaxColumns> serials{};
@@ -209,7 +248,7 @@ static Data makeSingle(const Cell& c) {
   }
   d.absent = d.absents.front();
   if (c.permuted) {
-    std::mt19937_64 h(c.seed * 6151 + 29);  // the absent keys keep their ids
+    std::mt19937_64 h(c.seed * 6151 + 29);  // The k1s in absents keep their ids.
     std::vector<std::uint32_t> ids(count);
     std::iota(ids.begin(), ids.end(), 0U);
     std::shuffle(ids.begin(), ids.end(), h);
@@ -217,31 +256,34 @@ static Data makeSingle(const Cell& c) {
       d.ents[0][i]->id = ids[i];
     }
   }
-  return d;
+  return settle<Arm>(d);
 }
 
-static Data makeData(const Cell& c) {
-  if (c.k == 1) { return makeSingle(c); }
-  Data d;
+template <typename Arm>
+static DataOf<Arm> makeData(const Cell& c) {
+  if (c.k == 1) { return makeSingle<Arm>(c); }
+  Draft d;
   d.k      = c.k;
   d.sparse = c.sparse;
   std::mt19937_64 g(c.seed * 7919 + 17);
   std::uniform_real_distribution<double> u(0.0, 1.0);
-  // Pareto (alpha = 1.5) weights with mean 1: a few k1s get long lists.
+  // Returns the weight of a list's size: 1, or, if the cell is skewed, a draw from a Pareto law with alpha = 1.5 and
+  // mean 1, capped at 50. The Pareto weights give a few k1s long lists.
   auto weight = [&]() {
     if (!c.skewed) { return 1.0; }
     const double alpha = 1.5, xm = (alpha - 1.0) / alpha;
     return std::min(xm / std::pow(1.0 - u(g), 1.0 / alpha), 50.0);
   };
   const std::size_t last = c.k - 1;
-  // Mean list sizes: the periods 100 or 10; the middle columns share 50 or 5 between them.
+  // The mean list size of the periods is 100, or 10 on small lists. middleMean gives the middle columns' sizes.
   const double periods = c.small ? 10 : 100;
   auto add             = [&d](std::size_t j) {
     const auto serial = static_cast<std::uint32_t>(d.ents[j].size());
     d.ents[j].push_back(std::make_unique<Ent>(Ent{serial, serial}));
     return d.ents[j].back().get();
   };
-  const auto pool_last = static_cast<std::size_t>(periods) * 4;  // one pool of periods
+  // Every list of periods draws from one pool of this many periods. One more period, the absent one, follows them.
+  const auto pool_last = static_cast<std::size_t>(periods) * 4;
   for (std::size_t i = 0; i <= pool_last; ++i) {
     add(last);
   }
@@ -287,7 +329,7 @@ static Data makeData(const Cell& c) {
       }
       d.lists[j].push_back(std::move(list));
     }
-    // Count this k1's rows.
+    // Counts the candidate rows of this k1 that are rows.
     serials[0] = k1->serial;
     std::array<std::size_t, kMaxColumns> at{};
     for (;;) {
@@ -304,7 +346,7 @@ static Data makeData(const Cell& c) {
   }
   d.rows = rows;
 
-  // L and I, from a stream of their own so that the rows above do not depend on them.
+  // L and I draw from a random stream of their own, so that the lists drawn above do not depend on them.
   std::mt19937_64 h(c.seed * 6151 + 29);
   if (c.shuffled) {
     for (std::size_t j = 1; j < c.k; ++j) {
@@ -315,7 +357,8 @@ static Data makeData(const Cell& c) {
   }
   if (c.permuted) {
     for (std::size_t j = 0; j < c.k; ++j) {
-      const std::size_t count = j == last ? d.ents[j].size() - 1 : d.ents[j].size();  // the absent key keeps its id
+      // The absent period, the last entity of the last column, keeps its id.
+      const std::size_t count = j == last ? d.ents[j].size() - 1 : d.ents[j].size();
       std::vector<std::uint32_t> ids(count);
       std::iota(ids.begin(), ids.end(), 0U);
       std::shuffle(ids.begin(), ids.end(), h);
@@ -324,11 +367,11 @@ static Data makeData(const Cell& c) {
       }
     }
   }
-  return d;
+  return settle<Arm>(d);
 }
 
-// Each variable carries a tag fixed by its row's serials and its family, as its upper bound, so
-// the arms are checked against each other by the tags they hand out.
+// Returns the tag of a variable, a number made from the serials of its row and from its family. Each variable carries
+// its tag as its upper bound, so that the arms can be checked against each other by the tags that they hand out.
 template <typename Serials>
 static double tagOf(const Serials& serials, std::size_t count, std::uint64_t family) {
   std::uint64_t h = family * 0x51afd7ed558ccd1ULL;
@@ -338,26 +381,31 @@ static double tagOf(const Serials& serials, std::size_t count, std::uint64_t fam
   return static_cast<double>(h % 1000003);
 }
 
-// Keys every arm looks up, drawn once outside the measurements: rows at random, each at most once
-// (the hits), the same rows with the absent period (the misses; at k = 1, a k1 in no row, a
-// different one each, in random order), and each of those keys a hit or
-// a miss at random (half: a lookup that does not know which it will be). The rows are walked once
-// and shuffled, so a key is a row drawn uniformly, whatever the lists' sizes.
-struct Samples {
-  std::vector<std::array<const Ent*, kMaxColumns>> hit, miss, half;
+// The keys that every arm looks up, drawn once before any phase is measured:
+// - hit holds rows drawn at random, each at most once. The rows are walked once and shuffled, so a key is a row drawn
+//   uniformly, whatever the sizes of the lists.
+// - miss holds the same rows with the absent period. At k = 1, each miss is a different k1 in no row, in a random
+//   order.
+// - half holds, for each hit, the hit or its miss, at random. So a lookup of these keys cannot know which it finds.
+template <typename Arm>
+struct SamplesOf {
+  std::vector<std::array<typename Arm::Handle, kMaxColumns>> hit, miss, half;
 };
 
-static Samples makeSamples(const Data& d, std::size_t lookups, std::uint64_t seed) {
-  Samples s;
+template <typename Arm>
+static SamplesOf<Arm> makeSamples(const DataOf<Arm>& d, std::size_t lookups, std::uint64_t seed) {
+  using Handle = typename Arm::Handle;
+  SamplesOf<Arm> s;
   std::mt19937_64 g(seed * 104729 + 3);
   s.hit.reserve(d.rows);
-  d.forEachRow([&s](const std::array<const Ent*, kMaxColumns>& row) { s.hit.push_back(row); });
+  d.forEachRow([&s](const std::array<Handle, kMaxColumns>& row) { s.hit.push_back(row); });
   std::shuffle(s.hit.begin(), s.hit.end(), g);
   s.hit.resize(std::min(lookups, s.hit.size()));
   s.miss.reserve(s.hit.size());
   s.half.reserve(s.hit.size());
-  std::vector<const Ent*> absents = d.absents;
-  std::mt19937_64 h(seed * 7727 + 5);  // not g: the draws at k > 1 stay as they were
+  std::vector<Handle> absents = d.absents;
+  // A stream of its own, not g, so that the hits and half do not depend on how the absent k1s are shuffled.
+  std::mt19937_64 h(seed * 7727 + 5);
   std::shuffle(absents.begin(), absents.end(), h);
   for (std::size_t i = 0; i < s.hit.size(); ++i) {
     auto row           = s.hit[i];

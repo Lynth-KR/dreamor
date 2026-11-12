@@ -1,9 +1,7 @@
-// SPDX-License-Identifier: MPL-2.0
-// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
-// not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// SPDX-License-Identifier: MIT-0
 //
 // The lot-sizing model of production_planning_sets.hpp, on the MathOpt backend: the same
-// sets, the same constraints as production_planning.hpp, written against MathOpt instead of
+// sets, the same constraints as production_planning_concert.hpp, written against MathOpt instead of
 // Concert. Solvable by any MathOpt MIP solver (HiGHS, SCIP, Gurobi, Xpress, ...).
 #pragma once
 
@@ -12,16 +10,17 @@
 #include "dreamor/mathopt.hpp"
 #include "production_planning_sets.hpp"
 
-namespace planning {
+namespace planning::mathopt {
+using namespace dreamor::mathopt;
 
-struct MathOptModel : Sets {
-  const dreamor::mathopt::VarTable<cMachine, cItem, cPeriod> vYield;
-  const dreamor::mathopt::VarTable<cMachine, cItem, cPeriod> vSetup;
-  const dreamor::mathopt::VarTable<cItem, cPeriod> vStock;
+struct Model : Sets {
+  const VarTable<cMachine, cItem, cPeriod> vYield;
+  const VarTable<cMachine, cItem, cPeriod> vSetup;
+  const VarTable<cItem, cPeriod> vStock;
 
   static constexpr auto max_possible_qty = [](cMachine m, cItem i) { return m->capacity / i->time; };
 
-  MathOptModel(operations_research::math_opt::Model& model, const Instance& in)
+  Model(operations_research::math_opt::Model& model, const Instance& in)
       : Sets{in},
         vYield{model, sPRODUCE, 0, max_possible_qty, /*is_integer=*/false, "Yield"},
         vSetup{model, sPRODUCE, 0, 1, /*is_integer=*/true, "Setup"},
@@ -35,9 +34,9 @@ struct MathOptModel : Sets {
     const auto orderedPeriods       = sPERIODS.ordered();
     const auto producedByItemPeriod = sPRODUCE.groupBy<cItem, cPeriod>();
     for (const auto& [i, t] : sSTOCK) {
-      LinearExpression totalInFlow = dreamor::mathopt::sumExpr(producedByItemPeriod.slice(i, t), vYield).build();
-      if (const auto* prevPeriod = orderedPeriods.prev(t)) { totalInFlow += vStock(i, std::get<cPeriod>(*prevPeriod)); }
-      const double currentDemand = i->demand[t.get()];
+      LinearExpression totalInFlow = sumExpr(producedByItemPeriod.slice(i, t), vYield).build();
+      if (const auto* prevPeriod = orderedPeriods.prev(t)) { totalInFlow += vStock(i, *prevPeriod); }
+      const double currentDemand = i->demand[t];
       const auto endingStock     = vStock(i, t);
       model.AddLinearConstraint(totalInFlow - currentDemand == endingStock);
     }
@@ -45,7 +44,7 @@ struct MathOptModel : Sets {
     // capacity of each machine in each period
     const auto producedByMachinePeriod = sPRODUCE.groupBy<cMachine, cPeriod>();
     for (const auto& [machine, period, rows] : producedByMachinePeriod) {
-      const LinearExpression totalLoad = dreamor::mathopt::sumExpr(rows, machine_usage).build();
+      const LinearExpression totalLoad = sumExpr(rows, machine_usage).build();
       model.AddLinearConstraint(totalLoad <= machine->capacity);
     }
 
@@ -56,10 +55,10 @@ struct MathOptModel : Sets {
 
     const auto holding_term            = [&](cItem i, cPeriod t) { return i->hold * vStock(i, t); };
     const auto setup_term              = [&](cMachine m, cItem i, cPeriod t) { return m->setup * vSetup(m, i, t); };
-    const LinearExpression holdingCost = dreamor::mathopt::sumExpr(sSTOCK, holding_term).build();
-    const LinearExpression setupCost   = dreamor::mathopt::sumExpr(sPRODUCE, setup_term).build();
+    const LinearExpression holdingCost = sumExpr(sSTOCK, holding_term).build();
+    const LinearExpression setupCost   = sumExpr(sPRODUCE, setup_term).build();
     model.Minimize(holdingCost + setupCost);
   }
 };
 
-}  // namespace planning
+}  // namespace planning::mathopt

@@ -1,91 +1,78 @@
-// SPDX-License-Identifier: MPL-2.0
-// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
-// not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// SPDX-License-Identifier: MIT-0
 //
-// The lot-sizing example's data (production_planning_sets.hpp states the model): items, machines
-// and the instance generator, with no part of the library - the plain model and the benchmark's
-// hand-written arms build on it alone.
+// The lot-sizing example's data (production_planning_sets.hpp states the model), with no part of the
+// library: the rows a model reads, as a file or a database would hand them over - items, machines, and
+// routes, the machines that can make each item. The generator stands for that file. Each model reads
+// the rows into its own containers as it goes: the dreamor models into EntityVectors, the plain model
+// and the benchmark's hand-written arms into std::vectors.
 #pragma once
 
 #include <cmath>
-#include <cstddef>
-#include <cstdint>
-#include <memory>
 #include <random>
 #include <string>
 #include <vector>
 
 namespace planning {
-struct Item {
+
+struct ItemRecord {
   std::string name;
   double time{};               // machine time per unit
   double hold{};               // holding cost per unit and period
   std::vector<double> demand;  // per period
 };
 
-struct Machine {
+struct MachineRecord {
   std::string name;
-  double capacity{};               // time per period
-  double setup{};                  // cost of a setup
-  std::vector<const Item*> items;  // what it can make
+  double capacity{};  // time per period
+  double setup{};     // cost of a setup
 };
 
-// Name tokens for variable names: Yield_M1_I3_0 ...
-inline const std::string& keyName(const Item* i) {
-  return i->name;
-}
-inline const std::string& keyName(const Machine* m) {
-  return m->name;
-}
+// A machine that can make an item, each named by its row in the file.
+struct RouteRecord {
+  int machine{};  // which of the machines
+  int item{};     // which of the items
+};
 
 struct Instance {
-  std::vector<std::unique_ptr<Item>> items;
-  std::vector<std::unique_ptr<Machine>> machines;
-  std::vector<std::size_t> periods;
+  std::vector<ItemRecord> items;
+  std::vector<MachineRecord> machines;
+  std::vector<RouteRecord> routes;
+  std::vector<int> periods;
 
   // Deterministic random instance: every item runs on a few machines, demand fluctuates.
-  // NOLINTBEGIN(bugprone-easily-swappable-parameters): three counts, each named by its caller
-  static Instance make(std::size_t machineCount,
-                       std::size_t itemCount,
-                       std::size_t periodCount,
-                       std::uint32_t seed = 7) {
-    // NOLINTEND(bugprone-easily-swappable-parameters)
+  static Instance make(int machineCount, int itemCount, int periodCount, unsigned seed = 7) {
     Instance in;
     std::mt19937 g(seed);
     std::uniform_real_distribution<double> u(0.0, 1.0);
-    for (std::size_t t = 0; t < periodCount; ++t) {
+    for (int t = 0; t < periodCount; ++t) {
       in.periods.push_back(t);
     }
-    for (std::size_t k = 0; k < itemCount; ++k) {
-      auto item  = std::make_unique<Item>();
-      item->name = "I" + std::to_string(k);
-      item->time = 1.0 + (2.0 * u(g));
-      item->hold = 0.5 + u(g);
-      for (std::size_t t = 0; t < periodCount; ++t) {
-        item->demand.push_back(u(g) < 0.3 ? 0.0 : std::round(10 + (30 * u(g))));
+    for (int k = 0; k < itemCount; ++k) {
+      ItemRecord item{.name = "I" + std::to_string(k), .time = 1.0 + (2.0 * u(g)), .hold = 0.5 + u(g), .demand = {}};
+      for (int t = 0; t < periodCount; ++t) {
+        item.demand.push_back(u(g) < 0.3 ? 0.0 : std::round(10 + (30 * u(g))));
       }
       in.items.push_back(std::move(item));
     }
-    for (std::size_t k = 0; k < machineCount; ++k) {
-      auto machine      = std::make_unique<Machine>();
-      machine->name     = "M" + std::to_string(k);
-      machine->capacity = (60.0 * static_cast<double>(itemCount) / static_cast<double>(machineCount)) + (40.0 * u(g));
-      machine->setup    = 20 + (30 * u(g));
-      for (const auto& item : in.items) {
-        if (u(g) < 0.6) { machine->items.push_back(item.get()); }
+    for (int k = 0; k < machineCount; ++k) {
+      const double capacity = (60.0 * itemCount / machineCount) + (40.0 * u(g));
+      const double setup    = 20 + (30 * u(g));
+      in.machines.push_back(MachineRecord{.name = "M" + std::to_string(k), .capacity = capacity, .setup = setup});
+      for (int item = 0; item < itemCount; ++item) {
+        if (u(g) < 0.6) { in.routes.push_back(RouteRecord{.machine = k, .item = item}); }
       }
-      in.machines.push_back(std::move(machine));
     }
-    for (const auto& item : in.items) {  // every item gets at least one machine
+    for (int item = 0; item < itemCount; ++item) {  // every item gets at least one machine
       bool covered = false;
-      for (const auto& m : in.machines) {
-        for (const Item* i : m->items) {
-          covered = covered || i == item.get();
-        }
+      for (const RouteRecord& route : in.routes) {
+        covered = covered || route.item == item;
       }
-      if (!covered) { in.machines[g() % in.machines.size()]->items.push_back(item.get()); }
+      if (!covered) {
+        in.routes.push_back(RouteRecord{.machine = static_cast<int>(g() % in.machines.size()), .item = item});
+      }
     }
     return in;
   }
 };
+
 }  // namespace planning

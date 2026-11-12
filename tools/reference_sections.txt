@@ -1,0 +1,24 @@
+Entities | entity_vector.hpp, internal/index_set/ref.hpp
+Columns | internal/index_set/column.hpp
+Keys | internal/index_set/key_args.hpp
+Column callables | internal/index_set/binding.hpp
+Relational algebra | internal/index_set/relational.hpp
+Set-builder notation | internal/index_set/set_builder.hpp
+Intervals | internal/index_set/interval.hpp
+IndexSet | internal/index_set/indexed.hpp
+Set algebra | internal/index_set/algebra.hpp
+Membership | internal/index_set/algebra.hpp
+Grouped | internal/index_set/grouped.hpp
+Ordered | internal/index_set/ordered.hpp
+Values over a set | internal/index_set/aggregate.hpp
+VarTable | internal/backend/var_table_core.hpp
+Sums | internal/backend/sum_builder.hpp
+ParamTable | param_table.hpp
+SolutionTable | solution_table.hpp
+dreamor::highs | internal/highs/environment.hpp, internal/highs/model.hpp, internal/highs/expression.hpp, internal/highs/operators.hpp, internal/highs/error.hpp
+dreamor::concert | concert.hpp
+dreamor::mathopt | mathopt.hpp
+Names | internal/index_set/name_token.hpp, format_buffer.hpp
+Logger | logger.hpp
+Exceptions | internal/base/flat_index.hpp
+Debug-build checks | internal/base/unreachable.hpp

@@ -29,20 +29,31 @@ def first_error(text: str) -> str:
     return ""
 
 
+def cases() -> list[tuple[str, Path]]:
+    """Every case of the topic files, by name: `#ifdef DREAMOR_CASE_<name>` to its `#endif`."""
+    found = []
+    for topic in sorted(CASES.glob("*.cpp")):
+        for line in topic.read_text().splitlines():
+            m = re.fullmatch(r"#ifdef DREAMOR_CASE_(\w+)", line)
+            if m:
+                found.append((m.group(1), topic))
+    return sorted(found)
+
+
 def main() -> None:
     compilers = sys.argv[1:] or ["g++"]
     for cxx in compilers:
         print(f"## {cxx}\n")
         print("| case | rejected | lines | errors | first error |")
         print("|---|---|---|---|---|")
-        for case in sorted(CASES.glob("*.cpp")):
-            run = subprocess.run([cxx, *FLAGS, str(case)], capture_output=True, text=True)
+        for name, topic in cases():
+            run = subprocess.run([cxx, *FLAGS, f"-DDREAMOR_CASE_{name}", str(topic)], capture_output=True, text=True)
             out = run.stderr
             first = first_error(out).replace("|", "\\|")
             if len(first) > 220:
                 first = first[:220] + " ..."
             print(
-                f"| {case.stem} | {'yes' if run.returncode else '**NO**'} | {len(out.splitlines())} "
+                f"| {name} | {'yes' if run.returncode else '**NO**'} | {len(out.splitlines())} "
                 f"| {out.count('error:')} | {first} |"
             )
         print()

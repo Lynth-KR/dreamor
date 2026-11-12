@@ -1,0 +1,229 @@
+// SPDX-License-Identifier: MPL-2.0
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+// not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// Code that must not compile. Each case sits between `#ifdef DREAMOR_CASE_<name>` and its `#endif` and is
+// compiled alone, with -DDREAMOR_CASE_<name> (tests/cases.py); the `// expect:` line right after its
+// #ifdef, where a case has one, is what the compiler's first error and its notes must say.
+#include <ranges>
+#include <sstream>
+#include "prelude.hpp"
+// The headers its cases use, beside the prelude's.
+#include <string>
+#include <string_view>
+#include <tuple>
+#include <vector>
+
+#ifdef DREAMOR_CASE_paramtable_call_raw_values
+// expect: Look a variable or value up by the table's key columns
+int main() {
+  const dreamor::ParamTable<double, cI, cJ> hours{IJ(), 8.0};
+  return static_cast<int>(hours(2, 1));
+}
+#endif  // DREAMOR_CASE_paramtable_call_raw_values
+
+#ifdef DREAMOR_CASE_paramtable_holds_a_pointer
+// expect: A ParamTable refers to an entity by a Ref, not a pointer
+struct Machine {
+  std::size_t id;
+};
+
+int main() {
+  static const Machine m1{1};
+  const auto machine_of = [](cI) { return &m1; };
+  const dreamor::ParamTable<const Machine*, cI, cJ> assigned{IJ(), machine_of};
+  return static_cast<int>(assigned.size());
+}
+#endif  // DREAMOR_CASE_paramtable_holds_a_pointer
+
+#ifdef DREAMOR_CASE_paramtable_holds_a_reference
+// expect: A ParamTable holds a value a row, copied in
+int main() {
+  const auto hours_of = [](cI, cJ) -> const double& {
+    static const double hours = 8.0;
+    return hours;
+  };
+  const dreamor::ParamTable<const double&, cI, cJ> runs{IJ(), hours_of};
+  return static_cast<int>(runs.size());
+}
+#endif  // DREAMOR_CASE_paramtable_holds_a_reference
+
+#ifdef DREAMOR_CASE_paramtable_key_order_differs_from_set
+// expect: A ParamTable is built on a set with exactly its key columns
+int main() {
+  const dreamor::ParamTable<double, cJ, cI> x{IJ(), 1.0};
+}
+#endif  // DREAMOR_CASE_paramtable_key_order_differs_from_set
+
+#ifdef DREAMOR_CASE_paramtable_value_returns_another_type
+// expect: or a callable over the row's columns that returns a T
+struct Window {
+  std::size_t first, last;
+};
+
+int main() {
+  const auto window_of = [](cI i) { return Window{i.get(), i.get() + 1}; };
+  const dreamor::ParamTable<double, cI, cJ> hours{IJ(), window_of};
+  return static_cast<int>(hours.size());
+}
+#endif  // DREAMOR_CASE_paramtable_value_returns_another_type
+
+#ifdef DREAMOR_CASE_solutiontable_call_raw_values
+// expect: Look a variable or value up by the table's key columns
+struct Algo {
+  IloEnv env;
+
+  IloEnv getEnv() const { return env; }
+
+  void getValues(IloNumArray, const IloNumVarArray) const {}
+};
+
+int main() {
+  IloEnv env;
+  const dreamor::concert::VarTable<cI, cJ> x{env, IJ()};
+  const auto plan = x.solution(Algo{env});
+  (void)plan(2, 1);
+}
+#endif  // DREAMOR_CASE_solutiontable_call_raw_values
+
+#ifdef DREAMOR_CASE_paramtable_text_from_a_returned_string
+// expect: returns a std::string by value, gone once the call ends
+int main() {
+  const auto label_of = [](cI i) { return std::to_string(i.get()); };
+  const dreamor::ParamTable<std::string_view, cI> labels{IJ().select<cI>(), label_of};
+  return static_cast<int>(labels.size());
+}
+#endif  // DREAMOR_CASE_paramtable_text_from_a_returned_string
+
+#ifdef DREAMOR_CASE_paramtable_value_from_a_vector
+// expect: not from a container, whose order no row knows
+int main() {
+  const std::vector<double> hours{1, 2, 3, 4};
+  const dreamor::ParamTable<double, cI, cJ> table{IJ(), hours};
+  return static_cast<int>(table.size());
+}
+#endif  // DREAMOR_CASE_paramtable_value_from_a_vector
+
+#ifdef DREAMOR_CASE_paramtable_value_of_another_type
+// expect: This value is not a T, nor a callable
+int main() {
+  const dreamor::ParamTable<std::string_view, cI, cJ> table{IJ(), 3};
+  return static_cast<int>(table.size());
+}
+#endif  // DREAMOR_CASE_paramtable_value_of_another_type
+
+#ifdef DREAMOR_CASE_paramtable_value_converts_to_the_type
+// expect: One value for every row is a T itself, not a value that converts to one
+int main() {
+  const std::string label = "x";
+  const dreamor::ParamTable<std::string_view, cI, cJ> table{IJ(), label};
+  return static_cast<int>(table.size());
+}
+#endif  // DREAMOR_CASE_paramtable_value_converts_to_the_type
+
+#ifdef DREAMOR_CASE_paramtable_records_value_of_takes_another_type
+// expect: value_of takes one record and returns its value
+struct Arc {
+  std::size_t from, to;
+  double cost;
+};
+
+int main() {
+  const std::vector<Arc> arcs{{1, 2, 3.0}};
+  const auto arc_of  = [](const Arc& a) { return std::tuple<cI, cJ>{a.from, a.to}; };
+  const auto cost_of = [](const std::string& code) { return static_cast<double>(code.size()); };
+  const dreamor::ParamTable<double, cI, cJ> cost{arcs, arc_of, cost_of};
+  return static_cast<int>(cost.size());
+}
+#endif  // DREAMOR_CASE_paramtable_records_value_of_takes_another_type
+
+#ifdef DREAMOR_CASE_paramtable_records_value_of_returns_another_type
+// expect: value_of returns something else than the table's T
+struct Arc {
+  std::size_t from, to;
+};
+
+struct Window {
+  std::size_t first, last;
+};
+
+int main() {
+  const std::vector<Arc> arcs{{1, 2}};
+  const auto arc_of    = [](const Arc& a) { return std::tuple<cI, cJ>{a.from, a.to}; };
+  const auto window_of = [](const Arc& a) { return Window{a.from, a.to}; };
+  const dreamor::ParamTable<double, cI, cJ> cost{arcs, arc_of, window_of};
+  return static_cast<int>(cost.size());
+}
+#endif  // DREAMOR_CASE_paramtable_records_value_of_returns_another_type
+
+#ifdef DREAMOR_CASE_paramtable_records_read_once
+// expect: reads the records twice, for the rows and for the values
+int main() {
+  std::istringstream in{"1 2 3"};
+  auto records         = std::views::istream<std::size_t>(in);
+  const auto row_of    = [](std::size_t r) { return cI{r}; };
+  const auto weight_of = [](std::size_t r) { return static_cast<double>(r); };
+  const dreamor::ParamTable<double, cI> weight{records, row_of, weight_of};
+  return static_cast<int>(weight.size());
+}
+#endif  // DREAMOR_CASE_paramtable_records_read_once
+
+#ifdef DREAMOR_CASE_paramtable_records_text_from_temporary_records
+// expect: of texts shows each text where value_of found it
+struct Arc {
+  std::size_t from, to;
+  std::string label;
+};
+
+int main() {
+  const auto arc_of   = [](const Arc& a) { return std::tuple<cI, cJ>{a.from, a.to}; };
+  const auto label_of = [](const Arc& a) -> const std::string& { return a.label; };
+  const dreamor::ParamTable<std::string_view, cI, cJ> label{
+      std::vector<Arc>{{1, 2, "the-first-arc-label"}}, arc_of, label_of};
+  return static_cast<int>(label.size());
+}
+#endif  // DREAMOR_CASE_paramtable_records_text_from_temporary_records
+
+#ifdef DREAMOR_CASE_table_key_is_an_entity_primary_key
+// expect: A column of entities takes a Ref to the entity, not its primary key
+struct Machine {
+  std::string name;
+
+  [[nodiscard]] const std::string& primaryKey() const { return name; }
+};
+
+DREAMOR_ENTITY_COLUMN(cMachine, Machine);
+
+int main() {
+  dreamor::EntityVector<Machine> machines;
+  machines.insert(Machine{"M1"});
+  machines.freeze();
+  const auto sMACHINES = dreamor::index_set::relational::from<cMachine>(machines).build();
+  const dreamor::ParamTable<double, cMachine> hours{sMACHINES, 8.0};
+  return static_cast<int>(hours("M1"));
+}
+#endif  // DREAMOR_CASE_table_key_is_an_entity_primary_key
+
+#ifdef DREAMOR_CASE_table_key_is_an_entity_object
+// expect: A column of entities takes a Ref to the entity, not the entity object
+struct Machine {
+  std::string name;
+
+  [[nodiscard]] const std::string& primaryKey() const { return name; }
+};
+
+DREAMOR_ENTITY_COLUMN(cMachine, Machine);
+
+int main() {
+  dreamor::EntityVector<Machine> machines;
+  machines.insert(Machine{"M1"});
+  machines.freeze();
+  const auto sMACHINES = dreamor::index_set::relational::from<cMachine>(machines).build();
+  const dreamor::ParamTable<double, cMachine> hours{sMACHINES, 8.0};
+  double total = 0;
+  for (const Machine& machine : machines) {
+    total += hours(machine);
+  }
+  return static_cast<int>(total);
+}
+#endif  // DREAMOR_CASE_table_key_is_an_entity_object

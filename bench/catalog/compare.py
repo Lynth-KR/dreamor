@@ -2,17 +2,17 @@
 # SPDX-License-Identifier: MPL-2.0
 # This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 # not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""Compares the builds of a catalog run made with run.py --builds: prints Markdown and writes compare.md beside it.
+"""Compares the builds of a catalog run made with run.py --builds: prints Markdown, and writes compare.md beside the run.
 
-Each run of one build has its pair in the other, under the same cell, repetition, seed and layout. A
-ratio is the later build's time over the earlier one's in the order --builds named them, so below 1
-means the later build is faster. Per family, phase and N it gives the geometric mean ratio over the
-pairs with a 95% interval that takes cells as the units (the mean ln ratio of each cell, then their
-spread), how many cells moved past 5% either way, and the cells that moved most. Results that differ
-between the builds (checks) are listed: a change of speed only compares like with like.
+Each run of one build has its pair in the other, under the same cell, repetition, seed and layout. A ratio is the
+later build's time over the earlier build's, in the order in which --builds named them, so a ratio below 1 means that
+the later build is faster. For each phase and N, the report gives the geometric mean ratio over the cells, each cell
+the mean ln ratio of its pairs, with a 95% interval from the spread of the cells. It also gives how many cells moved
+past 5% either way, and the cells that moved most. It lists the results whose checks differ between the builds,
+because a change of speed compares like with like only if the results agree.
 
-A phase's time includes what the phases before it left in the heap, so a phase whose code did not
-change can still move; measure such a phase alone (run.py --phases) before reading it as an effect.
+A phase's time includes what the phases before it left in the heap, so a phase whose code did not change can still
+move. Measure such a phase alone, with run.py --phases, before reading its change as an effect.
 
 Usage: python3 compare.py ../results/<run>
 """
@@ -26,11 +26,12 @@ from collections import defaultdict
 
 from report import T95, TOTAL, load
 
-MOVED = 0.05  # a cell counts as moved when its ratio is past 1 +- this
+MOVED = 0.05  # A cell counts as moved if its ratio is past 1 +- MOVED.
 
 
 def geomean(cells):
-    """The geometric mean ratio over cells, each the mean of its repetitions' ln ratios; nan if none."""
+    """Returns the geometric mean ratio over the cells, each cell the mean of its repetitions' ln ratios, or nan if
+    there is no cell."""
     xs = [statistics.fmean(v) for v in cells.values()]
     return math.exp(statistics.fmean(xs)) if xs else math.nan
 
@@ -61,10 +62,11 @@ def main():
     p()
 
     differ = []
-    ratios = defaultdict(lambda: defaultdict(list))  # (phase, N) -> cell -> [ln ratio]
-    # run.py --pmu: the same per counter. Instructions barely move with the cache or the heap, so a
-    # time ratio they do not follow is memory, one they follow is the code the compiler made.
-    counted = defaultdict(lambda: defaultdict(list))  # (phase, N, counter) -> cell -> [ln ratio]
+    ratios = defaultdict(lambda: defaultdict(list))  # (phase, N) to each cell's ln ratios.
+    # With run.py --pmu, the same ratios for each counter. Instructions barely move with the cache or the heap. So a
+    # time ratio that the instructions do not follow comes from memory, and one that they follow comes from the code
+    # that the compiler made.
+    counted = defaultdict(lambda: defaultdict(list))  # (phase, N, counter) to each cell's ln ratios.
     counters = []
     for (cell, rep), d in pairs.items():
         a, b = d[before], d[after]
@@ -114,7 +116,7 @@ def main():
             worst += [(x, ph, c) for c, x in cells.items()]
     p()
 
-    # A cost that grows with the columns shows here and nowhere else: the table above pools them.
+    # A cost that grows with the columns shows only in this table, because the table above pools the columns.
     ks = sorted({c[1] for (ph, n), cells in ratios.items() for c in cells})
     if len(ks) > 1:
         instructions = "instructions" in counters

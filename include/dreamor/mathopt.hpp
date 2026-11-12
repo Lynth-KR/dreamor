@@ -2,48 +2,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// File: mathopt.hpp
-// Naming convention
-//    1.   Type: Pascal Case (i.e., MyType)
-//    2.   Variables: snake case (i.e., my_variable)
-//    2-1. Member Variables: snake case with trailing underscore (i.e., my_variable_)
-//    3.   Functions: camel Case (i.e., myFunction())
-//    3.   Constants: kPascal Case (i.e., kMyConstant)
-//    4.   Macros: Screaming Snake Case (i.e., MY_MACRO)
-//
 // The OR-Tools MathOpt backend: dreamor::mathopt::VarTable and dreamor::mathopt::sumExpr.
-// MathOpt is one modeling API in front of several solvers (HiGHS, SCIP, GLOP, PDLP,
-// CP-SAT, GLPK, Gurobi, Xpress, ...), so this one backend reaches all of them.
-//
-// Everything is in MathOpt's own terms, as concert.hpp is in Concert's:
-//
-//     namespace math_opt = ::operations_research::math_opt;
-//     math_opt::Model model("lot sizing");
-//     const dreamor::mathopt::VarTable<cMachine, cItem, cPeriod> vYield{
-//         model, sPRODUCE, 0, max_possible_qty, /*is_integer=*/false, "Yield"};
-//     const dreamor::mathopt::VarTable<cMachine, cItem, cPeriod> vSetup{model, sPRODUCE, 0, 1, true, "Setup"};
-//
-//     math_opt::LinearExpression totalLoad = dreamor::mathopt::sumExpr(rows, machine_usage).build();
-//     model.AddLinearConstraint(totalLoad <= machine->capacity);
-//
-//     const absl::StatusOr<math_opt::SolveResult> result = math_opt::Solve(model, math_opt::SolverType::kHighs);
-//     const auto yieldPlan = vYield.solution(*result);
-//
-// Differences from concert.hpp, all of them MathOpt's:
-//   - the table is built on a math_opt::Model& (there is no environment), the variable kind
-//     is MathOpt's `is_integer` flag, and the default upper bound is +infinity;
-//   - sumExpr takes no environment - an empty LinearExpression needs none - and build()
-//     returns a math_opt::LinearExpression, or a math_opt::QuadraticExpression when the term is
-//     quadratic (std::array of them under whereEach()), as MathOpt keeps the two kinds apart;
-//   - solution() reads a math_opt::SolveResult and throws std::logic_error when it has no
-//     primal feasible solution (MathOpt itself would CHECK-fail);
-//   - no semi-continuous variables: MathOpt's model has none.
-// The rest is the library's and the same everywhere: bounds as numbers or column callables,
-// names "<n>_<key0>_<key1>...", vYield(row) throwing std::out_of_range for a row outside the set,
-// iteration in the set's order, and sumExpr's where() / whereEach().
-//
-// Building against the OR-Tools prebuilt: define OR_PROTO_DLL as empty, add its include/,
-// and link libortools, libprotobuf and the abseil libraries (tests/run_tests.sh --mathopt).
 #pragma once
 
 #include <concepts>
@@ -51,17 +10,19 @@
 #include <limits>
 #include <ranges>
 #include <stdexcept>
+#include <string_view>
 #include <tuple>
 #include <utility>
 #include <vector>
 
-#include "dreamor/index_set.hpp"  // guaranteed, as <iostream> brings <istream> and <ostream>: a model needs its sets
+#include "dreamor/index_set.hpp"  // Included as a guarantee to the user, because a model needs its sets.
 #include "dreamor/internal/backend/row_index.hpp"
 #include "dreamor/internal/backend/sum_builder.hpp"
 #include "dreamor/internal/backend/var_table_core.hpp"
 #include "dreamor/internal/index_set/indexed.hpp"
 #include "dreamor/internal/index_set/key_args.hpp"
-#include "dreamor/value_table.hpp"
+#include "dreamor/param_table.hpp"
+#include "dreamor/solution_table.hpp"
 
 #include "dreamor/internal/base/third_party_headers.hpp"
 DREAMOR_BEGIN_THIRD_PARTY_HEADERS
@@ -72,32 +33,105 @@ DREAMOR_END_THIRD_PARTY_HEADERS
 
 namespace dreamor::mathopt {
 
+/// @section dreamor::mathopt
+///
+/// The parts of this section build a model with MathOpt, the modeling layer of OR-Tools. They use MathOpt's own
+/// types:
+///
+/// - A table makes its variables in a `math_opt::Model`.
+/// - A sum builds into a `math_opt::LinearExpression` or a `math_opt::QuadraticExpression`, which the model's
+///   constraints and objective take.
+/// - `solution()` reads the values from a `math_opt::SolveResult`.
+///
+/// MathOpt is one modeling API for several solvers, such as HiGHS, SCIP, GLOP, PDLP, CP-SAT, GLPK, Gurobi and Xpress,
+/// so this backend reaches all of them. A MathOpt model has no semi-continuous variables.
+///
+/// To build against the prebuilt package of OR-Tools, a program needs these settings:
+///
+/// - The macro `OR_PROTO_DLL` is defined as empty.
+/// - The package's `include/` directory is on the include path.
+/// - The program links libortools, libprotobuf and the Abseil libraries.
+///
+/// MathOpt's objects are ordinary C++ values, and a program does not end them. A table's variables belong to the
+/// `math_opt::Model`, and each variable refers to the model. A variable must be used only while its model exists.
+///
+/// Guide: guide/backends.md
+
+/// A family of MathOpt variables, one for each row of a set.
+///
+/// The members that look up and iterate the variables are those of `VarTableCore`, in the VarTable section. The
+/// variables belong to the model, not to the table.
+///
+/// Takes: `Keys` must be one or more distinct columns. Each column of `Keys` must hold a value that can be written in
+/// a name, as the Names section describes.
 template <typename... Keys>
-  requires(sizeof...(Keys) > 0 && (internal::is_nameable<Keys> && ...))
+  requires(sizeof...(Keys) > 0 && (internal::nameable<Keys> && ...))
 class VarTable : public internal::VarTableCore<::operations_research::math_opt::Variable, Keys...> {
   using Core = internal::VarTableCore<::operations_research::math_opt::Variable, Keys...>;
 
  public:
   using key_type = Core::key_type;
+  /// The type of the table's variables, which is MathOpt's `math_opt::Variable`.
   using Variable = ::operations_research::math_opt::Variable;
-  // Lookup, contains(), size(), keys(), iteration and the constructor that stops on a set with
-  // other key columns are the core's, as on Concert. vYield(row) throws std::out_of_range for a
-  // row outside the set (MathOpt has no null Variable to return anyway). Copy is deleted (a
-  // Variable refers to the model's variable: a copy would alias it under two names) and move is
-  // fine; the variables belong to the model, not to this table.
   using Core::Core;
 
+  /// @hidden - exists only to reject, with a message, a name given in the place of is_integer
+  template <typename Lb, typename Ub, typename Name>
+    requires std::is_convertible_v<const Name&, std::string_view>
+  VarTable(::operations_research::math_opt::Model& /*model*/,
+           const IndexSet<Keys...>& set,
+           const Lb& /*lb*/,
+           const Ub& /*ub*/,
+           const Name& /*name*/)
+      : Core{set} {
+    // Without this constructor, a name in the place of is_integer would convert to true, and the call would make an
+    // unnamed family of integer variables.
+    static_assert(internal::always_false<Name>,
+                  "A VarTable takes is_integer before the variables' name: VarTable{model, set, lb, ub, false, "
+                  "\"Make\"}.");
+  }
+
+  /// @hidden - exists only to reject, with a message, nullptr given as a name
+  template <typename Lb, typename Ub>
+  VarTable(::operations_research::math_opt::Model& /*model*/,
+           const IndexSet<Keys...>& set,
+           const Lb& /*lb*/,
+           const Ub& /*ub*/,
+           bool /*is_integer*/,
+           std::nullptr_t /*name*/)
+      : Core{set} {
+    static_assert(internal::always_false<Lb>, DREAMOR_INTERNAL_NULL_NAME_MESSAGE);
+  }
+
+  /// Constructs a table with one variable in `model` for each row of `set`.
+  ///
+  /// The variables are made in the order of the rows of `set`. Each variable is named `<name>_<key0>_<key1>...`, as
+  /// the VarTable section describes.
+  ///
+  /// `lb` and `ub` are the lower bound and the upper bound of the variables. Each bound is one of these:
+  ///
+  /// - A number, which is the bound of every variable.
+  /// - A column callable that reads columns of `set` and returns a number. The callable is called once for each row,
+  ///   and the number is the bound of the row's variable. A `ParamTable` of numbers is such a callable.
+  ///
+  /// `is_integer` is MathOpt's own flag for the kind of the variables. If `is_integer` is true, the variables are
+  /// integer variables; otherwise, they are continuous variables.
+  ///
+  /// Takes: `lb` and `ub` must each be a number, or a column callable that reads columns of `set` and returns a value
+  /// that converts to `double`. If `lb` is left out, the lower bound is 0. If `ub` is left out, the upper bound is
+  /// infinity. If `is_integer` is left out, the variables are continuous. `name` may be left out or empty, and the
+  /// variables then have no names.
   template <typename Lb = double, typename Ub = double>
   VarTable(::operations_research::math_opt::Model& model,
            const IndexSet<Keys...>& set,
-           const Lb& lb     = 0,
-           const Ub& ub     = std::numeric_limits<double>::infinity(),
-           bool is_integer  = false,
-           const char* name = nullptr)
+           const Lb& lb          = 0,
+           const Ub& ub          = std::numeric_limits<double>::infinity(),
+           bool is_integer       = false,
+           std::string_view name = {})
       : Core{set} {
     internal::checkBound<Lb, key_type>();
     internal::checkBound<Ub, key_type>();
-    typename Core::NameBuilder names{name};
+    typename Core::NameBuilder names = Core::namesFor(name);
     this->vars_.reserve(this->rows().size());
     for (const key_type& row : this->rows()) {
       const char* const variable_name = Core::nameOf(names, row);
@@ -108,9 +142,17 @@ class VarTable : public internal::VarTableCore<::operations_research::math_opt::
     }
   }
 
-  // Every value of the best primal feasible solution, keyed like this table. The result owns
-  // plain doubles, so it outlives the model and the SolveResult.
-  [[nodiscard]] ValueTable<Keys...> solution(const ::operations_research::math_opt::SolveResult& result) const {
+  /// Returns the value of each variable in the best primal feasible solution of `result`, in a `SolutionTable` on the
+  /// table's set.
+  ///
+  /// If `result` has no primal feasible solution, MathOpt itself would end the program with a failed `CHECK` when the
+  /// values are read, so `solution()` throws an exception instead. If `result` comes from solving another model,
+  /// `result` holds no value for the table's variables, and MathOpt's map of values throws when a value is looked up.
+  ///
+  /// Takes: `result` must come from solving the model that holds the table's variables.
+  /// Throws: `std::logic_error` if `result` has no primal feasible solution; `std::out_of_range` if `result` comes from
+  /// solving another model.
+  [[nodiscard]] SolutionTable<Keys...> solution(const ::operations_research::math_opt::SolveResult& result) const {
     if (!result.has_primal_feasible_solution()) {
       throw std::logic_error("VarTable::solution: the SolveResult has no primal feasible solution.");
     }
@@ -120,22 +162,28 @@ class VarTable : public internal::VarTableCore<::operations_research::math_opt::
     for (const Variable& variable : this->vars_) {
       values.push_back(variable_values.at(variable));
     }
-    return this->valueTable(std::move(values));
+    return this->solutionTable(std::move(values));
   }
 };
 
-// sum {t in rows} term(t) as a math_opt::LinearExpression, or a math_opt::QuadraticExpression
-// when term(t) is quadratic (a QuadraticTerm or a QuadraticExpression: x * x, (x - 1) * (x - 1));
-// see concert.hpp for where(), whereEach() and the rules on rows and callables, which are the same here.
-template <typename... Columns, std::ranges::input_range Rows, typename Term>
+/// Returns the sum of `term` over `rows`, which is not built yet.
+///
+/// `build()` makes the sum into a `math_opt::LinearExpression`: the sum of `term(r)` over the rows `r`. If the term
+/// returns a quadratic term or a quadratic expression, `build()` makes a `math_opt::QuadraticExpression` instead,
+/// because MathOpt keeps the two kinds of expression apart. `sumExpr` takes no model, because an empty
+/// `LinearExpression` needs none. The Sums section describes the rows, the term, `where` and `whereEach`.
+///
+/// Takes: If `rows` is a set or the rows of a group, `Columns` must be empty. If `rows` is a container, `Columns` must
+/// be the one column that the container's elements fill.
+/// Contract: column_integer_in_range
+template <typename... Columns, typename Rows, typename Term>
 [[nodiscard]] auto sumExpr(Rows&& rows, Term&& term) {
   return internal::makeSum<Columns...>([] { return ::operations_research::math_opt::LinearExpression{}; },
                                        std::forward<Rows>(rows),
                                        std::forward<Term>(term));
 }
 
-// sumExpr(model, rows, term) or sumExpr(env, rows, term) - with a first argument, as VarTable and
-// Concert's sumExpr take one - stops on the fix.
+/// @hidden - exists only to reject, with a message, a model or an environment given first
 template <typename... Columns, typename First, typename Rows, typename Term>
 auto sumExpr(First&& /*first*/, Rows&& /*rows*/, Term&& /*term*/) {
   static_assert(internal::always_false<First>,
@@ -145,8 +193,8 @@ auto sumExpr(First&& /*first*/, Rows&& /*rows*/, Term&& /*term*/) {
 
 }  // namespace dreamor::mathopt
 
-// A term MathOpt can only hold in a QuadraticExpression makes the sum one; a linear term - a
-// variable, a LinearTerm, a LinearExpression, a number - keeps it a LinearExpression.
+// A term that MathOpt can hold only in a QuadraticExpression makes the sum a QuadraticExpression. A linear term, such
+// as a variable, a LinearTerm, a LinearExpression or a number, keeps the sum a LinearExpression.
 template <typename Term>
   requires(!std::convertible_to<Term, ::operations_research::math_opt::LinearExpression> &&
            std::convertible_to<Term, ::operations_research::math_opt::QuadraticExpression>)

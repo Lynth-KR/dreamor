@@ -19,6 +19,11 @@ AllowShortLoopsOnASingleLine: false
 BinPackArguments: false
 BinPackParameters: OnePerLine
 
+# One blank line between definitions - functions, classes, enums - one-line ones too. A rule that kept short
+# definitions together and parted long ones would need a judgment that no tool checks; this one needs none. A comment
+# right above a definition stays with it.
+SeparateDefinitionBlocks: Always
+
 # A static_assert message stays one literal, so it can be grepped and matched against its
 # // expect: line and skills/dreamor/references/diagnostics.md.
 BreakStringLiterals: false

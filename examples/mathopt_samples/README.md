@@ -2,7 +2,7 @@
 
 
 Three of the C++ samples that ship with OR-Tools MathOpt, rewritten the way dreamor is meant to
-be used. The point is not speed — the instances are tiny — but how the model code changes when
+be used. The point is not speed - the instances are tiny - but how the model code changes when
 the index sets are declared instead of implied by loops and hash maps.
 
 The originals are in [`ortools/math_opt/samples/cpp`](https://github.com/google/or-tools/tree/100f66e6242ab8bf8d32feb8f3bf086db66ae2b5/ortools/math_opt/samples/cpp)
@@ -25,7 +25,7 @@ from the same commit on the same OR-Tools release (v9.15):
 - **`time_indexed_scheduling`**: the same schedule objective on the test instance and on seeded
   random instances.
 
-`tests/run_tests.sh --mathopt` builds and runs all three.
+`tests/mathopt/CMakeLists.txt` builds and runs all three.
 
 ## cocktail_hour
 
@@ -56,7 +56,7 @@ The port declares the sets, then states each part of the model once:
 
 ```cpp
 const auto sRECIPE =
-    dreamor::makeSet<cCocktail, cIngredient>(all_cocktails, ingredients_of).build();
+    dreamor::index_set::relational::from<cCocktail>(all_cocktails).lateral<cIngredient>(ingredients_of).build();
 const dreamor::mathopt::VarTable<cCocktail> vMake{
     model, sCOCKTAILS, required, allowed, /*is_integer=*/true, "Make"};
 
@@ -74,11 +74,11 @@ What changes:
 - **Reading the solution.** The hash maps have no order, so the original re-walks `kIngredients`
   and `AllCocktails()` and looks every variable up twice
   (`variable_values().at(map.at(name))`). The port walks `vBuy.solution(result)`, a
-  `ValueTable` in set order, which already is the declaration order.
+  `SolutionTable` in set order, which already is the declaration order.
 - **Sums.** The budget and objective sums run in set order instead of hash-map order.
 
-The ingredient column holds the name itself (`Col<std::string_view, "ingredient">`), so the
-data stays exactly as in the original. `ingredients_of` returns a `std::span` over the
+The ingredient column holds the name itself (`DREAMOR_VALUE_COLUMN(cIngredient, std::string_view)`),
+so the data stays exactly as in the original. `ingredients_of` returns a `std::span` over the
 cocktail's own strings: returning the vector by value would leave the `string_view`s dangling.
 
 ## time_indexed_scheduling
@@ -116,8 +116,8 @@ as a set over that set:
 ```cpp
 // set START := {j in JOBS, s in release[j]..T-1};
 // set RUNNING := {(j,s) in START, t in s..min(s+p[j], T)-1};
-const auto sSTART = dreamor::makeSet<cJob, cStart>(job_ids, starts_of).build();
-const auto sRUNNING = dreamor::makeSet<cTime>(sSTART, running_at).build();
+const auto sSTART = dreamor::index_set::relational::from<cJob>(job_ids).lateral<cStart>(starts_of).build();
+const auto sRUNNING = dreamor::index_set::relational::from(sSTART).lateral<cTime>(running_at).build();
 ...
 for (const auto& [t, rows] : sRUNNING.groupBy<cTime>()) {
   model.AddLinearConstraint(dreamor::mathopt::sumExpr(rows, vStart).build() <= 1.0);
@@ -178,7 +178,7 @@ What changes:
 - **Arcs are entities.** `vFlow(a)` replaces `flow_vars[arc_index]`. Code that walks the
   variables (relaxing, re-integralizing) iterates the table: `for (const auto& [arc, var] : vFlow)`.
 - **Tail and head are columns of `ARC_ENDS`.** dreamor has no derived columns, so each is a
-  one-element dependent source (`std::views::single(a->i)`).
+  one-element lateral source (`std::views::single(a->i)`).
 - **Lifetimes.** The sets point into `graph.arcs`, so the graph is passed by reference
   (`const Graph&`) where the original took it by value. A `FlowModel` built on a copy would
   outlive the copy.

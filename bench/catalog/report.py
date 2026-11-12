@@ -2,14 +2,14 @@
 # SPDX-License-Identifier: MPL-2.0
 # This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 # not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""Summarizes a catalog run (run.py): prints Markdown and writes summary.md and cells.csv beside it.
+"""Summarizes a catalog run of run.py: prints Markdown, and writes summary.md and cells.csv beside the run.
 
-A ratio is a hand-written arm's time over dreamor's, so above 1 means dreamor is faster; `best` is
-the fastest hand-written arm that ran in the cell. An arm that does not fit a cell (an array over
-too many id combinations) does not run there, so the effects on `best` carry where it fits. Ratios are geometric means. An effect is the
-difference of mean ln(ratio) between a factor's two levels, shown as the multiplier it puts on the
-ratio, with a standard error from the variance between repetitions within cells (a cell run once
-takes the variance pooled over the cells run more than once).
+A ratio is a hand-written arm's time over dreamor's, so a ratio above 1 means that dreamor is faster. `best` is the
+fastest hand-written arm that ran in the cell. An arm that does not fit a cell, such as an array over too many id
+combinations, does not run there. So `best` in a cell is taken over the arms that ran there. Ratios are geometric
+means. An effect is the difference of mean ln(ratio) between the two levels of a factor, shown as the multiplier that
+it puts on the ratio. Its standard error comes from the variance between the repetitions of a cell, pooled over the
+cells that ran more than once.
 
 Usage: python3 report.py ../results/<run>
 """
@@ -25,8 +25,10 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common.reuse import split  # noqa: E402
 
-TOTAL = "total"  # every phase but build, summed: what the family's operations cost together
-# Two-sided 95% quantiles of Student's t by degrees of freedom, 1 to 30 (index 0 unused).
+# The sum of every phase but build: what the operations of the family cost together.
+TOTAL = "total"
+# The two-sided 95% quantiles of Student's t for 1 to 30 degrees of freedom, each at the index of its degrees of
+# freedom. Index 0 is not used.
 T95 = [
     0,
     12.706,
@@ -75,7 +77,9 @@ def main():
     meta, runs = load(folder)
     factors = list(meta["two_level"])
     runs, drift = split(
-        runs, lambda r: tuple(str(r.get(k, "")) for k in ["family", "impl", "N_target", "k", *factors, "rep", "build"])
+        runs,
+        lambda r: tuple(str(r.get(k, "")) for k in ["family", "impl", "N_target", "k", *factors, "rep", "build"]),
+        meta,
     )
     out = io.StringIO()
 
@@ -108,7 +112,7 @@ def main():
     )
     p(f"Check mismatches: {mismatches}")
     p()
-    # Coverage is a result: an arm that cannot run a cell (Unsupported) is not a gap to fill.
+    # Coverage is a result. An arm that cannot run a cell is unsupported there, and that is not a gap to fill.
     all_cells = {tuple(r[c] for c in cell_keys) for r in ok}
     p(f"## Coverage: cells each arm ran, of {len(all_cells)}")
     p()
@@ -134,7 +138,8 @@ def main():
         )
     p()
 
-    phases = []  # every phase any run has, in the order runs have them (a shape may exist for some k only)
+    # Every phase that any run has, in the order of the runs. A shape may exist only at some k.
+    phases = []
     for r in ok:
         for ph in r["phases"]:
             if ph != "build" and ph not in phases:
@@ -145,10 +150,10 @@ def main():
     def ms(r, ph):
         if ph == TOTAL:
             return sum(v["ms"] for k, v in r["phases"].items() if k != "build")
-        return r["phases"][ph]["ms"] if ph in r["phases"] else 0  # 0: the run has no such phase
+        return r["phases"][ph]["ms"] if ph in r["phases"] else 0  # 0 if the run has no such phase.
 
-    # ln(hand / dreamor) per cell, repetition, phase and comparison ("best" included).
-    obs = {}  # (cell, comparison, phase) -> [ln ratio per repetition]
+    # ln(hand / dreamor) for each cell, repetition, phase and comparison, best among the comparisons.
+    obs = {}  # (cell, comparison, phase) to the ln ratio of each repetition.
     best_count = {}
     for key, rs in by_model.items():
         cell, arms = key[:-1], {r["impl"]: r for r in rs}
@@ -159,7 +164,7 @@ def main():
             ratios = {
                 h: math.log(ms(arms[h], ph) / ms(d, ph))
                 for h in hand
-                if h in arms and ms(d, ph) > 0 and ms(arms[h], ph) > 0  # an empty phase has no ratio
+                if h in arms and ms(d, ph) > 0 and ms(arms[h], ph) > 0  # A phase with no time has no ratio.
             }
             if not ratios:
                 continue
@@ -169,14 +174,15 @@ def main():
                 obs.setdefault((cell, comp, ph), []).append(v)
     comps = [*hand, "best"]
     means = {k: statistics.fmean(v) for k, v in obs.items()}
-    for (cell, comp, ph), v in means.items():  # the fastest arm per cell, over its repetitions
+    # Counts the fastest hand-written arm of each cell, by its mean over the repetitions.
+    for (cell, comp, ph), v in means.items():
         if comp in hand and ph == TOTAL:
             others = [means.get((cell, h, TOTAL)) for h in hand if (cell, h, TOTAL) in means]
             if v == min(others):
                 best_count[comp] = best_count.get(comp, 0) + 1
 
-    # Pure error: the variance between repetitions, pooled over the cells run more than once. With
-    # --layout on it holds the layout's variation too.
+    # The pure error: the variance between repetitions, pooled over the cells that ran more than once. With --layout
+    # on, it holds the variation between layouts too.
     def pooled(ph, comp):
         num = den = 0.0
         for (cell, c, phh), v in obs.items():
@@ -186,7 +192,8 @@ def main():
         return (num / den if den else float("nan")), den
 
     def ci(ph, comp):
-        """95% interval of the mean ln ratio over the cells, from the pure error alone."""
+        """Returns the 95% interval of the mean ln ratio over the cells, from the pure error alone, or None if there is
+        no pure error."""
         cells = [(cell, len(v)) for (cell, c, phh), v in obs.items() if c == comp and phh == ph]
         s2, df = pooled(ph, comp)
         if not cells or not df:
@@ -212,8 +219,8 @@ def main():
                 row.append(f"{math.exp(statistics.fmean(math.log(x) for x in xs)):.2f}" if xs else "-")
             p(f"| {ph} | " + " | ".join(row) + " |")
         p()
-    # How much each arm moves between repetitions of a cell - with --layout on, between memory
-    # layouts: a property of the arm, reported as such rather than folded into an error.
+    # How much each arm moves between the repetitions of a cell. With --layout on, that is between memory layouts. The
+    # variation is a property of the arm, so it is reported as one, not folded into an error.
     p("## Variation between repetitions, per arm (with --layout on: between memory layouts)")
     p()
     p("Standard deviation of ln(ms) between the repetitions of a cell, pooled over the cells, as a percentage.")

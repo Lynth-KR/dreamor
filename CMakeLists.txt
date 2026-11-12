@@ -8,10 +8,11 @@
 #
 #   find_package(dreamor CONFIG REQUIRED)
 #   target_link_libraries(app PRIVATE dreamor::dreamor ortools::ortools)   # dreamor/mathopt.hpp
+#   target_link_libraries(app PRIVATE dreamor::dreamor highs::highs)       # dreamor/highs.hpp
 #   target_link_libraries(app PRIVATE dreamor::dreamor <your CPLEX target>) # dreamor/concert.hpp
 #
 # Also usable without installing: add_subdirectory(dreamor) or FetchContent.
-# The tests do not go through CMake; see tests/run_tests.sh.
+# The tests are dreamor's own (DREAMOR_BUILD_TESTS, off by default; every preset turns it on): CMakePresets.json.
 cmake_minimum_required(VERSION 3.20)
 project(dreamor VERSION 0.8.0 LANGUAGES CXX)
 
@@ -43,4 +44,10 @@ if(PROJECT_IS_TOP_LEVEL)
                 ${CMAKE_CURRENT_BINARY_DIR}/dreamorConfigVersion.cmake
           DESTINATION ${DREAMOR_CMAKE_DIR})
   install(FILES LICENSE DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/dreamor)
+endif()
+
+option(DREAMOR_BUILD_TESTS "Build dreamor's tests (tests/CMakeLists.txt; CMakePresets.json turns it on)" OFF)
+if(PROJECT_IS_TOP_LEVEL AND DREAMOR_BUILD_TESTS)
+  enable_testing()
+  add_subdirectory(tests)
 endif()

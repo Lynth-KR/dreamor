@@ -1,0 +1,10 @@
+/* SPDX-License-Identifier: MPL-2.0
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+ * not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ *
+ * The documentation site's own styles, on top of Zensical's theme (zensical.toml, extra_css). */
+
+/* The page's grid wider than the theme's 61rem, so that code blocks and the reference's tables have room. */
+.md-grid {
+  max-width: 72rem;
+}

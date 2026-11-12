@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: MPL-2.0
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2010-2025 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -140,9 +139,9 @@ struct Schedule {
 };
 
 // A job is its index in `jobs`; times are integers.
-using cJob = dreamor::Col<int, "job">;
-using cStart = dreamor::Col<int, "start">;
-using cTime = dreamor::Col<int, "time">;
+DREAMOR_VALUE_COLUMN(cJob, int);
+DREAMOR_VALUE_COLUMN(cStart, int);
+DREAMOR_VALUE_COLUMN(cTime, int);
 
 absl::StatusOr<Schedule> Solve(absl::Span<const Job> jobs,
                                const math_opt::SolverType solver_type) {
@@ -156,11 +155,11 @@ absl::StatusOr<Schedule> Solve(absl::Span<const Job> jobs,
     return std::views::iota(jobs[j].release_time, kTimeHorizon);
   };
   const auto running_at = [&](cJob j, cStart s) {
-    return std::views::iota(s.get(), std::min(s + jobs[j].processing_time, kTimeHorizon));
+    return std::views::iota(static_cast<int>(s), std::min(s + jobs[j].processing_time, kTimeHorizon));
   };
-  const auto sJOBS = dreamor::makeSet<cJob>(job_ids).build();
-  const auto sSTART = dreamor::makeSet<cJob, cStart>(job_ids, starts_of).build();
-  const auto sRUNNING = dreamor::makeSet<cTime>(sSTART, running_at).build();
+  const auto sJOBS = dreamor::index_set::relational::from<cJob>(job_ids).build();
+  const auto sSTART = dreamor::index_set::relational::from<cJob>(job_ids).lateral<cStart>(starts_of).build();
+  const auto sRUNNING = dreamor::index_set::relational::from(sSTART).lateral<cTime>(running_at).build();
 
   math_opt::Model model;
   // var x {START} binary;  - x[j,s] = 1 if job j starts at time s

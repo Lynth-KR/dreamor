@@ -25,7 +25,6 @@ __pycache__/
 /or-tools_*.tar.gz
 
 # Benchmarks: their builds, and every local run in bench/results/
-bench/solver/probe_*
 bench/plan/model
 bench/plan/plan
 bench/plan/plan_count
@@ -38,3 +37,6 @@ bench/results/
 /tools/make_slogan.py
 /tools/rename.sh
 /tools/make_tar.sh
+
+# The documentation site tools/site.sh builds
+/site/

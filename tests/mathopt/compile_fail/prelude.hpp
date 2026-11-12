@@ -8,9 +8,10 @@
 #include "dreamor/mathopt.hpp"
 namespace math_opt = ::operations_research::math_opt;
 
-using cI = dreamor::Col<std::size_t, "i">;
-using cJ = dreamor::Col<std::size_t, "j">;
+DREAMOR_VALUE_COLUMN(cI, std::size_t);
+DREAMOR_VALUE_COLUMN(cJ, std::size_t);
 inline const std::vector<std::size_t> I{1, 2};
+
 inline auto IJ() {
-  return dreamor::makeSet<cI, cJ>(I, I).build();
+  return dreamor::index_set::relational::from<cI>(I).cross<cJ>(I).build();
 }

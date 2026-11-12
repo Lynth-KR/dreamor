@@ -1,0 +1,1446 @@
+== sROUTES (set-builder, select) (29 rows)
+M0 frame-11
+M0 bolt-10
+M0 nut-06
+M0 frame-05
+M0 bolt-04
+M3 nut-12
+M3 bolt-10
+M3 nut-09
+M3 frame-08
+M3 bolt-07
+M3 nut-06
+M3 frame-05
+M3 frame-02
+M3 bolt-01
+M2 nut-12
+M2 frame-11
+M2 frame-08
+M2 bolt-07
+M2 nut-06
+M2 nut-03
+M2 frame-02
+M1 nut-12
+M1 frame-11
+M1 nut-09
+M1 frame-08
+M1 nut-06
+M1 bolt-04
+M1 frame-02
+M1 bolt-01
+== sPRODUCE (116 rows)
+M0 frame-11 0
+M0 frame-11 1
+M0 frame-11 2
+M0 frame-11 3
+M0 bolt-10 0
+M0 bolt-10 1
+M0 bolt-10 2
+M0 bolt-10 3
+M0 nut-06 0
+M0 nut-06 1
+M0 nut-06 2
+M0 nut-06 3
+M0 frame-05 0
+M0 frame-05 1
+M0 frame-05 2
+M0 frame-05 3
+M0 bolt-04 0
+M0 bolt-04 1
+M0 bolt-04 2
+M0 bolt-04 3
+M3 nut-12 0
+M3 nut-12 1
+M3 nut-12 2
+M3 nut-12 3
+M3 bolt-10 0
+M3 bolt-10 1
+M3 bolt-10 2
+M3 bolt-10 3
+M3 nut-09 0
+M3 nut-09 1
+M3 nut-09 2
+M3 nut-09 3
+M3 frame-08 0
+M3 frame-08 1
+M3 frame-08 2
+M3 frame-08 3
+M3 bolt-07 0
+M3 bolt-07 1
+M3 bolt-07 2
+M3 bolt-07 3
+M3 nut-06 0
+M3 nut-06 1
+M3 nut-06 2
+M3 nut-06 3
+M3 frame-05 0
+M3 frame-05 1
+M3 frame-05 2
+M3 frame-05 3
+M3 frame-02 0
+M3 frame-02 1
+M3 frame-02 2
+M3 frame-02 3
+M3 bolt-01 0
+M3 bolt-01 1
+M3 bolt-01 2
+M3 bolt-01 3
+M2 nut-12 0
+M2 nut-12 1
+M2 nut-12 2
+M2 nut-12 3
+M2 frame-11 0
+M2 frame-11 1
+M2 frame-11 2
+M2 frame-11 3
+M2 frame-08 0
+M2 frame-08 1
+M2 frame-08 2
+M2 frame-08 3
+M2 bolt-07 0
+M2 bolt-07 1
+M2 bolt-07 2
+M2 bolt-07 3
+M2 nut-06 0
+M2 nut-06 1
+M2 nut-06 2
+M2 nut-06 3
+M2 nut-03 0
+M2 nut-03 1
+M2 nut-03 2
+M2 nut-03 3
+M2 frame-02 0
+M2 frame-02 1
+M2 frame-02 2
+M2 frame-02 3
+M1 nut-12 0
+M1 nut-12 1
+M1 nut-12 2
+M1 nut-12 3
+M1 frame-11 0
+M1 frame-11 1
+M1 frame-11 2
+M1 frame-11 3
+M1 nut-09 0
+M1 nut-09 1
+M1 nut-09 2
+M1 nut-09 3
+M1 frame-08 0
+M1 frame-08 1
+M1 frame-08 2
+M1 frame-08 3
+M1 nut-06 0
+M1 nut-06 1
+M1 nut-06 2
+M1 nut-06 3
+M1 bolt-04 0
+M1 bolt-04 1
+M1 bolt-04 2
+M1 bolt-04 3
+M1 frame-02 0
+M1 frame-02 1
+M1 frame-02 2
+M1 frame-02 3
+M1 bolt-01 0
+M1 bolt-01 1
+M1 bolt-01 2
+M1 bolt-01 3
+visit order: cMachine, {cPeriod}, {cMachine, cItem}
+== chain: machines join routes cross periods where busy (111 rows)
+M0 frame-11 0
+M0 bolt-10 0
+M0 nut-06 0
+M0 frame-05 0
+M0 bolt-04 0
+M0 frame-11 2
+M0 bolt-10 2
+M0 nut-06 2
+M0 frame-05 2
+M0 bolt-04 2
+M0 frame-11 3
+M0 bolt-10 3
+M0 nut-06 3
+M0 frame-05 3
+M0 bolt-04 3
+M3 nut-12 0
+M3 bolt-10 0
+M3 nut-09 0
+M3 frame-08 0
+M3 bolt-07 0
+M3 nut-06 0
+M3 frame-05 0
+M3 frame-02 0
+M3 bolt-01 0
+M3 nut-12 1
+M3 bolt-10 1
+M3 nut-09 1
+M3 frame-08 1
+M3 bolt-07 1
+M3 nut-06 1
+M3 frame-05 1
+M3 frame-02 1
+M3 bolt-01 1
+M3 nut-12 2
+M3 bolt-10 2
+M3 nut-09 2
+M3 frame-08 2
+M3 bolt-07 2
+M3 nut-06 2
+M3 frame-05 2
+M3 frame-02 2
+M3 bolt-01 2
+M3 nut-12 3
+M3 bolt-10 3
+M3 nut-09 3
+M3 frame-08 3
+M3 bolt-07 3
+M3 nut-06 3
+M3 frame-05 3
+M3 frame-02 3
+M3 bolt-01 3
+M2 nut-12 0
+M2 frame-11 0
+M2 frame-08 0
+M2 bolt-07 0
+M2 nut-06 0
+M2 nut-03 0
+M2 frame-02 0
+M2 nut-12 1
+M2 frame-11 1
+M2 frame-08 1
+M2 bolt-07 1
+M2 nut-06 1
+M2 nut-03 1
+M2 frame-02 1
+M2 nut-12 2
+M2 frame-11 2
+M2 frame-08 2
+M2 bolt-07 2
+M2 nut-06 2
+M2 nut-03 2
+M2 frame-02 2
+M2 nut-12 3
+M2 frame-11 3
+M2 frame-08 3
+M2 bolt-07 3
+M2 nut-06 3
+M2 nut-03 3
+M2 frame-02 3
+M1 nut-12 0
+M1 frame-11 0
+M1 nut-09 0
+M1 frame-08 0
+M1 nut-06 0
+M1 bolt-04 0
+M1 frame-02 0
+M1 bolt-01 0
+M1 nut-12 1
+M1 frame-11 1
+M1 nut-09 1
+M1 frame-08 1
+M1 nut-06 1
+M1 bolt-04 1
+M1 frame-02 1
+M1 bolt-01 1
+M1 nut-12 2
+M1 frame-11 2
+M1 nut-09 2
+M1 frame-08 2
+M1 nut-06 2
+M1 bolt-04 2
+M1 frame-02 2
+M1 bolt-01 2
+M1 nut-12 3
+M1 frame-11 3
+M1 nut-09 3
+M1 frame-08 3
+M1 nut-06 3
+M1 bolt-04 3
+M1 frame-02 3
+M1 bolt-01 3
+== chain: items lateral demand periods (34 rows)
+nut-12 0
+nut-12 3
+frame-11 1
+frame-11 2
+frame-11 3
+bolt-10 1
+bolt-10 2
+bolt-10 3
+nut-09 1
+nut-09 2
+nut-09 3
+frame-08 1
+frame-08 2
+frame-08 3
+bolt-07 0
+bolt-07 1
+bolt-07 3
+nut-06 2
+frame-05 0
+frame-05 1
+frame-05 3
+bolt-04 0
+bolt-04 3
+nut-03 0
+nut-03 1
+nut-03 2
+nut-03 3
+frame-02 0
+frame-02 1
+frame-02 2
+frame-02 3
+bolt-01 0
+bolt-01 2
+bolt-01 3
+== set-builder: items, demand periods (34 rows)
+nut-12 0
+nut-12 3
+frame-11 1
+frame-11 2
+frame-11 3
+bolt-10 1
+bolt-10 2
+bolt-10 3
+nut-09 1
+nut-09 2
+nut-09 3
+frame-08 1
+frame-08 2
+frame-08 3
+bolt-07 0
+bolt-07 1
+bolt-07 3
+nut-06 2
+frame-05 0
+frame-05 1
+frame-05 3
+bolt-04 0
+bolt-04 3
+nut-03 0
+nut-03 1
+nut-03 2
+nut-03 3
+frame-02 0
+frame-02 1
+frame-02 2
+frame-02 3
+bolt-01 0
+bolt-01 2
+bolt-01 3
+== select (item, period) of the chain (48 rows)
+frame-11 0
+bolt-10 0
+nut-06 0
+frame-05 0
+bolt-04 0
+frame-11 2
+bolt-10 2
+nut-06 2
+frame-05 2
+bolt-04 2
+frame-11 3
+bolt-10 3
+nut-06 3
+frame-05 3
+bolt-04 3
+nut-12 0
+nut-09 0
+frame-08 0
+bolt-07 0
+frame-02 0
+bolt-01 0
+nut-12 1
+bolt-10 1
+nut-09 1
+frame-08 1
+bolt-07 1
+nut-06 1
+frame-05 1
+frame-02 1
+bolt-01 1
+nut-12 2
+nut-09 2
+frame-08 2
+bolt-07 2
+frame-02 2
+bolt-01 2
+nut-12 3
+nut-09 3
+frame-08 3
+bolt-07 3
+frame-02 3
+bolt-01 3
+nut-03 0
+frame-11 1
+nut-03 1
+nut-03 2
+nut-03 3
+bolt-04 1
+== unite(demand, made) (48 rows)
+nut-12 0
+nut-12 3
+frame-11 1
+frame-11 2
+frame-11 3
+bolt-10 1
+bolt-10 2
+bolt-10 3
+nut-09 1
+nut-09 2
+nut-09 3
+frame-08 1
+frame-08 2
+frame-08 3
+bolt-07 0
+bolt-07 1
+bolt-07 3
+nut-06 2
+frame-05 0
+frame-05 1
+frame-05 3
+bolt-04 0
+bolt-04 3
+nut-03 0
+nut-03 1
+nut-03 2
+nut-03 3
+frame-02 0
+frame-02 1
+frame-02 2
+frame-02 3
+bolt-01 0
+bolt-01 2
+bolt-01 3
+frame-11 0
+bolt-10 0
+nut-06 0
+frame-05 2
+bolt-04 2
+nut-06 3
+nut-09 0
+frame-08 0
+nut-12 1
+nut-06 1
+bolt-01 1
+nut-12 2
+bolt-07 2
+bolt-04 1
+== intersect(demand, made) (34 rows)
+nut-12 0
+nut-12 3
+frame-11 1
+frame-11 2
+frame-11 3
+bolt-10 1
+bolt-10 2
+bolt-10 3
+nut-09 1
+nut-09 2
+nut-09 3
+frame-08 1
+frame-08 2
+frame-08 3
+bolt-07 0
+bolt-07 1
+bolt-07 3
+nut-06 2
+frame-05 0
+frame-05 1
+frame-05 3
+bolt-04 0
+bolt-04 3
+nut-03 0
+nut-03 1
+nut-03 2
+nut-03 3
+frame-02 0
+frame-02 1
+frame-02 2
+frame-02 3
+bolt-01 0
+bolt-01 2
+bolt-01 3
+== difference(demand, made) (0 rows)
+== difference(made, demand) (14 rows)
+frame-11 0
+bolt-10 0
+nut-06 0
+frame-05 2
+bolt-04 2
+nut-06 3
+nut-09 0
+frame-08 0
+nut-12 1
+nut-06 1
+bolt-01 1
+nut-12 2
+bolt-07 2
+bolt-04 1
+== groupBy<cItem, cPeriod> of sPRODUCE
+frame-11 0: 3 rows
+  M0 frame-11 0
+  M2 frame-11 0
+  M1 frame-11 0
+frame-11 1: 3 rows
+  M0 frame-11 1
+  M2 frame-11 1
+  M1 frame-11 1
+frame-11 2: 3 rows
+  M0 frame-11 2
+  M2 frame-11 2
+  M1 frame-11 2
+frame-11 3: 3 rows
+  M0 frame-11 3
+  M2 frame-11 3
+  M1 frame-11 3
+bolt-10 0: 2 rows
+  M0 bolt-10 0
+  M3 bolt-10 0
+bolt-10 1: 2 rows
+  M0 bolt-10 1
+  M3 bolt-10 1
+bolt-10 2: 2 rows
+  M0 bolt-10 2
+  M3 bolt-10 2
+bolt-10 3: 2 rows
+  M0 bolt-10 3
+  M3 bolt-10 3
+nut-06 0: 4 rows
+  M0 nut-06 0
+  M3 nut-06 0
+  M2 nut-06 0
+  M1 nut-06 0
+nut-06 1: 4 rows
+  M0 nut-06 1
+  M3 nut-06 1
+  M2 nut-06 1
+  M1 nut-06 1
+nut-06 2: 4 rows
+  M0 nut-06 2
+  M3 nut-06 2
+  M2 nut-06 2
+  M1 nut-06 2
+nut-06 3: 4 rows
+  M0 nut-06 3
+  M3 nut-06 3
+  M2 nut-06 3
+  M1 nut-06 3
+frame-05 0: 2 rows
+  M0 frame-05 0
+  M3 frame-05 0
+frame-05 1: 2 rows
+  M0 frame-05 1
+  M3 frame-05 1
+frame-05 2: 2 rows
+  M0 frame-05 2
+  M3 frame-05 2
+frame-05 3: 2 rows
+  M0 frame-05 3
+  M3 frame-05 3
+bolt-04 0: 2 rows
+  M0 bolt-04 0
+  M1 bolt-04 0
+bolt-04 1: 2 rows
+  M0 bolt-04 1
+  M1 bolt-04 1
+bolt-04 2: 2 rows
+  M0 bolt-04 2
+  M1 bolt-04 2
+bolt-04 3: 2 rows
+  M0 bolt-04 3
+  M1 bolt-04 3
+nut-12 0: 3 rows
+  M3 nut-12 0
+  M2 nut-12 0
+  M1 nut-12 0
+nut-12 1: 3 rows
+  M3 nut-12 1
+  M2 nut-12 1
+  M1 nut-12 1
+nut-12 2: 3 rows
+  M3 nut-12 2
+  M2 nut-12 2
+  M1 nut-12 2
+nut-12 3: 3 rows
+  M3 nut-12 3
+  M2 nut-12 3
+  M1 nut-12 3
+nut-09 0: 2 rows
+  M3 nut-09 0
+  M1 nut-09 0
+nut-09 1: 2 rows
+  M3 nut-09 1
+  M1 nut-09 1
+nut-09 2: 2 rows
+  M3 nut-09 2
+  M1 nut-09 2
+nut-09 3: 2 rows
+  M3 nut-09 3
+  M1 nut-09 3
+frame-08 0: 3 rows
+  M3 frame-08 0
+  M2 frame-08 0
+  M1 frame-08 0
+frame-08 1: 3 rows
+  M3 frame-08 1
+  M2 frame-08 1
+  M1 frame-08 1
+frame-08 2: 3 rows
+  M3 frame-08 2
+  M2 frame-08 2
+  M1 frame-08 2
+frame-08 3: 3 rows
+  M3 frame-08 3
+  M2 frame-08 3
+  M1 frame-08 3
+bolt-07 0: 2 rows
+  M3 bolt-07 0
+  M2 bolt-07 0
+bolt-07 1: 2 rows
+  M3 bolt-07 1
+  M2 bolt-07 1
+bolt-07 2: 2 rows
+  M3 bolt-07 2
+  M2 bolt-07 2
+bolt-07 3: 2 rows
+  M3 bolt-07 3
+  M2 bolt-07 3
+frame-02 0: 3 rows
+  M3 frame-02 0
+  M2 frame-02 0
+  M1 frame-02 0
+frame-02 1: 3 rows
+  M3 frame-02 1
+  M2 frame-02 1
+  M1 frame-02 1
+frame-02 2: 3 rows
+  M3 frame-02 2
+  M2 frame-02 2
+  M1 frame-02 2
+frame-02 3: 3 rows
+  M3 frame-02 3
+  M2 frame-02 3
+  M1 frame-02 3
+bolt-01 0: 2 rows
+  M3 bolt-01 0
+  M1 bolt-01 0
+bolt-01 1: 2 rows
+  M3 bolt-01 1
+  M1 bolt-01 1
+bolt-01 2: 2 rows
+  M3 bolt-01 2
+  M1 bolt-01 2
+bolt-01 3: 2 rows
+  M3 bolt-01 3
+  M1 bolt-01 3
+nut-03 0: 1 rows
+  M2 nut-03 0
+nut-03 1: 1 rows
+  M2 nut-03 1
+nut-03 2: 1 rows
+  M2 nut-03 2
+nut-03 3: 1 rows
+  M2 nut-03 3
+== groupBy<cMachine> of sCHAIN, slices by machine
+M0: 15 rows
+  M0 frame-11 0
+  M0 bolt-10 0
+  M0 nut-06 0
+  M0 frame-05 0
+  M0 bolt-04 0
+  M0 frame-11 2
+  M0 bolt-10 2
+  M0 nut-06 2
+  M0 frame-05 2
+  M0 bolt-04 2
+  M0 frame-11 3
+  M0 bolt-10 3
+  M0 nut-06 3
+  M0 frame-05 3
+  M0 bolt-04 3
+M3: 36 rows
+  M3 nut-12 0
+  M3 bolt-10 0
+  M3 nut-09 0
+  M3 frame-08 0
+  M3 bolt-07 0
+  M3 nut-06 0
+  M3 frame-05 0
+  M3 frame-02 0
+  M3 bolt-01 0
+  M3 nut-12 1
+  M3 bolt-10 1
+  M3 nut-09 1
+  M3 frame-08 1
+  M3 bolt-07 1
+  M3 nut-06 1
+  M3 frame-05 1
+  M3 frame-02 1
+  M3 bolt-01 1
+  M3 nut-12 2
+  M3 bolt-10 2
+  M3 nut-09 2
+  M3 frame-08 2
+  M3 bolt-07 2
+  M3 nut-06 2
+  M3 frame-05 2
+  M3 frame-02 2
+  M3 bolt-01 2
+  M3 nut-12 3
+  M3 bolt-10 3
+  M3 nut-09 3
+  M3 frame-08 3
+  M3 bolt-07 3
+  M3 nut-06 3
+  M3 frame-05 3
+  M3 frame-02 3
+  M3 bolt-01 3
+M2: 28 rows
+  M2 nut-12 0
+  M2 frame-11 0
+  M2 frame-08 0
+  M2 bolt-07 0
+  M2 nut-06 0
+  M2 nut-03 0
+  M2 frame-02 0
+  M2 nut-12 1
+  M2 frame-11 1
+  M2 frame-08 1
+  M2 bolt-07 1
+  M2 nut-06 1
+  M2 nut-03 1
+  M2 frame-02 1
+  M2 nut-12 2
+  M2 frame-11 2
+  M2 frame-08 2
+  M2 bolt-07 2
+  M2 nut-06 2
+  M2 nut-03 2
+  M2 frame-02 2
+  M2 nut-12 3
+  M2 frame-11 3
+  M2 frame-08 3
+  M2 bolt-07 3
+  M2 nut-06 3
+  M2 nut-03 3
+  M2 frame-02 3
+M1: 32 rows
+  M1 nut-12 0
+  M1 frame-11 0
+  M1 nut-09 0
+  M1 frame-08 0
+  M1 nut-06 0
+  M1 bolt-04 0
+  M1 frame-02 0
+  M1 bolt-01 0
+  M1 nut-12 1
+  M1 frame-11 1
+  M1 nut-09 1
+  M1 frame-08 1
+  M1 nut-06 1
+  M1 bolt-04 1
+  M1 frame-02 1
+  M1 bolt-01 1
+  M1 nut-12 2
+  M1 frame-11 2
+  M1 nut-09 2
+  M1 frame-08 2
+  M1 nut-06 2
+  M1 bolt-04 2
+  M1 frame-02 2
+  M1 bolt-01 2
+  M1 nut-12 3
+  M1 frame-11 3
+  M1 nut-09 3
+  M1 frame-08 3
+  M1 nut-06 3
+  M1 bolt-04 3
+  M1 frame-02 3
+  M1 bolt-01 3
+== ordered periods: previous and next
+0: - 1
+1: 0 2
+2: 1 3
+3: 2 -
+== sROUTES orderBy time (29 rows)
+M0 frame-11
+M2 frame-11
+M1 frame-11
+M0 bolt-10
+M3 bolt-10
+M3 bolt-07
+M2 bolt-07
+M0 bolt-04
+M3 frame-08
+M2 frame-08
+M2 nut-03
+M1 frame-08
+M1 bolt-04
+M0 frame-05
+M3 frame-05
+M3 nut-09
+M3 bolt-01
+M1 nut-09
+M1 bolt-01
+M0 nut-06
+M3 nut-06
+M3 frame-02
+M2 nut-06
+M2 frame-02
+M1 nut-06
+M1 frame-02
+M3 nut-12
+M2 nut-12
+M1 nut-12
+== sROUTES orderBy time, descending (29 rows)
+M3 nut-12
+M2 nut-12
+M1 nut-12
+M0 nut-06
+M3 nut-06
+M3 frame-02
+M2 nut-06
+M2 frame-02
+M1 nut-06
+M1 frame-02
+M3 nut-09
+M3 bolt-01
+M1 nut-09
+M1 bolt-01
+M0 frame-05
+M3 frame-05
+M0 bolt-04
+M3 frame-08
+M2 frame-08
+M2 nut-03
+M1 frame-08
+M1 bolt-04
+M0 bolt-10
+M3 bolt-10
+M3 bolt-07
+M2 bolt-07
+M0 frame-11
+M2 frame-11
+M1 frame-11
+== set from records: bom (25 rows)
+nut-09 nut-12
+nut-09 frame-02
+frame-02 nut-06
+bolt-07 frame-05
+nut-06 frame-08
+nut-12 frame-05
+bolt-07 frame-08
+bolt-07 bolt-07
+bolt-04 nut-03
+nut-09 nut-09
+frame-08 bolt-04
+nut-06 nut-03
+frame-05 frame-11
+frame-02 nut-09
+nut-06 bolt-04
+bolt-10 bolt-10
+frame-05 frame-05
+frame-05 bolt-10
+nut-06 nut-06
+nut-12 nut-03
+nut-03 bolt-01
+bolt-10 frame-02
+nut-12 frame-11
+frame-11 bolt-10
+bolt-10 nut-12
+== transitiveClosure(bom) (89 rows)
+nut-09 nut-12
+nut-09 frame-02
+nut-09 nut-09
+nut-09 frame-05
+nut-09 nut-03
+nut-09 frame-11
+nut-09 nut-06
+nut-09 bolt-10
+nut-09 bolt-01
+nut-09 frame-08
+nut-09 bolt-04
+frame-02 nut-06
+frame-02 nut-09
+frame-02 frame-08
+frame-02 nut-03
+frame-02 bolt-04
+frame-02 nut-12
+frame-02 frame-02
+frame-02 bolt-01
+frame-02 frame-05
+frame-02 frame-11
+frame-02 bolt-10
+bolt-07 frame-05
+bolt-07 frame-08
+bolt-07 bolt-07
+bolt-07 frame-11
+bolt-07 bolt-10
+bolt-07 bolt-04
+bolt-07 frame-02
+bolt-07 nut-12
+bolt-07 nut-03
+bolt-07 nut-06
+bolt-07 nut-09
+bolt-07 bolt-01
+nut-06 frame-08
+nut-06 nut-03
+nut-06 bolt-04
+nut-06 nut-06
+nut-06 bolt-01
+nut-12 frame-05
+nut-12 nut-03
+nut-12 frame-11
+nut-12 bolt-10
+nut-12 bolt-01
+nut-12 frame-02
+nut-12 nut-12
+nut-12 nut-06
+nut-12 nut-09
+nut-12 frame-08
+nut-12 bolt-04
+bolt-04 nut-03
+bolt-04 bolt-01
+frame-08 bolt-04
+frame-08 nut-03
+frame-08 bolt-01
+frame-05 frame-11
+frame-05 frame-05
+frame-05 bolt-10
+frame-05 frame-02
+frame-05 nut-12
+frame-05 nut-06
+frame-05 nut-09
+frame-05 nut-03
+frame-05 frame-08
+frame-05 bolt-04
+frame-05 bolt-01
+bolt-10 bolt-10
+bolt-10 frame-02
+bolt-10 nut-12
+bolt-10 nut-06
+bolt-10 nut-09
+bolt-10 frame-05
+bolt-10 nut-03
+bolt-10 frame-11
+bolt-10 frame-08
+bolt-10 bolt-04
+bolt-10 bolt-01
+nut-03 bolt-01
+frame-11 bolt-10
+frame-11 frame-02
+frame-11 nut-12
+frame-11 nut-06
+frame-11 nut-09
+frame-11 frame-05
+frame-11 nut-03
+frame-11 frame-11
+frame-11 frame-08
+frame-11 bolt-04
+frame-11 bolt-01
+== ParamTable from records: quantity
+nut-09 nut-12 = 3
+nut-09 frame-02 = 2
+frame-02 nut-06 = 2
+bolt-07 frame-05 = 1
+nut-06 frame-08 = 3
+nut-12 frame-05 = 4
+bolt-07 frame-08 = 4
+bolt-07 bolt-07 = 4
+bolt-04 nut-03 = 3
+nut-09 nut-09 = 2
+frame-08 bolt-04 = 1
+nut-06 nut-03 = 4
+frame-05 frame-11 = 2
+frame-02 nut-09 = 3
+nut-06 bolt-04 = 3
+bolt-10 bolt-10 = 3
+frame-05 frame-05 = 3
+frame-05 bolt-10 = 3
+nut-06 nut-06 = 3
+nut-12 nut-03 = 4
+nut-03 bolt-01 = 4
+bolt-10 frame-02 = 2
+nut-12 frame-11 = 1
+frame-11 bolt-10 = 1
+bolt-10 nut-12 = 1
+== EntityVector sorted by its key, and found by it
+bolt-01 true
+bolt-04 true
+bolt-07 true
+bolt-10 true
+frame-02 true
+frame-05 true
+frame-08 true
+frame-11 true
+nut-03 true
+nut-06 true
+nut-09 true
+nut-12 true
+== variables Yield (116)
+Yield_M0_frame-11_0 [0, 50] 1
+Yield_M0_frame-11_1 [0, 50] 1
+Yield_M0_frame-11_2 [0, 50] 1
+Yield_M0_frame-11_3 [0, 50] 1
+Yield_M0_bolt-10_0 [0, 40] 1
+Yield_M0_bolt-10_1 [0, 40] 1
+Yield_M0_bolt-10_2 [0, 40] 1
+Yield_M0_bolt-10_3 [0, 40] 1
+Yield_M0_nut-06_0 [0, 20] 1
+Yield_M0_nut-06_1 [0, 20] 1
+Yield_M0_nut-06_2 [0, 20] 1
+Yield_M0_nut-06_3 [0, 20] 1
+Yield_M0_frame-05_0 [0, 25] 1
+Yield_M0_frame-05_1 [0, 25] 1
+Yield_M0_frame-05_2 [0, 25] 1
+Yield_M0_frame-05_3 [0, 25] 1
+Yield_M0_bolt-04_0 [0, 28.571428571428573] 1
+Yield_M0_bolt-04_1 [0, 28.571428571428573] 1
+Yield_M0_bolt-04_2 [0, 28.571428571428573] 1
+Yield_M0_bolt-04_3 [0, 28.571428571428573] 1
+Yield_M3_nut-12_0 [0, 24] 1
+Yield_M3_nut-12_1 [0, 24] 1
+Yield_M3_nut-12_2 [0, 24] 1
+Yield_M3_nut-12_3 [0, 24] 1
+Yield_M3_bolt-10_0 [0, 52.8] 1
+Yield_M3_bolt-10_1 [0, 52.8] 1
+Yield_M3_bolt-10_2 [0, 52.8] 1
+Yield_M3_bolt-10_3 [0, 52.8] 1
+Yield_M3_nut-09_0 [0, 29.333333333333332] 1
+Yield_M3_nut-09_1 [0, 29.333333333333332] 1
+Yield_M3_nut-09_2 [0, 29.333333333333332] 1
+Yield_M3_nut-09_3 [0, 29.333333333333332] 1
+Yield_M3_frame-08_0 [0, 37.714285714285715] 1
+Yield_M3_frame-08_1 [0, 37.714285714285715] 1
+Yield_M3_frame-08_2 [0, 37.714285714285715] 1
+Yield_M3_frame-08_3 [0, 37.714285714285715] 1
+Yield_M3_bolt-07_0 [0, 52.8] 1
+Yield_M3_bolt-07_1 [0, 52.8] 1
+Yield_M3_bolt-07_2 [0, 52.8] 1
+Yield_M3_bolt-07_3 [0, 52.8] 1
+Yield_M3_nut-06_0 [0, 26.4] 1
+Yield_M3_nut-06_1 [0, 26.4] 1
+Yield_M3_nut-06_2 [0, 26.4] 1
+Yield_M3_nut-06_3 [0, 26.4] 1
+Yield_M3_frame-05_0 [0, 33] 1
+Yield_M3_frame-05_1 [0, 33] 1
+Yield_M3_frame-05_2 [0, 33] 1
+Yield_M3_frame-05_3 [0, 33] 1
+Yield_M3_frame-02_0 [0, 26.4] 1
+Yield_M3_frame-02_1 [0, 26.4] 1
+Yield_M3_frame-02_2 [0, 26.4] 1
+Yield_M3_frame-02_3 [0, 26.4] 1
+Yield_M3_bolt-01_0 [0, 29.333333333333332] 1
+Yield_M3_bolt-01_1 [0, 29.333333333333332] 1
+Yield_M3_bolt-01_2 [0, 29.333333333333332] 1
+Yield_M3_bolt-01_3 [0, 29.333333333333332] 1
+Yield_M2_nut-12_0 [0, 23.272727272727273] 1
+Yield_M2_nut-12_1 [0, 23.272727272727273] 1
+Yield_M2_nut-12_2 [0, 23.272727272727273] 1
+Yield_M2_nut-12_3 [0, 23.272727272727273] 1
+Yield_M2_frame-11_0 [0, 64] 1
+Yield_M2_frame-11_1 [0, 64] 1
+Yield_M2_frame-11_2 [0, 64] 1
+Yield_M2_frame-11_3 [0, 64] 1
+Yield_M2_frame-08_0 [0, 36.57142857142857] 1
+Yield_M2_frame-08_1 [0, 36.57142857142857] 1
+Yield_M2_frame-08_2 [0, 36.57142857142857] 1
+Yield_M2_frame-08_3 [0, 36.57142857142857] 1
+Yield_M2_bolt-07_0 [0, 51.2] 1
+Yield_M2_bolt-07_1 [0, 51.2] 1
+Yield_M2_bolt-07_2 [0, 51.2] 1
+Yield_M2_bolt-07_3 [0, 51.2] 1
+Yield_M2_nut-06_0 [0, 25.6] 1
+Yield_M2_nut-06_1 [0, 25.6] 1
+Yield_M2_nut-06_2 [0, 25.6] 1
+Yield_M2_nut-06_3 [0, 25.6] 1
+Yield_M2_nut-03_0 [0, 36.57142857142857] 1
+Yield_M2_nut-03_1 [0, 36.57142857142857] 1
+Yield_M2_nut-03_2 [0, 36.57142857142857] 1
+Yield_M2_nut-03_3 [0, 36.57142857142857] 1
+Yield_M2_frame-02_0 [0, 25.6] 1
+Yield_M2_frame-02_1 [0, 25.6] 1
+Yield_M2_frame-02_2 [0, 25.6] 1
+Yield_M2_frame-02_3 [0, 25.6] 1
+Yield_M1_nut-12_0 [0, 26.181818181818183] 1
+Yield_M1_nut-12_1 [0, 26.181818181818183] 1
+Yield_M1_nut-12_2 [0, 26.181818181818183] 1
+Yield_M1_nut-12_3 [0, 26.181818181818183] 1
+Yield_M1_frame-11_0 [0, 72] 1
+Yield_M1_frame-11_1 [0, 72] 1
+Yield_M1_frame-11_2 [0, 72] 1
+Yield_M1_frame-11_3 [0, 72] 1
+Yield_M1_nut-09_0 [0, 32] 1
+Yield_M1_nut-09_1 [0, 32] 1
+Yield_M1_nut-09_2 [0, 32] 1
+Yield_M1_nut-09_3 [0, 32] 1
+Yield_M1_frame-08_0 [0, 41.142857142857146] 1
+Yield_M1_frame-08_1 [0, 41.142857142857146] 1
+Yield_M1_frame-08_2 [0, 41.142857142857146] 1
+Yield_M1_frame-08_3 [0, 41.142857142857146] 1
+Yield_M1_nut-06_0 [0, 28.8] 1
+Yield_M1_nut-06_1 [0, 28.8] 1
+Yield_M1_nut-06_2 [0, 28.8] 1
+Yield_M1_nut-06_3 [0, 28.8] 1
+Yield_M1_bolt-04_0 [0, 41.142857142857146] 1
+Yield_M1_bolt-04_1 [0, 41.142857142857146] 1
+Yield_M1_bolt-04_2 [0, 41.142857142857146] 1
+Yield_M1_bolt-04_3 [0, 41.142857142857146] 1
+Yield_M1_frame-02_0 [0, 28.8] 1
+Yield_M1_frame-02_1 [0, 28.8] 1
+Yield_M1_frame-02_2 [0, 28.8] 1
+Yield_M1_frame-02_3 [0, 28.8] 1
+Yield_M1_bolt-01_0 [0, 32] 1
+Yield_M1_bolt-01_1 [0, 32] 1
+Yield_M1_bolt-01_2 [0, 32] 1
+Yield_M1_bolt-01_3 [0, 32] 1
+== variables Setup (116)
+Setup_M0_frame-11_0 [0, 1] 2
+Setup_M0_frame-11_1 [0, 1] 2
+Setup_M0_frame-11_2 [0, 1] 2
+Setup_M0_frame-11_3 [0, 1] 2
+Setup_M0_bolt-10_0 [0, 1] 2
+Setup_M0_bolt-10_1 [0, 1] 2
+Setup_M0_bolt-10_2 [0, 1] 2
+Setup_M0_bolt-10_3 [0, 1] 2
+Setup_M0_nut-06_0 [0, 1] 2
+Setup_M0_nut-06_1 [0, 1] 2
+Setup_M0_nut-06_2 [0, 1] 2
+Setup_M0_nut-06_3 [0, 1] 2
+Setup_M0_frame-05_0 [0, 1] 2
+Setup_M0_frame-05_1 [0, 1] 2
+Setup_M0_frame-05_2 [0, 1] 2
+Setup_M0_frame-05_3 [0, 1] 2
+Setup_M0_bolt-04_0 [0, 1] 2
+Setup_M0_bolt-04_1 [0, 1] 2
+Setup_M0_bolt-04_2 [0, 1] 2
+Setup_M0_bolt-04_3 [0, 1] 2
+Setup_M3_nut-12_0 [0, 1] 2
+Setup_M3_nut-12_1 [0, 1] 2
+Setup_M3_nut-12_2 [0, 1] 2
+Setup_M3_nut-12_3 [0, 1] 2
+Setup_M3_bolt-10_0 [0, 1] 2
+Setup_M3_bolt-10_1 [0, 1] 2
+Setup_M3_bolt-10_2 [0, 1] 2
+Setup_M3_bolt-10_3 [0, 1] 2
+Setup_M3_nut-09_0 [0, 1] 2
+Setup_M3_nut-09_1 [0, 1] 2
+Setup_M3_nut-09_2 [0, 1] 2
+Setup_M3_nut-09_3 [0, 1] 2
+Setup_M3_frame-08_0 [0, 1] 2
+Setup_M3_frame-08_1 [0, 1] 2
+Setup_M3_frame-08_2 [0, 1] 2
+Setup_M3_frame-08_3 [0, 1] 2
+Setup_M3_bolt-07_0 [0, 1] 2
+Setup_M3_bolt-07_1 [0, 1] 2
+Setup_M3_bolt-07_2 [0, 1] 2
+Setup_M3_bolt-07_3 [0, 1] 2
+Setup_M3_nut-06_0 [0, 1] 2
+Setup_M3_nut-06_1 [0, 1] 2
+Setup_M3_nut-06_2 [0, 1] 2
+Setup_M3_nut-06_3 [0, 1] 2
+Setup_M3_frame-05_0 [0, 1] 2
+Setup_M3_frame-05_1 [0, 1] 2
+Setup_M3_frame-05_2 [0, 1] 2
+Setup_M3_frame-05_3 [0, 1] 2
+Setup_M3_frame-02_0 [0, 1] 2
+Setup_M3_frame-02_1 [0, 1] 2
+Setup_M3_frame-02_2 [0, 1] 2
+Setup_M3_frame-02_3 [0, 1] 2
+Setup_M3_bolt-01_0 [0, 1] 2
+Setup_M3_bolt-01_1 [0, 1] 2
+Setup_M3_bolt-01_2 [0, 1] 2
+Setup_M3_bolt-01_3 [0, 1] 2
+Setup_M2_nut-12_0 [0, 1] 2
+Setup_M2_nut-12_1 [0, 1] 2
+Setup_M2_nut-12_2 [0, 1] 2
+Setup_M2_nut-12_3 [0, 1] 2
+Setup_M2_frame-11_0 [0, 1] 2
+Setup_M2_frame-11_1 [0, 1] 2
+Setup_M2_frame-11_2 [0, 1] 2
+Setup_M2_frame-11_3 [0, 1] 2
+Setup_M2_frame-08_0 [0, 1] 2
+Setup_M2_frame-08_1 [0, 1] 2
+Setup_M2_frame-08_2 [0, 1] 2
+Setup_M2_frame-08_3 [0, 1] 2
+Setup_M2_bolt-07_0 [0, 1] 2
+Setup_M2_bolt-07_1 [0, 1] 2
+Setup_M2_bolt-07_2 [0, 1] 2
+Setup_M2_bolt-07_3 [0, 1] 2
+Setup_M2_nut-06_0 [0, 1] 2
+Setup_M2_nut-06_1 [0, 1] 2
+Setup_M2_nut-06_2 [0, 1] 2
+Setup_M2_nut-06_3 [0, 1] 2
+Setup_M2_nut-03_0 [0, 1] 2
+Setup_M2_nut-03_1 [0, 1] 2
+Setup_M2_nut-03_2 [0, 1] 2
+Setup_M2_nut-03_3 [0, 1] 2
+Setup_M2_frame-02_0 [0, 1] 2
+Setup_M2_frame-02_1 [0, 1] 2
+Setup_M2_frame-02_2 [0, 1] 2
+Setup_M2_frame-02_3 [0, 1] 2
+Setup_M1_nut-12_0 [0, 1] 2
+Setup_M1_nut-12_1 [0, 1] 2
+Setup_M1_nut-12_2 [0, 1] 2
+Setup_M1_nut-12_3 [0, 1] 2
+Setup_M1_frame-11_0 [0, 1] 2
+Setup_M1_frame-11_1 [0, 1] 2
+Setup_M1_frame-11_2 [0, 1] 2
+Setup_M1_frame-11_3 [0, 1] 2
+Setup_M1_nut-09_0 [0, 1] 2
+Setup_M1_nut-09_1 [0, 1] 2
+Setup_M1_nut-09_2 [0, 1] 2
+Setup_M1_nut-09_3 [0, 1] 2
+Setup_M1_frame-08_0 [0, 1] 2
+Setup_M1_frame-08_1 [0, 1] 2
+Setup_M1_frame-08_2 [0, 1] 2
+Setup_M1_frame-08_3 [0, 1] 2
+Setup_M1_nut-06_0 [0, 1] 2
+Setup_M1_nut-06_1 [0, 1] 2
+Setup_M1_nut-06_2 [0, 1] 2
+Setup_M1_nut-06_3 [0, 1] 2
+Setup_M1_bolt-04_0 [0, 1] 2
+Setup_M1_bolt-04_1 [0, 1] 2
+Setup_M1_bolt-04_2 [0, 1] 2
+Setup_M1_bolt-04_3 [0, 1] 2
+Setup_M1_frame-02_0 [0, 1] 2
+Setup_M1_frame-02_1 [0, 1] 2
+Setup_M1_frame-02_2 [0, 1] 2
+Setup_M1_frame-02_3 [0, 1] 2
+Setup_M1_bolt-01_0 [0, 1] 2
+Setup_M1_bolt-01_1 [0, 1] 2
+Setup_M1_bolt-01_2 [0, 1] 2
+Setup_M1_bolt-01_3 [0, 1] 2
+== variables Stock (48)
+Stock_nut-12_0 [0, 1e+20] 1
+Stock_nut-12_1 [0, 1e+20] 1
+Stock_nut-12_2 [0, 1e+20] 1
+Stock_nut-12_3 [0, 1e+20] 1
+Stock_frame-11_0 [0, 1e+20] 1
+Stock_frame-11_1 [0, 1e+20] 1
+Stock_frame-11_2 [0, 1e+20] 1
+Stock_frame-11_3 [0, 1e+20] 1
+Stock_bolt-10_0 [0, 1e+20] 1
+Stock_bolt-10_1 [0, 1e+20] 1
+Stock_bolt-10_2 [0, 1e+20] 1
+Stock_bolt-10_3 [0, 1e+20] 1
+Stock_nut-09_0 [0, 1e+20] 1
+Stock_nut-09_1 [0, 1e+20] 1
+Stock_nut-09_2 [0, 1e+20] 1
+Stock_nut-09_3 [0, 1e+20] 1
+Stock_frame-08_0 [0, 1e+20] 1
+Stock_frame-08_1 [0, 1e+20] 1
+Stock_frame-08_2 [0, 1e+20] 1
+Stock_frame-08_3 [0, 1e+20] 1
+Stock_bolt-07_0 [0, 1e+20] 1
+Stock_bolt-07_1 [0, 1e+20] 1
+Stock_bolt-07_2 [0, 1e+20] 1
+Stock_bolt-07_3 [0, 1e+20] 1
+Stock_nut-06_0 [0, 1e+20] 1
+Stock_nut-06_1 [0, 1e+20] 1
+Stock_nut-06_2 [0, 1e+20] 1
+Stock_nut-06_3 [0, 1e+20] 1
+Stock_frame-05_0 [0, 1e+20] 1
+Stock_frame-05_1 [0, 1e+20] 1
+Stock_frame-05_2 [0, 1e+20] 1
+Stock_frame-05_3 [0, 1e+20] 1
+Stock_bolt-04_0 [0, 1e+20] 1
+Stock_bolt-04_1 [0, 1e+20] 1
+Stock_bolt-04_2 [0, 1e+20] 1
+Stock_bolt-04_3 [0, 1e+20] 1
+Stock_nut-03_0 [0, 1e+20] 1
+Stock_nut-03_1 [0, 1e+20] 1
+Stock_nut-03_2 [0, 1e+20] 1
+Stock_nut-03_3 [0, 1e+20] 1
+Stock_frame-02_0 [0, 1e+20] 1
+Stock_frame-02_1 [0, 1e+20] 1
+Stock_frame-02_2 [0, 1e+20] 1
+Stock_frame-02_3 [0, 1e+20] 1
+Stock_bolt-01_0 [0, 1e+20] 1
+Stock_bolt-01_1 [0, 1e+20] 1
+Stock_bolt-01_2 [0, 1e+20] 1
+Stock_bolt-01_3 [0, 1e+20] 1
+== rows (180)
+- 0 12: 1*Yield_M3_nut-12_0 1*Yield_M2_nut-12_0 1*Yield_M1_nut-12_0 -1*Stock_nut-12_0
+- 0 -0: 1*Yield_M3_nut-12_1 1*Yield_M2_nut-12_1 1*Yield_M1_nut-12_1 1*Stock_nut-12_0 -1*Stock_nut-12_1
+- 0 -0: 1*Yield_M3_nut-12_2 1*Yield_M2_nut-12_2 1*Yield_M1_nut-12_2 1*Stock_nut-12_1 -1*Stock_nut-12_2
+- 0 36: 1*Yield_M3_nut-12_3 1*Yield_M2_nut-12_3 1*Yield_M1_nut-12_3 1*Stock_nut-12_2 -1*Stock_nut-12_3
+- 0 -0: 1*Yield_M0_frame-11_0 1*Yield_M2_frame-11_0 1*Yield_M1_frame-11_0 -1*Stock_frame-11_0
+- 0 25: 1*Yield_M0_frame-11_1 1*Yield_M2_frame-11_1 1*Yield_M1_frame-11_1 1*Stock_frame-11_0 -1*Stock_frame-11_1
+- 0 24: 1*Yield_M0_frame-11_2 1*Yield_M2_frame-11_2 1*Yield_M1_frame-11_2 1*Stock_frame-11_1 -1*Stock_frame-11_2
+- 0 13: 1*Yield_M0_frame-11_3 1*Yield_M2_frame-11_3 1*Yield_M1_frame-11_3 1*Stock_frame-11_2 -1*Stock_frame-11_3
+- 0 -0: 1*Yield_M0_bolt-10_0 1*Yield_M3_bolt-10_0 -1*Stock_bolt-10_0
+- 0 10: 1*Yield_M0_bolt-10_1 1*Yield_M3_bolt-10_1 1*Stock_bolt-10_0 -1*Stock_bolt-10_1
+- 0 29: 1*Yield_M0_bolt-10_2 1*Yield_M3_bolt-10_2 1*Stock_bolt-10_1 -1*Stock_bolt-10_2
+- 0 10: 1*Yield_M0_bolt-10_3 1*Yield_M3_bolt-10_3 1*Stock_bolt-10_2 -1*Stock_bolt-10_3
+- 0 -0: 1*Yield_M3_nut-09_0 1*Yield_M1_nut-09_0 -1*Stock_nut-09_0
+- 0 26: 1*Yield_M3_nut-09_1 1*Yield_M1_nut-09_1 1*Stock_nut-09_0 -1*Stock_nut-09_1
+- 0 12: 1*Yield_M3_nut-09_2 1*Yield_M1_nut-09_2 1*Stock_nut-09_1 -1*Stock_nut-09_2
+- 0 35: 1*Yield_M3_nut-09_3 1*Yield_M1_nut-09_3 1*Stock_nut-09_2 -1*Stock_nut-09_3
+- 0 -0: 1*Yield_M3_frame-08_0 1*Yield_M2_frame-08_0 1*Yield_M1_frame-08_0 -1*Stock_frame-08_0
+- 0 30: 1*Yield_M3_frame-08_1 1*Yield_M2_frame-08_1 1*Yield_M1_frame-08_1 1*Stock_frame-08_0 -1*Stock_frame-08_1
+- 0 21: 1*Yield_M3_frame-08_2 1*Yield_M2_frame-08_2 1*Yield_M1_frame-08_2 1*Stock_frame-08_1 -1*Stock_frame-08_2
+- 0 31: 1*Yield_M3_frame-08_3 1*Yield_M2_frame-08_3 1*Yield_M1_frame-08_3 1*Stock_frame-08_2 -1*Stock_frame-08_3
+- 0 25: 1*Yield_M3_bolt-07_0 1*Yield_M2_bolt-07_0 -1*Stock_bolt-07_0
+- 0 13: 1*Yield_M3_bolt-07_1 1*Yield_M2_bolt-07_1 1*Stock_bolt-07_0 -1*Stock_bolt-07_1
+- 0 -0: 1*Yield_M3_bolt-07_2 1*Yield_M2_bolt-07_2 1*Stock_bolt-07_1 -1*Stock_bolt-07_2
+- 0 29: 1*Yield_M3_bolt-07_3 1*Yield_M2_bolt-07_3 1*Stock_bolt-07_2 -1*Stock_bolt-07_3
+- 0 -0: 1*Yield_M0_nut-06_0 1*Yield_M3_nut-06_0 1*Yield_M2_nut-06_0 1*Yield_M1_nut-06_0 -1*Stock_nut-06_0
+- 0 -0: 1*Yield_M0_nut-06_1 1*Yield_M3_nut-06_1 1*Yield_M2_nut-06_1 1*Yield_M1_nut-06_1 1*Stock_nut-06_0 -1*Stock_nut-06_1
+- 0 36: 1*Yield_M0_nut-06_2 1*Yield_M3_nut-06_2 1*Yield_M2_nut-06_2 1*Yield_M1_nut-06_2 1*Stock_nut-06_1 -1*Stock_nut-06_2
+- 0 -0: 1*Yield_M0_nut-06_3 1*Yield_M3_nut-06_3 1*Yield_M2_nut-06_3 1*Yield_M1_nut-06_3 1*Stock_nut-06_2 -1*Stock_nut-06_3
+- 0 32: 1*Yield_M0_frame-05_0 1*Yield_M3_frame-05_0 -1*Stock_frame-05_0
+- 0 21: 1*Yield_M0_frame-05_1 1*Yield_M3_frame-05_1 1*Stock_frame-05_0 -1*Stock_frame-05_1
+- 0 -0: 1*Yield_M0_frame-05_2 1*Yield_M3_frame-05_2 1*Stock_frame-05_1 -1*Stock_frame-05_2
+- 0 35: 1*Yield_M0_frame-05_3 1*Yield_M3_frame-05_3 1*Stock_frame-05_2 -1*Stock_frame-05_3
+- 0 31: 1*Yield_M0_bolt-04_0 1*Yield_M1_bolt-04_0 -1*Stock_bolt-04_0
+- 0 -0: 1*Yield_M0_bolt-04_1 1*Yield_M1_bolt-04_1 1*Stock_bolt-04_0 -1*Stock_bolt-04_1
+- 0 -0: 1*Yield_M0_bolt-04_2 1*Yield_M1_bolt-04_2 1*Stock_bolt-04_1 -1*Stock_bolt-04_2
+- 0 33: 1*Yield_M0_bolt-04_3 1*Yield_M1_bolt-04_3 1*Stock_bolt-04_2 -1*Stock_bolt-04_3
+- 0 35: 1*Yield_M2_nut-03_0 -1*Stock_nut-03_0
+- 0 29: 1*Yield_M2_nut-03_1 1*Stock_nut-03_0 -1*Stock_nut-03_1
+- 0 17: 1*Yield_M2_nut-03_2 1*Stock_nut-03_1 -1*Stock_nut-03_2
+- 0 14: 1*Yield_M2_nut-03_3 1*Stock_nut-03_2 -1*Stock_nut-03_3
+- 0 17: 1*Yield_M3_frame-02_0 1*Yield_M2_frame-02_0 1*Yield_M1_frame-02_0 -1*Stock_frame-02_0
+- 0 10: 1*Yield_M3_frame-02_1 1*Yield_M2_frame-02_1 1*Yield_M1_frame-02_1 1*Stock_frame-02_0 -1*Stock_frame-02_1
+- 0 24: 1*Yield_M3_frame-02_2 1*Yield_M2_frame-02_2 1*Yield_M1_frame-02_2 1*Stock_frame-02_1 -1*Stock_frame-02_2
+- 0 19: 1*Yield_M3_frame-02_3 1*Yield_M2_frame-02_3 1*Yield_M1_frame-02_3 1*Stock_frame-02_2 -1*Stock_frame-02_3
+- 0 18: 1*Yield_M3_bolt-01_0 1*Yield_M1_bolt-01_0 -1*Stock_bolt-01_0
+- 0 -0: 1*Yield_M3_bolt-01_1 1*Yield_M1_bolt-01_1 1*Stock_bolt-01_0 -1*Stock_bolt-01_1
+- 0 33: 1*Yield_M3_bolt-01_2 1*Yield_M1_bolt-01_2 1*Stock_bolt-01_1 -1*Stock_bolt-01_2
+- 0 15: 1*Yield_M3_bolt-01_3 1*Yield_M1_bolt-01_3 1*Stock_bolt-01_2 -1*Stock_bolt-01_3
+- -1 50: 1*Yield_M0_frame-11_0 1.25*Yield_M0_bolt-10_0 2.5*Yield_M0_nut-06_0 2*Yield_M0_frame-05_0 1.75*Yield_M0_bolt-04_0
+- -1 50: 1*Yield_M0_frame-11_1 1.25*Yield_M0_bolt-10_1 2.5*Yield_M0_nut-06_1 2*Yield_M0_frame-05_1 1.75*Yield_M0_bolt-04_1
+- -1 50: 1*Yield_M0_frame-11_2 1.25*Yield_M0_bolt-10_2 2.5*Yield_M0_nut-06_2 2*Yield_M0_frame-05_2 1.75*Yield_M0_bolt-04_2
+- -1 50: 1*Yield_M0_frame-11_3 1.25*Yield_M0_bolt-10_3 2.5*Yield_M0_nut-06_3 2*Yield_M0_frame-05_3 1.75*Yield_M0_bolt-04_3
+- -1 66: 2.75*Yield_M3_nut-12_0 1.25*Yield_M3_bolt-10_0 2.25*Yield_M3_nut-09_0 1.75*Yield_M3_frame-08_0 1.25*Yield_M3_bolt-07_0 2.5*Yield_M3_nut-06_0 2*Yield_M3_frame-05_0 2.5*Yield_M3_frame-02_0 2.25*Yield_M3_bolt-01_0
+- -1 66: 2.75*Yield_M3_nut-12_1 1.25*Yield_M3_bolt-10_1 2.25*Yield_M3_nut-09_1 1.75*Yield_M3_frame-08_1 1.25*Yield_M3_bolt-07_1 2.5*Yield_M3_nut-06_1 2*Yield_M3_frame-05_1 2.5*Yield_M3_frame-02_1 2.25*Yield_M3_bolt-01_1
+- -1 66: 2.75*Yield_M3_nut-12_2 1.25*Yield_M3_bolt-10_2 2.25*Yield_M3_nut-09_2 1.75*Yield_M3_frame-08_2 1.25*Yield_M3_bolt-07_2 2.5*Yield_M3_nut-06_2 2*Yield_M3_frame-05_2 2.5*Yield_M3_frame-02_2 2.25*Yield_M3_bolt-01_2
+- -1 66: 2.75*Yield_M3_nut-12_3 1.25*Yield_M3_bolt-10_3 2.25*Yield_M3_nut-09_3 1.75*Yield_M3_frame-08_3 1.25*Yield_M3_bolt-07_3 2.5*Yield_M3_nut-06_3 2*Yield_M3_frame-05_3 2.5*Yield_M3_frame-02_3 2.25*Yield_M3_bolt-01_3
+- -1 64: 2.75*Yield_M2_nut-12_0 1*Yield_M2_frame-11_0 1.75*Yield_M2_frame-08_0 1.25*Yield_M2_bolt-07_0 2.5*Yield_M2_nut-06_0 1.75*Yield_M2_nut-03_0 2.5*Yield_M2_frame-02_0
+- -1 64: 2.75*Yield_M2_nut-12_1 1*Yield_M2_frame-11_1 1.75*Yield_M2_frame-08_1 1.25*Yield_M2_bolt-07_1 2.5*Yield_M2_nut-06_1 1.75*Yield_M2_nut-03_1 2.5*Yield_M2_frame-02_1
+- -1 64: 2.75*Yield_M2_nut-12_2 1*Yield_M2_frame-11_2 1.75*Yield_M2_frame-08_2 1.25*Yield_M2_bolt-07_2 2.5*Yield_M2_nut-06_2 1.75*Yield_M2_nut-03_2 2.5*Yield_M2_frame-02_2
+- -1 64: 2.75*Yield_M2_nut-12_3 1*Yield_M2_frame-11_3 1.75*Yield_M2_frame-08_3 1.25*Yield_M2_bolt-07_3 2.5*Yield_M2_nut-06_3 1.75*Yield_M2_nut-03_3 2.5*Yield_M2_frame-02_3
+- -1 72: 2.75*Yield_M1_nut-12_0 1*Yield_M1_frame-11_0 2.25*Yield_M1_nut-09_0 1.75*Yield_M1_frame-08_0 2.5*Yield_M1_nut-06_0 1.75*Yield_M1_bolt-04_0 2.5*Yield_M1_frame-02_0 2.25*Yield_M1_bolt-01_0
+- -1 72: 2.75*Yield_M1_nut-12_1 1*Yield_M1_frame-11_1 2.25*Yield_M1_nut-09_1 1.75*Yield_M1_frame-08_1 2.5*Yield_M1_nut-06_1 1.75*Yield_M1_bolt-04_1 2.5*Yield_M1_frame-02_1 2.25*Yield_M1_bolt-01_1
+- -1 72: 2.75*Yield_M1_nut-12_2 1*Yield_M1_frame-11_2 2.25*Yield_M1_nut-09_2 1.75*Yield_M1_frame-08_2 2.5*Yield_M1_nut-06_2 1.75*Yield_M1_bolt-04_2 2.5*Yield_M1_frame-02_2 2.25*Yield_M1_bolt-01_2
+- -1 72: 2.75*Yield_M1_nut-12_3 1*Yield_M1_frame-11_3 2.25*Yield_M1_nut-09_3 1.75*Yield_M1_frame-08_3 2.5*Yield_M1_nut-06_3 1.75*Yield_M1_bolt-04_3 2.5*Yield_M1_frame-02_3 2.25*Yield_M1_bolt-01_3
+- -1 -0: 1*Yield_M0_frame-11_0 -50*Setup_M0_frame-11_0
+- -1 -0: 1*Yield_M0_frame-11_1 -50*Setup_M0_frame-11_1
+- -1 -0: 1*Yield_M0_frame-11_2 -50*Setup_M0_frame-11_2
+- -1 -0: 1*Yield_M0_frame-11_3 -50*Setup_M0_frame-11_3
+- -1 -0: 1*Yield_M0_bolt-10_0 -40*Setup_M0_bolt-10_0
+- -1 -0: 1*Yield_M0_bolt-10_1 -40*Setup_M0_bolt-10_1
+- -1 -0: 1*Yield_M0_bolt-10_2 -40*Setup_M0_bolt-10_2
+- -1 -0: 1*Yield_M0_bolt-10_3 -40*Setup_M0_bolt-10_3
+- -1 -0: 1*Yield_M0_nut-06_0 -20*Setup_M0_nut-06_0
+- -1 -0: 1*Yield_M0_nut-06_1 -20*Setup_M0_nut-06_1
+- -1 -0: 1*Yield_M0_nut-06_2 -20*Setup_M0_nut-06_2
+- -1 -0: 1*Yield_M0_nut-06_3 -20*Setup_M0_nut-06_3
+- -1 -0: 1*Yield_M0_frame-05_0 -25*Setup_M0_frame-05_0
+- -1 -0: 1*Yield_M0_frame-05_1 -25*Setup_M0_frame-05_1
+- -1 -0: 1*Yield_M0_frame-05_2 -25*Setup_M0_frame-05_2
+- -1 -0: 1*Yield_M0_frame-05_3 -25*Setup_M0_frame-05_3
+- -1 -0: 1*Yield_M0_bolt-04_0 -28.571428571428573*Setup_M0_bolt-04_0
+- -1 -0: 1*Yield_M0_bolt-04_1 -28.571428571428573*Setup_M0_bolt-04_1
+- -1 -0: 1*Yield_M0_bolt-04_2 -28.571428571428573*Setup_M0_bolt-04_2
+- -1 -0: 1*Yield_M0_bolt-04_3 -28.571428571428573*Setup_M0_bolt-04_3
+- -1 -0: 1*Yield_M3_nut-12_0 -24*Setup_M3_nut-12_0
+- -1 -0: 1*Yield_M3_nut-12_1 -24*Setup_M3_nut-12_1
+- -1 -0: 1*Yield_M3_nut-12_2 -24*Setup_M3_nut-12_2
+- -1 -0: 1*Yield_M3_nut-12_3 -24*Setup_M3_nut-12_3
+- -1 -0: 1*Yield_M3_bolt-10_0 -52.8*Setup_M3_bolt-10_0
+- -1 -0: 1*Yield_M3_bolt-10_1 -52.8*Setup_M3_bolt-10_1
+- -1 -0: 1*Yield_M3_bolt-10_2 -52.8*Setup_M3_bolt-10_2
+- -1 -0: 1*Yield_M3_bolt-10_3 -52.8*Setup_M3_bolt-10_3
+- -1 -0: 1*Yield_M3_nut-09_0 -29.333333333333332*Setup_M3_nut-09_0
+- -1 -0: 1*Yield_M3_nut-09_1 -29.333333333333332*Setup_M3_nut-09_1
+- -1 -0: 1*Yield_M3_nut-09_2 -29.333333333333332*Setup_M3_nut-09_2
+- -1 -0: 1*Yield_M3_nut-09_3 -29.333333333333332*Setup_M3_nut-09_3
+- -1 -0: 1*Yield_M3_frame-08_0 -37.714285714285715*Setup_M3_frame-08_0
+- -1 -0: 1*Yield_M3_frame-08_1 -37.714285714285715*Setup_M3_frame-08_1
+- -1 -0: 1*Yield_M3_frame-08_2 -37.714285714285715*Setup_M3_frame-08_2
+- -1 -0: 1*Yield_M3_frame-08_3 -37.714285714285715*Setup_M3_frame-08_3
+- -1 -0: 1*Yield_M3_bolt-07_0 -52.8*Setup_M3_bolt-07_0
+- -1 -0: 1*Yield_M3_bolt-07_1 -52.8*Setup_M3_bolt-07_1
+- -1 -0: 1*Yield_M3_bolt-07_2 -52.8*Setup_M3_bolt-07_2
+- -1 -0: 1*Yield_M3_bolt-07_3 -52.8*Setup_M3_bolt-07_3
+- -1 -0: 1*Yield_M3_nut-06_0 -26.4*Setup_M3_nut-06_0
+- -1 -0: 1*Yield_M3_nut-06_1 -26.4*Setup_M3_nut-06_1
+- -1 -0: 1*Yield_M3_nut-06_2 -26.4*Setup_M3_nut-06_2
+- -1 -0: 1*Yield_M3_nut-06_3 -26.4*Setup_M3_nut-06_3
+- -1 -0: 1*Yield_M3_frame-05_0 -33*Setup_M3_frame-05_0
+- -1 -0: 1*Yield_M3_frame-05_1 -33*Setup_M3_frame-05_1
+- -1 -0: 1*Yield_M3_frame-05_2 -33*Setup_M3_frame-05_2
+- -1 -0: 1*Yield_M3_frame-05_3 -33*Setup_M3_frame-05_3
+- -1 -0: 1*Yield_M3_frame-02_0 -26.4*Setup_M3_frame-02_0
+- -1 -0: 1*Yield_M3_frame-02_1 -26.4*Setup_M3_frame-02_1
+- -1 -0: 1*Yield_M3_frame-02_2 -26.4*Setup_M3_frame-02_2
+- -1 -0: 1*Yield_M3_frame-02_3 -26.4*Setup_M3_frame-02_3
+- -1 -0: 1*Yield_M3_bolt-01_0 -29.333333333333332*Setup_M3_bolt-01_0
+- -1 -0: 1*Yield_M3_bolt-01_1 -29.333333333333332*Setup_M3_bolt-01_1
+- -1 -0: 1*Yield_M3_bolt-01_2 -29.333333333333332*Setup_M3_bolt-01_2
+- -1 -0: 1*Yield_M3_bolt-01_3 -29.333333333333332*Setup_M3_bolt-01_3
+- -1 -0: 1*Yield_M2_nut-12_0 -23.272727272727273*Setup_M2_nut-12_0
+- -1 -0: 1*Yield_M2_nut-12_1 -23.272727272727273*Setup_M2_nut-12_1
+- -1 -0: 1*Yield_M2_nut-12_2 -23.272727272727273*Setup_M2_nut-12_2
+- -1 -0: 1*Yield_M2_nut-12_3 -23.272727272727273*Setup_M2_nut-12_3
+- -1 -0: 1*Yield_M2_frame-11_0 -64*Setup_M2_frame-11_0
+- -1 -0: 1*Yield_M2_frame-11_1 -64*Setup_M2_frame-11_1
+- -1 -0: 1*Yield_M2_frame-11_2 -64*Setup_M2_frame-11_2
+- -1 -0: 1*Yield_M2_frame-11_3 -64*Setup_M2_frame-11_3
+- -1 -0: 1*Yield_M2_frame-08_0 -36.57142857142857*Setup_M2_frame-08_0
+- -1 -0: 1*Yield_M2_frame-08_1 -36.57142857142857*Setup_M2_frame-08_1
+- -1 -0: 1*Yield_M2_frame-08_2 -36.57142857142857*Setup_M2_frame-08_2
+- -1 -0: 1*Yield_M2_frame-08_3 -36.57142857142857*Setup_M2_frame-08_3
+- -1 -0: 1*Yield_M2_bolt-07_0 -51.2*Setup_M2_bolt-07_0
+- -1 -0: 1*Yield_M2_bolt-07_1 -51.2*Setup_M2_bolt-07_1
+- -1 -0: 1*Yield_M2_bolt-07_2 -51.2*Setup_M2_bolt-07_2
+- -1 -0: 1*Yield_M2_bolt-07_3 -51.2*Setup_M2_bolt-07_3
+- -1 -0: 1*Yield_M2_nut-06_0 -25.6*Setup_M2_nut-06_0
+- -1 -0: 1*Yield_M2_nut-06_1 -25.6*Setup_M2_nut-06_1
+- -1 -0: 1*Yield_M2_nut-06_2 -25.6*Setup_M2_nut-06_2
+- -1 -0: 1*Yield_M2_nut-06_3 -25.6*Setup_M2_nut-06_3
+- -1 -0: 1*Yield_M2_nut-03_0 -36.57142857142857*Setup_M2_nut-03_0
+- -1 -0: 1*Yield_M2_nut-03_1 -36.57142857142857*Setup_M2_nut-03_1
+- -1 -0: 1*Yield_M2_nut-03_2 -36.57142857142857*Setup_M2_nut-03_2
+- -1 -0: 1*Yield_M2_nut-03_3 -36.57142857142857*Setup_M2_nut-03_3
+- -1 -0: 1*Yield_M2_frame-02_0 -25.6*Setup_M2_frame-02_0
+- -1 -0: 1*Yield_M2_frame-02_1 -25.6*Setup_M2_frame-02_1
+- -1 -0: 1*Yield_M2_frame-02_2 -25.6*Setup_M2_frame-02_2
+- -1 -0: 1*Yield_M2_frame-02_3 -25.6*Setup_M2_frame-02_3
+- -1 -0: 1*Yield_M1_nut-12_0 -26.181818181818183*Setup_M1_nut-12_0
+- -1 -0: 1*Yield_M1_nut-12_1 -26.181818181818183*Setup_M1_nut-12_1
+- -1 -0: 1*Yield_M1_nut-12_2 -26.181818181818183*Setup_M1_nut-12_2
+- -1 -0: 1*Yield_M1_nut-12_3 -26.181818181818183*Setup_M1_nut-12_3
+- -1 -0: 1*Yield_M1_frame-11_0 -72*Setup_M1_frame-11_0
+- -1 -0: 1*Yield_M1_frame-11_1 -72*Setup_M1_frame-11_1
+- -1 -0: 1*Yield_M1_frame-11_2 -72*Setup_M1_frame-11_2
+- -1 -0: 1*Yield_M1_frame-11_3 -72*Setup_M1_frame-11_3
+- -1 -0: 1*Yield_M1_nut-09_0 -32*Setup_M1_nut-09_0
+- -1 -0: 1*Yield_M1_nut-09_1 -32*Setup_M1_nut-09_1
+- -1 -0: 1*Yield_M1_nut-09_2 -32*Setup_M1_nut-09_2
+- -1 -0: 1*Yield_M1_nut-09_3 -32*Setup_M1_nut-09_3
+- -1 -0: 1*Yield_M1_frame-08_0 -41.142857142857146*Setup_M1_frame-08_0
+- -1 -0: 1*Yield_M1_frame-08_1 -41.142857142857146*Setup_M1_frame-08_1
+- -1 -0: 1*Yield_M1_frame-08_2 -41.142857142857146*Setup_M1_frame-08_2
+- -1 -0: 1*Yield_M1_frame-08_3 -41.142857142857146*Setup_M1_frame-08_3
+- -1 -0: 1*Yield_M1_nut-06_0 -28.8*Setup_M1_nut-06_0
+- -1 -0: 1*Yield_M1_nut-06_1 -28.8*Setup_M1_nut-06_1
+- -1 -0: 1*Yield_M1_nut-06_2 -28.8*Setup_M1_nut-06_2
+- -1 -0: 1*Yield_M1_nut-06_3 -28.8*Setup_M1_nut-06_3
+- -1 -0: 1*Yield_M1_bolt-04_0 -41.142857142857146*Setup_M1_bolt-04_0
+- -1 -0: 1*Yield_M1_bolt-04_1 -41.142857142857146*Setup_M1_bolt-04_1
+- -1 -0: 1*Yield_M1_bolt-04_2 -41.142857142857146*Setup_M1_bolt-04_2
+- -1 -0: 1*Yield_M1_bolt-04_3 -41.142857142857146*Setup_M1_bolt-04_3
+- -1 -0: 1*Yield_M1_frame-02_0 -28.8*Setup_M1_frame-02_0
+- -1 -0: 1*Yield_M1_frame-02_1 -28.8*Setup_M1_frame-02_1
+- -1 -0: 1*Yield_M1_frame-02_2 -28.8*Setup_M1_frame-02_2
+- -1 -0: 1*Yield_M1_frame-02_3 -28.8*Setup_M1_frame-02_3
+- -1 -0: 1*Yield_M1_bolt-01_0 -32*Setup_M1_bolt-01_0
+- -1 -0: 1*Yield_M1_bolt-01_1 -32*Setup_M1_bolt-01_1
+- -1 -0: 1*Yield_M1_bolt-01_2 -32*Setup_M1_bolt-01_2
+- -1 -0: 1*Yield_M1_bolt-01_3 -32*Setup_M1_bolt-01_3
+cost holding 0: 1*Stock_nut-12_0 1*Stock_nut-12_1 1*Stock_nut-12_2 1*Stock_nut-12_3 1.25*Stock_frame-11_0 1.25*Stock_frame-11_1 1.25*Stock_frame-11_2 1.25*Stock_frame-11_3 1.25*Stock_bolt-10_0 1.25*Stock_bolt-10_1 1.25*Stock_bolt-10_2 1.25*Stock_bolt-10_3 0.5*Stock_nut-09_0 0.5*Stock_nut-09_1 0.5*Stock_nut-09_2 0.5*Stock_nut-09_3 0.5*Stock_frame-08_0 0.5*Stock_frame-08_1 0.5*Stock_frame-08_2 0.5*Stock_frame-08_3 0.75*Stock_bolt-07_0 0.75*Stock_bolt-07_1 0.75*Stock_bolt-07_2 0.75*Stock_bolt-07_3 1.25*Stock_nut-06_0 1.25*Stock_nut-06_1 1.25*Stock_nut-06_2 1.25*Stock_nut-06_3 1*Stock_frame-05_0 1*Stock_frame-05_1 1*Stock_frame-05_2 1*Stock_frame-05_3 0.5*Stock_bolt-04_0 0.5*Stock_bolt-04_1 0.5*Stock_bolt-04_2 0.5*Stock_bolt-04_3 1.25*Stock_nut-03_0 1.25*Stock_nut-03_1 1.25*Stock_nut-03_2 1.25*Stock_nut-03_3 0.75*Stock_frame-02_0 0.75*Stock_frame-02_1 0.75*Stock_frame-02_2 0.75*Stock_frame-02_3 1*Stock_bolt-01_0 1*Stock_bolt-01_1 1*Stock_bolt-01_2 1*Stock_bolt-01_3
+cost setup 0: 28*Setup_M0_frame-11_0 28*Setup_M0_frame-11_1 28*Setup_M0_frame-11_2 28*Setup_M0_frame-11_3 28*Setup_M0_bolt-10_0 28*Setup_M0_bolt-10_1 28*Setup_M0_bolt-10_2 28*Setup_M0_bolt-10_3 28*Setup_M0_nut-06_0 28*Setup_M0_nut-06_1 28*Setup_M0_nut-06_2 28*Setup_M0_nut-06_3 28*Setup_M0_frame-05_0 28*Setup_M0_frame-05_1 28*Setup_M0_frame-05_2 28*Setup_M0_frame-05_3 28*Setup_M0_bolt-04_0 28*Setup_M0_bolt-04_1 28*Setup_M0_bolt-04_2 28*Setup_M0_bolt-04_3 41*Setup_M3_nut-12_0 41*Setup_M3_nut-12_1 41*Setup_M3_nut-12_2 41*Setup_M3_nut-12_3 41*Setup_M3_bolt-10_0 41*Setup_M3_bolt-10_1 41*Setup_M3_bolt-10_2 41*Setup_M3_bolt-10_3 41*Setup_M3_nut-09_0 41*Setup_M3_nut-09_1 41*Setup_M3_nut-09_2 41*Setup_M3_nut-09_3 41*Setup_M3_frame-08_0 41*Setup_M3_frame-08_1 41*Setup_M3_frame-08_2 41*Setup_M3_frame-08_3 41*Setup_M3_bolt-07_0 41*Setup_M3_bolt-07_1 41*Setup_M3_bolt-07_2 41*Setup_M3_bolt-07_3 41*Setup_M3_nut-06_0 41*Setup_M3_nut-06_1 41*Setup_M3_nut-06_2 41*Setup_M3_nut-06_3 41*Setup_M3_frame-05_0 41*Setup_M3_frame-05_1 41*Setup_M3_frame-05_2 41*Setup_M3_frame-05_3 41*Setup_M3_frame-02_0 41*Setup_M3_frame-02_1 41*Setup_M3_frame-02_2 41*Setup_M3_frame-02_3 41*Setup_M3_bolt-01_0 41*Setup_M3_bolt-01_1 41*Setup_M3_bolt-01_2 41*Setup_M3_bolt-01_3 34*Setup_M2_nut-12_0 34*Setup_M2_nut-12_1 34*Setup_M2_nut-12_2 34*Setup_M2_nut-12_3 34*Setup_M2_frame-11_0 34*Setup_M2_frame-11_1 34*Setup_M2_frame-11_2 34*Setup_M2_frame-11_3 34*Setup_M2_frame-08_0 34*Setup_M2_frame-08_1 34*Setup_M2_frame-08_2 34*Setup_M2_frame-08_3 34*Setup_M2_bolt-07_0 34*Setup_M2_bolt-07_1 34*Setup_M2_bolt-07_2 34*Setup_M2_bolt-07_3 34*Setup_M2_nut-06_0 34*Setup_M2_nut-06_1 34*Setup_M2_nut-06_2 34*Setup_M2_nut-06_3 34*Setup_M2_nut-03_0 34*Setup_M2_nut-03_1 34*Setup_M2_nut-03_2 34*Setup_M2_nut-03_3 34*Setup_M2_frame-02_0 34*Setup_M2_frame-02_1 34*Setup_M2_frame-02_2 34*Setup_M2_frame-02_3 27*Setup_M1_nut-12_0 27*Setup_M1_nut-12_1 27*Setup_M1_nut-12_2 27*Setup_M1_nut-12_3 27*Setup_M1_frame-11_0 27*Setup_M1_frame-11_1 27*Setup_M1_frame-11_2 27*Setup_M1_frame-11_3 27*Setup_M1_nut-09_0 27*Setup_M1_nut-09_1 27*Setup_M1_nut-09_2 27*Setup_M1_nut-09_3 27*Setup_M1_frame-08_0 27*Setup_M1_frame-08_1 27*Setup_M1_frame-08_2 27*Setup_M1_frame-08_3 27*Setup_M1_nut-06_0 27*Setup_M1_nut-06_1 27*Setup_M1_nut-06_2 27*Setup_M1_nut-06_3 27*Setup_M1_bolt-04_0 27*Setup_M1_bolt-04_1 27*Setup_M1_bolt-04_2 27*Setup_M1_bolt-04_3 27*Setup_M1_frame-02_0 27*Setup_M1_frame-02_1 27*Setup_M1_frame-02_2 27*Setup_M1_frame-02_3 27*Setup_M1_bolt-01_0 27*Setup_M1_bolt-01_1 27*Setup_M1_bolt-01_2 27*Setup_M1_bolt-01_3

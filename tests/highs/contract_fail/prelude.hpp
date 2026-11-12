@@ -9,8 +9,9 @@
 #include "dreamor/index_set.hpp"
 namespace hs = dreamor::highs;  // NOLINT(misc-unused-alias-decls): the cases use it
 
-using cI = dreamor::Col<std::size_t, "i">;
+DREAMOR_VALUE_COLUMN(cI, std::size_t);
+
 inline auto sI() {
   static const std::vector<std::size_t> i{1, 2};
-  return dreamor::makeSet<cI>(i).build();
+  return dreamor::index_set::relational::from<cI>(i).build();
 }

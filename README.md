@@ -1,142 +1,200 @@
 <div align="center">
 
-<img src="assets/banner-light.svg#gh-light-mode-only" alt="dreamor — declarative relational extension for algebraic modeling in Operations Research" width="100%">
-<img src="assets/banner-dark.svg#gh-dark-mode-only" alt="dreamor — declarative relational extension for algebraic modeling in Operations Research" width="100%">
+<img src="docs/images/banner-light.svg#gh-light-mode-only" alt="dreamor - declarative relational extension for algebraic modeling in Operations Research. Model with dreamor. Thrive as a dreamer." width="100%">
+<img src="docs/images/banner-dark.svg#gh-dark-mode-only" alt="dreamor - declarative relational extension for algebraic modeling in Operations Research. Model with dreamor. Thrive as a dreamer." width="100%">
 
 <br>
 
-<img src="assets/slogan-light.svg#gh-light-mode-only" alt="Model with dreamor. Thrive as a dreamer." width="80%">
-<img src="assets/slogan-dark.svg#gh-dark-mode-only" alt="Model with dreamor. Thrive as a dreamer." width="80%">
-
-<br>
-
-[![C++20](https://img.shields.io/badge/C%2B%2B-20-FFD43B?style=flat-square&logo=cplusplus&logoColor=white&labelColor=1D2433)](#quick-start)
-[![CPLEX Concert](https://img.shields.io/badge/backend-CPLEX%20Concert-FFD43B?style=flat-square&labelColor=1D2433)](#backends)
-[![OR-Tools MathOpt](https://img.shields.io/badge/backend-OR--Tools%20MathOpt-FFD43B?style=flat-square&labelColor=1D2433)](#backends)
-[![HiGHS](https://img.shields.io/badge/backend-HiGHS-FFD43B?style=flat-square&labelColor=1D2433)](#backends)
+[![tests](https://img.shields.io/github/actions/workflow/status/Lynth-KR/dreamor/ci.yml?branch=main&label=tests&style=flat-square&labelColor=1D2433)](https://github.com/Lynth-KR/dreamor/actions/workflows/ci.yml)
+[![codecov](https://img.shields.io/codecov/c/github/Lynth-KR/dreamor?label=codecov&style=flat-square&labelColor=1D2433)](https://codecov.io/gh/Lynth-KR/dreamor)
+[![Release](https://img.shields.io/github/v/release/Lynth-KR/dreamor?label=release&color=FFD43B&style=flat-square&labelColor=1D2433)](https://github.com/Lynth-KR/dreamor/releases)
+[![Docs](https://img.shields.io/badge/docs-site-FFD43B?style=flat-square&labelColor=1D2433)](https://lynth-kr.github.io/dreamor/)
+[![C++20](https://img.shields.io/badge/C%2B%2B-20-FFD43B?style=flat-square&labelColor=1D2433&logo=cplusplus&logoColor=white)](#quick-start)
+[![Platforms: Linux, Windows, macOS, WebAssembly](https://img.shields.io/badge/platforms-Linux%20%C2%B7%20Windows%20%C2%B7%20macOS%20%C2%B7%20WebAssembly-FFD43B?style=flat-square&labelColor=1D2433)](#install---cmake)
 [![License: MPL 2.0](https://img.shields.io/badge/license-MPL%202.0-FFD43B?style=flat-square&labelColor=1D2433)](LICENSE)
 
-[Quick start](#quick-start)&emsp;[Building sets](docs/guide.md#building-sets--makeset)&emsp;[VarTable](docs/guide.md#variable-families--vartable)&emsp;[Sums](docs/guide.md#sums--sumexpr)&emsp;[OR-Tools samples](examples/mathopt_samples/README.md)&emsp;[Public API](docs/reference.md#public-api-reference)
+[Quick start](#quick-start)&emsp;[Guide](https://lynth-kr.github.io/dreamor/guide/)&emsp;[API reference](https://lynth-kr.github.io/dreamor/reference/)&emsp;[OR-Tools samples](examples/mathopt_samples/README.md)&emsp;[Philosophy](https://lynth-kr.github.io/dreamor/philosophy/)
 
 
 </div>
 
 <br>
 
-A thin modeling layer for optimization models in C++. You build **index sets** the way you declare sets in AMPL,
-create a whole **variable family** over a set in one go, and group sets to build **sums**. Constraints and solving
-use the solver's own API. The backends are CPLEX Concert, OR-Tools MathOpt (HiGHS, SCIP, Gurobi, Xpress, and
-more), and HiGHS through its own C++ API.
+dreamor is a thin modeling layer for optimization models in C++. You declare **index sets** as relations over your
+data, create a **variable family** over a set in one go, and build **sums** over sets and their groups. Constraints,
+objectives and solving stay in the solver's own API. It is header-only C++20, and its backends are HiGHS, CPLEX
+Concert and OR-Tools MathOpt.
 
 ```cpp
-// set PRODUCE := {m in MACHINES, i in ITEMS[m], t in PERIODS};
-const auto sPRODUCE = dreamor::makeSet<cMachine, cItem, cPeriod>(machines, items_of, periods).build();
+// what can be made, in set-builder notation: each machine, the items it makes, every period
+const auto sPRODUCE =
+    of<cMachine, cItem, cPeriod>(in<cMachine>(machines), in<cItem>(items_of), in<cPeriod>(sPERIODS)).build();
+// what can be kept, as a chain: every item, every period
+const auto sSTOCK = from<cItem>(items).cross(sPERIODS).build();
 
-// var Yield {(m,i,t) in PRODUCE} >= 0, <= cap[m] / time[i];
-const auto max_possible_qty = [](cMachine m, cItem i) { return m->capacity / i->time; };
-const dreamor::concert::VarTable<cMachine, cItem, cPeriod> vYield{env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};
+// how much is made, up to what the machine's hours allow
+const hs::VarTable<cMachine, cItem, cPeriod> vMake{env, sPRODUCE, 0, max_make, HighsVarType::kContinuous, "Make"};
 
-// subject to Capacity {m in MACHINES, t in PERIODS}: sum {i: (m,i,t) in PRODUCE} time[i] * Yield[m,i,t] <= cap[m];
-const auto machine_usage = [&](cMachine m, cItem i, cPeriod t) { return i->time * vYield(m, i, t); };
-const auto producedByMachinePeriod = sPRODUCE.groupBy<cMachine, cPeriod>();
-for (const auto& [machine, period, rows] : producedByMachinePeriod) {
-  model.add(dreamor::concert::sumExpr(env, rows, machine_usage).build() <= machine->capacity);
+// capacity: the hours each machine works in a period
+for (const auto& [m, t, rows] : sPRODUCE.groupBy<cMachine, cPeriod>()) {
+  hs::addConstr(env, hs::sumExpr(rows, hours).build() <= m->capacity);
 }
 ```
 
-To see how real model code changes, look at [three of OR-Tools' own MathOpt samples ported to
-dreamor](examples/mathopt_samples/README.md), each next to the original.
+- **Sets are relations, in either notation.** Set-builder notation (`of`, `in`) or a chain of relational algebra
+  (`from`, `cross`, `join`) builds the same sets; sets are derived, never changed.
+- **Columns name the places in a row** and read as what they hold - `m->capacity`, `t + 1`, `vStock(i, t - 1)` -
+  and a value never lands in another column's place.
+- **A variable family is one constructor** over a set, with names that follow the key: `Make_M1_bolt_2`.
+- **A mistake stops at compile time, in one sentence** that says what to write instead.
+- **The solver stays the solver.** dreamor writes no constraint or objective of its own.
 
 ---
 
-## Documentation
+## Quick start
 
-| | |
-|---|---|
-| [Philosophy](docs/philosophy.md) | What dreamor holds to and why: its principles, the names a model uses, the rules of use, and what it leaves out on purpose |
-| [Guide](docs/guide.md) | Every part in the order a model uses them: columns, entities, sets, grouping, variable families, sums, constraints, solutions |
-| [API reference](docs/reference.md) | Every public type and function, in tables |
-| [OR-Tools samples](examples/mathopt_samples/README.md) | Three of Google's MathOpt samples ported to dreamor, each beside the original |
-| [Benchmarks](bench/README.md) | How dreamor's speed is measured against hand-written code, and the results |
-| [Contributing](CONTRIBUTING.md) | Reporting a bug, proposing a feature, building and testing, and how a change gets in |
-| [Releases](https://github.com/Lynth-KR/dreamor/releases) | What changed in each release |
+Lot sizing over a few periods: each machine makes some of the items, a setup costs, and stock carries demand from
+one period to the next. This is the whole program, on HiGHS.
+
+```cpp
+#include <format>
+#include <iostream>
+#include <string>
+#include <vector>
+
+#include "dreamor/highs.hpp"
+
+// The data: each item and machine once, by its primary key
+struct Item {
+  std::string name;
+  double time, hold;           // hours a unit takes; the cost of holding a unit for a period
+  std::vector<double> demand;  // a period's demand at [t - 1]
+  [[nodiscard]] const std::string& primaryKey() const { return name; }
+};
+struct Machine {
+  std::string name;
+  double capacity, setup;                 // hours in a period; the cost of a setup
+  std::vector<dreamor::Ref<Item>> items;  // the items it makes
+  [[nodiscard]] const std::string& primaryKey() const { return name; }
+};
+
+// The columns: the places of a set's rows, each named once
+DREAMOR_ENTITY_COLUMN(cMachine, Machine);  // holds a Ref<Machine>
+DREAMOR_ENTITY_COLUMN(cItem, Item);
+DREAMOR_VALUE_COLUMN(cPeriod, int);        // holds a period's number
+
+namespace hs = dreamor::highs;
+
+int main() {
+  dreamor::EntityVector<Item> items;
+  items.insert(Item{"bolt", 0.5, 0.1, {30, 0, 20}});
+  items.insert(Item{"nut", 0.2, 0.1, {0, 40, 10}});
+  items.freeze();
+  dreamor::EntityVector<Machine> machines;
+  machines.insert(Machine{"M1", 20.0, 5.0, {items.at("bolt"), items.at("nut")}});
+  machines.insert(Machine{"M2", 8.0, 4.0, {items.at("nut")}});
+  machines.freeze();
+  const int T = 3;  // the last period
+
+  // a set is written in set-builder notation or as a chain of relational algebra: this program writes both
+  using dreamor::index_set::relational::from;
+  using dreamor::index_set::set_builder::in;
+  using dreamor::index_set::set_builder::of;
+
+  // the periods, 1 to T
+  const auto sPERIODS = of<cPeriod>(in<cPeriod>(dreamor::interval::closed(1, T))).build();
+  // what can be made, in set-builder notation: each machine, the items it makes, every period
+  const auto items_of = [](cMachine m) -> const auto& { return m->items; };
+  const auto sPRODUCE =
+      of<cMachine, cItem, cPeriod>(in<cMachine>(machines), in<cItem>(items_of), in<cPeriod>(sPERIODS)).build();
+  // what can be kept, as a chain: every item, every period
+  const auto sSTOCK = from<cItem>(items).cross(sPERIODS).build();
+
+  hs::HighsEnv env;
+  // how much is made, whether the machine is set up for it, and how much is kept
+  const auto max_make = [](cMachine m, cItem i) { return m->capacity / i->time; };
+  const hs::VarTable<cMachine, cItem, cPeriod> vMake{env, sPRODUCE, 0, max_make, HighsVarType::kContinuous, "Make"};
+  const hs::VarTable<cMachine, cItem, cPeriod> vSetup{env, sPRODUCE, 0, 1, HighsVarType::kInteger, "Setup"};
+  const hs::VarTable<cItem, cPeriod> vStock{env, sSTOCK, 0, kHighsInf, HighsVarType::kContinuous, "Stock"};
+
+  // balance: stock carried in + made - demand = stock carried out
+  const auto madeByItemPeriod = sPRODUCE.groupBy<cItem, cPeriod>();
+  for (const auto& [i, t] : sSTOCK) {
+    hs::HighsLinearExpression inflow = hs::sumExpr(madeByItemPeriod.slice(i, t), vMake).build();
+    if (t > 1) { inflow += vStock(i, t - 1); }
+    hs::addConstr(env, inflow - i->demand[t - 1] == vStock(i, t));
+  }
+
+  // capacity: the hours each machine works in a period
+  const auto hours = [&](cMachine m, cItem i, cPeriod t) { return i->time * vMake(m, i, t); };
+  for (const auto& [m, t, rows] : sPRODUCE.groupBy<cMachine, cPeriod>()) {
+    hs::addConstr(env, hs::sumExpr(rows, hours).build() <= m->capacity);
+  }
+
+  // nothing is made without a setup
+  for (const auto& [m, i, t] : sPRODUCE) {
+    hs::addConstr(env, vMake(m, i, t) <= max_make(m, i) * vSetup(m, i, t));
+  }
+
+  // the cost: holding stock and setting up
+  const auto holding = [&](cItem i, cPeriod t) { return i->hold * vStock(i, t); };
+  const auto setups  = [&](cMachine m, cItem i, cPeriod t) { return m->setup * vSetup(m, i, t); };
+  hs::minimize(env, hs::sumExpr(sSTOCK, holding).build() + hs::sumExpr(sPRODUCE, setups).build());
+
+  // what each machine makes, period by period
+  for (const auto& [row, made] : vMake.solution(env)) {
+    const auto& [m, i, t] = row;
+    if (made > 1e-6) { std::cout << std::format("{} makes {} {}s in period {}\n", m, made, i, t); }
+  }
+}
+```
+
+It prints, after HiGHS's log:
+
+```text
+M1 makes 30 bolts in period 1
+M1 makes 20 bolts in period 3
+M1 makes 50 nuts in period 2
+```
+
+A row is named as its variables are - `Make_M1_bolt_1` - and the machine prints by its primary key, `M1`. The same
+model, with its data generated at any size and on each backend, is in [`examples/`](examples/).
+
+The names this program types are all that a first model needs; the guide lists them, and the ones to learn next, in
+[At a glance](https://lynth-kr.github.io/dreamor/guide/at-a-glance/).
 
 ## Backends
 
-The set layer (`dreamor/index_set.hpp`) depends on no solver. Only variable families (`VarTable`) and sums
-(`sumExpr`) use the solver's variable and expression types, so each backend has its own namespace and header, and
-the header you include is your dependency.
+The set layer, `dreamor/index_set.hpp`, depends on no solver. Variable families (`VarTable`) and sums (`sumExpr`) use
+the solver's variable and expression types, so each backend has a header and a namespace of its own, and the header
+you include is your dependency.
 
 | Backend | Header | Namespace | Solvers |
 |---|---|---|---|
+| HiGHS | `dreamor/highs.hpp` | `dreamor::highs` | HiGHS, through its own C++ API |
 | IBM ILOG Concert | `dreamor/concert.hpp` | `dreamor::concert` | CPLEX |
 | OR-Tools MathOpt | `dreamor/mathopt.hpp` | `dreamor::mathopt` | HiGHS, SCIP, GLOP, PDLP, CP-SAT (as MIP), GLPK, Gurobi, Xpress, and more |
-| HiGHS | `dreamor/highs.hpp` | `dreamor::highs` | HiGHS, through its own C++ API |
 
-Bounds, variable types, names, and solution reading take the solver API's own terms (for Concert: `IloEnv`,
-`ILOFLOAT`, `IloCplex`). If the names get long, use an alias: `namespace concert = dreamor::concert;`. `ValueTable`
-holds only values, so it is `dreamor::ValueTable` regardless of backend.
+The sets, the bounds, the variables' names, a lookup outside the set (`std::out_of_range`) and the sums' `where`
+behave the same on every backend. What differs is each solver's own notation:
 
-The same across backends: bounds given as numbers or column functions, variable names
-`<name>_<key0>_<key1>...`, `std::out_of_range` when looking up a row that is not in the set (`vYield(row)`),
-iteration in set order, and `sumExpr`'s `where()`/`whereEach()`.
+| | HiGHS | Concert | MathOpt |
+|---|---|---|---|
+| A variable family | `VarTable{env, sPRODUCE, 0, ub, HighsVarType::kContinuous, "Make"}` | `VarTable{env, sPRODUCE, 0, ub, ILOFLOAT, "Make"}` | `VarTable{model, sPRODUCE, 0, ub, false, "Make"}` |
+| A sum | `sumExpr(rows, term).build()` | `sumExpr(env, rows, term).build()` | `sumExpr(rows, term).build()` |
+| A constraint | `addConstr(env, load <= cap)` | `model.add(load <= cap)` | `model.AddLinearConstraint(load <= cap)` |
+| Solving | `minimize(env, cost)` | `IloCplex cplex(model); cplex.solve();` | `Solve(model, SolverType::kHighs)` |
+| The solution | `vMake.solution(env)` | `vMake.solution(cplex)` | `vMake.solution(*result)` |
 
-Everything that differs in MathOpt is MathOpt's own notation.
+HiGHS's C++ API is a matrix API, with no expressions to write a row in. `dreamor::highs` brings the interface of
+highspy, HiGHS's own Python package, to C++: `HighsEnv` collects the model, and `addConstr`, `setObjective`,
+`minimize` and `maximize` take expressions; everything else is HiGHS's own API on `env.highs()`. The
+[guide](https://lynth-kr.github.io/dreamor/guide/backends/) says what each backend asks of a model.
 
-```cpp
-namespace math_opt = ::operations_research::math_opt;
-math_opt::Model model("lot sizing");
-const dreamor::mathopt::VarTable<cMachine, cItem, cPeriod> vYield{
-    model, sPRODUCE, 0, max_possible_qty, /*is_integer=*/false, "Yield"};   // Model& instead of env, is_integer for the kind
-const dreamor::mathopt::VarTable<cMachine, cItem, cPeriod> vSetup{model, sPRODUCE, 0, 1, true, "Setup"};
+## Install - CMake
 
-for (const auto& [machine, period, rows] : producedByMachinePeriod) {
-  const math_opt::LinearExpression totalLoad = dreamor::mathopt::sumExpr(rows, machine_usage).build();  // no env
-  model.AddLinearConstraint(totalLoad <= machine->capacity);
-}
-
-const auto result = math_opt::Solve(model, math_opt::SolverType::kHighs);
-const auto yieldPlan = vYield.solution(*result);   // std::logic_error if there is no feasible solution
-```
-
-Semi-continuous variables are Concert's (the `semiContinuous` constructor) and HiGHS's (`kSemiContinuous` as the
-type); MathOpt models have none. MathOpt keeps linear and
-quadratic expressions apart, so its `sumExpr` accumulates into a `LinearExpression`, or into a `QuadraticExpression`
-when the term is quadratic (`x * x`, `(x - 1) * (x - 1)`); Concert's `IloExpr` holds both.
-
-When building against the OR-Tools C++ prebuilt, define `OR_PROTO_DLL` as empty and link `libortools`,
-`libprotobuf`, and the Abseil libraries (`tests/run_tests.sh --mathopt DIR` does exactly that).
-
-HiGHS's own C++ API is a matrix API: a column is an index, a row is its bounds and arrays. highspy, the HiGHS team's
-Python interface, puts expressions on top of it, and `dreamor::highs` brings that interface to C++, in its names:
-
-```cpp
-namespace hs = dreamor::highs;
-hs::HighsEnv env;                                                    // the model as written, and the Highs that solves it
-const hs::VarTable<cMachine, cItem, cPeriod> vYield{
-    env, sPRODUCE, 0, max_possible_qty, HighsVarType::kContinuous, "Yield"};   // HiGHS's HighsVarType for the kind
-
-for (const auto& [machine, period, rows] : producedByMachinePeriod) {
-  hs::addConstr(env, hs::sumExpr(rows, machine_usage).build() <= machine->capacity);  // highspy's addConstr, no env in sumExpr
-}
-
-hs::minimize(env, hs::sumExpr(sPRODUCE, vYield).build());   // the objective, then run()
-const auto yieldPlan = vYield.solution(env);              // std::logic_error if there is no primal solution
-```
-
-`HighsEnv` collects the model and hands it to HiGHS in one `passModel`, the first time the `Highs` is reached
-(`env.highs()`, `minimize`, `solution`); from then on each change goes to it as it is written. Everything else is
-HiGHS's own API on `env.highs()`: options (or `HighsEnv{options}`, before the model reaches it), `run()`,
-`writeModel`. A row is a type of its own, so an inequality given as an objective, or a quadratic term in a row, stops
-at compile time; a HiGHS call that fails throws `HighsError` with its `HighsStatus`. Link HiGHS (`highs::highs`, or
-`include/highs` and `libhighs`); the HiGHS in the OR-Tools prebuilt is one (`tests/run_tests.sh --highs DIR`).
-
-## Install — CMake
-
-It is a header-only library, so there is nothing to build; a single `dreamor::dreamor` target passes on the include
-path and C++20. Link the solver yourself, next to it, according to the backend you use. It builds on Linux, on
-Windows with clang-cl and on WebAssembly (Emscripten); its performance is measured and tuned on Linux x86-64
-with libstdc++ alone.
+dreamor is headers alone, so there is nothing to build: the `dreamor::dreamor` target passes on the include path and
+C++20. Link the solver yourself, beside it.
 
 ```bash
 cmake -S . -B build -DCMAKE_INSTALL_PREFIX=<prefix>
@@ -145,184 +203,37 @@ cmake --install build
 
 ```cmake
 find_package(dreamor 0.8 CONFIG REQUIRED)
-target_link_libraries(app PRIVATE dreamor::dreamor ortools::ortools)    # dreamor/mathopt.hpp
 target_link_libraries(app PRIVATE dreamor::dreamor highs::highs)        # dreamor/highs.hpp
 target_link_libraries(app PRIVATE dreamor::dreamor <CPLEX target>)       # dreamor/concert.hpp
+target_link_libraries(app PRIVATE dreamor::dreamor ortools::ortools)    # dreamor/mathopt.hpp
 ```
 
-The OR-Tools prebuilt ships its own CMake config, so `find_package(ortools CONFIG)` works and `ortools::ortools`
-passes on the include path, the definition (`OR_PROTO_DLL`), and the libraries together (add the OR-Tools folder to
-`CMAKE_PREFIX_PATH`). HiGHS ships one too (`find_package(highs CONFIG)`, `highs::highs`), and so does the HiGHS in the
-OR-Tools prebuilt. CPLEX has no official CMake config, so link it the way you already do. Pulling dreamor in
-without installing, via `add_subdirectory(dreamor)` or `FetchContent`, gives you the same `dreamor::dreamor` (in that
-case dreamor's files are not installed).
+HiGHS and the OR-Tools prebuilt ship CMake configs of their own (`find_package(highs CONFIG)`,
+`find_package(ortools CONFIG)`, with their folders on `CMAKE_PREFIX_PATH`); the OR-Tools prebuilt holds a HiGHS too.
+CPLEX has none, so link it the way you already do. `add_subdirectory(dreamor)` or `FetchContent` gives the same
+`dreamor::dreamor` without installing.
 
-## Quick start
+dreamor builds and passes its tests with GCC 13 and Clang 18 or newer on Linux, on libstdc++ or LLVM's libc++; with
+Visual Studio 2022 17.14 and 2026, cl.exe and clang-cl, on Windows; with Apple Clang 17 (Xcode 16.4) on macOS; and with
+Emscripten on WebAssembly. Its performance is measured and tuned on Linux x86-64 with libstdc++.
 
-Multi-machine, multi-period lot sizing. Each machine can make a different subset of items (sparse), and periods are
-linked by inventory.
+## Documentation
 
-```cpp
-#include <ilcplex/ilocplex.h>
-#include "dreamor/index_set.hpp"
-#include "dreamor/concert.hpp"
-struct Item { std::string name; double time, hold; std::vector<double> demand; };
-struct Machine { std::string name; double capacity, setup; std::vector<const Item*> items; };
-
-// 1) Name hooks next to the entities (the tokens that go into variable names)
-inline const std::string& keyName(const Item* i) { return i->name; }
-inline const std::string& keyName(const Machine* m) { return m->name; }
-
-// 2) Columns
-using cMachine = dreamor::Col<const Machine*, "machine">;
-using cItem    = dreamor::Col<const Item*, "item">;
-using cPeriod  = dreamor::Col<std::size_t, "period">;
-
-// 3) The model. Its sets come first - members are built in declaration order, and a VarTable takes its set.
-//    indexedName names its rows the way VarTable names variables
-class LotSizing {
- public:
-  LotSizing(IloEnv environment, const std::vector<const Machine*>& machines, const std::vector<const Item*>& items,
-            const std::vector<std::size_t>& periods)
-      : env(environment),
-        model(environment),
-        sPERIODS(dreamor::makeSet<cPeriod>(periods).build()),
-        sROUTES(dreamor::makeSet<cMachine, cItem>(machines, items_of).build()),
-        sPRODUCE(dreamor::makeSet<cPeriod>(sROUTES, periods).build()),     // expand an existing set
-        sSTOCK(dreamor::makeSet<cItem, cPeriod>(items, periods).build()) {
-    addInventoryBalance();
-    addCapacity();
-    addSetupLinks();
-    addObjective();
-  }
-
-  IloEnv env;
-  IloModel model;
-
-  // sets
-  const dreamor::IndexSet<cPeriod> sPERIODS;
-  const dreamor::IndexSet<cMachine, cItem> sROUTES;
-  const dreamor::IndexSet<cMachine, cItem, cPeriod> sPRODUCE;
-  const dreamor::IndexSet<cItem, cPeriod> sSTOCK;
-
-  // 4) Variables, over the sets above
-  const dreamor::concert::VarTable<cMachine, cItem, cPeriod> vYield{env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};
-  const dreamor::concert::VarTable<cMachine, cItem, cPeriod> vSetup{env, sPRODUCE, 0, 1, ILOBOOL, "Setup"};
-  const dreamor::concert::VarTable<cItem, cPeriod> vStock{env, sSTOCK, 0, IloInfinity, ILOFLOAT, "Stock"};
-
- private:
-  static constexpr auto items_of = [](cMachine m) { return m->items; };     // dependent source: returns a range of pointers
-  static constexpr auto max_possible_qty = [](cMachine m, cItem i) { return m->capacity / i->time; };
-
-  // 5) Constraints
-  //    Inventory balance: for every (item, period). It must hold even when no machine makes the item in that
-  //    period, so it iterates sSTOCK
-  void addInventoryBalance() {
-    const auto orderedPeriods = sPERIODS.ordered();
-    const auto producedByItemPeriod = sPRODUCE.groupBy<cItem, cPeriod>();
-    for (const auto& [i, t] : sSTOCK) {
-      IloExpr totalInFlow = dreamor::concert::sumExpr(env, producedByItemPeriod.slice(i, t), vYield).build();
-      if (const auto* prevPeriod = orderedPeriods.prev(t)) { totalInFlow += vStock(i, std::get<cPeriod>(*prevPeriod)); }
-      const double currentDemand = i->demand[t.get()];
-      const auto endingStock = vStock(i, t);
-      model.add(totalInFlow - currentDemand == endingStock);
-      totalInFlow.end();
-    }
-  }
-  //    Machine capacity, each row named the way the variables are (Capacity_M0_0)
-  void addCapacity() {
-    const auto machine_usage = [this](cMachine m, cItem i, cPeriod t) { return i->time * vYield(m, i, t); };
-    for (const auto& [machine, period, rows] : sPRODUCE.groupBy<cMachine, cPeriod>()) {
-      IloExpr totalLoad = dreamor::concert::sumExpr(env, rows, machine_usage).build();
-      model.add(totalLoad <= machine->capacity).setName(dreamor::indexedName("Capacity", machine, period));
-      totalLoad.end();
-    }
-  }
-  //    No production without setup
-  void addSetupLinks() {
-    for (const auto& [row, yieldVar] : vYield) {
-      model.add(yieldVar <= yieldVar.getUB() * vSetup(row));
-    }
-  }
-
-  // 6) Objective
-  void addObjective() {
-    const auto holding_term = [this](cItem i, cPeriod t) { return i->hold * vStock(i, t); };
-    const auto setup_term = [this](cMachine m, cItem i, cPeriod t) { return m->setup * vSetup(m, i, t); };
-    IloExpr holdingCost = dreamor::concert::sumExpr(env, sSTOCK, holding_term).build();
-    IloExpr setupCost = dreamor::concert::sumExpr(env, sPRODUCE, setup_term).build();
-    IloExpr totalCost = holdingCost + setupCost;
-    model.add(IloMinimize(env, totalCost));
-    holdingCost.end();
-    setupCost.end();
-    totalCost.end();
-  }
-};
-
-// 7) Build, solve and read the solution
-const LotSizing lotSizing(env, machines, items, periods);
-IloCplex cplex(lotSizing.model);
-cplex.solve();
-const auto yieldPlan = lotSizing.vYield.solution(cplex);
-for (const auto& [row, qty] : yieldPlan) {
-  if (qty > 1e-6) { print(std::get<cMachine>(row), std::get<cItem>(row), std::get<cPeriod>(row), qty); }
-}
-```
-
-The full example lives in `examples/`. The data and its generator are in `production_planning_data.hpp`, the columns
-and sets in `production_planning_sets.hpp`, both solver-independent; on top of them sit the same model written for Concert, `production_planning.hpp` (run:
-`production_planning.cpp`), for MathOpt, `production_planning_mathopt.hpp` (run: `production_planning_mathopt.cpp`,
-HiGHS), and for HiGHS, `production_planning_highs.hpp` (run: `production_planning_highs.cpp`).
-`tests/mathopt/test_cross_backend.cpp` and `tests/highs/test_cross_backend.cpp` check that each builds the
-constraints the Concert model does. A comparison version of the same model written with only `std::map` and Concert, on
-the data alone, is `production_planning_plain.hpp`.
-
-[`examples/mathopt_samples/`](examples/mathopt_samples/README.md) has three of OR-Tools' own MathOpt samples
-(`cocktail_hour`, `time_indexed_scheduling`, `lagrangian_relaxation`) ported to dreamor, with a walkthrough of
-what changes in each.
-
-## Utilities
-
-Two headers dreamor uses itself, there for model code too. Neither depends on a solver.
-
-| Header | |
+| | |
 |---|---|
-| `dreamor/index_set.hpp`, `dreamor/format_buffer.hpp` | `dreamor::indexedName("Capacity", m, t)` names a row the way `VarTable` names variables - `Capacity_M1_3`, each column by its token - in a buffer of the thread's, with no allocation and no format string: `model.add(load <= cap).setName(dreamor::indexedName("Capacity", m, t))`. `NameBuilder<N>` builds such names part by part, and `FormatBuffer<N>` formats any other name (`format(...)`, a column printing as its token) |
-| `dreamor/logger.hpp` | `DREAMOR_LOG_INFO` / `WARNING` / `ERROR` / `FATAL(fmt, args...)` write a line with the elapsed time, the call site and the level, the text through `std::format`, checked at compile time. `DREAMOR_DEBUG_*` vanish under `NDEBUG`, arguments and all. `dreamor::logger::FileSink sink{"model.log"};` sends the thread's lines to a file until the scope ends |
-
-The [API reference](docs/reference.md#utilities) lists the rest.
-
-## Benchmark
-
-`bench/` compares dreamor with the same model code written by hand, as designed experiments in two
-layers:
-
-- `bench/catalog/`: each operation - lookups, grouping, set operations, slices, generation, order,
-  entities - against hand-written arms (hash maps, direct arrays, sorting, `std::map`) over the
-  shapes data takes and the ways models reach it, without a solver.
-- `bench/scenario/`: whole models built end to end by dreamor and by hand, up to the moment the
-  solver starts on them, through CPLEX, MathOpt and HiGHS's own API: p-median, the model the
-  modeling-language benchmarks use, and the lot-sizing example as written here, against
-  hand-optimized code and against the usual `std::map` code (`examples/production_planning_plain.hpp`).
-
-```bash
-LAYOUTS=5 bench/scenario/build.sh    # a code layout of its own for each of run.py's 5 repetitions
-cd bench/scenario && python3 run.py --scenario lotsizing && python3 report.py ../results/<run>
-```
-
-Design, fairness conditions and how to read the results are in `bench/README.md`. Timing is not
-run on CI.
+| [Guide](https://lynth-kr.github.io/dreamor/guide/) | How to do each thing a model does, a page a topic: entities, columns, sets, grouping and order, data on a set, variable families, sums, constraints, solutions |
+| [API reference](https://lynth-kr.github.io/dreamor/reference/) | Every public type and function, a page a topic |
+| [Philosophy](https://lynth-kr.github.io/dreamor/philosophy/) | What dreamor holds to and why, what it trusts you with, and what it leaves to you on purpose |
+| [OR-Tools samples](examples/mathopt_samples/README.md) | Three of Google's MathOpt samples ported to dreamor, each beside the original |
+| [Benchmarks](https://lynth-kr.github.io/dreamor/bench/) | dreamor against the same models written by hand: each operation over the shapes data takes, and whole models up to the solver's start |
+| [Contributing](CONTRIBUTING.md) | Reporting a bug, proposing a feature, building and testing, and how a change gets in |
+| [Releases](https://github.com/Lynth-KR/dreamor/releases) | What changed in each release |
 
 ## AI coding agents
 
-**Agents writing models with dreamor** get `skills/dreamor/`. It is in the Agent Skills format (`SKILL.md`), so it
-loads only when dreamor code is being written or fixed, and it carries the rules, the signatures, and every compile
-error message with its fix. Copy the folder as a whole into the skills folder your agent reads (for Claude Code, the
-project's `.claude/skills/dreamor/` or `~/.claude/skills/dreamor/`; other agents have their own skills folders).
-
-**Agents working on this repository** read `AGENTS.md` at the root: how to test, the design rules, how to add a
-diagnostic, and which documents change together. `CLAUDE.md` imports it with a single `@AGENTS.md` line so that
-Claude Code reads the same file.
+**Writing models with dreamor:** copy `skills/dreamor/` into your agent's skills folder (for Claude Code,
+`.claude/skills/` or `~/.claude/skills/`); it carries the guide, the reference, and every compile-time message with
+its fix. **Working on dreamor:** agents read [`AGENTS.md`](AGENTS.md), which `CLAUDE.md` imports.
 
 ## Acknowledgments
 
@@ -331,9 +242,8 @@ design and the decisions behind it are the author's.
 
 ## License
 
-[Mozilla Public License 2.0](LICENSE), copyleft by file: a file of dreamor that you change stays under the MPL, and
-a program you distribute with dreamor in it tells its recipients where to get dreamor's source - this repository for
-the files you left as they are, your version of those you changed. Your own files, and the program that uses
-dreamor, are yours to license.
-Releases up to and including 0.5.0 were published under the Apache License 2.0. The OR-Tools samples ported in
-`examples/mathopt_samples/` keep Google's Apache License 2.0 ([NOTICE](NOTICE)).
+The library is under the [Mozilla Public License 2.0](LICENSE): a file of dreamor that you change stays under the
+MPL, and your own files, and the program that uses dreamor, are yours to license. The code you are meant to copy -
+the examples, the guide's code, every code block in a document - is [MIT-0](LICENSES/MIT-0.txt); the documents' text
+is [CC-BY-4.0](LICENSES/CC-BY-4.0.txt); the banner is dreamor's own artwork ([NOTICE](NOTICE)). Each file's license
+is in its first lines or in [REUSE.toml](REUSE.toml). Releases up to 0.5.0 were under the Apache License 2.0.

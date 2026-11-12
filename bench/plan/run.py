@@ -4,29 +4,30 @@
 # not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """Runs the visit-order experiment (README.md here) and prints how the planner's order fares.
 
-Every case - a shape, the three sources' sizes, each predicate's selectivity - runs in every
-variant (the planner's choice, every forced order, the late filter), repetitions times, each a
-fresh process, in a seeded random order. The counting build runs each variant once more for the
-number of predicate calls. Writes plan.csv and prints, per case:
+A case is a shape, the three sources' sizes and each predicate's selectivity. Every case runs in every variant: the
+planner's choice, every forced order and the late filter. Each variant runs --reps times, each time in a fresh
+process, and the runs come in a seeded random order. The counting build then runs each variant once more, for the
+number of predicate calls. The script writes plan.csv and prints these columns for each case:
 
-  planned       the order the planner picked (A, B, C = declaration order)
-  free ms       the planner's choice as written: makeSet(as, bs, cs).where(...)
-  best, worst   the fastest and slowest forced order, and their times
-  regret        the planner's order forced / the best forced: the same machinery, so only the
-                order differs (1 = the planner picked the best)
-  vs decl       ABC forced / the planner's order forced: what planning gained over declaration
-                order (1 = it kept declaration order, or that was as good)
-  late          the late filter / free: what running each predicate early is worth
-  chain         the planner's order forced / free: what forcing an order costs by itself
-  calls         predicate calls of the planner's choice and of the best order
+  planned       the order that the planner picked. A, B, C is the declaration order.
+  free ms       the time of the planner's choice as written:
+                of<cA, cB, cC>(in<cA>(as), in<cB>(bs), in<cC>(cs)).where(...).
+  best, worst   the fastest and the slowest forced order, and their times.
+  regret        the planner's order forced over the best order forced. Both use the same machinery, so only the
+                order differs. 1 means that the planner picked the best order.
+  vs decl       ABC forced over the planner's order forced: what planning gained over declaration order. 1 means
+                that the planner kept declaration order, or that declaration order was as good.
+  late          the late filter over free: what running each predicate early is worth.
+  chain         the planner's order forced over free: what forcing an order costs by itself.
+  calls         the predicate calls of the planner's choice and of the best order.
 
-A join has no choice to make - it is visited as written - so its row sets makeSet<>(S, U)
-against makeSet<>(U, S).
+A join has no order to choose, because it is visited as written. So for a join, the script sets variant SU,
+of<cA, cB, cC>(in<cA, cB>(sS), in<cB, cC>(sU)), against variant US, of<cB, cC, cA>(in<cB, cC>(sU), in<cA, cB>(sS)).
 
 Usage:
   ./build.sh
-  python3 run.py                 # every case, 5 repetitions: a few minutes
-  python3 run.py --preds periodic   # predicates a branch predictor can learn
+  python3 run.py                 # every case, 5 repetitions, in a few minutes
+  python3 run.py --preds periodic   # predicates that a branch predictor can learn
   python3 run.py --reps 3 --shapes pair,filters
 """
 
@@ -43,21 +44,23 @@ sys.path.insert(0, os.path.dirname(HERE))
 from common.machine import code_state, cpu_model  # noqa: E402
 
 ORDERS = ["ABC", "ACB", "BAC", "BCA", "CAB", "CBA"]
-N, BIG = 200, 2000  # a source's rows; a big source's
-WEAK, STRONG = 2, 30  # a predicate keeps 1 in this many
+N, BIG = 200, 2000  # The rows of a source, and the rows of a big source.
+WEAK, STRONG = 2, 30  # A predicate keeps 1 row in this many.
 SIZES = {"equal": (N, N, N), "A big": (BIG, N, N), "C big": (N, N, BIG)}
 
 
 def cases(shapes):
-    """(shape, sizes label, (nA, nB, nC), (d1, d2, d3), selectivity label)."""
+    """Returns the cases of `shapes`, each as (shape, sizes label, (nA, nB, nC), (d1, d2, d3), selectivity label)."""
     out = []
     for shape in shapes:
         for size, n in SIZES.items():
-            if shape == "join":  # S = A x B, U = B x C: big A makes S big, big C makes U big
+            if shape == "join":
+                # S is A x B and U is B x C, so a big A makes S big, and a big C makes U big.
                 if size == "equal":
                     continue
                 sels = {"weak": (WEAK, WEAK, 1), "strong": (STRONG, STRONG, 1)}
-            elif shape == "filters":  # q(A), q(C): which of the two keeps less
+            elif shape == "filters":
+                # The filters are q(A) and q(C), and the selectivities say which of the two keeps less.
                 sels = {"A keeps less": (STRONG, WEAK, 1), "C keeps less": (WEAK, STRONG, 1)}
             else:
                 sels = {"weak": (WEAK,) * 3, "strong": (STRONG,) * 3}
@@ -136,7 +139,8 @@ def main():
     )
     for c in all_cases:
         shape, size, _, _, sel = c
-        if shape == "join":  # no planner: written as makeSet<>(S, U), against makeSet<>(U, S)
+        if shape == "join":
+            # A join has no planner's order: SU, the join as written, is set against US.
             su, us = ms(c, "SU"), ms(c, "US")
             best, worst = ("SU", "US") if su <= us else ("US", "SU")
             print(

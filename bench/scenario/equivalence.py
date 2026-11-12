@@ -2,17 +2,18 @@
 # SPDX-License-Identifier: MPL-2.0
 # This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 # not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""Checks that every arm of a scenario hands each solver the same model, before a run measures them.
+"""Checks that every arm of a scenario hands each solver the same model, before a run measures the arms.
 
-A run's own checks count what the solver was given (rows, columns, nonzeros). This compares what it was given: at
-each scenario's smallest size, every arm on each solver writes the model the solver holds (SCENARIO_EXPORT, outside
-every timer), and each is compared with dreamor's by meaning (../common/compare_mps.py): bounds, integrality,
-costs, right-hand sides and coefficients, within 1e-12, the names a solver makes up for what a model left unnamed
-compared by what they hold. MathOpt writes six significant digits, so its arms are compared to those.
+A run's own checks count what the solver was given: its rows, columns and nonzeros. This script compares what the
+solver was given. At each scenario's smallest size, every arm on each solver writes the model that the solver holds.
+An arm writes the model if SCENARIO_EXPORT is set, outside every timer. ../common/compare_mps.py compares each model
+with dreamor's by meaning: the bounds, integrality, costs, right-hand sides and coefficients must agree within a
+relative 1e-12. The names that a solver makes up for what a model left unnamed are compared by what they hold.
+MathOpt writes six significant digits, so on MathOpt the arms are compared to six digits.
 
     bench/scenario/build.sh && python3 bench/scenario/equivalence.py
 
-Exits 1 when an arm's model differs from dreamor's on some solver.
+If an arm's model differs from dreamor's on some solver, the script exits with status 1.
 """
 
 import json
@@ -23,7 +24,8 @@ import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 COMPARE = os.path.join(os.path.dirname(HERE), "common", "compare_mps.py")
-MADE_UP = r"[A-Za-z_]?[0-9]+"  # CPLEX's x12 / c34 / i5, HiGHS's c0 / r1, MathOpt's numbered ids
+# The names that the solvers make up: CPLEX's x12, c34 and i5, HiGHS's c0 and r1, and MathOpt's numbered ids.
+MADE_UP = r"[A-Za-z_]?[0-9]+"
 
 SCENARIOS = {
     "pmedian": (["--L", "5000"], ["dreamor", "hand", "calls", "callable", "callable-rows"]),
@@ -33,7 +35,7 @@ SOLVERS = ["cplex", "mathopt", "highs"]
 
 
 def export(binary, impl, size, path):
-    """The model the arm handed the solver, or None where the arm does not run on this solver."""
+    """Returns the path of the model that the arm handed the solver, or None if the arm does not run on this solver."""
     env = dict(os.environ, SCENARIO_EXPORT=path)
     out = subprocess.run([binary, "--impl", impl, *size], env=env, capture_output=True, text=True, check=True).stdout
     run = json.loads(out.strip().splitlines()[-1])
@@ -45,7 +47,8 @@ def main():
     with tempfile.TemporaryDirectory() as tmp:
         for scenario, (size, impls) in SCENARIOS.items():
             for solver in SOLVERS:
-                # The dreamor arm on build/<scenario>_<solver>, the hand-written arms on build/<scenario>_<solver>_hand.
+                # The dreamor arm runs on build/<scenario>_<solver>, and the hand-written arms run on
+                # build/<scenario>_<solver>_hand.
                 binary = os.path.join(HERE, "build", f"{scenario}_{solver}")
                 if not (os.path.isfile(binary) and os.path.isfile(binary + "_hand")):
                     print(f"{scenario} {solver}: not built, skipped")
@@ -67,8 +70,8 @@ def main():
                         capture_output=True,
                         text=True,
                     )
-                    # The named part's counts, and how many made-up columns, rows and terms were compared by what
-                    # they hold.
+                    # If the models agree, the last two lines of the output say how many made-up columns, rows and
+                    # terms were compared by what they hold, and give the counts of the named part.
                     last = (
                         "; ".join(compared.stdout.strip().splitlines()[-2:])
                         if compared.stdout.strip()

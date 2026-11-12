@@ -2,29 +2,18 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// File: internal/backend/var_table_core.hpp
-// Naming convention
-//    1.   Type: Pascal Case (i.e., MyType)
-//    2.   Variables: snake case (i.e., my_variable)
-//    2-1. Member Variables: snake case with trailing underscore (i.e., my_variable_)
-//    3.   Functions: camel Case (i.e., myFunction())
-//    3.   Constants: kPascal Case (i.e., kMyConstant)
-//    4.   Macros: Screaming Snake Case (i.e., MY_MACRO)
-//
-// The backend-free part of a variable table: the set it is built on, the index from key to
-// row, the variables in the set's order, lookup (operator()) and iteration, the constructor that
-// rejects a set with other key columns, and the traits that make a table a sum term. A backend's
-// VarTable derives from VarTableCore<Var, Keys...> publicly, inherits its constructors
-// (`using Core::Core;`), creates the variables into vars_ in its own constructor - a vector of
-// handles, or what VarStorage<Var> names - and adds solution(), each in its solver's own terms.
+// VarTableCore, the part of every backend's VarTable that does not depend on the backend: the set, the index from key
+// to row, the variables in the order of the rows, lookup and iteration. A backend's VarTable makes the variables into
+// vars_ and adds solution().
 #pragma once
 
 #include <concepts>
 #include <cstddef>
 #include <exception>
-#include <format>  // IWYU pragma: keep // For std::formatter
+#include <format>
 #include <memory>
 #include <stdexcept>
+#include <string_view>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -37,76 +26,125 @@
 #include "dreamor/internal/index_set/key_args.hpp"
 #include "dreamor/internal/index_set/name_token.hpp"
 #include "dreamor/logger.hpp"
-#include "dreamor/value_table.hpp"
+#include "dreamor/solution_table.hpp"
+
+// The message for a VarTable in a multiplication, shared by the two operators that reject it.
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage): a static_assert message has to be a string literal
+#define DREAMOR_INTERNAL_SCALE_THE_SUM_MESSAGE                                                                    \
+  "Scale the sum, not the table: 100 * sumExpr(env, rows, vYield).build() (sumExpr(rows, vYield) on MathOpt and " \
+  "HiGHS), or multiply inside a term. A VarTable is a family of variables, not an expression."
+
+// The message for nullptr given as a name. A name is a std::string_view, and a std::string_view made from a null
+// pointer is undefined behavior.
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage): a static_assert message has to be a string literal
+#define DREAMOR_INTERNAL_NULL_NAME_MESSAGE \
+  "A name is text, and nullptr is not one: leave the name out, or pass {}, for none."
 
 namespace dreamor::internal::inline backend {
-
-// The one way a backend's VarTable hands over its values.
-struct ValueTableAccess {
+// The only way for a backend's VarTable to construct a SolutionTable, whose constructor is private.
+struct SolutionTableAccess {
   template <typename... Keys>
-  [[nodiscard]] static ValueTable<Keys...> make(IndexSet<Keys...> keys,
-                                                std::shared_ptr<const RowIndex<std::tuple<Keys...>>> index,
-                                                std::vector<double> values) {
-    return ValueTable<Keys...>{std::move(keys), std::move(index), std::move(values)};
+  [[nodiscard]] static SolutionTable<Keys...> make(IndexSet<Keys...> keys,
+                                                   std::shared_ptr<const RowIndex<std::tuple<Keys...>>> index,
+                                                   std::vector<double> values) {
+    return SolutionTable<Keys...>{RowValues<double, Keys...>{std::move(keys), std::move(index), std::move(values)}};
   }
 };
 
-// What every backend's VarTable derives from, through VarTableCore: the traits below find a
-// table by it.
+// The empty base of every backend's VarTable, through VarTableCore. The traits at the end of this file recognize a
+// table by this base.
 struct VarTableBase {};
 
-// Where a backend's variables live, one a row of the set: by default a vector of the solver's
-// handles. A backend whose row's position gives the variable - HiGHS's columns, the table's first
-// plus the position - specializes it, with size(), operator[] and cursorAt(storage, position) for
-// iteration.
+// How a backend stores its variables, one for each row of the set. By default, the storage is a vector of the
+// solver's handles. A backend that computes a row's variable from the row's position specializes VarStorage: on HiGHS,
+// a row's column is the table's first column plus the row's position. A specialization provides size() and
+// operator[], and an overload of cursorAt(storage, position) for iteration.
 template <typename Var>
 struct VarStorage {
   using type = std::vector<Var>;
 };
+
 template <typename Var>
 [[nodiscard]] const Var* cursorAt(const std::vector<Var>& vars, std::size_t at) noexcept {
   return vars.data() + at;
 }
 
+/// @section VarTable
+///
+/// The parts of this section look up and iterate a family of variables: one variable for each row of a set. A
+/// backend's `VarTable` constructor makes all of the variables at once. After that, the table's set and its variables
+/// do not change. Every backend's `VarTable` derives from `VarTableCore` and has the members of this section. The
+/// constructors and `solution()` of each backend's `VarTable` are in that backend's section.
+///
+/// Each variable is named `<name>_<key0>_<key1>...`: the name given to the constructor, then the value of each
+/// column of the row, each one after `_`. The Names section says how each value is written. If the name given to the
+/// constructor is empty, the variables have no names. A name longer than 255 characters is cut to its first 255
+/// characters, and a warning is written to the log.
+///
+/// A table names its key columns, so it is a column callable. A table can be the term of a sum: the sum adds up the
+/// variable of each row. The rows of the sum must have every key column of the table, and may have other columns
+/// too: the table reads only its key columns from each row.
+///
+/// A table multiplied by a number does not compile, because a table is not an expression. To scale the variables,
+/// multiply the built sum, or multiply inside the term.
+///
+/// Guide: guide/variable-families.md
+
+/// @exposed
+/// The base class of every backend's `VarTable`, which holds the set, an index from key to row, and the variables in
+/// the order of the set's rows.
+///
+/// A model calls the members of this class through a backend's `VarTable`, and does not name the class.
+///
+/// A table cannot be copied, because a copy would refer to the same variables as a second family. A table can be
+/// moved. A table cannot be assigned to, because the variables it held would remain in the model with no table to
+/// reach them. Destroying a table does not remove its variables from the model.
+///
+/// Takes: `Keys` must be one or more distinct columns. Each column of `Keys` must hold a value that can be written in
+/// a name, as the Names section describes.
 template <typename Var, typename... Keys>
-  requires(sizeof...(Keys) > 0 && (is_nameable<Keys> && ...))
+  requires(sizeof...(Keys) > 0 && (nameable<Keys> && ...))
 class VarTableCore : public VarTableBase {
   static_assert(allColumnsDistinct<std::tuple<Keys...>>(std::index_sequence_for<Keys...>{}),
                 "VarTable<cI, cI> names one key column twice, and no set has the same column twice: give each "
                 "key its own column type.");
 
  public:
-  // The index tuple. Identical to the element type of the set the table is built on, so a
-  // row from that set, a subset of it or one of its groups goes straight into operator().
+  // The row type of the set. A row of the set, of a subset of it, or of one of its groups is therefore one argument
+  // that operator() accepts as it is.
   using key_type = std::tuple<Keys...>;
 
-  // contains(m, i, t) or contains(row): the key's columns in order, or a row of the set (see
-  // internal/index_set/key_args.hpp).
+  /// Checks whether the table's set has the row that `key` identifies.
+  ///
+  /// Takes: `key` must be a key of the columns `Keys`, as the Keys section describes.
+  /// Returns: True if the set has the row; false otherwise.
   template <typename... Args>
   [[nodiscard]] bool contains(const Args&... key) const {
     if constexpr (checkTableKey<key_type, Args...>()) {
-      return index_->find(rows(), key...) != RowIndex<key_type>::kNotFound;
+      return findRow(key...) != RowIndex<key_type>::kNotFound;
     } else {
       return false;
     }
   }
 
-  // A set whose columns are not exactly the keys, in order, stops here on one sentence rather
-  // than on "no matching constructor". Public, as a backend inherits it (`using Core::Core;`)
-  // with this access; its first parameter is the backend's environment or model.
+  /// @hidden - exists only to reject, with a message, a set whose columns are not the table's key columns
   template <typename Model, typename Set, typename... Rest>
     requires(is_index_set<Set> && !std::same_as<Set, IndexSet<Keys...>>)
-  VarTableCore(Model&& /*model*/, const Set& /*set*/, Rest&&... /*rest*/) : VarTableCore{IndexSet<Keys...>{}} {
+  VarTableCore(Model&& /*model*/, const Set& /*set*/, Rest&&... /*rest*/) : VarTableCore{SetAccess::empty<key_type>()} {
+    // This constructor is public because a backend inherits it with `using Core::Core;`, which keeps its access. Its
+    // first parameter is the backend's environment or model.
     static_assert(always_false<Set>,
                   "A VarTable is built on a set with exactly its key columns, in the same order: "
                   "VarTable<cMachine, cItem, cPeriod> takes an IndexSet<cMachine, cItem, cPeriod>. "
                   "Declare the table in the set's order, or derive a set in the table's order with select<...>().");
   }
 
-  // The variable of a key: vYield(m, i, t) - Yield[m,i,t] in AMPL - or vYield(row). The columns
-  // themselves, in the declared order; anything else stops on one sentence (see
-  // internal/index_set/key_args.hpp). Throws std::out_of_range when the set does not have the key - the
-  // rule of every backend; contains() asks first.
+  /// Returns the variable of the row that `key` identifies.
+  ///
+  /// If the key's values can be written in a name, the message of the exception contains the key.
+  ///
+  /// Takes: `key` must be a key of the columns `Keys`, as the Keys section describes.
+  /// Throws: `std::out_of_range` if the table's set has no row with the key.
   template <typename... Args>
   [[nodiscard]] Var operator()(const Args&... key) const {
     if constexpr (checkTableKey<key_type, Args...>()) {
@@ -116,120 +154,142 @@ class VarTableCore : public VarTableBase {
     }
   }
 
+  /// Returns the number of variables, which equals the number of rows of the set.
   [[nodiscard]] std::size_t size() const noexcept { return vars_.size(); }
 
-  // The set this table was built on - its keys, in order.
+  /// Returns the set that the table was built on.
   [[nodiscard]] const IndexSet<Keys...>& keys() const noexcept { return keys_; }
 
-  // (row, variable) pairs in the set's order - the column order the model gets.
+  /// Returns an iterator to the first pair of a row and its variable.
+  ///
+  /// Iteration visits the rows in the set's order. The backend's constructor made the variables in the same order.
+  /// Each element is a `std::pair` of a `const` reference to the row and the row's variable.
   [[nodiscard]] auto begin() const noexcept { return Iterator{rows().data(), cursorAt(vars_, 0)}; }
+
+  /// Returns an iterator past the last pair of a row and its variable.
   [[nodiscard]] auto end() const noexcept { return Iterator{rows().data() + rows().size(), cursorAt(vars_, size())}; }
 
-  // Copy is deleted: a variable is a handle, so a copy would quietly alias the same columns
-  // under two names. Move is fine - nothing here points at itself.
   VarTableCore(const VarTableCore&)            = delete;
   VarTableCore& operator=(const VarTableCore&) = delete;
 
-  // 100 * vYield - what a user reaches for to scale a sum - stops on the fix rather than on a
-  // list of every operator* in scope. Hidden friends, so they are candidates only when a table
-  // is an operand - taken as the backend's own type, since it inherits this privately; the
-  // return type is deduced so that the body, the static_assert, is instantiated as soon as
-  // one is chosen.
+  /// @hidden - exists only to reject, with a message, a table multiplied by a number
   template <typename Scale, typename Table>
-    requires std::is_base_of_v<VarTableCore, Table>  // A backend's table; the base is not accessible
+    requires std::is_base_of_v<VarTableCore, Table>
   friend auto operator*(const Scale& /*scale*/, const Table& /*table*/) {
-    static_assert(
-        always_false<Scale>,
-        "Scale the sum, not the table: 100 * sumExpr(env, rows, vYield).build() (sumExpr(rows, vYield) on MathOpt), or "
-        "multiply inside a term. A VarTable is a family of variables, not an expression.");
+    // These operators are hidden friends, so they are candidates only if a table is an operand. Each one takes the
+    // backend's own table type, so that its match is exact. The return type is deduced, so that the static_assert is
+    // instantiated as soon as overload resolution chooses the operator.
+    static_assert(always_false<Scale>, DREAMOR_INTERNAL_SCALE_THE_SUM_MESSAGE);
     return false;
   }
+
+  /// @hidden - exists only to reject, with a message, a table multiplied by a number
   template <typename Table, typename Scale>
     requires(std::is_base_of_v<VarTableCore, Table> && !std::is_base_of_v<VarTableCore, Scale>)
   friend auto operator*(const Table& /*table*/, const Scale& /*scale*/) {
-    static_assert(
-        always_false<Scale>,
-        "Scale the sum, not the table: 100 * sumExpr(env, rows, vYield).build() (sumExpr(rows, vYield) on MathOpt), or "
-        "multiply inside a term. A VarTable is a family of variables, not an expression.");
+    static_assert(always_false<Scale>, DREAMOR_INTERNAL_SCALE_THE_SUM_MESSAGE);
     return false;
   }
 
  protected:
   explicit VarTableCore(const IndexSet<Keys...>& keys) : keys_{keys}, index_{sharedRowIndex(keys_)} {}
 
-  VarTableCore(VarTableCore&&) noexcept            = default;
-  VarTableCore& operator=(VarTableCore&&) noexcept = default;
-  ~VarTableCore() noexcept = default;  // Solver objects follow their own owner; nothing is ended here.
+  VarTableCore(VarTableCore&&) noexcept = default;
 
-  // The row of a key from an operator() call, or throws std::out_of_range - the rule of
-  // every backend: a row outside the set is a modeling error, and a null handle or a 0 would
-  // only surface later. Callers check the arguments with checkTableKey first.
+ public:
+  VarTableCore& operator=(VarTableCore&&) = delete;
+
+ protected:
+  // Protected, so that no table is destroyed through a pointer to this base. The destructor ends no solver object,
+  // because each object belongs to its environment or model.
+  ~VarTableCore() noexcept = default;
+
+  // Returns the row of a key passed to operator(), or throws std::out_of_range. Every backend throws for a key outside
+  // the set, because such a key is a modeling error: a null handle or a 0 in its place would show the error only
+  // later. The callers check the arguments with checkTableKey first.
   template <typename... Args>
   [[nodiscard]] std::size_t rowOf(const Args&... key) const {
-    const std::size_t at = index_->find(rows(), key...);
+    const std::size_t at = findRow(key...);
     if (at == RowIndex<key_type>::kNotFound) {
-      throw std::out_of_range("VarTable: this row is not in the table's set.");
+      throw std::out_of_range("VarTable: no row " + keyText(key...) + " in the table's set.");
     }
     return at;
   }
 
   [[nodiscard]] const Rows<key_type>& rows() const noexcept { return SetAccess::rows(keys_); }
 
-  // The values of vars_, in the same order, as a ValueTable sharing this table's set and index.
-  [[nodiscard]] ValueTable<Keys...> valueTable(std::vector<double> values) const {
-    return ValueTableAccess::make<Keys...>(keys_, index_, std::move(values));
+  // Returns the row of a key that checkTableKey accepts, or kNotFound.
+  template <typename... Args>
+  [[nodiscard]] std::size_t findRow(const Args&... key) const {
+    const auto find = [this](const auto&... columns) { return index_->find(rows(), columns...); };
+    return findKey<key_type>(find, RowIndex<key_type>::kNotFound, key...);
   }
 
-  // One shared buffer for the whole construction: the prefix stays put and only the suffix
-  // is rewritten per key, so no per-variable allocation for names.
+  // Returns the values of vars_, in the same order, as a SolutionTable that shares this table's set and index.
+  [[nodiscard]] SolutionTable<Keys...> solutionTable(std::vector<double> values) const {
+    return SolutionTableAccess::make<Keys...>(keys_, index_, std::move(values));
+  }
+
+  // One buffer serves the whole construction. The family's name stays at the start of the buffer, and only the part
+  // after it is rewritten for each key, so naming the variables allocates no memory.
   //
-  // kLogAndClear (not kThrow): construction is reached from noexcept modeling code, where a
-  // throw would mean std::terminate rather than a recoverable error.
-  static constexpr std::size_t kNameBufferSize = 256;  // a variable's name, terminator included
+  // Under kLogAndClear, a name too long for the buffer is cut to kNameBufferSize - 1 characters, a warning is written
+  // to the log, and the table is built anyway.
+  static constexpr std::size_t kNameBufferSize = 256;  // The longest name, with its terminating null character.
   using NameBuilder = ::dreamor::NameBuilder<kNameBufferSize, ::dreamor::OnFormatOverflow::kLogAndClear>;
+
+  // Returns the builder of a family's names, with the family's name as the root. If the family's name is empty, the
+  // builder is disabled, and the table names no variable.
+  [[nodiscard]] static NameBuilder namesFor(std::string_view family) {
+    NameBuilder names{nullptr};
+    if (!family.empty()) { static_cast<void>(names.restart(family)); }
+    return names;
+  }
 
   [[nodiscard]] static const char* nameOf(NameBuilder& names, const key_type& key) {
     if (!names.enabled()) {
-      return nullptr;  // Unnamed: no key to read or format per variable.
+      return nullptr;  // The variables have no names, so no key is read or formatted.
     }
     std::size_t length = names.rootLength();
-    std::apply([&](const auto&... columns) { ((length = names.append(length, toNameToken(columns))), ...); }, key);
+    std::apply([&](const auto&... columns) { ((length = appendName(names, length, columns, "_")), ...); }, key);
     return names.name();
   }
 
-  // NOLINTNEXTLINE(*-non-private-member-variables-in-classes): the backends deriving from this fill it
+  // NOLINTNEXTLINE(*-non-private-member-variables-in-classes): each backend's VarTable fills it
   VarStorage<Var>::type vars_;  // vars_[i] is the variable of row i.
 
  private:
   template <typename>
-  friend struct internal::TakesRowNumber;  // a sum over a group of the set takes vars_ by the rows' positions
+  friend struct internal::TakesRowNumber;  // A sum over a group of the set reads vars_ by the rows' positions.
   using Iterator =
       RowPairIterator<key_type, decltype(cursorAt(std::declval<const typename VarStorage<Var>::type&>(), 0))>;
 
-  IndexSet<Keys...> keys_;                           // Shared; the only copy of the keys.
-  std::shared_ptr<const RowIndex<key_type>> index_;  // Shared with ValueTables.
+  IndexSet<Keys...> keys_;                           // Shares the rows of the set given to the constructor.
+  std::shared_ptr<const RowIndex<key_type>> index_;  // Shared with every other table on the same set.
 };
 
 }  // namespace dreamor::internal::inline backend
 
-// A table names its key columns, so it is itself a sum term: sumExpr(env, rows, vYield) sums its
-// variables over the rows - sum {(m,i,t) in rows} Yield[m,i,t] - without a lambda that only looks
-// them up. Every backend's table, through VarTableBase.
+// A table lists its key columns, so it is a column callable, and sumExpr takes a table as a term with no lambda that
+// only looks the variable up. The specialization covers every backend's table through VarTableBase.
 template <typename Table>
   requires std::derived_from<Table, dreamor::internal::VarTableBase>
-struct dreamor::CallableColumns<Table> {
+struct dreamor::internal::CallableColumns<Table> {
   using type = Table::key_type;
 };
-// Given a row of its own set, a table finds the variable by the row's address.
+
+// If a table is given a row of its own set, it finds the variable by the row's address.
 template <typename Table>
   requires std::derived_from<Table, dreamor::internal::VarTableBase>
 struct dreamor::internal::TakesWholeRow<Table> : std::true_type {};
-// Given a row's position in its set, the variable is the one at that position.
+
+// The variable of the row at position n of the set is vars_[n].
 template <typename Table>
   requires std::derived_from<Table, dreamor::internal::VarTableBase>
 struct dreamor::internal::TakesRowNumber<Table> : std::true_type {
   [[nodiscard]] static const Table::key_type* firstRow(const Table& table) noexcept {
     return SetAccess::rows(table.keys()).data();
   }
+
   [[nodiscard]] static auto at(const Table& table, std::size_t n) { return table.vars_[n]; }
 };

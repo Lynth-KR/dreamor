@@ -2,33 +2,35 @@
 # SPDX-License-Identifier: MPL-2.0
 # This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 # not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""Runs one family of the catalog (README.md) as a designed experiment.
+"""Runs one family of the catalog, which docs/bench/catalog/ describes, as a designed experiment.
 
-The six two-level factors (O, D, S, G, L, I) run as a fraction: resolution IV by default, 16 cells
-(L = O*D*S, I = D*S*G), for screening; --resolution 6 runs the half fraction I = O*D*S*G*L, 32
-cells, where every main effect and two-factor interaction is clear of the others. k (columns: 1, 2,
-3, 5, 8 - 1 in lookup and make only, 8 on build/catalog8) and N are crossed with it in full. Every arm runs every cell, each run a fresh process of build/catalog, in
-a seeded random order; the same repetition number means the same seed, so the arms are compared
-pairwise and a repetition is a block. The data family has entities, not rows: its own two-level
-factors (the key's type and the order of access) run in full, without k.
+The six two-level factors O, D, S, G, L and I run as a fraction. By default the fraction has resolution IV and 16
+cells, for screening: L = O*D*S and I = D*S*G. --resolution 6 runs the half fraction I = O*D*S*G*L, 32 cells, in
+which every main effect and every two-factor interaction is clear of the others. k and N are crossed with the
+fraction in full. k is the number of columns: 1, 2, 3, 5 or 8. Only lookup and make run k = 1, and k = 8 runs on
+build/catalog8. Every arm runs every cell in a seeded random order, each run in a fresh process of the arm's build:
+build/catalog for dreamor, build/catalog_hand for the hand-written arms. A repetition number gives every arm the
+same seed, so the arms are compared in pairs, and a repetition is a block. The data family has entities, not rows.
+Its own two-level factors, the type of the key and the order of access, run in full, without k.
 
-Every repetition runs under its own memory layout (Mytkowicz et al., ASPLOS 2009; van Kempen &
-Berger, ISMM '26): an environment padding of its own length moves the stack, and a heap seed of its
-own preconditions the heap with holes before the run builds anything; and its own code layout, on the
-copies LAYOUTS=<reps> ./build.sh links for it (../common/layout.py). Every arm of a repetition gets the
-same seeds, so the arms stay paired; ASLR stays on. --layout off runs every repetition alike, on
-./build.sh's plain binaries.
+Every repetition runs under a memory layout of its own (Mytkowicz et al., ASPLOS 2009; van Kempen & Berger,
+ISMM '26). An environment padding of its own length moves the stack. A heap seed of its own preconditions the heap
+with holes before the run builds anything. A code layout of its own comes from the copies that LAYOUTS=<reps>
+./build.sh links for the repetition (../common/layout.py). Every arm of a repetition gets the same seeds, so the arms
+stay paired. ASLR stays on. --layout off runs every repetition alike, on the plain binaries of ./build.sh.
 
-Results go to ../results/<date>_<commit>_catalog_<family>_N<levels>_res<4|6>/runs.jsonl, one line a
-run, with meta.json beside it. Running the same thing again resumes it.
+Results go to ../results/<date>_<commit>_catalog_<family>_N<levels>_res<4|6>/runs.jsonl, one line for each run, with
+meta.json beside it. The folder of the data family ends in _full instead of _res<4|6>. If the same plan runs again,
+it resumes.
 
---builds compares builds of build/catalog, say of the library before and after a change: every run of
-the plan runs once per build, the builds one right after the other in a random order, under the
-same seed and layout, so each run of one build has its pair in the other. compare.py reads it.
+--builds compares builds of build/catalog, such as the library before and after a change. Every run of the plan runs
+once for each build, the builds one right after the other in a random order, under the same seed and layout. So each
+run of one build has its pair in the other. compare.py reads the result.
 
---reuse <earlier run> measures a new version of dreamor against the hand-written arms that run measured,
-when their binaries are the same (../common/reuse.py): only the dreamor arm runs, and a tenth of the
-hand-written runs (at least 30) again, as controls of the machine.
+--reuse <earlier run> copies the earlier run's runs of every arm whose binaries are the same, and runs the other arms
+(../common/reuse.py): a new version of dreamor against the hand-written arms measured before, or a changed
+hand-written arm against dreamor. --reuse-arms names the arms to copy instead. A tenth of the copied runs, at least
+30, run again as controls of the machine.
 
 Usage:
   LAYOUTS=5 ./build.sh
@@ -38,6 +40,7 @@ Usage:
   python3 run.py --family setop --impls dreamor --reps 3 --builds base=./catalog_base,head=build/catalog
   python3 compare.py ../results/<run>
   python3 run.py --family lookup --resolution 6 --reps 5 --reuse ../results/<an earlier run of the same plan>
+  python3 run.py --family lookup --resolution 6 --reps 5 --reuse ../results/<...> --reuse-arms dreamor,map
 """
 
 import argparse
@@ -77,7 +80,8 @@ FAMILIES = {
     "order": ["dreamor", "identity", "mixed", "array", "map"],
     "data": ["dreamor", "umap", "map"],
 }
-TWO_LEVEL = {  # factor -> (low, high), in the order the generators name them
+# The (low, high) levels of each factor, in the order in which the generators name the factors.
+TWO_LEVEL = {
     "O": ("shared", "owned"),
     "D": ("dense", "sparse"),
     "S": ("uniform", "skewed"),
@@ -85,20 +89,22 @@ TWO_LEVEL = {  # factor -> (low, high), in the order the generators name them
     "L": ("ordered", "shuffled"),
     "I": ("aligned", "permuted"),
 }
-GENERATORS = {  # resolution -> {generated factor: the factors whose product sets it}
-    4: {"L": ["O", "D", "S"], "I": ["D", "S", "G"]},  # I = ODSL = DSGI = OGLI: words of length 4
-    6: {"I": ["O", "D", "S", "G", "L"]},  # I = ODSGLI
+# For each resolution, each generated factor and the factors whose product sets its level.
+GENERATORS = {
+    4: {"L": ["O", "D", "S"], "I": ["D", "S", "G"]},  # The defining relation is I = ODSL = DSGI = OGLI.
+    6: {"I": ["O", "D", "S", "G", "L"]},  # The defining relation is I = ODSGLI.
 }
 # A family whose data are not the rows has two-level factors of its own, run in full, and no k.
 OWN_FACTORS = {"data": {"key": ("int", "string"), "access": ("inserted", "random")}}
 K_LEVELS = ["1", "2", "3", "5", "8"]
-# k = 1 has no period beside k1: only the families whose operations need none run it.
+# At k = 1 a row has no period beside k1, so only the families whose operations need no period run k = 1.
 K_SUPPORTED = {"lookup": K_LEVELS, "make": K_LEVELS}
 K_WITH_PERIOD = ["2", "3", "5", "8"]
-# k = 8 runs on build/catalog8, the build whose rows are 8 wide (data.hpp): a build's path, then "8".
+# k = 8 runs on build/catalog8, the build whose rows are 8 wide, as data.hpp describes. The path of a k = 8 build is
+# the path of its build followed by "8".
 K_WIDE = "8"
-# The hand-written arms run on build/catalog_hand (and build/catalog_hand8), built without the library: one
-# build of them serves every build of dreamor that --builds compares.
+# The hand-written arms run on build/catalog_hand, and on build/catalog_hand8 for k = 8, which are built without the
+# library. So one build of them serves every build of dreamor that --builds compares.
 HAND = os.path.join(HERE, "build", "catalog_hand")
 
 
@@ -111,7 +117,8 @@ N_LEVELS = ["100000", "1000000"]
 
 
 def fraction(resolution):
-    """The two-level cells of the fraction: base factors in full, generated ones by their products."""
+    """Returns the two-level cells of the fraction: the base factors in full, and each generated factor by the product
+    of its generators."""
     gen = GENERATORS[resolution]
     base = [f for f in TWO_LEVEL if f not in gen]
     cells = []
@@ -126,14 +133,15 @@ def fraction(resolution):
 
 
 def layout_of(seed, rep):
-    """(environment padding in bytes, heap seed) of a repetition: Mytkowicz et al. varied the
-    environment over 0-4095 bytes."""
+    """Returns the environment padding in bytes and the heap seed of a repetition.
+
+    The padding is drawn from 0 to 4095 bytes, the range over which Mytkowicz et al. varied the environment."""
     g = random.Random(seed * 1_000_003 + rep)
     return g.randrange(4096), g.randrange(1, 2**63)
 
 
 def full(two_level):
-    """Every combination of the levels."""
+    """Returns every combination of the levels."""
     return [dict(zip(two_level, levels)) for levels in itertools.product(*two_level.values())]
 
 
@@ -144,11 +152,11 @@ def key_of(run):
 
 
 def done_key(run):
-    """A run, and whether it is a control (--reuse): a control repeats a copied run."""
+    """Returns the key of a run and whether the run is a control. With --reuse, a control repeats a copied run."""
     return key_of(run), bool(run.get("control"))
 
 
-# What an earlier run must share with this one for --reuse to take its hand-written arms.
+# The settings that an earlier run must share with this one for --reuse to take its runs.
 SAME = [
     "family",
     "impls",
@@ -187,8 +195,9 @@ def main():
         "--layout", default="on", choices=["on", "off"], help="a memory and code layout of its own per repetition"
     )
     ap.add_argument("--builds", help="name=path,name=path: builds of ./catalog to compare run by run (compare.py)")
+    ap.add_argument("--reuse", help="an earlier run of the same plan whose unchanged arms to copy (../common/reuse.py)")
     ap.add_argument(
-        "--reuse", help="an earlier run of the same plan whose hand-written arms to take (../common/reuse.py)"
+        "--reuse-arms", help="comma-separated arms to copy with --reuse; default: those whose binaries are the same"
     )
     ap.add_argument("--out", help="results folder")
     ap.add_argument("--dry-run", action="store_true")
@@ -196,6 +205,8 @@ def main():
 
     if args.reuse and args.builds:
         sys.exit("--reuse measures one build of dreamor; it does not take --builds.")
+    if args.reuse_arms and not args.reuse:
+        sys.exit("--reuse-arms names the arms that --reuse copies; it needs --reuse.")
     builds = (
         dict(b.split("=", 1) for b in args.builds.split(","))
         if args.builds
@@ -292,8 +303,11 @@ def main():
     plan = [dict(p, build=b) for p in plan for b in order.sample(list(builds), len(builds))]
     reused = []
     if args.reuse:
-        hand = sorted({os.path.basename(binary(HAND, k, "hand")) for k in k_levels or [None]})
-        reused, controls, meta["reuse"] = copies(args.reuse, meta, SAME, code_layouts, hand, plan, key_of, args.seed)
+        binaries = {i: sorted({os.path.basename(binary(builds[""], k, i)) for k in k_levels or [None]}) for i in impls}
+        arms = args.reuse_arms.split(",") if args.reuse_arms else None
+        reused, controls, meta["reuse"] = copies(
+            args.reuse, meta, SAME, code_layouts, binaries, plan, key_of, args.seed, arms
+        )
         plan += controls
         random.Random(args.seed + 3).shuffle(plan)
     done = set()
@@ -314,7 +328,7 @@ def main():
     if reused:
         with open(runs_path, "a") as f:
             f.writelines(json.dumps(r) + "\n" for r in reused)
-        print(f"{len(reused)} hand-written runs copied from {meta['reuse']['source']}")
+        print(f"{len(reused)} runs of {', '.join(meta['reuse']['arms'])} copied from {meta['reuse']['source']}")
 
     def pin():
         if cpus:

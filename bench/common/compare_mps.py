@@ -1,17 +1,25 @@
 # SPDX-License-Identifier: MPL-2.0
 # This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 # not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""Compares two MPS files as LPs, by what they mean rather than how a writer spells them: the same named rows and
-columns, each column's bounds, integrality and cost, each row's bounds and coefficients, every number within a
-relative 1e-12. A row may be written either way round - a >= b as a - b >= 0 or as b - a <= 0 - and a writer may
-leave out a zero right-hand side or a default bound, or name the objective as it likes; none of that is a
-difference. The quadratic objective (QMATRIX, QUADOBJ) and the indicator constraints (INDICATORS) are compared too.
-Prints what differs, and the largest relative difference; exits 1 on a difference.
+"""Compares two MPS files as LPs, by what they mean rather than by how a writer spells them.
 
-A writer names what the model left unnamed by its position - CPLEX's x123 for a column, c45 for a row, i67 for an
-indicator constraint - so the same model built in another order gets other names there. --made-up REGEX says which
-names are made up: each of those columns and rows is then known by what it holds - its bounds, integrality, cost and
-coefficients, with every made-up name in them masked - and the two files must hold the same of them, in any order.
+The two files must have the same named rows and columns. Each column's bounds, integrality and cost must agree, and
+so must each row's bounds and coefficients. Two numbers agree if their difference, divided by the larger of their
+magnitudes and 1, is at most 1e-12. The quadratic objective, in QMATRIX or QUADOBJ, and the indicator constraints, in
+INDICATORS, are compared too. None of the following is a difference:
+
+- a row written the other way round: a >= b written as a - b >= 0 or as b - a <= 0;
+- a zero right-hand side or a default bound that a writer leaves out;
+- the name of the objective.
+
+The script prints what differs, at most five of the numbers that differ, and the largest relative difference. If the
+files differ, it exits with status 1.
+
+A writer names what the model left unnamed by its position: CPLEX writes x123 for a column, c45 for a row and i67 for
+an indicator constraint. So the same model built in another order gets other names there. --made-up REGEX says which
+names are made up. Each of those columns and rows is then known by what it holds: its bounds, integrality, cost and
+coefficients, with every made-up name in them masked. The two files must hold the same such columns and rows, in any
+order.
 
     python3 bench/common/compare_mps.py dreamor.mps hand.mps
     python3 bench/common/compare_mps.py --made-up '[xci][0-9]+' before.mps after.mps
@@ -33,11 +41,20 @@ INF = math.inf
 
 @dataclass
 class Lp:
-    columns: dict[str, list] = field(default_factory=dict)  # name -> [lower, upper, integer, cost]
-    rows: dict[str, list[float]] = field(default_factory=dict)  # name -> [lower, upper]
-    entries: dict[str, dict[str, float]] = field(default_factory=dict)  # row -> column -> coefficient
-    quadratic: dict[tuple[str, str], float] = field(default_factory=dict)  # (column, column), in name order -> value
-    indicators: dict[str, tuple[str, float]] = field(default_factory=dict)  # row -> (binary column, value it holds at)
+    """An LP as an MPS file states it.
+
+    - `columns` maps a column's name to [lower, upper, integer, cost].
+    - `rows` maps a row's name to [lower, upper].
+    - `entries` maps a row's name to the row's coefficients, by column name.
+    - `quadratic` maps a pair of column names, in name order, to the pair's value in the objective.
+    - `indicators` maps a row's name to its binary column and the value of that column at which the row holds.
+    """
+
+    columns: dict[str, list] = field(default_factory=dict)
+    rows: dict[str, list[float]] = field(default_factory=dict)
+    entries: dict[str, dict[str, float]] = field(default_factory=dict)
+    quadratic: dict[tuple[str, str], float] = field(default_factory=dict)
+    indicators: dict[str, tuple[str, float]] = field(default_factory=dict)
 
 
 def parse(path: str) -> Lp:
@@ -72,7 +89,8 @@ def parse(path: str) -> Lp:
                 elif row in lp.entries:
                     lp.entries[row][column] = float(value)
         elif section == "RHS":
-            pairs = fields[1:] if len(fields) % 2 else fields  # after the vector's name, when it has one
+            # If a line has an odd number of fields, its first field is the vector's name.
+            pairs = fields[1:] if len(fields) % 2 else fields
             for row, value in zip(pairs[0::2], pairs[1::2], strict=True):
                 if row in lp.rows:
                     bounds = lp.rows[row]
@@ -108,7 +126,8 @@ def parse(path: str) -> Lp:
         elif section in ("QMATRIX", "QUADOBJ"):
             first, second, value = fields
             pair = (min(first, second), max(first, second))
-            # QMATRIX holds both halves of an off-diagonal term, QUADOBJ one: the sum is the term either way
+            # QMATRIX lists an off-diagonal term twice, a half each time, and QUADOBJ lists it once. Doubling QUADOBJ's
+            # value makes the sum the whole term in both sections.
             lp.quadratic[pair] = lp.quadratic.get(pair, 0.0) + float(value) * (
                 2 if section == "QUADOBJ" and first != second else 1
             )
@@ -140,7 +159,11 @@ class Comparison:
 
 
 def anonymous(lp: Lp, made_up: re.Pattern) -> tuple[Lp, Counter]:
-    """lp without its made-up columns and rows, and those as a multiset of what each holds, made-up names masked."""
+    """Returns `lp` without its made-up names, and what the made-up names hold, as a multiset.
+
+    The multiset holds each made-up column and row, each quadratic term and indicator constraint that names one, and
+    each named row's coefficients on made-up columns. Every made-up name in them is masked.
+    """
     mask = lambda name: "?" if made_up.fullmatch(name) else name  # noqa: E731
     number = lambda v: f"{v:.12g}"  # noqa: E731
     held: Counter = Counter()
@@ -156,7 +179,9 @@ def anonymous(lp: Lp, made_up: re.Pattern) -> tuple[Lp, Counter]:
     for row, (low, up) in lp.rows.items():
         if made_up.fullmatch(row):
             entries = sorted((mask(c), v) for c, v in lp.entries[row].items())
-            if entries and entries[0][1] < 0:  # written the other way round
+            # A row whose first coefficient is negative is turned around, so that a row written either way round
+            # holds the same.
+            if entries and entries[0][1] < 0:
                 entries, low, up = [(c, -v) for c, v in entries], -up, -low
             held["row", number(low), number(up), tuple((c, number(v)) for c, v in entries)] += 1
     for (first, second), value in lp.quadratic.items():
@@ -176,7 +201,8 @@ def anonymous(lp: Lp, made_up: re.Pattern) -> tuple[Lp, Counter]:
         quadratic={k: v for k, v in lp.quadratic.items() if not (made_up.fullmatch(k[0]) or made_up.fullmatch(k[1]))},
         indicators={k: v for k, v in lp.indicators.items() if not (made_up.fullmatch(k) or made_up.fullmatch(v[0]))},
     )
-    for row, entries in lp.entries.items():  # a named row's coefficients on made-up columns
+    # A named row's coefficients on made-up columns are compared as a multiset of numbers.
+    for row, entries in lp.entries.items():
         if not made_up.fullmatch(row):
             masked = sorted(number(v) for c, v in entries.items() if made_up.fullmatch(c))
             if masked:

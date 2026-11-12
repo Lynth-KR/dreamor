@@ -1,0 +1,8 @@
+# The code users read in the documentation (the guide's pages and the tests that hold their code): the tests' checks,
+# minus what a model's code does as a user writes it - a plain enum, a model's sets as const members. The same identity
+# as examples/.clang-tidy, the other place users read code: change the two together. The library's own code is held
+# by the root's checks, with none of these off.
+InheritParentConfig: true
+Checks: >
+  -performance-enum-size,
+  -cppcoreguidelines-avoid-const-or-ref-data-members

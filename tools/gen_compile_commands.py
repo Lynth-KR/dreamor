@@ -18,12 +18,17 @@ Which Concert each file sees:
   - the MathOpt backend, its example, the ported OR-Tools samples (examples/mathopt_samples)
     and tests/mathopt: OR-Tools (plus the stub, which tests/mathopt/test_cross_backend.cpp
     uses for the Concert side);
-  - the HiGHS backend, its example and tests/highs: HiGHS's include/highs (plus the stub, which
+  - the HiGHS backend and its parts (internal/highs/), its example, tests/highs and the guide's code that solves
+    (tests/docs/highs/): HiGHS's include/highs (plus the stub, which
     tests/highs/test_cross_backend.cpp uses for the Concert side);
-  - bench/catalog: the benchmarks' lean stub (bench/common/stub), as bench/catalog/build.sh compiles it.
-tests/compile_fail/*.cpp fail to compile on purpose; clangd reports those errors too.
-Warnings are tests/run_tests.sh's STRICT set (without -Werror) for dreamor's own code, and
--Wall -Wextra for the ported samples, the compile_fail cases, and bench/.
+  - bench/catalog: the benchmarks' lean stub (bench/common/stub), as bench/catalog/build.sh compiles it; the
+    hand-written arms (hand.cpp) without dreamor's include path, so the editor flags a dreamor include there as
+    the build does.
+The compile_fail and contract_fail topic files are given with no case defined, so clangd reads each case as
+an inactive block; to edit one with clangd's help, define its DREAMOR_CASE_<name> at the top for a while.
+Warnings are tests/CMakeLists.txt's, without -Werror: strict for dreamor's own code; user for the code users read
+(examples/, the guide's under tests/docs/, the README's and the skill's tests), as CMake builds it; -Wall -Wextra for
+the ported samples, the compile_fail cases, and bench/.
 Re-run after adding files. The output is machine-specific: it is in .gitignore.
 """
 
@@ -52,7 +57,7 @@ BASE = [
     f"-I{ROOT / 'examples'}",
     f"-I{ROOT / 'tests'}",
 ]
-# Keep in step with STRICT in tests/run_tests.sh (clangd is Clang, so -Wmissing-prototypes too).
+# Keep in step with strict in tests/CMakeLists.txt (clangd is Clang, so -Wmissing-prototypes too).
 STRICT = [
     "-Wall",
     "-Wextra",
@@ -72,6 +77,13 @@ STRICT = [
     "-Wmissing-prototypes",
 ]
 LENIENT = ["-Wall", "-Wextra"]
+# user in tests/CMakeLists.txt, but -Werror: the code users read, built as a user builds it.
+USER = ["-Wall", "-Wextra"]
+USER_CODE = (
+    "examples/",
+    "tests/docs/guide/",
+    "tests/docs/highs/",
+)
 STUB = [f"-I{ROOT / 'tests' / 'stub'}"]
 BENCH = [f"-I{ROOT / 'bench' / 'common' / 'stub'}"]
 if (STUDIO / "concert" / "include").is_dir() and (STUDIO / "cplex" / "include").is_dir():
@@ -97,7 +109,7 @@ def flags_for(path: Path) -> list[str]:
         return MATHOPT
     if rel.startswith("tests/highs/compile_fail/"):
         return HIGHS_FLAGS + [f"-I{ROOT / 'tests' / 'highs' / 'compile_fail'}"]
-    if rel.startswith("tests/highs/") or "highs" in path.name:
+    if rel.startswith(("tests/highs/", "tests/docs/highs/", "include/dreamor/internal/highs/")) or "highs" in path.name:
         return HIGHS_FLAGS
     if rel.startswith("bench/"):
         return BENCH
@@ -105,7 +117,14 @@ def flags_for(path: Path) -> list[str]:
         return STUB + [f"-I{ROOT / 'tests' / 'compile_fail'}"]
     if rel.startswith("tests/cplex/") or rel.startswith("examples/") or rel.startswith("include/"):
         return REAL
-    return STUB  # tests/*.cpp, tests/check.hpp, tests/stub/**
+    return STUB  # everything else under tests/: the Concert stub
+
+
+def base_for(path: Path) -> list[str]:
+    rel = path.relative_to(ROOT).as_posix()
+    if rel.startswith("bench/") and path.stem.endswith("hand"):  # bench/catalog/hand.cpp, bench/scenario/*_hand.cpp
+        return [a for a in BASE if a != f"-I{ROOT / 'include'}"]
+    return BASE
 
 
 def warnings_for(path: Path) -> list[str]:
@@ -120,6 +139,8 @@ def warnings_for(path: Path) -> list[str]:
         )
     ):
         return LENIENT
+    if rel.startswith(USER_CODE):
+        return USER
     return STRICT
 
 
@@ -141,7 +162,7 @@ for pattern in (
             continue
         is_header = path.suffix in (".hpp", ".h")
         args = (
-            BASE
+            base_for(path)
             + warnings_for(path)
             + flags_for(path)
             + (["-x", "c++-header"] if is_header else ["-x", "c++"])

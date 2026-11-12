@@ -5,6 +5,7 @@
 // Must compile: proves the prelude and include paths work, so a "rejected" result below
 // means the library rejected the code, not that the build setup is broken.
 #include "prelude.hpp"
+
 int main() {
   IloEnv env;
   const dreamor::concert::VarTable<cI, cJ> x{env, IJ(), 0, 1};

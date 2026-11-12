@@ -1,0 +1,47 @@
+name: site
+# The documentation site (zensical.toml: docs/ but docs/dev/) on GitHub Pages, at the latest release: a pushed tag
+# (v0.9.0) builds the site from that tag and replaces the whole site with it, so the pages always match a released
+# version, never main. A run started by hand (workflow_dispatch) publishes the tag it is given, to retry a failed run;
+# given an older tag, it puts that version up. docs/dev/ci.md, "The site", says what the repository's settings need.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "The release tag to publish, such as v0.9.0"
+        required: true
+# One deployment at a time; a newer one waits for the one in flight rather than cancel it halfway.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      # tools/site.sh runs the Zensical it pins through uvx, and fails on a broken link or a guide page's missing region.
+      - run: pipx install uv
+      - run: tools/site.sh
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

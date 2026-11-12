@@ -2,11 +2,13 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// Against the real CPLEX (run_tests.sh --cplex): a small MIP built with the library, solved,
+// Against the real CPLEX (the cplex preset): a small MIP built with the library, solved,
 // read back with solution(), and exported to check that key-based names reach CPLEX; then a
-// quadratic objective summed by sumExpr, solved as an MIQP.
+// quadratic objective summed by sumExpr, solved as an MIQP; columns of std::uint32_t and std::size_t as
+// coefficients, and a family with a variable no row uses.
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <fstream>
 #include <sstream>
@@ -15,21 +17,27 @@
 
 #include <ilcplex/ilocplex.h>
 
-#include "check.hpp"
 #include "dreamor/concert.hpp"
 #include "dreamor/index_set.hpp"
-#include "float_compare.hpp"
-using cI = dreamor::Col<std::size_t, "i">;
-using cJ = dreamor::Col<std::size_t, "j">;
+#include "support/check.hpp"
+#include "support/float_compare.hpp"
+
+namespace {
+DREAMOR_VALUE_COLUMN(cI, std::size_t);
+DREAMOR_VALUE_COLUMN(cJ, std::size_t);
+DREAMOR_VALUE_COLUMN(cPeriod, std::uint32_t);
+}  // namespace
 
 int main() try {
   IloEnv env;
   try {
     const std::vector<std::size_t> I{1, 2, 3, 4};
     const std::vector<std::size_t> J{10, 20, 30};
-    const auto IJ =
-        dreamor::makeSet<cI, cJ>(I, J).where([](cI i, cJ j) { return (i.get() + j.get()) % 3 != 0; }).build();
-    const auto II = dreamor::makeSet<cI>(I).build();
+    const auto IJ = dreamor::index_set::relational::from<cI>(I)
+                        .cross<cJ>(J)
+                        .where([](cI i, cJ j) { return (i.get() + j.get()) % 3 != 0; })
+                        .build();
+    const auto II = dreamor::index_set::relational::from<cI>(I).build();
 
     const dreamor::concert::VarTable<cI, cJ> x{env, IJ, 0, 1, ILOBOOL, "x"};
     const dreamor::concert::VarTable<cI> slack{
@@ -112,6 +120,25 @@ int main() try {
     DREAMOR_CHECK(std::abs(fitPlan(cI{1}) - 1) < 1e-6 && std::abs(fitPlan(cI{2}) - 3) < 1e-6 &&
                   std::abs(fitPlan(cI{3}) - 4) < 1e-6 && std::abs(fitPlan(cI{4}) - 6) < 1e-6);
     leastSquares.end();
+
+    // a column of std::uint32_t or std::size_t as a coefficient, either side - Concert's own overloads would leave
+    // both ambiguous - and a variable no row uses, which CPLEX does not extract, read as 0
+    const IloModel weighted(env);
+    const auto sPERIODS = dreamor::index_set::relational::from<cPeriod>(dreamor::interval::closed(1, 3)).build();
+    const dreamor::concert::VarTable<cPeriod> run{env, sPERIODS, 0, 1, ILOFLOAT, "Run"};
+    const auto late   = [](cPeriod t) { return t > 1; };
+    const auto weight = [&run](cPeriod t) { return t * run(t) + run(t) * t; };
+    IloExpr lateness  = dreamor::concert::sumExpr(env, sPERIODS, weight).where(late).build();  // Run_1 unused
+    weighted.add(IloMaximize(env, lateness));
+    weighted.add(dreamor::concert::sumExpr(env, II, [&run](cI i) { return i * run(cPeriod{3}); }).build() <= 30);
+    lateness.end();
+    IloCplex weighing(weighted);
+    weighing.setOut(env.getNullStream());
+    DREAMOR_CHECK(weighing.solve());
+    const auto runPlan = run.solution(weighing);
+    DREAMOR_CHECK(isExactlyZero(runPlan(cPeriod{1})) && std::abs(runPlan(cPeriod{3}) - 1) < 1e-6);
+    DREAMOR_CHECK(std::abs(weighing.getObjValue() - 10) < 1e-6);  // 2 * 2 + 2 * 3
+    weighing.end();
   } catch (const IloException& e) {
     std::fprintf(stderr, "IloException: %s\n", e.getMessage());
     ++g_failures;

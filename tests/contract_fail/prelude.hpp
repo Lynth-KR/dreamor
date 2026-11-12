@@ -21,13 +21,11 @@
 struct Entity {
   std::size_t id;
 };
-inline std::size_t keyName(const Entity* e) {
-  return e->id;
-}
+
 inline std::size_t primaryKey(const Entity& e) {
   return e.id;
 }
 
-using cI = dreamor::Col<std::size_t, "i">;
-using cJ = dreamor::Col<std::size_t, "j">;
-using cE = dreamor::Col<const Entity*, "e">;
+DREAMOR_VALUE_COLUMN(cI, std::size_t);
+DREAMOR_VALUE_COLUMN(cJ, std::size_t);
+DREAMOR_ENTITY_COLUMN(cE, Entity);

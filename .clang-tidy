@@ -7,6 +7,10 @@
 #   cppcoreguidelines-pro-bounds-*       indices are checked once, then used; the tests run
 #                                        under sanitizers and against a reference instead
 #   misc-use-anonymous-namespace         misc-use-internal-linkage asks for the opposite; static wins
+#   bugprone-crtp-constructor-accessibility  a column inherits its base's constructors (using Col::Col), and
+#                                        an inherited constructor keeps its access: private ones would be
+#                                        private in cPeriod too
+#   bugprone-easily-swappable-parameters two sets of one type, lower and upper: what the operation takes
 # An exception to a check that stays on is a NOLINT(check) with the reason beside it.
 Checks: >
   -*,
@@ -24,13 +28,15 @@ Checks: >
   -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access,
   -cppcoreguidelines-pro-bounds-constant-array-index,
   -cppcoreguidelines-pro-bounds-pointer-arithmetic,
-  -misc-use-anonymous-namespace
+  -misc-use-anonymous-namespace,
+  -bugprone-crtp-constructor-accessibility,
+  -bugprone-easily-swappable-parameters
 WarningsAsErrors: "*"
 HeaderFilterRegex: "/include/dreamor/"
 CheckOptions:
   # Report, never rewrite: whether a function goes static or into a namespace is ours to decide.
   misc-use-internal-linkage.FixMode: None
-  # The naming convention of AGENTS.md (library code; tests/ and examples/ turn this off).
+  # The naming convention of docs/dev/code-style.md (library code; tests/ and examples/ turn this off).
   readability-identifier-naming.NamespaceCase: lower_case
   readability-identifier-naming.ClassCase: CamelCase
   readability-identifier-naming.StructCase: CamelCase
@@ -40,6 +46,8 @@ CheckOptions:
   readability-identifier-naming.TypedefCase: CamelCase
   readability-identifier-naming.TemplateParameterCase: CamelCase
   readability-identifier-naming.FunctionCase: camelBack
+  # A concept as the standard names its own: snake_case, an adjective or a noun (std::integral).
+  readability-identifier-naming.ConceptCase: lower_case
   readability-identifier-naming.MethodCase: camelBack
   readability-identifier-naming.VariableCase: lower_case
   readability-identifier-naming.ParameterCase: lower_case
@@ -58,7 +66,7 @@ CheckOptions:
   # a container's member types as the standard names them (key_type, size_type, ...),
   # and type traits in the standard / Abseil style: is_*, always_false, ::type, ::value-like
   # members (deducible, known, ...), and head / tail / indices of type lists.
-  readability-identifier-naming.TypeAliasIgnoredRegexp: "^(type|value_type|key_type|size_type|iterator|const_iterator|iterator_concept|iterator_category|difference_type|reference|const_reference|pointer|const_pointer|head|tail|indices|c[A-Z][A-Za-z0-9]*)$"
+  readability-identifier-naming.TypeAliasIgnoredRegexp: "^(type|value_type|key_type|size_type|element_type|column_type|iterator|const_iterator|iterator_concept|iterator_category|difference_type|reference|const_reference|pointer|const_pointer|head|tail|indices|c[A-Z][A-Za-z0-9]*)$"
   readability-identifier-naming.ClassIgnoredRegexp: "^iterator$"
   readability-identifier-naming.StructIgnoredRegexp: "^is_[a-z_]+$"
   readability-identifier-naming.ConstexprVariableIgnoredRegexp: "^(always_false|enable_borrowed_range|deducible|known|invocable|all_named|all_present|mask|is_[a-z_]+|no_[a-z_]+)$"

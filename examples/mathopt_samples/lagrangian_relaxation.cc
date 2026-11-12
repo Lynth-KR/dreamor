@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: MPL-2.0
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2010-2025 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -91,6 +90,7 @@
 #include <ranges>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "absl/flags/flag.h"
@@ -138,44 +138,48 @@ struct Arc {
   double resource_2;
 };
 
+// What identifies an arc in its EntityVector, and the token it contributes to its
+// variable's name: x_<i>_<j>.
+inline std::string primaryKey(const Arc& arc) {
+  return absl::StrFormat("%d_%d", arc.i, arc.j);
+}
+
 struct Graph {
   int num_nodes;
-  std::vector<Arc> arcs;
+  dreamor::EntityVector<Arc> arcs;
   int source;
   int sink;
 };
 
 // An arc is an entity of the graph; its tail and head are values read off it.
-using cArc = dreamor::Col<const Arc*, "arc">;
-using cNode = dreamor::Col<int, "node">;
-using cTail = dreamor::Col<int, "tail">;
-using cHead = dreamor::Col<int, "head">;
-
-// The token an arc contributes to its variable's name: x_<i>_<j>.
-inline std::string keyName(const Arc* arc) {
-  return absl::StrFormat("%d_%d", arc->i, arc->j);
-}
+DREAMOR_ENTITY_COLUMN(cArc, Arc);
+DREAMOR_VALUE_COLUMN(cNode, int);
+DREAMOR_VALUE_COLUMN(cTail, int);
+DREAMOR_VALUE_COLUMN(cHead, int);
 
 // set NODES := 0..num_nodes-1;
 // set ARCS;
 // set ARC_ENDS := {a in ARCS, t in {tail[a]}, h in {head[a]}};
 //
-// The sets point into graph.arcs, so the graph must outlive them (and every
+// The sets refer into graph.arcs, so the graph must outlive them (and every
 // FlowModel built on it).
 struct Network {
-  explicit Network(const Graph& graph) {
-    const auto node_ids = std::views::iota(0, graph.num_nodes);
-    const auto tail_of = [](cArc a) { return std::views::single(a->i); };
-    const auto head_of = [](cArc a) { return std::views::single(a->j); };
-    sNODES = dreamor::makeSet<cNode>(node_ids).build();
-    sARC_ENDS = dreamor::makeSet<cArc, cTail, cHead>(graph.arcs, tail_of,
-                                                          head_of)
-                    .build();
-    sARCS = sARC_ENDS.select<cArc>();
-  }
-  dreamor::IndexSet<cNode> sNODES;
-  dreamor::IndexSet<cArc, cTail, cHead> sARC_ENDS;
-  dreamor::IndexSet<cArc> sARCS;
+  static constexpr auto tail_of = [](cArc a) {
+    return std::views::single(a->i);
+  };
+  static constexpr auto head_of = [](cArc a) {
+    return std::views::single(a->j);
+  };
+  // Each set is built where it is declared, in declaration order.
+  explicit Network(const Graph& graph)
+      : sNODES(dreamor::index_set::relational::from<cNode>(std::views::iota(0, graph.num_nodes))
+                   .build()),
+        sARC_ENDS(dreamor::index_set::relational::from<cArc>(graph.arcs).lateral<cTail>(tail_of).lateral<cHead>(head_of)
+                      .build()),
+        sARCS(sARC_ENDS.select<cArc>()) {}
+  const dreamor::IndexSet<cNode> sNODES;
+  const dreamor::IndexSet<cArc, cTail, cHead> sARC_ENDS;
+  const dreamor::IndexSet<cArc> sARCS;
 };
 
 // The shortest path model: flow variables, the cost and resource expressions,
@@ -248,9 +252,12 @@ Graph CreateSampleNetwork() {
       {.i = 4, .j = 3, .cost = 3, .resource_1 = 1, .resource_2 = 0.5});
   arcs.push_back(
       {.i = 4, .j = 5, .cost = 5, .resource_1 = 2.5, .resource_2 = 1});
-  const Graph graph = {.num_nodes = 6, .arcs = arcs, .source = 0, .sink = 5};
-
-  return graph;
+  dreamor::EntityVector<Arc> entities;
+  for (const Arc& arc : arcs) {
+    static_cast<void>(entities.insert(arc));
+  }
+  entities.freeze();
+  return {.num_nodes = 6, .arcs = std::move(entities), .source = 0, .sink = 5};
 }
 
 // Solves the constrained shortest path as an MIP.

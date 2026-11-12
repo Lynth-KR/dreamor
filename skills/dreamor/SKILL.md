@@ -1,287 +1,108 @@
 ---
 name: dreamor
-description: Write, review, and fix C++ optimization models that use dreamor (index sets, VarTable, sumExpr) on CPLEX Concert, OR-Tools MathOpt, or HiGHS. Use this skill whenever code includes "dreamor/..." headers or uses makeSet, IndexSet, groupBy, slice, ordered, VarTable, ValueTable, sumExpr, or HighsEnv; whenever the user wants to translate an AMPL-style model (sets, indexed variables, sums, constraint families) into C++ with dreamor; and whenever a compile error mentions dreamor, VarTable, sumExpr, UnbuiltSum, or messages such as "Look a variable or value up by the table's key columns" or "is not an expression yet".
+description: Write, review, and fix C++ optimization models that use dreamor (entities in EntityVector, Ref, columns of entities and of plain values, index sets, ParamTable, VarTable, sumExpr, SolutionTable) on HiGHS, CPLEX Concert, or OR-Tools MathOpt. Use this skill whenever code includes "dreamor/..." headers or uses dreamor::index_set::relational::from (set chains - cross, lateral, join, where, build), dreamor::index_set::set_builder (of, in), IndexSet, EntityVector, Ref, DREAMOR_ENTITY_COLUMN, DREAMOR_VALUE_COLUMN, groupBy, slice, ordered, orderedWithin, ParamTable, VarTable, SolutionTable, sumExpr, indexedName, or HighsEnv, addConstr and minimize from dreamor::highs; whenever the user wants to write a model (sets, data on them, indexed variables, sums, constraint families) in C++ with dreamor; and whenever a compile error or a debug-build abort mentions dreamor, VarTable, sumExpr, UnbuiltSum, or messages such as "Look a variable or value up by the table's key columns", "is not an expression yet" or "a broken contract".
 ---
 
 # dreamor (0.8)
 
-dreamor is a header-only C++20 layer for algebraic optimization models. It provides exactly three things:
+dreamor is a header-only C++20 modeling layer: a model's data as entities, the index sets over them, and on those
+sets data, variable families and sums, checked by the compiler. Constraints, objectives, solving, options, bounds
+after construction and duals are the solver's own API - on HiGHS, `dreamor::highs` brings highspy's `addConstr`,
+`setObjective`, `minimize`; on Concert `model.add`, `IloCplex`; on MathOpt `AddLinearConstraint`, `Solve`. dreamor has
+no constraint tables, no column generation, no constraint programming, no keyed duals. Do not invent API: every
+public name is in the reference below.
 
-1. **Index sets**, built like AMPL set declarations. These are solver-independent and come from
-   `dreamor/index_set.hpp`.
-2. **Variable families** (`VarTable`), one table of solver variables per set.
-3. **Sums** (`sumExpr`) over a set or a group.
+## Where to look
 
-Variable families and sums are backend-specific. `dreamor::ValueTable` (solution values and what an algorithm computes from them; data on a set is possible, `ValueTable<Keys...>{set, value}`, but a parameter belongs on its entity as a field, or in a named callable when an expression defines it) is shared by every backend.
+This folder carries the documentation as files. Read the page for the task before writing its code, and follow its
+code: it is compiled and checked as written.
 
-Everything else — constraints, objectives, solving, duals, solver parameters (settings: `IloCplex::Param`, MathOpt's
-`SolveParameters`, HiGHS's options) — is written in the solver's own API.
-dreamor has no constraint tables, no column generation (tables never grow), and no constraint programming
-(interval variables, `noOverlap`, cumulative functions). Do not invent API for these.
+- `docs/guide/at-a-glance.md` - the names a first model needs, and the ones to learn next. Prefer those names.
+- `docs/guide/index.md` - a model's parts and where each is shown. Then the page for the task:
 
-Read further only when needed:
-- `references/api.md` — full signatures: sets, `Grouped`, `RowSlice`, `Ordered`, every backend, `ValueTable`.
-- `references/diagnostics.md` — every dreamor compile-time message with its cause and fix, plus runtime
-  exceptions. Read it whenever you are fixing a build error in dreamor code.
+  | To | Read |
+  |---|---|
+  | hold the data's entities, refer to one | `docs/guide/entities.md` |
+  | declare columns; write a callable or a key | `docs/guide/columns.md` |
+  | build a set | `docs/guide/relational-algebra.md` (a chain), `set-builder-notation.md` (`of`, `in`), `sets-from-records.md` |
+  | make a set from another, or two | `docs/guide/deriving-sets.md`, `set-algebra.md` |
+  | group rows; read a neighbour, the period before | `docs/guide/grouping.md`, `ordered-sets.md` |
+  | compute a value over rows before a solve; hold data on a set | `docs/guide/values-over-a-set.md`, `data-on-a-set.md` |
+  | make variables; sum them; add rows and the objective | `docs/guide/variable-families.md`, `sums.md`, `constraints-and-objective.md` |
+  | read the solution; carry it into the next model | `docs/guide/solutions.md` |
+  | name rows; log | `docs/guide/names-and-logging.md` |
+  | HiGHS's environment and its own API; Concert's and MathOpt's objects | `docs/guide/backends.md` |
 
-## Headers and namespaces
+- `docs/reference/` - every public name, its signature, what it takes, throws and costs, a page a topic
+  (`index.md`); `debug-build-checks.md`, every contract; `exceptions.md`, what throws what. Read the entry before
+  using a member the guide does not show.
+- `references/diagnostics.md` - every compile-time message and debug-build abort, with its cause and fix. Read it
+  whenever a build stops or a debug run aborts in dreamor code.
 
-| Include | Namespace | Use with |
-|---|---|---|
-| `dreamor/index_set.hpp` | `dreamor` | any solver |
-| `dreamor/concert.hpp` | `dreamor::concert` | CPLEX Concert (`IloEnv`, `IloModel`, `IloCplex`, `ILOFLOAT`/`ILOINT`/`ILOBOOL`) |
-| `dreamor/mathopt.hpp` | `dreamor::mathopt` | OR-Tools MathOpt (`math_opt::Model`, `math_opt::Solve`) |
-| `dreamor/highs.hpp` | `dreamor::highs` | HiGHS's own C++ API, written as highspy writes it (`HighsEnv`, `addConstr`, `minimize`, `HighsVarType`) |
+## Writing a model
 
-There is no `dreamor::VarTable` and no `dreamor::sumExpr`. Qualify them with the backend namespace, or alias it:
-`namespace concert = dreamor::concert;`.
+In this order - each step takes what the one before made:
 
-CMake: `find_package(dreamor 0.8 CONFIG REQUIRED)`, then link `dreamor::dreamor` plus the solver
-(`ortools::ortools`, `highs::highs`, or the user's CPLEX target).
+1. **Entities**: each kind in a `dreamor::EntityVector<T>`, by its `primaryKey()`, filled, then `freeze()`; a field
+   that refers to another entity is a `dreamor::Ref<T>`, taken with `at` after that vector is frozen.
+2. **Columns**: `DREAMOR_ENTITY_COLUMN(cMachine, Machine)`, `DREAMOR_VALUE_COLUMN(cPeriod, int)`.
+3. **Sets**: a chain from `dreamor::index_set::relational::from`, or set-builder notation; then derived ones.
+4. **Data on sets** no entity holds: `dreamor::ParamTable`.
+5. **Variables**: a backend's `VarTable` over each family's whole set.
+6. **Rows**: a loop over the set a family runs over, a backend's `sumExpr(...).build()` in it, the solver's own call.
+7. **Solve, then read**: `solution()` gives a `SolutionTable`.
 
-## Naming
+`VarTable` and `sumExpr` are a backend's (`dreamor::highs`, `concert`, `mathopt`): there is no `dreamor::VarTable`. A
+backend header brings the set layer with it. CMake: `find_package(dreamor 0.8 CONFIG REQUIRED)`, link
+`dreamor::dreamor` and the solver. Build without `NDEBUG` while writing a model: the debug build checks the contracts.
 
-dreamor checks no names: they are the user's. Follow the user's code. Where it shows no style, use the shapes
-dreamor's documentation recommends, which match an AMPL model's names once the prefix is dropped:
+## What agents get wrong
 
-| Kind | Shape | Example |
-|---|---|---|
-| Column type | `c` + PascalCase | `cMachine`, `cPeriod` |
-| Set | `s` + SCREAMING_SNAKE_CASE | `sPRODUCE` (AMPL `PRODUCE`) |
-| Variable family | `v` + PascalCase | `vYield` (AMPL `Yield`) |
+Each is a rule of the reference or the guide, linked; the compile-time ones stop with a sentence that
+`references/diagnostics.md` explains.
 
-and write callables that take columns in snake_case (`items_of`, `machine_usage`) and everything else in camelCase
-(`producedByMachinePeriod`, `yieldPlan`). Prefer self-describing names over single letters.
-
-## Rules
-
-Three kinds, as in `docs/philosophy.md`: what the compiler rejects, what dreamor takes on trust (undefined behavior
-if broken), and what it recommends.
-
-### Forbidden: a compile error
-
-1. **Callables take column types.** Predicates, dependent sources, bounds, and sum terms are written as
-   `[](cMachine m, cPeriod t) { ... }`, taking only the columns they read, in any order. dreamor reads the
-   parameter types to know which columns to bind, so `[](const Machine* m)`, `[](int t)`, and `[](auto x)` are
-   rejected - the key of `orderBy` included.
-2. **Lookups take column values in declaration order, or one row.** This covers `vYield(m, i, t)`,
-   `yieldPlan(m, i, t)`, `grouped.slice(i, t)`, `orderedPeriods.prev(t)`, `orderedPeriods.next(t, 2)`, and
-   `in_routes(m, i)`. Bare values (`vYield(2, 1, 0)`) and braces (`slice({i, t})`) are rejected, because two
-   int-valued columns could otherwise swap places silently. Wrap a raw value: `cPeriod{2}`.
-3. **`sumExpr(...)` becomes an expression only after `.build()`.**
-   - Concert: `dreamor::concert::sumExpr(env, rows, term).build()` → `IloExpr`.
-   - MathOpt: `dreamor::mathopt::sumExpr(rows, term).build()` → `LinearExpression`. It takes no env and no model.
-   - HiGHS: `dreamor::highs::sumExpr(rows, term).build()` → `HighsLinearExpression`. It takes no env either.
-
-   `build()` is deliberate, since it lets `.where()`/`.whereEach()` chain; keep it.
-4. **A table's key columns equal its set's columns, in order.** Reorder a set with `select<...>()` if needed.
-5. **Sets are read-only.** To get a different set, derive one with `where`, `select`, `orderBy`, `unite`,
-   `intersect`, or `difference`. Each gives a stated order of rows (`docs/reference.md`, "The order of rows").
-6. **Name the object before borrowing from it.** Call `Grouped::slice/at` and every `Ordered` lookup on a
-   named variable. Plain iteration of a temporary is fine: `for (const auto& [c, rows] : S.groupBy<C>())`.
-7. **Grouped iteration binds key columns, then rows:** `for (const auto& [machine, period, rows] : grouped)`. Any
-   other number of names is rejected.
-8. **Sources.** A dependent source of an entity column returns a range of *pointers* (`std::vector<const Item*>`, a
-   span, a view); one of a value column, any range of values (an `interval`, a `std::vector<int>`). A
-   container source must be an lvalue; an integer range is `dreamor::interval::closed(first, last)` (or `open`,
-   `closedOpen`, `openClosed`), passed as it is.
-
-### Contract: undefined behavior if broken
-
-9. **A set is a set.** No source holds an element twice, and an entity is one object in one container: a
-   precondition that keeps every set free of repeated rows, which a debug build checks and stops on.
-   `dreamor::EntityVector<T>` keeps it for entities: define `primaryKey(const T&)` next to `T`; fill it
-   (`reserve`, `insert`/`emplace` returning `{element, inserted}` as `std::set` does, `sort()` or `sort(comp)`),
-   `freeze()` it, then read it; `modify(entity, fn)` is the only way to change one.
-10. **Concert lifetime.** Call `env.end()` exactly once, last. Never `end()` a VarTable's variables or
-    `endElements()` an array holding them. `end()` temporary `IloExpr`s after adding the constraint. None of this
-    applies to MathOpt or HiGHS.
-
-### Recommended
-
-11. **One `VarTable` per variable family, over the family's whole set.** A second table over a subset creates
-    new, unrelated variables. Reach subsets and groups through the one table: `vYield(row)`. Two tables over one set
-    are fine when they are different families (`vYield` and `vSetup` over `sPRODUCE`).
-12. **Iterating a `Grouped` visits only keys present in that set.** If every key of a driver set needs a
-    constraint (including keys with no rows), iterate the driver set and call `slice()`. A missing key gives an
-    empty slice, whose sum is 0.
-13. **To sum variables without coefficients, pass the table itself as the term.** Write
-    `sumExpr(env, rows, vYield)` with no lambda.
-14. **Read columns by name.** Write `std::get<cPeriod>(row)`, not `std::get<0>(row)`.
-
-## AMPL → dreamor
-
-| AMPL | dreamor |
-|---|---|
-| `set ROUTES := {m in MACHINES, i in ITEMS[m]};` | `const auto sROUTES = dreamor::makeSet<cMachine, cItem>(machines, items_of).build();` |
-| `set PRODUCE := {(m,i) in ROUTES, t in PERIODS};` | `const auto sPRODUCE = dreamor::makeSet<cPeriod>(sROUTES, periods).build();` |
-| `{...: open[i,t]}` | `.where(is_open)` with `[](cItem i, cPeriod t) { ... }` |
-| `forall`/`exists {...}: p`, `card {...: p}` over data | `dreamor::allOf(S, p)`, `anyOf`, `noneOf`, `countIf(S, p)`: no loop, no set made |
-| `max {...} v`, `min`, `sum {...} v` over data, the row of the largest | `dreamor::maxOf(S, v)`, `minOf`, `sumValue(S, v)`; `maxElement(S, v)` (`const Row*`, `nullptr` if none) |
-| `setof {(m,i,t) in S} (m,i)` | `S.select<cMachine, cItem>()` |
-| `{(m,i) in ROUTES, (i,t) in OPEN}` | `dreamor::makeSet<>(sROUTES, sOPEN).build()` (joined on the shared `cItem`) |
-| `setof {(i,j) in EDGES} (j,i)` | `sEDGES.select([](cFrom i, cTo j) { return std::tuple<cFrom, cTo>{j, i}; })` |
-| `(m,i) in ROUTES` | `sROUTES.membership()`, called as `in_routes(m, i)` or passed to `where` |
-| `prev(t)`, `next(t, 2)`, `ord(t)` on an ordered set | `const auto orderedPeriods = sPERIODS.ordered();` then `.prev(t)` (row pointer or `nullptr`), `.next(t, 2)`, `.positionOf(t)` (0-based optional) |
-| `next(t, S[m])`, the next row within an indexed collection | `const auto periodsOfMachine = sRUN.orderedWithin<cMachine>();` then `.next(m, t)` (`nullptr` at the end of `m`'s rows) |
-| `subject to C {(i,t) in STOCK: ord(t) > 1}: ... Stock[i,prev(t)] ...`, a row only where a neighbour is | `const auto not_first = [&orderedPeriods](cPeriod t) { return !orderedPeriods.isFirst(t); };` then `for (const auto& [i, t] : sSTOCK.where(not_first))`, reading `orderedPeriods.prevOf(t)` (the row itself) in the row: the condition on the loop's set, not an `if` around the row |
-| `(if ord(t) > 1 then Stock[i,prev(t)])`, a term only where a neighbour is | in the row: `if (const auto* prevPeriod = orderedPeriods.prev(t)) { totalInFlow += vStock(i, std::get<cPeriod>(*prevPeriod)); }` |
-| `param cap {MACHINES};` | a field of the entity: `m->capacity` (a value on a relation: make the relation an entity) |
-| `param max_qty {(m,i) in ROUTES} = cap[m] / time[i];` | a named callable: `const auto max_possible_qty = [](cMachine m, cItem i) { return m->capacity / i->time; };` |
-| `var Yield {PRODUCE} >= 0, <= cap[m]/time[i];` | `const dreamor::concert::VarTable<cMachine, cItem, cPeriod> vYield{env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};` |
-| `sum {(m,i,t) in PRODUCE} setup[m] * Setup[m,i,t]` | `dreamor::concert::sumExpr(env, sPRODUCE, setup_cost).build()` |
-| `sum {m: (m,i,t) in PRODUCE} Yield[m,i,t]` | `dreamor::concert::sumExpr(env, producedByItemPeriod.slice(i, t), vYield).build()` |
-| `subject to C {m in MACHINES, t in PERIODS}: ...` | `for (const auto& [machine, period, rows] : sPRODUCE.groupBy<cMachine, cPeriod>()) model.add(...);` |
-
-## Canonical model (Concert)
-
-```cpp
-#include <ilcplex/ilocplex.h>
-#include "dreamor/index_set.hpp"
-#include "dreamor/concert.hpp"
-
-struct Item { std::string name; double time, hold; std::vector<double> demand; };
-struct Machine { std::string name; double capacity, setup; std::vector<const Item*> items; };
-inline const std::string& keyName(const Item* i) { return i->name; }      // token in variable names,
-inline const std::string& keyName(const Machine* m) { return m->name; }   // same namespace as the entity
-
-using cMachine = dreamor::Col<const Machine*, "machine">;
-using cItem    = dreamor::Col<const Item*, "item">;
-using cPeriod  = dreamor::Col<std::size_t, "period">;
-
-IloEnv env;
-IloModel model(env);
-
-const auto items_of = [](cMachine m) { return m->items; };
-const auto sPERIODS = dreamor::makeSet<cPeriod>(periods).build();
-const auto sROUTES  = dreamor::makeSet<cMachine, cItem>(machines, items_of).build();
-const auto sPRODUCE = dreamor::makeSet<cPeriod>(sROUTES, periods).build();
-const auto sSTOCK   = dreamor::makeSet<cItem, cPeriod>(items, periods).build();
-
-const auto max_possible_qty = [](cMachine m, cItem i) { return m->capacity / i->time; };
-const dreamor::concert::VarTable<cMachine, cItem, cPeriod> vYield{env, sPRODUCE, 0, max_possible_qty, ILOFLOAT, "Yield"};
-const dreamor::concert::VarTable<cMachine, cItem, cPeriod> vSetup{env, sPRODUCE, 0, 1, ILOBOOL, "Setup"};
-const dreamor::concert::VarTable<cItem, cPeriod> vStock{env, sSTOCK, 0, IloInfinity, ILOFLOAT, "Stock"};
-
-// Every (item, period) needs a balance row, even with no producer: iterate the driver set + slice().
-const auto orderedPeriods = sPERIODS.ordered();
-const auto producedByItemPeriod = sPRODUCE.groupBy<cItem, cPeriod>();
-for (const auto& [i, t] : sSTOCK) {
-  IloExpr totalInFlow = dreamor::concert::sumExpr(env, producedByItemPeriod.slice(i, t), vYield).build();
-  if (const auto* prevPeriod = orderedPeriods.prev(t)) { totalInFlow += vStock(i, std::get<cPeriod>(*prevPeriod)); }
-  model.add(totalInFlow - i->demand[t.get()] == vStock(i, t));
-  totalInFlow.end();
-}
-
-// One row per existing (machine, period): iterate the Grouped.
-const auto machine_usage = [&](cMachine m, cItem i, cPeriod t) { return i->time * vYield(m, i, t); };
-for (const auto& [machine, period, rows] : sPRODUCE.groupBy<cMachine, cPeriod>()) {
-  IloExpr totalLoad = dreamor::concert::sumExpr(env, rows, machine_usage).build();
-  model.add(totalLoad <= machine->capacity);
-  totalLoad.end();
-}
-
-for (const auto& [row, yieldVar] : vYield) {
-  model.add(yieldVar <= yieldVar.getUB() * vSetup(row));
-}
-
-const auto holding_term = [&](cItem i, cPeriod t) { return i->hold * vStock(i, t); };
-const auto setup_term = [&](cMachine m, cItem i, cPeriod t) { return m->setup * vSetup(m, i, t); };
-IloExpr holdingCost = dreamor::concert::sumExpr(env, sSTOCK, holding_term).build();
-IloExpr setupCost = dreamor::concert::sumExpr(env, sPRODUCE, setup_term).build();
-IloExpr totalCost = holdingCost + setupCost;
-model.add(IloMinimize(env, totalCost));
-holdingCost.end();
-setupCost.end();
-totalCost.end();
-
-IloCplex cplex(model);
-cplex.solve();
-const auto yieldPlan = vYield.solution(cplex);   // dreamor::ValueTable, usable after env.end()
-for (const auto& [row, qty] : yieldPlan) { /* ... */ }
-env.end();
-```
-
-## The same model on MathOpt
-
-Only the solver-facing parts change, and they take MathOpt's own notation:
-
-```cpp
-namespace math_opt = ::operations_research::math_opt;
-math_opt::Model model("lot sizing");
-const dreamor::mathopt::VarTable<cMachine, cItem, cPeriod> vYield{model, sPRODUCE, 0, max_possible_qty, /*is_integer=*/false, "Yield"};
-const dreamor::mathopt::VarTable<cMachine, cItem, cPeriod> vSetup{model, sPRODUCE, 0, 1, true, "Setup"};
-
-for (const auto& [machine, period, rows] : sPRODUCE.groupBy<cMachine, cPeriod>()) {
-  const math_opt::LinearExpression totalLoad = dreamor::mathopt::sumExpr(rows, machine_usage).build();
-  model.AddLinearConstraint(totalLoad <= machine->capacity);
-}
-
-const auto result = math_opt::Solve(model, math_opt::SolverType::kHighs);
-const auto yieldPlan = vYield.solution(*result);   // std::logic_error if no primal feasible solution
-```
-
-- The table takes a `Model&` instead of an env, and `is_integer` instead of a type constant.
-- `sumExpr` takes no env.
-- There are no semi-continuous variables and no `end()` calls. A sum is a `LinearExpression`, or a
-  `QuadraticExpression` when its term is quadratic.
-- Bounds are tightened with `model.set_upper_bound(vYield(row), 0)`.
-
-## The same model on HiGHS
-
-HiGHS's own API has no expressions; `dreamor::highs` brings highspy's, under highspy's names:
-
-```cpp
-namespace hs = dreamor::highs;
-hs::HighsEnv env;   // or HighsEnv env{options}: a HighsOptions, the Highs's before the model reaches it
-const hs::VarTable<cMachine, cItem, cPeriod> vYield{env, sPRODUCE, 0, max_possible_qty, HighsVarType::kContinuous, "Yield"};
-const hs::VarTable<cMachine, cItem, cPeriod> vSetup{env, sPRODUCE, 0, 1, HighsVarType::kInteger, "Setup"};
-
-for (const auto& [machine, period, rows] : sPRODUCE.groupBy<cMachine, cPeriod>()) {
-  hs::addConstr(env, hs::sumExpr(rows, machine_usage).build() <= machine->capacity, dreamor::indexedName("Cap", machine, period));
-}
-
-const auto setup_cost = [&](cMachine m, cItem i, cPeriod t) { return m->setup * vSetup(m, i, t); };
-hs::minimize(env, hs::sumExpr(sPRODUCE, setup_cost).build());   // setObjective, then run(); returns run()'s HighsStatus
-const auto yieldPlan = vYield.solution(env);                  // std::logic_error if no primal solution
-```
-
-- The table takes the `HighsEnv` and HiGHS's `HighsVarType`. A binary variable is `0, 1, HighsVarType::kInteger`.
-- `sumExpr` takes no env. A row is `expr <= b`, `a <= expr`, `expr == b` or `(a <= expr) <= b`; `addConstr` merges
-  repeated columns. A quadratic expression goes only to `setObjective`/`minimize`/`maximize`.
-- The model is collected and reaches HiGHS in one `passModel` the first time `env.highs()` is reached (or
-  `minimize`, or `solution`); after that, everything written goes to it as written. Build the model first.
-- Everything else is HiGHS's own API on `env.highs()`: options, `run()`, `getInfo()`, `writeModel`,
-  `changeColBounds(vYield(row).index(), lo, up)`. A failing call throws `HighsError` (`call()`, `status()`).
-- `HighsEnv` is neither copied nor moved; a `HighsVar` is valid while its env lives. Never mix two envs' variables.
-
-## Patterns
-
-- **Tighten bounds after construction:** `for (const auto& row : vYield.keys().where(in_maintenance)) { vYield(row).setUB(0); }`
-  In Concert, do this before `IloCplex cplex(model)`.
-- **Constraint for only some keys:** filter the driver set with `where` before the loop.
-- **Lower and upper constraint per key:** add both in the same iteration.
-- **One named global constraint (Concert):** `IloRange r = (expr <= B); r.setName("SetupBudget"); model.add(r);`
-- **Rows named like their variables:** `model.add(expr <= m->capacity).setName(dreamor::indexedName("Cap", m, t));` -
-  `Cap_M1_3`, the tokens VarTable uses, with no allocation and no format string. For a name of another shape, a
-  column prints as its token under `std::format` or `format` from `dreamor::FormatBuffer<256>`.
-- **Duals and reduced costs:** use the solver API (`getDuals`, `dual_values()`, `env.highs().getSolution().row_dual`).
-  There is no keyed accessor.
-- **Several sums in one pass:** `.whereEach(p1, p2).build()` returns `std::array<..., 2>` and computes each term once.
-- **Model in a struct:** the sets must be built before the `VarTable`s that take them - declare them as members before
-  the `VarTable`s (members are constructed in declaration order), or put them in a base class.
-- **Generic code over sets:** `sANY.template select<A>()`.
-- **A function object with a template `operator()` as a predicate:** specialize
-  `dreamor::CallableColumns<F>` with `using type = std::tuple<Cols...>;`.
-- **Scheduling with CP Optimizer or CP-SAT:** dreamor does not model it, but rows from `makeSet`/`groupBy`/`ordered()`
-  can be passed to those APIs directly.
+- **A callable takes the columns it reads**, by value or `const&`, one non-template `operator() const`: no `auto`
+  parameter, no `mutable`, no `std::function`, no `Ref<T>` or `int` parameter where a column goes
+  (`docs/reference/column-callables.md`).
+- **A lookup takes the key's columns in the table's order, or one row**; where two key columns hold one type
+  (`cParent`, `cChild`), name each, `quantity(cParent{a}, cChild{b})`; no braced list (`docs/reference/keys.md`).
+- **A column holds a `Ref` or a plain value** - never floating point (a quantity is an entity's field or a
+  `ParamTable`), never a pointer (`docs/reference/columns.md`).
+- **An `EntityVector` is filled, frozen, then read**; `find` gives an empty `Ref` when nothing has the key - check it
+  before reading (`docs/reference/entities.md`).
+- **No source holds an element twice**, and what a row refers to outlives the set: a named, frozen `EntityVector`, a
+  container of the text a `std::string_view` column shows (`docs/reference/debug-build-checks.md`).
+- **A family of rows runs over its domain**: a condition on a row's keys is a `where` on the set the loop runs over,
+  not an `if` around the row; an `if` inside a row chooses a term. A family over every key loops over the key's set
+  and `slice`s a named `Grouped` - an empty slice sums to 0 (`docs/guide/ordered-sets.md`, `grouping.md`).
+- **One `VarTable` a family**, its keys its set's columns in the same order; reach a subset's variables through it.
+  Tables are built after their sets, as members in the initializer list (`docs/guide/variable-families.md`).
+- **`sumExpr(...)` is a builder until `.build()`**; on Concert it takes the environment first,
+  `sumExpr(env, rows, term)` (`docs/reference/sums.md`).
+- **Name a `Grouped` or an `Ordered`** before `slice`, `at`, `next`, `prev`, `first` (`docs/reference/grouped.md`,
+  `ordered.md`).
+- **A set's order is the order its rows were made in**: read neighbours on a set whose order you made or sorted
+  (`orderBy`).
+- **HiGHS**: build the model before `env.highs()` is first reached; give options to `HighsEnv{options}`; one
+  environment's variables in an expression; a failing HiGHS call throws `dreamor::highs::HighsCallError`
+  (`docs/guide/backends.md`).
+- **Name rows** with `dreamor::indexedName("Balance", i, t)`, the rule `VarTable` names its variables by. Text is a
+  value (`std::format`); what a model has to say goes through `DREAMOR_LOG_INFO`, `_WARNING`, `_ERROR`
+  (`docs/guide/names-and-logging.md`).
+- **Name every callable** - no inline lambda - and, where the user's code shows no style of its own, name as dreamor's
+  documentation does: columns `cMachine`, sets `sMAKE`, variable families `vMake`, callables over columns
+  `fits_batch`, everything else `camelCase`.
 
 ## Before finishing
 
-Check generated code against this list:
-- Every callable takes column types.
-- Every lookup passes columns in key order.
-- Every `sumExpr` ends in `.build()` and uses the right backend's argument list.
-- No `VarTable` is built over a subset of another family's set.
-- Driver-set constraint families use `slice()` rather than `Grouped` iteration.
-- In Concert, `env.end()` appears once.
+- [ ] The code follows the guide page for each part it writes; every member used is in `docs/reference/`.
+- [ ] Every callable takes columns and is named; no inline lambda, no `auto` parameter.
+- [ ] Every lookup passes the key in the table's order, or one row; where two key columns share a type, each is named.
+- [ ] Entities live in named, frozen `EntityVector`s; fields that refer to another entity are `Ref<T>`; an empty `Ref`
+      from `find` is checked.
+- [ ] Each `VarTable` and `ParamTable` sits on a set with exactly its key columns, in order; one `VarTable` a family.
+- [ ] Every `sumExpr` ends in `.build()` and has the backend's arguments.
+- [ ] Each constraint family loops over its domain: `where` on the set for a row only some keys have, `slice` for a
+      family over every key; `if` only to choose a term inside a row.
+- [ ] Rows are named with `indexedName`; the solver's own calls make constraints, the objective, the solve.
+- [ ] The model builds without `NDEBUG` and runs once there: the debug build checks the contracts it can.

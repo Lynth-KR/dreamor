@@ -2,43 +2,47 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// File: bench/plan/model.cpp
+// The visit-order model: the planner's order against the other orders, over made-up sets of 3 to 16 sources.
 //
-// How good is the order makeSet's planner picks, over many made-up sets rather than a handful
-// of hand-written ones? The planner (plan.hpp) is a constexpr function of column masks - what
-// each source binds, what it reads, what each predicate reads - so this calls it at run time on
-// random sets of 3 to 16 sources and sets its order against the others the dependencies allow.
-// No set is built: an order's cost is the work its nested loops do, in expectation.
+// The question is how good the planner's order is over many made-up sets, not over a few written by hand. The planner
+// (plan.hpp) is a constexpr function of column masks: the columns that each source binds, the columns that each source
+// reads, and the columns that each predicate reads. So this program calls the planner at run time on random sets, and
+// sets its order against the other orders that the dependencies allow. No set is built. An order's cost is the work
+// that its nested loops do, in expectation.
 //
-// Cost. A source visited after the sources in S runs once per partial tuple that survived S:
-//   T(S)      = product of the sizes in S x product of the selectivities of the predicates S binds
-//   cost(ord) = sum over steps of T(sources before it) x size(the source)
-// the candidates the loops look at - each one bound and checked. T depends on the set, not the
-// order, so it is worked out once per subset; the best and worst orders then come from a
-// dynamic program over subsets, which is exact at 16 sources where listing 16! orders is not. A
-// dependent source's size is its list's length per binding, which multiplies the same way.
+// The cost: a source visited after the sources in S runs once for each partial tuple that survives S.
+//   T(S)      = the product of the sizes in S x the product of the selectivities of the predicates that S binds
+//   cost(ord) = the sum over the steps of T(the sources before the step) x size(the step's source)
+// The cost counts the candidates that the loops look at, each of which is bound and checked. T depends on the set,
+// not on the order, so it is worked out once for each subset. A dynamic program over the subsets then finds the best
+// and the worst order. The program is exact at 16 sources, where listing the 16! orders is not possible. The size of a
+// dependent source is the length of its list for one binding, and it multiplies in the same way.
 //
-// What the planner sees: column names only - which columns a predicate or a source reads. Not
-// sizes, not selectivities. The sizes and selectivities here are what it does not know.
+// The planner sees the names of the columns only: the columns that a predicate or a source reads. It does not see the
+// sizes or the selectivities, which this program draws.
 //
-// Against it, per set:
-//   without rule 4  plan.hpp's rules with declaration order breaking every tie the predicates
-//                   leave, a dependent source no different from a container: what rule 4 is worth
-//   declared        the order the sources are written in
-//   sizes 1/10      a greedy that knows the sizes, not the selectivities - each predicate taken to
-//                   keep 1/10: what choosing by size alone at run time could do
-//   + sizes         plan.hpp's rules with the sizes breaking the ties they leave: what run time
-//                   could add without guessing selectivities (not implemented)
-//   oracle          the greedy that knows sizes and selectivities: the fewest partial tuples next
-// regret = cost / best order's cost, and the planner's rank among the orders: 0 best .. 1 worst
-// (every order up to 8 sources, a sample of them above).
+// For each set, the planner's order is set against these orders:
+//   without rule 4  plan.hpp's rules, with declaration order breaking every tie that the predicates leave. A
+//                   dependent source counts the same as a container, so the difference is what rule 4 is worth.
+//   declared        The order in which the sources are written.
+//   sizes 1/10      A greedy order that knows the sizes but not the selectivities, and takes each predicate to keep
+//                   1/10. It shows what a choice by size alone, at run time, could do.
+//   + sizes         plan.hpp's rules, with the sizes breaking the ties that the rules leave. It shows what run time
+//                   could add without a guess at the selectivities. The library does not implement it.
+//   oracle          The greedy order that knows the sizes and the selectivities, and visits next the source after
+//                   which the fewest partial tuples survive.
+// Each order's regret is its cost over the best order's cost. The planner's rank among the orders runs from 0, the
+// best, to 1, the worst. Up to 8 sources, the rank is over every order; above 8, over a sample of the orders.
 //
-// A dependent source's list per binding is drawn shorter than a container (2 - 50 against
-// 10 - 1000): the assumption the planner's dependent-first rule rests on. --long-lists draws
-// both alike, to see what the rule costs when it is wrong.
+// The list of a dependent source is drawn shorter than a container: 2 to 50 elements, against 10 to 1000 rows. The
+// planner's rule that prefers a dependent source rests on this assumption. --long-lists draws both from the same
+// range, to show what the rule costs when the assumption is wrong.
 //
-//   model [--sets N] [--ks 3,4,...] [--seed S] [--long-lists]   the table, N sets per row
-//   model --check                                                the cost model against real loops
+//   model [--sets N] [--ks 3,4,...] [--seed S] [--long-lists]   The table, with N sets in each row.
+//   model --check                                                The checks of the model: the cost model against
+//                                                                real loops, the dynamic program against every
+//                                                                order, and this file's copy of the rules against
+//                                                                plan.hpp.
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -60,17 +64,22 @@
 namespace {
 
 constexpr std::size_t kMaxSources = 16;
-constexpr std::size_t kMaxPreds   = 136;  // a clique on 16 columns is 120, plus a filter per column
-constexpr std::size_t kExactUpTo  = 8;    // rank over every order up to here, a sample above
-constexpr std::size_t kSampled    = 4000;
-bool g_long_lists                 = false;  // --long-lists: a dependent list as long as a container
+// A clique on 16 columns has 120 predicates, and a filter on each column adds 16.
+constexpr std::size_t kMaxPreds = 136;
+// Up to this number of sources, the rank is over every order. Above it, the rank is over kSampled orders.
+constexpr std::size_t kExactUpTo = 8;
+constexpr std::size_t kSampled   = 4000;
+// If --long-lists is given, a dependent list is drawn as long as a container.
+bool g_long_lists = false;
 
 struct Pred {
   std::uint64_t mask;
-  double keeps;  // the share of what it sees that passes
+  // The share of the rows that the predicate sees that pass it.
+  double keeps;
 };
 
-// One set: source i binds column i; deps[i] are the columns it reads (0: a container).
+// One set. Source i binds column i, and deps[i] is the mask of the columns that source i reads. A source whose
+// deps[i] is 0 is a container.
 struct Query {
   std::size_t k = 0;
   std::array<double, kMaxSources> size{};
@@ -80,12 +89,13 @@ struct Query {
 
 using Order = std::vector<std::size_t>;
 
-// The planner's order, the real one: planVisitOrder over the masks makeSet would hand it.
+// Returns the planner's own order: planVisitOrder over the masks that a chain's build() would pass to it.
 template <std::size_t K>
 Order plannedFixed(const Query& q) {
   std::array<std::uint64_t, K> produces{};
   std::array<std::uint64_t, K> depends{};
-  std::array<std::uint64_t, kMaxPreds> preds{};  // unused ones are 0: no columns, no effect
+  // An unused predicate is 0. It reads no column, so it has no effect.
+  std::array<std::uint64_t, kMaxPreds> preds{};
   for (std::size_t i = 0; i < K; ++i) {
     produces[i] = std::uint64_t{1} << i;
     depends[i]  = q.deps[i];
@@ -96,18 +106,20 @@ Order plannedFixed(const Query& q) {
   const auto order = dreamor::internal::planVisitOrder<K, kMaxPreds>(produces, depends, preds);
   return {order.begin(), order.end()};
 }
+
 template <std::size_t... Ks>
 Order plannedAny(const Query& q, std::index_sequence<Ks...> /*unused*/) {
   Order out;
   static_cast<void>(((q.k == Ks + 1 ? (out = plannedFixed<Ks + 1>(q), true) : false) || ...));
   return out;
 }
+
 Order planned(const Query& q) {
   return plannedAny(q, std::make_index_sequence<kMaxSources>{});
 }
 
-// T(S) for every subset S: from S without its lowest source, times that source's size and the
-// selectivities of the predicates it completes.
+// Returns T(S) for every subset S. T(S) is T of S without its lowest source, times the size of that source and the
+// selectivities of the predicates that the source completes.
 std::vector<double> survivors(const Query& q) {
   std::vector<std::vector<const Pred*>> with(q.k);
   for (const Pred& p : q.preds) {
@@ -137,7 +149,7 @@ double costOf(const Query& q, const std::vector<double>& t, const Order& order) 
   return cost;
 }
 
-// The cheapest and the dearest order's cost, over subsets.
+// Returns the cost of the cheapest and of the dearest order, by a dynamic program over the subsets.
 std::pair<double, double> bestAndWorst(const Query& q, const std::vector<double>& t) {
   constexpr double kInf = std::numeric_limits<double>::infinity();
   std::vector<double> lo(t.size(), kInf), hi(t.size(), -kInf);
@@ -154,7 +166,7 @@ std::pair<double, double> bestAndWorst(const Query& q, const std::vector<double>
   return {lo.back(), hi.back()};
 }
 
-// The costs of every order the dependencies allow (small k), or of a sample of them.
+// Appends the cost of every order that the dependencies allow, starting from the sources in set.
 void everyOrder(
     const Query& q, const std::vector<double>& t, std::uint64_t set, double cost, std::vector<double>& out) {
   if (set == (std::uint64_t{1} << q.k) - 1) {
@@ -166,12 +178,16 @@ void everyOrder(
     everyOrder(q, t, set | (std::uint64_t{1} << s), cost + t[set] * q.size[s], out);
   }
 }
+
+// Returns the sorted costs of every order if the set has at most kExactUpTo sources, or of kSampled random orders
+// otherwise.
 std::vector<double> orderCosts(const Query& q, const std::vector<double>& t, std::mt19937_64& g) {
   std::vector<double> out;
   if (q.k <= kExactUpTo) {
     everyOrder(q, t, 0, 0, out);
   } else {
-    for (std::size_t n = 0; n < kSampled; ++n) {  // each step a source picked at random among those ready
+    // At each step, a random order picks one of the sources whose dependencies are bound.
+    for (std::size_t n = 0; n < kSampled; ++n) {
       Order order;
       std::uint64_t set = 0;
       for (std::size_t step = 0; step < q.k; ++step) {
@@ -190,7 +206,7 @@ std::vector<double> orderCosts(const Query& q, const std::vector<double>& t, std
   return out;
 }
 
-// Greedy on what it believes T to be: next, the source after which the fewest partial tuples
+// Returns the greedy order over t, which may be guessed: next, the source after which the fewest partial tuples
 // survive.
 Order bySize(const Query& q, const std::vector<double>& t) {
   Order order;
@@ -207,7 +223,7 @@ Order bySize(const Query& q, const std::vector<double>& t) {
   return order;
 }
 
-// What run time could know: the sizes, not the selectivities - each predicate taken to keep `guess`.
+// Returns T with each predicate taken to keep `guess`: what run time could know, the sizes but not the selectivities.
 std::vector<double> survivorsGuessed(Query q, double guess) {
   for (Pred& p : q.preds) {
     p.keeps = guess;
@@ -215,18 +231,22 @@ std::vector<double> survivorsGuessed(Query q, double guess) {
   return survivors(q);
 }
 
-// Planners that do not exist: plan.hpp's rules - most predicates run, then the smallest gap -
-// with other ways to break the ties left. Without kTieDependent, declaration order alone (no
-// rule 4); with kTieSize, then the smaller source (run time). The library's own is
-// planned(): kTieDependent alone, which this reproduces (model --check compares the two).
+// Planners that do not exist. Each one applies plan.hpp's rules, the most predicates run and then the smallest gap,
+// and breaks the ties that are left in another way:
+//   - Without kTieDependent, declaration order alone breaks a tie, so rule 4 is left out.
+//   - With kTieDependent, a dependent source comes before a container.
+//   - With kTieSize, the smaller source comes next, which only run time can know.
+// The library's planner, planned(), is kTieDependent alone. namesThen reproduces it, and model --check compares the
+// two.
 enum TieRule : unsigned { kTieSize = 1, kTieDependent = 2 };
 
 Order namesThen(const Query& q, unsigned rules) {
-  // a < b when a comes first on the tie rules
+  // before(a, b) is true if the tie rules put a before b.
   const auto before = [&](std::size_t a, std::size_t b) {
     if ((rules & kTieDependent) && (q.deps[a] != 0) != (q.deps[b] != 0)) { return q.deps[a] != 0; }
     if ((rules & kTieSize) && q.size[a] != q.size[b]) { return q.size[a] < q.size[b]; }
-    return false;  // declaration order: the one met first stays
+    // If no rule decides, declaration order does: the source met first stays.
+    return false;
   };
   Order order;
   std::uint64_t bound = 0;
@@ -259,9 +279,8 @@ Order namesThen(const Query& q, unsigned rules) {
   return order;
 }
 
-// --- making sets up --------------------------------------------------------------------------
-// A shape is which pairs of columns a predicate reads; the columns are then shuffled, so that
-// no shape lines up with declaration order (the planner's last tie-break).
+// A shape says which pairs of columns the predicates read. makeQuery shuffles the columns, so that no shape lines up
+// with declaration order, which breaks the planner's last tie.
 const std::vector<std::string_view> kShapes = {"chain", "star", "cycle", "clique", "random", "filters"};
 
 double logUniform(std::mt19937_64& g, double lo, double hi) {
@@ -297,7 +316,9 @@ Query makeQuery(std::mt19937_64& g, std::size_t k, std::string_view shape, bool 
     }
   }
   if (shape == "random") {
-    const double p = std::min(0.4, 3.0 / static_cast<double>(k));  // about 1.5 predicates a column at any k
+    // If k is 8 or more, the expected number of predicates is 1.5 (k - 1), about 1.5 for each column. If k is
+    // smaller, the probability is capped at 0.4, which gives fewer predicates than that.
+    const double p = std::min(0.4, 3.0 / static_cast<double>(k));
     for (std::size_t i = 0; i < k; ++i) {
       for (std::size_t j = i + 1; j < k; ++j) {
         if (std::bernoulli_distribution(p)(g)) { masks.push_back(pair(i, j)); }
@@ -308,13 +329,14 @@ Query makeQuery(std::mt19937_64& g, std::size_t k, std::string_view shape, bool 
     for (std::size_t i = 0; i < k; ++i) {
       if (std::bernoulli_distribution(0.6)(g)) { masks.push_back(std::uint64_t{1} << i); }
     }
-    masks.push_back(pair(0, 1));  // one predicate across two columns, so not all is filtering
+    // One predicate reads two columns, so that the set is not filtering alone.
+    masks.push_back(pair(0, 1));
   }
   for (const std::uint64_t m : masks) {
     q.preds.push_back({m, logUniform(g, 0.01, 1.0)});
   }
-  // A dependent source reads one column declared before it, as a machine's item list reads the
-  // machine; a container's size is its rows, a dependent one's its list per binding.
+  // A dependent source reads one column declared before it, as a machine's list of items reads the machine. A
+  // container's size is its number of rows. A dependent source's size is the length of its list for one binding.
   for (std::size_t i = 0; i < k; ++i) {
     if (deps && i > 0 && std::bernoulli_distribution(0.4)(g)) {
       q.deps[i] = std::uint64_t{1} << std::uniform_int_distribution<std::size_t>(0, i - 1)(g);
@@ -326,7 +348,6 @@ Query makeQuery(std::mt19937_64& g, std::size_t k, std::string_view shape, bool 
   return q;
 }
 
-// --- the table -------------------------------------------------------------------------------
 double quantile(std::vector<double> v, double at) {
   std::sort(v.begin(), v.end());
   return v[static_cast<std::size_t>(at * static_cast<double>(v.size() - 1))];
@@ -379,7 +400,7 @@ int table(std::size_t sets, const std::vector<std::size_t>& ks, std::uint64_t se
           for (std::size_t c = 0; c < overall.size(); ++c) {
             r[c].push_back(regrets[c]);
           }
-          // Ties count as half: the planner's order is one of the orders that cost what it costs.
+          // The planner's order is one of the orders that cost the same, so its rank is the middle of their ranks.
           const std::vector<double> costs = orderCosts(q, t, g);
           const auto below = std::lower_bound(costs.begin(), costs.end(), mine * (1 - 1e-12)) - costs.begin();
           const auto upto  = std::upper_bound(costs.begin(), costs.end(), mine * (1 + 1e-12)) - costs.begin();
@@ -421,10 +442,6 @@ int table(std::size_t sets, const std::vector<std::size_t>& ks, std::uint64_t se
   return 0;
 }
 
-// --- the model against real loops ------------------------------------------------------------
-// Small sets with whole sizes, predicates that keep a hash's 1 in round(1/keeps), and nested
-// loops that run each predicate as soon as its columns are bound, as makeSet does: the
-// candidates they look at, against cost().
 std::uint64_t mix(std::uint64_t x) {
   x += 0x9e3779b97f4a7c15ULL;
   x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9ULL;
@@ -432,6 +449,9 @@ std::uint64_t mix(std::uint64_t x) {
   return x ^ (x >> 31);
 }
 
+// Returns the number of candidates that real nested loops look at, to check costOf against them. check() gives it small
+// sets with whole sizes. A predicate keeps a hash's 1 in round(1 / keeps), and each predicate runs as soon as its
+// columns are bound, as in build().
 std::uint64_t loops(const Query& q, const Order& order) {
   std::array<std::uint64_t, kMaxSources> value{};
   std::uint64_t looked                                  = 0;
@@ -441,13 +461,15 @@ std::uint64_t loops(const Query& q, const Order& order) {
     const auto n        = static_cast<std::uint64_t>(q.size[s]);
     for (std::uint64_t v = 0; v < n; ++v) {
       ++looked;
-      value[s]                 = v;  // a dependent source's elements: its list's, whatever the binding
+      // A dependent source's list holds the same elements whatever the binding.
+      value[s]                 = v;
       const std::uint64_t next = set | (std::uint64_t{1} << s);
       bool passes              = true;
       for (std::size_t p = 0; p < q.preds.size() && passes; ++p) {
         const Pred& pr = q.preds[p];
         if ((pr.mask & ~next) != 0 || (pr.mask & ~set) == 0) {
-          continue;  // not yet, or ran already
+          // The predicate cannot run yet, or it ran already.
+          continue;
         }
         std::uint64_t h = p * 0x51afd7ed558ccd1ULL;
         for (std::size_t c = 0; c < q.k; ++c) {
@@ -477,11 +499,13 @@ int check(std::uint64_t seed) {
       p.keeps = 1 / std::round(1 / std::max(p.keeps, 0.05));
     }
     const std::vector<double> t = survivors(q);
-    replica_mismatch += planned(q) != namesThen(q, kTieDependent);  // this file's copy of the rules
+    // plan.hpp's order against this file's copy of its rules.
+    replica_mismatch += planned(q) != namesThen(q, kTieDependent);
     for (const auto& order : {planned(q), bySize(q, t)}) {
       ratio.push_back(static_cast<double>(loops(q, order)) / costOf(q, t, order));
     }
-    std::vector<double> costs;  // the subset program against listing every order
+    // The dynamic program over the subsets against a list of every order.
+    std::vector<double> costs;
     everyOrder(q, t, 0, 0, costs);
     const auto [lo, hi] = bestAndWorst(q, t);
     const auto [mn, mx] = std::minmax_element(costs.begin(), costs.end());

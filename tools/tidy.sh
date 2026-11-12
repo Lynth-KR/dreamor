@@ -4,8 +4,8 @@
 # not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 #
 # Runs clang-tidy over the library, the tests, and the examples, as .clang-tidy and its
-# per-directory children configure it (tests/stub, the compile_fail cases, the ported samples
-# and bench/ are not checked). Library headers are reported where a test or example includes
+# per-directory children configure it (tests/stub, the compile_fail cases, the CMake consumers,
+# the ported samples and bench/ are not checked). Library headers are reported where a test or example includes
 # them, and each header is also checked on its own.
 #
 #   tools/tidy.sh           report; fail on any finding (what CI runs)
@@ -37,4 +37,7 @@ fix=
 [ "${1:-}" = "--fix" ] && fix=-fix
 # The files to check, as compile_commands.json names them (absolute paths).
 files='/(include/|tests/(?!stub/|compile_fail/|mathopt/compile_fail/|highs/compile_fail/|cmake_consumer)|examples/(?!mathopt_samples/))'
-$CLANG_TIDY_RUN run-clang-tidy.py -p . -j "$JOBS" -quiet $fix "$files"
+# clang-tidy reads the newest GCC's libstdc++ it finds; the floor's, GCC 13's (Ubuntu 24.04's own), is read instead,
+# as the Clang presets compile, so that a machine with another GCC besides finds the same.
+floor=-extra-arg=--gcc-install-dir=/usr/lib/gcc/x86_64-linux-gnu/13
+$CLANG_TIDY_RUN run-clang-tidy.py -p . -j "$JOBS" -quiet $fix $floor "$files"

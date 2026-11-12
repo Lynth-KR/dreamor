@@ -2,28 +2,28 @@
 # SPDX-License-Identifier: MPL-2.0
 # This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 # not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""Runs a layer-2 scenario (README.md): a model built end to end, by dreamor and by hand.
+"""Runs a layer-2 scenario (docs/bench/scenario/): a model built end to end, by dreamor and by hand.
 
-Every backend built by build.sh (stub, cplex, mathopt, highs), every size and every arm, each run a fresh
-process, in a seeded random order. Every repetition runs under its own memory layout (Mytkowicz et
-al., ASPLOS 2009; van Kempen & Berger, ISMM '26): an environment padding of its own length and a
-heap seed of its own; and its own code layout, on the copies LAYOUTS=<reps> ./build.sh links for it
-(../common/layout.py). Every arm of a repetition gets the same seeds, so they stay paired. ASLR stays
-on. --layout off runs every repetition alike, on ./build.sh's plain binaries.
+The script runs every backend that build.sh built, out of stub, cplex, mathopt and highs, at every size and in every
+arm. Each run is a fresh process, and the runs come in a seeded random order. Every repetition runs under a memory
+layout of its own (Mytkowicz et al., ASPLOS 2009; van Kempen & Berger, ISMM '26): an environment padding of its own
+length and a heap seed of its own. Every repetition also runs under a code layout of its own, on the copies that
+LAYOUTS=<reps> ./build.sh links for it with ../common/layout.py. Every arm of a repetition gets the same seeds, so the
+arms stay paired. ASLR stays on. --layout off runs every repetition alike, on the plain binaries of ./build.sh.
 
-Results go to ../results/<date>_<commit>_scenario_<scenario>_<size><levels>/runs.jsonl, one line a run, with
-meta.json beside it; wall_s is the whole process as the runner saw it, loading the solver's
-libraries included. Running the same thing again resumes it.
+The results go to ../results/<date>_<commit>_scenario_<scenario>_<size><levels>/runs.jsonl, one line a run, with
+meta.json beside it. A run's wall_s is the whole process as the runner saw it, including the time to load the
+solver's libraries. Running the same thing again resumes it.
 
---reuse <earlier run> measures a new version of dreamor against the hand-written arms that run measured,
-when their binaries are the same (../common/reuse.py): only the dreamor arm runs, and a tenth of the
-hand-written runs (at least 30) again, as controls of the machine.
+--reuse <earlier run> copies the earlier run's runs of every arm whose binaries are the same, and runs the other arms;
+../common/reuse.py says how. --reuse-arms names the arms to copy instead. A tenth of the copied runs, at least 30, run
+again as controls of the machine.
 
 Usage:
   LAYOUTS=5 ./build.sh
-  python3 run.py --scenario pmedian                # L = 5000 to 50000, 5 repetitions
-  python3 run.py --scenario lotsizing              # 170 and 1700 items (1e5 and 1e6 rows)
-  python3 run.py --scenario pmedian --levels 5000 --reps 1 --layout off   # quick trial
+  python3 run.py --scenario pmedian                # L from 5000 to 50000, 5 repetitions
+  python3 run.py --scenario lotsizing              # 170 and 1700 items, about 1e5 and 1e6 rows
+  python3 run.py --scenario pmedian --levels 5000 --reps 1 --layout off   # a quick trial
   python3 run.py --scenario pmedian --reuse ../results/<an earlier run of the same plan>
   python3 report.py ../results/<run>
 """
@@ -56,13 +56,13 @@ from common.machine import (  # noqa: E402
 from common.reuse import copies  # noqa: E402
 
 BACKENDS = ["stub", "cplex", "mathopt", "highs"]
-# Per scenario: its arms, the factor that sets its size and that factor's levels, the arguments
-# every run takes, and the largest size an arm still finishes at in reasonable time.
+# Each scenario names its arms, the factor that sets its size, that factor's levels, the arguments that every run
+# takes, and the largest size at which an arm still finishes in reasonable time. Lot sizing also names its data's seed.
 SCENARIOS = {
     "pmedian": dict(
         impls=["dreamor", "hand", "calls", "callable", "callable-rows"],
         size="L",
-        # The literature's sizes: 100 customers, 100 locations to open, 5000 to 50000 candidates.
+        # The sizes are the literature's: 100 customers, 100 locations to open, and 5000 to 50000 candidate locations.
         levels=["5000", "10000", "20000", "50000"],
         fixed=lambda a: dict(C=a.customers, P=a.open),
         largest={},
@@ -70,21 +70,21 @@ SCENARIOS = {
     "lotsizing": dict(
         impls=["dreamor", "flat", "plain", "callable", "callable-rows"],
         size="items",
-        # 20 machines, each routing about 60% of the items, over 50 periods: 600 rows an item.
+        # With 20 machines that each route about 60% of the items, over 50 periods, an item has about 600 rows.
         levels=["170", "1700"],
         fixed=lambda a: dict(machines=a.machines, periods=a.periods),
-        # The example's own data in every repetition (its seed, 7): the repetitions differ in their
-        # memory layout alone.
+        # Every repetition uses the example's own data, whose seed is 7, so the repetitions differ only in their
+        # layouts.
         data_seed=7,
-        # plain's stock balance scans every machine's routes for each (item, period): it grows with
-        # the square of the items.
+        # The plain arm's stock balance scans every route for each item and period, so its time grows with the square
+        # of the items.
         largest={"plain": 1700},
     ),
 }
 
 
 def layout_of(seed, rep):
-    """(environment padding in bytes, heap seed) of a repetition, as the catalog draws them."""
+    """Returns the environment padding in bytes and the heap seed of a repetition, drawn as the catalog draws them."""
     g = random.Random(seed * 1_000_003 + rep)
     return g.randrange(4096), g.randrange(1, 2**63)
 
@@ -93,7 +93,7 @@ def key_of(run, spec, fixed):
     return tuple(str(run[k]) for k in ["backend", "impl", spec["size"], *fixed, "rep"])
 
 
-# What an earlier run must share with this one for --reuse to take its hand-written arms.
+# The meta fields that an earlier run must share with this run, for --reuse to take the earlier run's runs.
 SAME = [
     "scenario",
     "backends",
@@ -131,18 +131,21 @@ def main():
     ap.add_argument(
         "--layout", default="on", choices=["on", "off"], help="a memory and code layout of its own per repetition"
     )
+    ap.add_argument("--reuse", help="an earlier run of the same plan whose unchanged arms to copy (../common/reuse.py)")
     ap.add_argument(
-        "--reuse", help="an earlier run of the same plan whose hand-written arms to take (../common/reuse.py)"
+        "--reuse-arms", help="comma-separated arms to copy with --reuse; default: those whose binaries are the same"
     )
     ap.add_argument("--out", help="results folder")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
+    if args.reuse_arms and not args.reuse:
+        sys.exit("--reuse-arms names the arms that --reuse copies; it needs --reuse.")
     spec = SCENARIOS[args.scenario]
     fixed = spec["fixed"](args)
 
-    # The dreamor arm runs on build/<scenario>_<backend>, the hand-written arms on
-    # build/<scenario>_<backend>_hand, built without the library: one build of them serves every version of dreamor.
+    # The dreamor arm runs on build/<scenario>_<backend>, and the hand-written arms on build/<scenario>_<backend>_hand.
+    # The hand-written binary is built without the library, so one build of it serves every version of dreamor.
     def binary(backend, impl):
         return os.path.join(HERE, "build", f"{args.scenario}_{backend}" + ("" if impl == "dreamor" else "_hand"))
 
@@ -220,14 +223,16 @@ def main():
     ]
     random.Random(args.seed).shuffle(plan)
 
-    def done_key(run):  # a run, and whether it is a control (--reuse): a control repeats a copied run
+    def done_key(run):
+        """Returns the run's key, and whether the run is a control. A control repeats a copied run under its key."""
         return key_of(run, spec, fixed), bool(run.get("control"))
 
     reused = []
     if args.reuse:
-        hand = sorted(os.path.basename(binary(b, "hand")) for b in backends)
+        binaries = {i: sorted(os.path.basename(binary(b, i)) for b in backends) for i in impls}
+        arms = args.reuse_arms.split(",") if args.reuse_arms else None
         reused, controls, meta["reuse"] = copies(
-            args.reuse, meta, SAME, code_layouts, hand, plan, lambda r: key_of(r, spec, fixed), args.seed
+            args.reuse, meta, SAME, code_layouts, binaries, plan, lambda r: key_of(r, spec, fixed), args.seed, arms
         )
         plan += controls
         random.Random(args.seed + 3).shuffle(plan)
@@ -249,7 +254,7 @@ def main():
     if reused:
         with open(runs_path, "a") as f:
             f.writelines(json.dumps(r) + "\n" for r in reused)
-        print(f"{len(reused)} hand-written runs copied from {meta['reuse']['source']}")
+        print(f"{len(reused)} runs of {', '.join(meta['reuse']['arms'])} copied from {meta['reuse']['source']}")
 
     def pin():
         if cpus:

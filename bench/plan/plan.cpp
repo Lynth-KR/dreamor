@@ -2,59 +2,68 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// File: bench/plan/plan.cpp
+// The timed visit-order experiment: one set of three columns, built in each order in which it can be visited.
 //
-// How good is makeSet's visit order? plan.hpp picks it at compile time, greedily, from column
-// names alone - no sizes, no selectivities: the source that lets the most predicates run next,
-// then the one closest to a predicate, then declaration order. This generates one set of three
-// columns (A, B, C) in every order it can be visited in and times each, so the planner's choice
-// can be set against the best and worst of them.
+// plan.hpp picks a set's visit order at compile time, greedily, from the names of the columns alone. It knows no sizes
+// and no selectivities. It prefers the source that lets the most predicates run next, then the source that is fewest
+// columns away from a predicate, then a dependent source over a container, then the source declared first. This
+// program builds one set of the columns A, B and C in one visit order and times it, so that run.py can set the
+// planner's choice against the best and the worst order.
 //
-// Variants (one per process run):
-//   free     makeSet<A, B, C>(as, bs, cs).where(...): the order the planner picks
-//   XYZ      the sources forced into order X, Y, Z (a permutation of ABC): the first is the
-//            container, each next one a dependent source that hands back the whole container
-//            but reads the column before it - only that order satisfies the dependencies. ABC is
-//            what generation in declaration order would do.
-//   late     one predicate over all three columns: it runs once all are bound, as filtering a
-//            finished product would
-//   SU, US   the join shape only: makeSet<>(S, U) and makeSet<>(U, S), S = (A, B), U = (B, C);
-//            the set visited second is looked up by B
+// Each process run builds one variant:
+//   free      of<cA, cB, cC>(in<cA>(as), in<cB>(bs), in<cC>(cs)).where(...), in the order that the planner picks.
+//   XYZ       The sources in the order X, Y, Z, a permutation of ABC. X binds its column from its container. Y and Z
+//             each bind their column from a callable that reads the column before it and returns the whole
+//             container, so no other order meets the dependencies. ABC is the order in which the sources are
+//             declared.
+//   late      One predicate over all three columns. It runs only when all three columns are bound, as a filter over
+//             the finished product does.
+//   SU, US    The join shape only: of<cA, cB, cC>(in<cA, cB>(sS), in<cB, cC>(sU)) and
+//             of<cB, cC, cA>(in<cB, cC>(sU), in<cA, cB>(sS)), where sS holds (A, B) and sU holds (B, C). The set
+//             visited second is looked up by B.
 //
-// Shapes - which predicates the set has (p over two columns, q over one):
+// A shape is the predicates that the set has, where p reads two columns and q reads one:
 //   pair      p(B, C)
 //   filters   q(A), q(C)
 //   chain     p(A, B), p(B, C)
 //   triangle  p(A, B), p(B, C), p(A, C)
-//   join      S = A x B where p(A, B), U = B x C where p(B, C), built untimed; the join is timed
-// Each predicate keeps 1 in den of what it sees. PREDS random decides by a hash of the ids: a
-// fixed, independent selectivity per predicate, which a branch predictor cannot guess.
-// PREDS periodic keeps (x + y + salt) % den == 0: the same selectivity in a pattern it can. An
-// order that is faster under random predicates only is faster at predicting branches, not at
-// calling predicates less.
+//   join      sS = A x B where p(A, B), and sU = B x C where p(B, C). Both sets are built before the timer starts,
+//             and only the join is timed.
+// Each predicate keeps 1 in den of the rows that it sees. If the predicates are random, a predicate decides by a hash
+// of the ids, so that each predicate has a fixed, independent selectivity that a branch predictor cannot learn. If the
+// predicates are periodic, a predicate keeps (x + y + salt) % den == 0: the same selectivity, in a pattern that a
+// branch predictor can learn. If an order is faster under random predicates only, the order is better at predicting
+// branches, not at calling the predicates less often.
 //
-// Prints one CSV line: the planner's order, the rows, an order-free checksum (every variant of a
-// case must agree), the time of build(), and - in the counting build (-DPLAN_COUNT) - how many
-// times predicates were called.
+// The program prints one CSV line: the planner's order, the number of rows, an order-free checksum, the time of the
+// build, and the number of predicate calls. For the join shape, the variant stands in for the planner's order. Every
+// variant of a case must print the same checksum. Only the counting build (-DPLAN_COUNT) counts the predicate calls,
+// and the timed build prints 0 for them.
 #include <array>
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <string>
 #include <string_view>
+#include <tuple>
+#include <utility>
 #include <vector>
 
 #include "dreamor/index_set.hpp"
 
 struct E {
   std::uint32_t id;
-};
-using cA   = dreamor::Col<const E*, "a">;
-using cB   = dreamor::Col<const E*, "b">;
-using cC   = dreamor::Col<const E*, "c">;
-using Ptrs = std::vector<const E*>;
 
-static std::uint64_t g_evals = 0;  // predicate calls, counted in the PLAN_COUNT build only
+  [[nodiscard]] std::uint32_t primaryKey() const { return id; }
+};
+
+DREAMOR_ENTITY_COLUMN(cA, E);
+DREAMOR_ENTITY_COLUMN(cB, E);
+DREAMOR_ENTITY_COLUMN(cC, E);
+using Refs = std::vector<dreamor::Ref<E>>;
+
+// The number of predicate calls. Only the PLAN_COUNT build counts them.
+static std::uint64_t g_evals = 0;
 static bool g_periodic       = false;
 
 static inline std::uint64_t mix(std::uint64_t x) {
@@ -63,6 +72,7 @@ static inline std::uint64_t mix(std::uint64_t x) {
   x = (x ^ (x >> 27)) * 0x94d049bb133111ebULL;
   return x ^ (x >> 31);
 }
+
 static inline bool keep(std::uint64_t den, std::uint64_t salt, std::uint32_t x, std::uint32_t y = 0) {
 #ifdef PLAN_COUNT
   ++g_evals;
@@ -70,109 +80,115 @@ static inline bool keep(std::uint64_t den, std::uint64_t salt, std::uint32_t x, 
   return (g_periodic ? x + y + salt : mix(salt ^ (std::uint64_t{x} << 32) ^ y)) % den == 0;
 }
 
-// --- the predicates of each shape, as lambdas over the columns they read --------------------
+// The den of each predicate of a shape, in the order in which the shape lists its predicates.
 struct Dens {
   std::uint64_t d1 = 1, d2 = 1, d3 = 1;
 };
+
+// The predicates of the shapes. Each function returns a column callable that reads the columns of its predicate.
 static auto pAB(std::uint64_t den) {
   return [den](cA a, cB b) { return keep(den, 0x1111, a->id, b->id); };
 }
+
 static auto pBC(std::uint64_t den) {
   return [den](cB b, cC c) { return keep(den, 0x2222, b->id, c->id); };
 }
+
 static auto pAC(std::uint64_t den) {
   return [den](cA a, cC c) { return keep(den, 0x3333, a->id, c->id); };
 }
+
 static auto qA(std::uint64_t den) {
   return [den](cA a) { return keep(den, 0x4444, a->id); };
 }
+
 static auto qC(std::uint64_t den) {
   return [den](cC c) { return keep(den, 0x5555, c->id); };
 }
 
-// The shape's predicates on a builder, each where it can run - or, late, folded into one over
-// A, B and C, so that it runs only once all three are bound.
-using Set = dreamor::IndexSet<cA, cB, cC>;
-template <typename Builder>
-static Set withPredicates(std::string_view shape, const Dens& d, Builder b, bool late) {
+// Adds the shape's predicates to set and builds it. Each predicate runs as soon as its columns are bound. If late is
+// true, the predicates are folded into one over A, B and C, which runs only when all three columns are bound.
+template <typename Set>
+static auto withPredicates(std::string_view shape, const Dens& d, Set set, bool late) {
   if (shape == "pair") {
     if (late) {
-      return b.where([p = pBC(d.d1)](cA, cB bb, cC c) { return p(bb, c); }).build();
+      const auto pair_late = [p = pBC(d.d1)](cA, cB b, cC c) { return p(b, c); };
+      return set.where(pair_late).build();
     }
-    return b.where(pBC(d.d1)).build();
+    return set.where(pBC(d.d1)).build();
   }
   if (shape == "filters") {
     if (late) {
-      return b.where([p = qA(d.d1), q = qC(d.d2)](cA a, cB, cC c) { return p(a) && q(c); }).build();
+      const auto filters_late = [p = qA(d.d1), q = qC(d.d2)](cA a, cB, cC c) { return p(a) && q(c); };
+      return set.where(filters_late).build();
     }
-    return b.where(qA(d.d1)).where(qC(d.d2)).build();
+    return set.where(qA(d.d1)).where(qC(d.d2)).build();
   }
   if (shape == "chain") {
     if (late) {
-      return b.where([p = pAB(d.d1), q = pBC(d.d2)](cA a, cB bb, cC c) { return p(a, bb) && q(bb, c); }).build();
+      const auto chain_late = [p = pAB(d.d1), q = pBC(d.d2)](cA a, cB b, cC c) { return p(a, b) && q(b, c); };
+      return set.where(chain_late).build();
     }
-    return b.where(pAB(d.d1)).where(pBC(d.d2)).build();
+    return set.where(pAB(d.d1)).where(pBC(d.d2)).build();
   }
   if (late) {
-    return b
-        .where([p = pAB(d.d1), q = pBC(d.d2), r = pAC(d.d3)](cA a, cB bb, cC c) {
-          return p(a, bb) && q(bb, c) && r(a, c);
-        })
-        .build();
+    const auto triangle_late = [p = pAB(d.d1), q = pBC(d.d2), r = pAC(d.d3)](cA a, cB b, cC c) {
+      return p(a, b) && q(b, c) && r(a, c);
+    };
+    return set.where(triangle_late).build();
   }
-  return b.where(pAB(d.d1)).where(pBC(d.d2)).where(pAC(d.d3)).build();
+  return set.where(pAB(d.d1)).where(pBC(d.d2)).where(pAC(d.d3)).build();
 }
 
-template <typename Builder>
-static std::string plannedOrder(std::string_view shape, const Dens& d, const Builder& b) {
-  auto name = [](const auto& order) {
+template <typename Set>
+static std::string plannedOrder(std::string_view shape, const Dens& d, const Set& set) {
+  // Each source binds one column, so the letter after each 'c' names a source: "cA, cC, cB" becomes "ACB".
+  auto name = [](std::string_view order) {
     std::string s;
-    for (const std::size_t source : order) {
-      s += static_cast<char>('A' + source);
+    for (std::size_t i = 0; i + 1 < order.size(); ++i) {
+      if (order[i] == 'c') { s += order[i + 1]; }
     }
     return s;
   };
-  if (shape == "pair") { return name(decltype(b.where(pBC(d.d1)))::kVisitOrder); }
-  if (shape == "filters") { return name(decltype(b.where(qA(d.d1)).where(qC(d.d2)))::kVisitOrder); }
-  if (shape == "chain") { return name(decltype(b.where(pAB(d.d1)).where(pBC(d.d2)))::kVisitOrder); }
-  return name(decltype(b.where(pAB(d.d1)).where(pBC(d.d2)).where(pAC(d.d3)))::kVisitOrder);
+  if (shape == "pair") { return name(decltype(set.where(pBC(d.d1)))::visitOrder()); }
+  if (shape == "filters") { return name(decltype(set.where(qA(d.d1)).where(qC(d.d2)))::visitOrder()); }
+  if (shape == "chain") { return name(decltype(set.where(pAB(d.d1)).where(pBC(d.d2)))::visitOrder()); }
+  return name(decltype(set.where(pAB(d.d1)).where(pBC(d.d2)).where(pAC(d.d3)))::visitOrder());
 }
 
-// --- forcing an order ------------------------------------------------------------------------
 template <std::size_t I>
 using ColAt = std::tuple_element_t<I, std::tuple<cA, cB, cC>>;
 
-// Source I of makeSet<A, B, C>(...) when the visit order is to be X, Y, Z.
-template <std::size_t I, std::size_t X, std::size_t Y, std::size_t Z>
-static decltype(auto) sourceFor(const std::array<Ptrs, 3>& ptrs) {
-  if constexpr (I == X) {
-    return (ptrs[I]);  // the container itself
-  } else if constexpr (I == Y) {
-    return [&v = ptrs[I]](ColAt<X>) -> const Ptrs& { return v; };
-  } else {
-    return [&v = ptrs[I]](ColAt<Y>) -> const Ptrs& { return v; };
-  }
-}
+// Returns the set whose visit order is X, Y, Z. X binds its column from its container. Y and Z each bind their column
+// from a callable that reads the column before it, so neither source can be visited earlier. The head lists the
+// columns in the visit order, and the checksum reads them by type.
 template <std::size_t X, std::size_t Y, std::size_t Z>
-static auto forced(const std::array<Ptrs, 3>& ptrs) {
-  return dreamor::makeSet<cA, cB, cC>(
-      sourceFor<0, X, Y, Z>(ptrs), sourceFor<1, X, Y, Z>(ptrs), sourceFor<2, X, Y, Z>(ptrs));
+static auto forced(const std::array<Refs, 3>& refs) {
+  using namespace dreamor::index_set::set_builder;
+  const auto y_after_x = [&v = refs[Y]](ColAt<X>) -> const Refs& { return v; };
+  const auto z_after_y = [&v = refs[Z]](ColAt<Y>) -> const Refs& { return v; };
+  return of<ColAt<X>, ColAt<Y>, ColAt<Z>>(in<ColAt<X>>(refs[X]), in<ColAt<Y>>(y_after_x), in<ColAt<Z>>(z_after_y));
 }
 
-template <std::size_t X, std::size_t Y, std::size_t Z>
-static Set runForced(std::string_view shape, const Dens& d, const std::array<Ptrs, 3>& ptrs) {
-  return withPredicates(shape, d, forced<X, Y, Z>(ptrs), false);
+// Times the forced order X, Y, Z if it is the variant asked for.
+template <std::size_t X, std::size_t Y, std::size_t Z, typename Time>
+static void runForced(std::string_view variant,
+                      std::string_view shape,
+                      const Dens& d,
+                      const std::array<Refs, 3>& refs,
+                      const Time& time) {
+  constexpr std::array<char, 3> kName{
+      static_cast<char>('A' + X), static_cast<char>('A' + Y), static_cast<char>('A' + Z)};
+  // The dependencies leave one order, and no predicate can change it.
+  constexpr std::array<char, 10> kVisit{'c', kName[0], ',', ' ', 'c', kName[1], ',', ' ', 'c', kName[2]};
+  static_assert(decltype(forced<X, Y, Z>(std::declval<const std::array<Refs, 3>&>()))::visitOrder() ==
+                std::string_view{kVisit.data(), kVisit.size()});
+  if (variant == std::string_view{kName.data(), kName.size()}) {
+    time([&] { return withPredicates(shape, d, forced<X, Y, Z>(refs), false); });
+  }
 }
-using RunForced          = Set (*)(std::string_view, const Dens&, const std::array<Ptrs, 3>&);
+
 constexpr std::size_t kA = 0, kB = 1, kC = 2;
-constexpr std::pair<std::string_view, RunForced> kOrders[] = {
-    {"ABC", runForced<kA, kB, kC>},
-    {"ACB", runForced<kA, kC, kB>},
-    {"BAC", runForced<kB, kA, kC>},
-    {"BCA", runForced<kB, kC, kA>},
-    {"CAB", runForced<kC, kA, kB>},
-    {"CBA", runForced<kC, kB, kA>},
-};
 
 template <typename... Columns>
 static std::uint64_t checksum(const dreamor::IndexSet<Columns...>& set) {
@@ -200,20 +216,22 @@ int main(int argc, char** argv) {
   const std::array<std::size_t, 3> n{std::stoul(argv[2]), std::stoul(argv[3]), std::stoul(argv[4])};
   const Dens d{std::stoull(argv[5]), std::stoull(argv[6]), std::stoull(argv[7])};
 
-  std::array<std::vector<E>, 3> entities;
-  std::array<Ptrs, 3> ptrs;
+  std::array<dreamor::EntityVector<E>, 3> entities;
+  std::array<Refs, 3> refs;
   for (std::size_t s = 0; s < 3; ++s) {
-    entities[s].resize(n[s]);
+    entities[s].reserve(n[s]);
     for (std::uint32_t i = 0; i < n[s]; ++i) {
-      entities[s][i].id = i;
+      static_cast<void>(entities[s].emplace(E{i}));
     }
-    for (const E& e : entities[s]) {
-      ptrs[s].push_back(&e);
+    entities[s].freeze();
+    for (std::uint32_t i = 0; i < n[s]; ++i) {
+      refs[s].push_back(entities[s].at(i));
     }
   }
 
-  // Times build() alone; the checksum reads the columns by type, so a set whose columns come in
-  // another order sums the same.
+  // The timer covers the lambda that writes and builds the set, and it stops before the checksum. The predicate count
+  // starts from 0 there too, so it leaves out the predicates that build the join's two sets. The checksum reads the
+  // columns by type, so a set whose columns come in another order has the same checksum.
   using Clk           = std::chrono::steady_clock;
   std::string planned = "-";
   double ms           = 0;
@@ -230,27 +248,30 @@ int main(int argc, char** argv) {
     ran            = true;
   };
 
+  using namespace dreamor::index_set::set_builder;
   if (shape == "join") {
-    const auto S = dreamor::makeSet<cA, cB>(ptrs[0], ptrs[1]).where(pAB(d.d1)).build();
-    const auto U = dreamor::makeSet<cB, cC>(ptrs[1], ptrs[2]).where(pBC(d.d2)).build();
+    const auto sS = of<cA, cB>(in<cA>(refs[0]), in<cB>(refs[1])).where(pAB(d.d1)).build();
+    const auto sU = of<cB, cC>(in<cB>(refs[1]), in<cC>(refs[2])).where(pBC(d.d2)).build();
     if (variant == "SU") {
-      time([&] { return dreamor::makeSet<>(S, U).build(); });
+      time([&] { return of<cA, cB, cC>(in<cA, cB>(sS), in<cB, cC>(sU)).build(); });
     }
     if (variant == "US") {
-      time([&] { return dreamor::makeSet<>(U, S).build(); });
+      time([&] { return of<cB, cC, cA>(in<cB, cC>(sU), in<cA, cB>(sS)).build(); });
     }
-    planned = variant;  // a join is visited in declaration order
+    // A join is visited in the order in which its generators are written.
+    planned = variant;
   } else {
-    const auto free_builder = dreamor::makeSet<cA, cB, cC>(ptrs[0], ptrs[1], ptrs[2]);
-    planned                 = plannedOrder(shape, d, free_builder);
+    const auto freeOrder = of<cA, cB, cC>(in<cA>(refs[0]), in<cB>(refs[1]), in<cC>(refs[2]));
+    planned              = plannedOrder(shape, d, freeOrder);
     if (variant == "free" || variant == "late") {
-      time([&] { return withPredicates(shape, d, free_builder, variant == "late"); });
+      time([&] { return withPredicates(shape, d, freeOrder, variant == "late"); });
     }
-    for (const auto& [name, run] : kOrders) {
-      if (variant == name) {
-        time([&] { return run(shape, d, ptrs); });
-      }
-    }
+    runForced<kA, kB, kC>(variant, shape, d, refs, time);
+    runForced<kA, kC, kB>(variant, shape, d, refs, time);
+    runForced<kB, kA, kC>(variant, shape, d, refs, time);
+    runForced<kB, kC, kA>(variant, shape, d, refs, time);
+    runForced<kC, kA, kB>(variant, shape, d, refs, time);
+    runForced<kC, kB, kA>(variant, shape, d, refs, time);
   }
   if (!ran) {
     std::fprintf(stderr, "no variant %s for shape %s\n", argv[9], argv[1]);

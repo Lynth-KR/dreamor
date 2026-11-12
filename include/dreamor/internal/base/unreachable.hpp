@@ -2,18 +2,22 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// File: unreachable.hpp
-// Naming convention
-//    1.   Type: Pascal Case (i.e., MyType)
-//    2.   Variables: snake case (i.e., my_variable)
-//    2-1. Member Variables: snake case with trailing underscore (i.e., my_variable_)
-//    3.   Functions: camel Case (i.e., myFunction())
-//    3.   Constants: kPascal Case (i.e., kMyConstant)
-//    4.   Macros: Screaming Snake Case (i.e., MY_MACRO)
-//
-// C++23's std::unreachable for C++20: the path after a broken contract's debug check, which a
-// release build compiles away. Reaching it is undefined behavior, as with the standard's.
+// C++23's std::unreachable for C++20. A release build reaches it where a debug build would stop on a broken contract.
 #pragma once
+
+/// @section Debug-build checks
+///
+/// This section lists dreamor's contracts. A contract is a precondition of an entry. If a program breaks a contract,
+/// the behavior is undefined, as when a program breaks a precondition of the standard library.
+///
+/// A debug build checks the contracts. A debug build is one in which `NDEBUG` is not defined. If a check finds a
+/// broken contract, it writes an error line that describes the contract to the calling thread's log target, as the
+/// Logger section describes. Then it aborts the program. A release build does not check the contracts, as with the
+/// assertions of libstdc++.
+///
+/// For each contract, the section shows its whole text, the entries that name it, the line that its check writes,
+/// and the test cases that break it. An entry shows only the first sentence of a contract, which states the contract
+/// whole, with a link to this section.
 
 namespace dreamor::internal::inline base {
 

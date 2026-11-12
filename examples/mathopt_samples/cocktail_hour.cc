@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: MPL-2.0
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2010-2025 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -45,6 +44,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "absl/container/flat_hash_set.h"
@@ -223,13 +223,13 @@ std::vector<Cocktail> AllCocktails() {
 }
 
 // The token a cocktail contributes to its variable's name: Make_<name>.
-inline const std::string& keyName(const Cocktail* cocktail) { return cocktail->name; }
+inline const std::string& primaryKey(const Cocktail& cocktail) { return cocktail.name; }
 
 // An ingredient is a name, so its column holds the name itself (a value column,
 // named in variables as Buy_<name>); a cocktail is an entity, so its column
-// points at it.
-using cCocktail = dreamor::Col<const Cocktail*, "cocktail">;
-using cIngredient = dreamor::Col<std::string_view, "ingredient">;
+// refers to it.
+DREAMOR_ENTITY_COLUMN(cCocktail, Cocktail);
+DREAMOR_VALUE_COLUMN(cIngredient, std::string_view);
 
 struct Menu {
   std::vector<std::string> ingredients;
@@ -242,17 +242,21 @@ absl::StatusOr<Menu> SolveForMenu(
     const absl::flat_hash_set<std::string>& unavailable_ingredients,
     const absl::flat_hash_set<std::string>& required_cocktails,
     const absl::flat_hash_set<std::string>& blocked_cocktails) {
-  const std::vector<Cocktail> all_cocktails = AllCocktails();
+  dreamor::EntityVector<Cocktail> all_cocktails;
+  for (Cocktail& cocktail : AllCocktails()) {
+    static_cast<void>(all_cocktails.insert(std::move(cocktail)));
+  }
+  all_cocktails.freeze();
 
   // set INGREDIENTS; set COCKTAILS;
   // set RECIPE := {c in COCKTAILS, i in INGREDIENTS_OF[c]};
   const auto ingredients_of = [](cCocktail c) {
     return std::span<const std::string>(c->ingredients);
   };
-  const auto sINGREDIENTS = dreamor::makeSet<cIngredient>(kIngredients).build();
-  const auto sCOCKTAILS = dreamor::makeSet<cCocktail>(all_cocktails).build();
+  const auto sINGREDIENTS = dreamor::index_set::relational::from<cIngredient>(kIngredients).build();
+  const auto sCOCKTAILS = dreamor::index_set::relational::from<cCocktail>(all_cocktails).build();
   const auto sRECIPE =
-      dreamor::makeSet<cCocktail, cIngredient>(all_cocktails, ingredients_of)
+      dreamor::index_set::relational::from<cCocktail>(all_cocktails).lateral<cIngredient>(ingredients_of)
           .build();
 
   // var Buy {i in INGREDIENTS} integer, >= (if i in EXISTING then 1),

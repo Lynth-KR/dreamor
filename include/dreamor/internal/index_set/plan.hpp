@@ -2,9 +2,8 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// File: plan.hpp
-// The order sources are visited in, and the bookkeeping that lets generation bind columns
-// in that order rather than the declared one.
+// The visit order of the sources, and the bookkeeping that lets generation bind columns in that order instead of
+// the declared one.
 #pragma once
 
 #include <algorithm>
@@ -21,14 +20,13 @@
 
 namespace dreamor::internal::inline index_set {
 
-// A set's columns are bits of one std::uint64_t throughout planning, so a set has at most 64.
+// Planning keeps a set's columns as the bits of one std::uint64_t, so a set has at most 64 columns.
 inline constexpr std::size_t kMaxColumns = 64;
 static_assert(kMaxColumns <= std::numeric_limits<std::uint64_t>::digits);
 
-// --- Bound columns --------------------------------------------------------------------
-// Generation binds columns in visit order, which need not be element-tuple order, so the
-// bound values are carried alongside an index_sequence naming the column each one is. These
-// map an element-tuple column to its position in that pack.
+// Generation binds columns in the visit order, which need not be the order of the element tuple. So the bound values
+// are carried with an index_sequence that names the element-tuple column of each value. The helpers below map an
+// element-tuple column to its position in that pack.
 
 template <typename Seq>
 [[nodiscard]] consteval std::uint64_t maskOfSequence() {
@@ -49,6 +47,7 @@ template <std::size_t Column, typename Seq>
 
 template <typename Columns, typename Bound>
 struct RemapToBound;
+
 template <std::size_t... Columns, typename Bound>
 struct RemapToBound<std::index_sequence<Columns...>, Bound> {
   using type = std::index_sequence<positionInSequence<Columns, Bound>()...>;
@@ -56,81 +55,31 @@ struct RemapToBound<std::index_sequence<Columns...>, Bound> {
 
 template <typename Seq, std::size_t Column>
 struct AppendColumn;
+
 template <std::size_t... Is, std::size_t Column>
 struct AppendColumn<std::index_sequence<Is...>, Column> {
   using type = std::index_sequence<Is..., Column>;
 };
 
-// Every dependent source, checked before the plan is built: an unreadable or misspelled
-// signature has no columns, which the planner would otherwise report as a cycle.
-template <typename RangeTuple, typename ElemTuple, std::size_t I = 0>
-[[nodiscard]] consteval bool dependentSourcesReadable() {
-  if constexpr (I >= std::tuple_size_v<RangeTuple>) {
-    return true;
-  } else {
-    using Source = std::tuple_element_t<I, RangeTuple>;
-    if constexpr (sourceKindOf<Source>() == SourceKind::kDependent && no_indirect_call<Source>) {
-      return ColumnsOfPredicate<Source>::known && dependentSourcesReadable<RangeTuple, ElemTuple, I + 1>();
-    } else {
-      return dependentSourcesReadable<RangeTuple, ElemTuple, I + 1>();
-    }
-  }
-}
-
-template <typename RangeTuple, typename ElemTuple, std::size_t I = 0>
-[[nodiscard]] consteval bool dependentSourcesNamed() {
-  if constexpr (I >= std::tuple_size_v<RangeTuple>) {
-    return true;
-  } else {
-    using Source = std::tuple_element_t<I, RangeTuple>;
-    if constexpr (sourceKindOf<Source>() == SourceKind::kDependent && ColumnsOfPredicate<Source>::known) {
-      return SourcePlacement<Source, ElemTuple>::all_named && SourcePlacement<Source, ElemTuple>::all_present &&
-             dependentSourcesNamed<RangeTuple, ElemTuple, I + 1>();
-    } else {
-      return dependentSourcesNamed<RangeTuple, ElemTuple, I + 1>();
-    }
-  }
-}
-
-template <typename RangeTuple, typename ElemTuple, std::size_t I = 0>
-[[nodiscard]] consteval bool dependentSourcesDistinct() {
-  if constexpr (I >= std::tuple_size_v<RangeTuple>) {
-    return true;
-  } else {
-    using Source = std::tuple_element_t<I, RangeTuple>;
-    if constexpr (sourceKindOf<Source>() == SourceKind::kDependent && ColumnsOfPredicate<Source>::known) {
-      return SourcePlacement<Source, ElemTuple>::no_repeated_column &&
-             dependentSourcesDistinct<RangeTuple, ElemTuple, I + 1>();
-    } else {
-      return dependentSourcesDistinct<RangeTuple, ElemTuple, I + 1>();
-    }
-  }
-}
-
-// --- Join order -------------------------------------------------------------------------
-// Sources are visited so that predicates run as early as possible. Greedy, over column
-// names only - no cardinality:
+// The visit order is chosen so that predicates run as early as possible. The choice is greedy, and it uses only the
+// columns that each source and each predicate has, not how many rows a source holds. At each place in the order:
 //
-//   1. A source is eligible once every column it depends on is bound.
-//   2. Prefer the source that lets the most predicates run immediately.
-//   3. Then the smallest gap - fewest columns still missing for some predicate.
-//   4. Then a dependent source over a container: the list it hands back per binding - a
-//      machine's items - is usually far shorter than a whole container, as a one-to-many join
-//      is preferred to a many-to-many one when there are no statistics.
-//   5. Then declaration order.
+//   1. A source is eligible if every column that it depends on is bound.
+//   2. The eligible source that lets the most predicates run at once is preferred.
+//   3. On a tie, the source after which some predicate misses the fewest columns is preferred.
+//   4. On a tie, a source that depends on bound columns, such as a lateral source, is preferred over a source that
+//      does not. The list that a lateral source returns for one row, such as a machine's items, is usually much
+//      shorter than a whole container. For the same reason, a one-to-many join is preferred to a many-to-many join
+//      when there are no statistics.
+//   5. On a tie, the source declared first is chosen.
 //
-// Rules 2 and 3 are the "most constrained first" order of subgraph matchers such as RI; 4 is
-// what statistics-free join ordering such as Simpli-Squared does with key/foreign-key joins.
-// bench/plan/README.md measures the result against every other order.
-//
-// This changes which column varies fastest, so it changes the row order of the result.
-// Set::kVisitOrder holds the plan that ran. constexpr rather than consteval so that
-// bench/plan/ can run the same plan on masks it makes up at run time.
+// The visit order decides which column varies fastest, so it decides the order of the result's rows. Set::kVisitOrder
+// holds the order that was chosen. The function is constexpr, not consteval, so that bench/plan/ can run the same
+// planning on masks that it makes at run time.
 
 template <std::size_t SourceCount, std::size_t PredCount>
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): one fixpoint loop; split, it no longer reads as one
 [[nodiscard]] constexpr std::array<std::size_t, SourceCount> planVisitOrder(
-    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): produces and depends are both column masks per source
     std::array<std::uint64_t, SourceCount> produces,
     std::array<std::uint64_t, SourceCount> depends,
     std::array<std::uint64_t, PredCount> predicates) {
@@ -152,17 +101,17 @@ template <std::size_t SourceCount, std::size_t PredCount>
       for (std::size_t p = 0; p < PredCount; ++p) {
         const std::uint64_t missing_now = predicates[p] & ~next;
         if (missing_now == 0) {
-          // Ran already, or runs on this source; only the latter counts as progress.
+          // The predicate ran before, or it runs on this source. Only a predicate that runs on this source counts.
           if ((predicates[p] & ~bound) != 0) { ++activated; }
         } else {
           gap = std::min(gap, static_cast<std::size_t>(std::popcount(missing_now)));
         }
       }
       if (gap == ~std::size_t{0}) {
-        gap = 0;  // Nothing left to wait for.
+        gap = 0;  // No predicate still waits for a column.
       }
 
-      // best is checked first: until a source is picked it is SourceCount, past depends' end.
+      // best is tested first because, until a source is picked, best is SourceCount, which is past the end of depends.
       const bool better = (best == SourceCount) || (activated > best_activated) ||
                           (activated == best_activated &&
                            (gap < best_gap || (gap == best_gap && depends[source] != 0 && depends[best] == 0)));
@@ -174,8 +123,9 @@ template <std::size_t SourceCount, std::size_t PredCount>
     }
 
     if (best == SourceCount) {
-      // No source is eligible: the dependent sources need each other. Mark the rest
-      // unplaced and let the caller turn that into a diagnostic.
+      // No source is eligible, because the remaining sources depend on each other. A chain never reaches this point:
+      // each step reads only the columns before it, so the chain's own order always works. Masks made up elsewhere,
+      // as in bench/plan/, can reach it, and the remaining places are marked as unplaced.
       for (; step < SourceCount; ++step) {
         order[step] = SourceCount;
       }

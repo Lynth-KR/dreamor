@@ -2,7 +2,9 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// common/measure.hpp - wall, user and system time, page faults and hardware counters per phase; resident memory
+// common/measure.hpp - the measures of a phase: wall, user and system time, page faults and hardware counters.
+//
+// It also reads the resident memory, and preconditions the heap before a run.
 #pragma once
 
 #ifdef _WIN32
@@ -30,10 +32,9 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include "dreamor/logger.hpp"
 
-// ---------------------------------------------------------------------------------------------
 using Clk = std::chrono::steady_clock;
+
 template <typename F>
 static double timeMs(F&& f) {
   const auto t = Clk::now();
@@ -41,8 +42,10 @@ static double timeMs(F&& f) {
   return std::chrono::duration<double, std::milli>(Clk::now() - t).count();
 }
 
-// One phase: wall time, the process's user and system time, minor page faults.
+// The most hardware counters that --pmu takes.
 constexpr std::size_t kMaxCounters = 8;
+
+// One phase's measures: the wall time, the process's user and system time, the page faults, and the hardware counters.
 struct Phase {
   double wall_ms = 0, user_ms = 0, sys_ms = 0;
   std::int64_t minflt = 0;
@@ -50,19 +53,22 @@ struct Phase {
   std::array<std::uint64_t, kMaxCounters> counters{};
 };
 
-// --pmu: one group of user-mode counters on this process, read around every phase. Windows has no
-// perf_event: there --pmu refuses any counter, and run.py's --pmu auto finds none.
+// The counters that --pmu names: one group of user-mode counters on this process, read before and after every phase.
+// Windows has no perf_event, so on Windows --pmu refuses any counter, and run.py's --pmu auto finds none.
 #ifdef _WIN32
 class Pmu {
  public:
   std::vector<std::string> names;
+
   void open(const std::string& spec) {
     if (!spec.empty()) {
-      DREAMOR_LOG_ERROR("--pmu: no hardware counters on Windows");
+      std::fputs("--pmu: no hardware counters on Windows\n", stderr);
       std::exit(2);
     }
   }
+
   [[nodiscard]] bool on() const { return false; }
+
   [[nodiscard]] std::array<std::uint64_t, kMaxCounters> read() const { return {}; }
 };
 #else
@@ -103,7 +109,7 @@ class Pmu {
       attr.type           = type;
       attr.config         = config;
       attr.disabled       = names.empty();
-      attr.exclude_kernel = 1;  // perf_event_paranoid 2 allows user mode only
+      attr.exclude_kernel = 1;  // If perf_event_paranoid is 2, the kernel allows user-mode counts only.
       attr.exclude_hv     = 1;
       attr.read_format    = PERF_FORMAT_GROUP | PERF_FORMAT_TOTAL_TIME_ENABLED | PERF_FORMAT_TOTAL_TIME_RUNNING;
       const long fd       = syscall(SYS_perf_event_open, &attr, 0, -1, names.empty() ? -1 : leader_, 0);
@@ -113,9 +119,11 @@ class Pmu {
     }
     if (leader_ >= 0) { ioctl(leader_, PERF_EVENT_IOC_ENABLE, PERF_IOC_FLAG_GROUP); }
   }
+
   [[nodiscard]] bool on() const { return leader_ >= 0; }
-  // The group's counts now. A group the CPU could not hold all at once would be multiplexed,
-  // and its counts estimates: that is refused rather than scaled.
+
+  // Returns the group's counts now. If the CPU cannot hold the whole group at once, the kernel multiplexes the
+  // counters, and their counts are estimates. Such counts are refused rather than scaled.
   [[nodiscard]] std::array<std::uint64_t, kMaxCounters> read() const {
     std::array<std::uint64_t, 3 + kMaxCounters> buf{};
     if (::read(leader_, buf.data(), sizeof buf) <= 0) { fail("read"); }
@@ -129,9 +137,10 @@ class Pmu {
 
  private:
   [[noreturn]] static void fail(const std::string& why) {
-    DREAMOR_LOG_ERROR("--pmu: {}", why);
+    std::fprintf(stderr, "--pmu: %s\n", why.c_str());
     std::exit(2);
   }
+
   int leader_ = -1;
 };
 #endif
@@ -139,17 +148,20 @@ static Pmu& pmu() {
   static Pmu p;
   return p;
 }
-// The process's user and system time so far, and its page faults (minor ones on Linux; Windows
-// counts every fault, most of them soft, the same kind).
+
+// The process's user and system time so far, and its page faults. On Linux, the faults are the minor faults. Windows
+// counts every fault, and most of those are soft faults, which are the same kind.
 struct Usage {
   double user_ms = 0, sys_ms = 0;
   std::int64_t faults = 0;
 };
+
 static Usage usageNow() {
 #ifdef _WIN32
   FILETIME created, exited, kernel, user;
   GetProcessTimes(GetCurrentProcess(), &created, &exited, &kernel, &user);
-  const auto ms = [](const FILETIME& t) {  // 100 ns ticks
+  // A FILETIME counts ticks of 100 ns.
+  const auto ms = [](const FILETIME& t) {
     return static_cast<double>((static_cast<std::uint64_t>(t.dwHighDateTime) << 32) | t.dwLowDateTime) / 1e4;
   };
   PROCESS_MEMORY_COUNTERS m{};
@@ -164,7 +176,8 @@ static Usage usageNow() {
   return {ms(u.ru_utime), ms(u.ru_stime), u.ru_minflt};
 #endif
 }
-// The CPU the process runs on now.
+
+// Returns the CPU that the process runs on now.
 [[maybe_unused]] static int currentCpu() {
 #ifdef _WIN32
   return static_cast<int>(GetCurrentProcessorNumber());
@@ -172,6 +185,7 @@ static Usage usageNow() {
   return sched_getcpu();
 #endif
 }
+
 template <typename F>
 static Phase measure(F&& f) {
   std::array<std::uint64_t, kMaxCounters> counted{};
@@ -189,8 +203,8 @@ static Phase measure(F&& f) {
       wall, after.user_ms - before.user_ms, after.sys_ms - before.sys_ms, after.faults - before.faults, true, counted};
 }
 
-// Signed: the callers subtract one reading from another. Resident now and at peak (Windows: the
-// working set and its peak).
+// residentBytes returns the resident memory now, and peakBytes the peak resident memory. On Windows, they return the
+// working set and its peak. Both are signed, because the callers subtract one reading from another.
 [[maybe_unused]] static std::int64_t residentBytes() {
 #ifdef _WIN32
   PROCESS_MEMORY_COUNTERS m{};
@@ -218,14 +232,15 @@ static Phase measure(F&& f) {
 #endif
 }
 
-// A fresh heap is an allocator's best case (van Kempen & Berger, ISMM '26): blocks of random sizes
-// are allocated, a random half freed and the rest kept for the life of the process, so the run
-// starts from a heap with holes. The seed is the repetition's: every arm of a repetition starts
-// from the same holes, and each repetition from different ones.
+// Leaves holes in the heap before a run, because a fresh heap is an allocator's best case (van Kempen & Berger,
+// ISMM '26). It allocates blocks of random sizes, frees a random half of them, and keeps the rest for the life of the
+// process. The seed is the repetition's, so every arm of a repetition starts from the same holes, and each repetition
+// starts from different holes. A seed of 0 leaves the heap as it is.
 [[maybe_unused]] static void preconditionHeap(std::uint64_t seed) {
   if (seed == 0) { return; }
   std::mt19937_64 g(seed);
-  auto* kept = new std::vector<void*>(std::size_t{1} << 16);  // kept, like the blocks it holds
+  // The vector is never freed, like the blocks that it keeps.
+  auto* kept = new std::vector<void*>(std::size_t{1} << 16);
   for (void*& b : *kept) {
     b = std::malloc(16 + g() % 1008);
   }

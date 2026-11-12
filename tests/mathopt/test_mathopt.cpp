@@ -2,7 +2,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// The MathOpt backend (run_tests.sh --mathopt): VarTable and sumExpr as test_vartable and
+// The MathOpt backend (DREAMOR_ORTOOLS_DIR): VarTable and sumExpr as test_vartable and
 // test_sum check them for Concert, then the lot-sizing example solved with HiGHS.
 #include <array>
 #include <cmath>
@@ -14,17 +14,19 @@
 #include <type_traits>
 #include <vector>
 
-#include "check.hpp"
 #include "dreamor/index_set.hpp"
 #include "dreamor/mathopt.hpp"
-#include "float_compare.hpp"
 #include "ortools/math_opt/cpp/math_opt.h"
 #include "production_planning_mathopt.hpp"
+#include "support/check.hpp"
+#include "support/float_compare.hpp"
 
 namespace math_opt = ::operations_research::math_opt;
 
-using cI = dreamor::Col<std::size_t, "i">;
-using cJ = dreamor::Col<std::size_t, "j">;
+namespace {
+DREAMOR_VALUE_COLUMN(cI, std::size_t);
+DREAMOR_VALUE_COLUMN(cJ, std::size_t);
+}  // namespace
 
 static std::size_t terms(const math_opt::LinearExpression& e) {
   return e.terms().size();
@@ -34,7 +36,7 @@ static void varTable() {
   math_opt::Model model("vartable");
   const std::vector<std::size_t> I{3, 1, 2};
   const std::vector<std::size_t> J{10, 20};
-  const auto IJ = dreamor::makeSet<cI, cJ>(I, J).build();
+  const auto IJ = dreamor::index_set::relational::from<cI>(I).cross<cJ>(J).build();
 
   static_assert(!std::is_copy_constructible_v<dreamor::mathopt::VarTable<cI, cJ>>);
   static_assert(std::is_nothrow_move_constructible_v<dreamor::mathopt::VarTable<cI, cJ>>);
@@ -98,7 +100,7 @@ static void sum() {
   math_opt::Model model("sum");
   const std::vector<std::size_t> I{1, 2, 3};
   const std::vector<std::size_t> J{10, 20};
-  const auto IJ = dreamor::makeSet<cI, cJ>(I, J).build();
+  const auto IJ = dreamor::index_set::relational::from<cI>(I).cross<cJ>(J).build();
   const dreamor::mathopt::VarTable<cI, cJ> x{model, IJ, 0, 1, true, "x"};
   const auto var      = [&x](cI i, cJ j) { return x(i, j); };
   const auto weighted = [&x](cI i, cJ j) { return static_cast<double>(i.get()) * x(i, j); };
@@ -129,7 +131,7 @@ static void sum() {
   DREAMOR_CHECK(terms(dreamor::mathopt::sumExpr(IJ, var).where([](cI) { return false; }).build()) == 0);
 
   // a plain container as a one-column set
-  const dreamor::mathopt::VarTable<cI> y{model, dreamor::makeSet<cI>(I).build(), 0, 1};
+  const dreamor::mathopt::VarTable<cI> y{model, dreamor::index_set::relational::from<cI>(I).build(), 0, 1};
   DREAMOR_CHECK(terms(dreamor::mathopt::sumExpr<cI>(I, [&y](cI i) { return y(i); }).build()) == 3);
 
   // linear terms make a LinearExpression, quadratic ones a QuadraticExpression
@@ -164,7 +166,7 @@ static void sum() {
 static void quadraticObjective() {
   math_opt::Model model("least squares");
   const std::vector<std::size_t> I{1, 2, 3};
-  const auto sI = dreamor::makeSet<cI>(I).build();
+  const auto sI = dreamor::index_set::relational::from<cI>(I).build();
   const dreamor::mathopt::VarTable<cI> vFit{model, sI, -10, 10, true, "Fit"};
   const auto off_target = [&vFit](cI i) {
     const double target = 1.4 * static_cast<double>(i.get());
@@ -183,7 +185,7 @@ static void solution() {
   // max sum i * x_i, sum x_i <= 2, x binary over I = {1, 2, 3}: x_2 = x_3 = 1.
   math_opt::Model model("solution");
   const std::vector<std::size_t> I{1, 2, 3};
-  const auto sI = dreamor::makeSet<cI>(I).build();
+  const auto sI = dreamor::index_set::relational::from<cI>(I).build();
   const dreamor::mathopt::VarTable<cI> vPick{model, sI, 0, 1, true, "Pick"};
   model.AddLinearConstraint(dreamor::mathopt::sumExpr(sI, [&vPick](cI i) { return vPick(i); }).build() <= 2);
   model.Maximize(
@@ -204,10 +206,10 @@ static void solution() {
 
 static void example() {
   using namespace planning;
-  for (const auto& [M, I, T] : {std::array<std::size_t, 3>{2, 3, 4}, std::array<std::size_t, 3>{3, 6, 5}}) {
+  for (const auto& [M, I, T] : {std::array<int, 3>{2, 3, 4}, std::array<int, 3>{3, 6, 5}}) {
     const Instance in = Instance::make(M, I, T);
     math_opt::Model model("lot sizing");
-    const MathOptModel lotSizing{model, in};
+    const mathopt::Model lotSizing{model, in};
     lotSizing.build(model);
     const auto capacityRows = lotSizing.sPRODUCE.groupBy<cMachine, cPeriod>().size();
     DREAMOR_CHECK(static_cast<std::size_t>(model.num_linear_constraints()) ==
@@ -221,7 +223,7 @@ static void example() {
 
     const auto producedByItemPeriod = lotSizing.sPRODUCE.groupBy<cItem, cPeriod>();
     for (const auto& [i, t] : lotSizing.sSTOCK) {
-      double netFlow = (t.get() > 0 ? stockPlan(i, cPeriod{t.get() - 1}) : 0.0) - i->demand[t.get()];
+      double netFlow = (t > 0 ? stockPlan(i, t - 1) : 0.0) - i->demand[static_cast<std::size_t>(t.get())];
       for (const auto& row : producedByItemPeriod.slice(i, t)) {
         netFlow += yieldPlan(row);
       }

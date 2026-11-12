@@ -1,0 +1,8 @@
+Copyright 2026 Lynth-KR. All rights reserved.
+
+The banner of dreamor (docs/images/), the slogan in it included, is its own artwork. You may show it unchanged to
+refer to dreamor, for example beside a link to the project. Any other use - changed, combined into other artwork, or
+as the mark of another project - needs the copyright holder's written permission.
+
+The lettering is drawn from typefaces under the SIL Open Font License or the Apache License 2.0, as outlines; no font
+software is part of these images, and those licenses do not cover the artwork made with them.

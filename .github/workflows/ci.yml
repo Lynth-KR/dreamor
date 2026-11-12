@@ -1,60 +1,62 @@
 name: tests
 # CI is for what is published: pushes to main and pull requests, or a run started by hand
-# (workflow_dispatch) for a work branch. A change of Markdown alone builds nothing: the code
-# blocks of the README and docs/guide.md are compiled by tests/test_readme.cpp, which a change to them touches too.
+# (workflow_dispatch) for a work branch. A change of Markdown alone builds nothing, but for the README, whose program
+# the HiGHS jobs take out and run (tests/docs/readme.py), and the site's pages under docs/ (not docs/dev/), whose
+# regions and links lint's site build checks. The same rule is ci/hooks/pre-push's.
 on:
   push:
     branches: [main]
-    paths-ignore: ["**/*.md"]
+    paths: ["**", "!**/*.md", "README.md", "docs/**", "!docs/dev/**"]
   pull_request:
-    paths-ignore: ["**/*.md"]
+    paths: ["**", "!**/*.md", "README.md", "docs/**", "!docs/dev/**"]
   workflow_dispatch:
 # A newer push to the same ref makes the run still going on the older one moot.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-# Every job takes under 5 minutes; one past 20 is stuck - on a package mirror that stopped
-# answering, say - and would otherwise hold a runner for GitHub's default of six hours.
+# Each job is a workflow preset of CMakePresets.json (configure, build, test); a runner has 4 cores.
+env:
+  CMAKE_BUILD_PARALLEL_LEVEL: 4
+  CTEST_PARALLEL_LEVEL: 4
+# Every Linux job takes under 5 minutes; one past 20 is stuck - on a package mirror that stopped
+# answering, say - and would otherwise hold a runner for GitHub's default of six hours. The Windows and macOS
+# runners are slower, and their jobs get 40.
+# Every job starts at once, lint among them: the runners cost the public repository nothing, so a failure anywhere
+# shows within minutes instead of after lint's tidy, and one run shows every failure.
 jobs:
   stub:
-    # The builds wait for lint (format and tidy), the checks that fail most: a run that fails
-    # there costs that job, not the whole matrix.
     # No CPLEX on CI: tests run against the Concert stub in tests/stub, with GCC and Clang -
     # the compile_fail cases check that both print our message first.
-    # Real CPLEX: tests/run_tests.sh --cplex [CPLEX_Studio dir], locally.
-    # -O3 -DNDEBUG is CMake's Release: GCC finds more with inlining, and asserts compile away.
-    # GCC 13 at -O1 -g is sanitize (g++-13, 1): the same build, instrumented.
+    # Real CPLEX: the cplex preset (CPLEX_STUDIO_DIR), locally.
+    # Release is -O3 -DNDEBUG: GCC finds more with inlining, and asserts compile away.
+    # GCC 13 at -O1 -g is sanitize-gcc13: the same build, instrumented.
     # The compile_fail cases, the syntax checks and the tests of the documented code depend on
-    # the compiler alone, not on OPT or SAN, so they run once per compiler (checks: 1) and
-    # COMPILE_CHECKS=0 skips them elsewhere. Clang 18 at -O1 -g runs them alone (units: 0): its
-    # other tests and contract_fail are sanitize (clang++-18, 1), the same build instrumented.
+    # the compiler alone, not on the build type or a sanitizer, so they run once per compiler
+    # and the other presets leave them out (DREAMOR_TESTS). Clang 18 at -O1 -g runs them alone:
+    # its other tests and contract_fail are sanitize-clang18, the same build instrumented.
     # The g++-13 entry also installs the CMake package and builds tests/cmake_consumer through
     # find_package(dreamor), with both compilers, as a user would.
-    needs: lint
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { cxx: g++-13, opt: "-O3 -DNDEBUG", checks: 1, units: 1 }
-          - { cxx: clang++-18, opt: "-O1 -g", checks: 1, units: 0 }
-          - { cxx: clang++-18, opt: "-O3 -DNDEBUG", checks: 0, units: 1 }
+        preset: [stub-gcc13-release, stub-clang18-debug, stub-clang18-release]
     steps:
       - uses: actions/checkout@v7
       - name: Clang 18
         run: command -v clang++-18 || (sudo apt-get update && sudo apt-get install -y clang-18)
-      - run: >-
-          CXX=${{ matrix.cxx }} OPT="${{ matrix.opt }}" COMPILE_CHECKS=${{ matrix.checks }}
-          UNIT_TESTS=${{ matrix.units }} tests/run_tests.sh
+      - run: cmake --workflow --preset ${{ matrix.preset }}
       - name: CMake package
-        if: matrix.cxx == 'g++-13'
+        if: matrix.preset == 'stub-gcc13-release'
         run: |
           cmake -S . -B "$RUNNER_TEMP/build" -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/prefix"
           cmake --install "$RUNNER_TEMP/build"
           for cxx in g++-13 clang++-18; do
+            flags=
+            case $cxx in clang*) flags=--gcc-install-dir=/usr/lib/gcc/x86_64-linux-gnu/13 ;; esac  # the floor's libstdc++
             cmake -S tests/cmake_consumer -B "$RUNNER_TEMP/consumer-$cxx" -DCMAKE_CXX_COMPILER=$cxx \
-                  -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/prefix"
+                  -DCMAKE_CXX_FLAGS="$flags" -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/prefix"
             cmake --build "$RUNNER_TEMP/consumer-$cxx"
             "$RUNNER_TEMP/consumer-$cxx/consumer"
           done
@@ -64,59 +66,56 @@ jobs:
     # Clang, which instrument in ways of their own, and Thread on its own (it cannot share a build
     # with ASan) - tables on one set share its row index across threads, and lookups on several
     # threads build it once. The compile-time checks are the stub job's.
-    needs: lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [sanitize-gcc13, sanitize-clang18, sanitize-thread-gcc13]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Clang 18
+        if: matrix.preset == 'sanitize-clang18'
+        run: command -v clang++-18 || (sudo apt-get update && sudo apt-get install -y clang-18)
+      - run: cmake --workflow --preset ${{ matrix.preset }}
+
+  gcc-latest:
+    # The compiler range: the stub job holds the floor (GCC 13, Clang 18), this job and
+    # clang-latest the newest releases - bumped by hand at each major release (GCC every
+    # spring, LLVM every March and September; an LLVM bump takes the clang-format and clang-tidy
+    # pins along, docs/dev/code-style.md, "Tools"). The official image: Ubuntu 24.04 has no GCC 16. It has
+    # no CMake either: Debian's is installed (ci/containers/gcc-latest.Containerfile, locally).
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    container: gcc:16
+    steps:
+      - uses: actions/checkout@v7
+      - run: apt-get update && apt-get install -y --no-install-recommends cmake
+      - run: cmake --workflow --preset gcc-latest
+
+  clang-latest:
+    # The newest LLVM release, from apt.llvm.org (see gcc-latest).
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - run: wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- 23
+      - run: cmake --workflow --preset clang-latest
+
+  libcxx:
+    # The standard library's range, as the compilers': LLVM's libc++ at the floor (Clang 18 and libc++ 18, Ubuntu
+    # 24.04's) and the newest (from apt.llvm.org, bumped with clang-latest). What every supported standard library has
+    # in common holds on it (docs/dev/platforms.md). Unit tests and contract_fail; the compile_fail messages are the
+    # compiler's, checked by the other jobs. Each runner is a fresh machine, so the two libc++ versions, whose
+    # packages conflict, never meet; ci/local.py runs the newest in an image of its own.
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { cxx: g++-13, san: "1" }
-          - { cxx: clang++-18, san: "1" }
-          - { cxx: g++-13, san: thread }
-    steps:
-      - uses: actions/checkout@v7
-      - name: Clang 18
-        if: matrix.cxx == 'clang++-18'
-        run: command -v clang++-18 || (sudo apt-get update && sudo apt-get install -y clang-18)
-      - run: CXX=${{ matrix.cxx }} SAN=${{ matrix.san }} COMPILE_CHECKS=0 tests/run_tests.sh
-
-  gcc-latest:
-    # The compiler range: the stub job holds the floor (GCC 13, Clang 18), this job and
-    # clang-latest the newest releases - bumped by hand at each major release (GCC every
-    # spring, LLVM every March and September; an LLVM bump takes the clang-format and clang-tidy
-    # pins along, AGENTS.md "Formatting"). The official image: Ubuntu 24.04 has no GCC 16.
-    needs: lint
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    container: gcc:16
-    steps:
-      - uses: actions/checkout@v7
-      - run: CXX=g++ tests/run_tests.sh
-
-  clang-latest:
-    # The newest LLVM release, from apt.llvm.org (see gcc-latest).
-    needs: lint
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v7
-      - run: wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- 23
-      - run: CXX=clang++-23 tests/run_tests.sh
-
-  libcxx:
-    # The standard library's range, as the compilers': LLVM's libc++ at the floor (Clang 18 and libc++ 18, Ubuntu
-    # 24.04's) and the newest (from apt.llvm.org, bumped with clang-latest). What every supported standard library has
-    # in common holds on it (AGENTS.md, "Platforms"). Unit tests and contract_fail; the compile_fail messages are the
-    # compiler's, checked by the other jobs. Each runner is a fresh machine, so the two libc++ versions, whose
-    # packages conflict, never meet; tools/ci_local.sh runs the newest in an image of its own.
-    needs: lint
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        llvm: [18, 23]
+          - { llvm: 18, preset: libcxx-18 }
+          - { llvm: 23, preset: libcxx-latest }
     steps:
       - uses: actions/checkout@v7
       - name: LLVM ${{ matrix.llvm }} from apt.llvm.org
@@ -126,27 +125,25 @@ jobs:
         run: >-
           sudo apt-get update && sudo apt-get install -y clang-${{ matrix.llvm }} libc++-${{ matrix.llvm }}-dev
           libc++abi-${{ matrix.llvm }}-dev libunwind-${{ matrix.llvm }}-dev
-      - run: CXX=clang++-${{ matrix.llvm }} STDLIB=libc++ COMPILE_CHECKS=0 tests/run_tests.sh
+      - run: CXX=clang++-${{ matrix.llvm }} cmake --workflow --preset ${{ matrix.preset }}
 
   wasm:
     # WebAssembly (wasm32) with Emscripten, the tests run under Node.js: a 32-bit std::size_t and
     # libc++. It checks that dreamor builds and holds there, not how fast - performance is measured
     # on Linux x86-64 with libstdc++ alone. Emscripten has no long-term release, so one version is pinned, as
     # projects pin it; moving it is a tool update, not a bound of support.
-    needs: lint
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     container: emscripten/emsdk:6.0.13
     steps:
       - uses: actions/checkout@v7
-      - run: WASM=1 tests/run_tests.sh
+      - run: cmake --workflow --preset wasm
 
   wasm-highs:
-    # The HiGHS backend on WebAssembly: HiGHS built by the wasm job's Emscripten (tools/containers/build-highs-wasm.sh,
+    # The HiGHS backend on WebAssembly: HiGHS built by the wasm job's Emscripten (ci/containers/build-highs-wasm.sh,
     # which the local CI's image runs too), kept in the cache by the script's content, and the HiGHS mode's tests,
     # example, compile_fail and contract_fail run under Node.js. A job of its own, so that HiGHS's build stays out of
     # the wasm job's result.
-    needs: lint
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     container: emscripten/emsdk:6.0.13
@@ -157,24 +154,25 @@ jobs:
         uses: actions/cache@v6
         with:
           path: /opt/highs
-          key: highs-wasm-emsdk-6.0.13-${{ hashFiles('tools/containers/build-highs-wasm.sh') }}
+          key: highs-wasm-emsdk-6.0.13-${{ hashFiles('ci/containers/build-highs-wasm.sh') }}
       - name: HiGHS for wasm, built
         if: steps.highs.outputs.cache-hit != 'true'
-        run: sh tools/containers/build-highs-wasm.sh /opt/highs
-      - run: WASM=1 tests/run_tests.sh --highs /opt/highs
+        run: sh ci/containers/build-highs-wasm.sh /opt/highs
+      - run: cmake --workflow --preset wasm-highs
 
   mathopt:
     # The MathOpt backend against the OR-Tools C++ prebuilt, solving with HiGHS: unit tests,
-    # the example, the Concert-vs-MathOpt comparison of the example's constraints, and the
-    # MathOpt compile_fail cases. Then the HiGHS backend on the HiGHS the prebuilt ships: its
-    # tests, the README's code, its compile_fail and contract_fail cases.
-    needs: lint
+    # the example, the ported samples, the Concert-vs-MathOpt comparison of the example's
+    # constraints, and the MathOpt compile_fail cases; and the HiGHS backend on the HiGHS the
+    # prebuilt ships: its tests, the README's code, its compile_fail and contract_fail cases.
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        cxx: [g++-13, clang++-18]
+        include:
+          - { cxx: g++-13, preset: mathopt-gcc13 }
+          - { cxx: clang++-18, preset: mathopt-clang18 }
     env:
       ORTOOLS_URL: https://github.com/google/or-tools/releases/download/v9.15/or-tools_amd64_ubuntu-24.04_cpp_v9.15.6755.tar.gz
     steps:
@@ -186,20 +184,140 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/ortools"
           curl -sSfL "$ORTOOLS_URL" | tar xz -C "$RUNNER_TEMP/ortools" --strip-components=1
-      - run: CXX=${{ matrix.cxx }} tests/run_tests.sh --mathopt "$RUNNER_TEMP/ortools"
-      - run: CXX=${{ matrix.cxx }} tests/run_tests.sh --highs "$RUNNER_TEMP/ortools"
+      - run: ORTOOLS_DIR="$RUNNER_TEMP/ortools" cmake --workflow --preset ${{ matrix.preset }}
       - name: CMake package with OR-Tools
         run: |
           cmake -S . -B "$RUNNER_TEMP/build" -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/prefix"
           cmake --install "$RUNNER_TEMP/build"
           cmake -S tests/cmake_consumer_mathopt -B "$RUNNER_TEMP/consumer" -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+                -DCMAKE_CXX_FLAGS="${{ startsWith(matrix.cxx, 'clang') && '--gcc-install-dir=/usr/lib/gcc/x86_64-linux-gnu/13' || '' }}" \
                 -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/prefix;$RUNNER_TEMP/ortools"
           cmake --build "$RUNNER_TEMP/consumer" -j4
           "$RUNNER_TEMP/consumer/lot_sizing"
 
+  coverage:
+    # The library's line coverage by the tests, for Codecov: the coverage preset (Clang 18's source-based coverage,
+    # stub mode and the MathOpt and HiGHS backends on the OR-Tools prebuilt), then tools/coverage/lcov.py's lcov files, one
+    # for each test program, which Codecov adds up; .github/codecov.yml leaves out what no run reaches. A failed upload
+    # fails nothing. ci/local.py does not run it: the upload is GitHub's alone.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      ORTOOLS_URL: https://github.com/google/or-tools/releases/download/v9.15/or-tools_amd64_ubuntu-24.04_cpp_v9.15.6755.tar.gz
+    steps:
+      - uses: actions/checkout@v7
+      - name: Clang 18 and its LLVM tools
+        run: command -v llvm-cov-18 || (sudo apt-get update && sudo apt-get install -y clang-18 llvm-18)
+      - name: OR-Tools v9.15 prebuilt
+        run: |
+          mkdir -p "$RUNNER_TEMP/ortools"
+          curl -sSfL "$ORTOOLS_URL" | tar xz -C "$RUNNER_TEMP/ortools" --strip-components=1
+      - run: ORTOOLS_DIR="$RUNNER_TEMP/ortools" cmake --workflow --preset coverage
+      - id: lcov
+        run: |
+          python3 tools/coverage/lcov.py build/coverage --summary
+          echo "files=$(ls build/coverage/lcov/*.info | paste -sd, -)" >> "$GITHUB_OUTPUT"
+      - uses: codecov/codecov-action@v7
+        with:
+          files: ${{ steps.lcov.outputs.files }}
+          disable_search: true
+          use_oidc: true
+
+  windows:
+    # Stub mode, everything, and the MathOpt and HiGHS backends on the OR-Tools prebuilt for Visual Studio 2022, with
+    # the two compilers of Visual Studio 2026 and of 2022, each on its runner (the two versions warn differently),
+    # cl.exe and clang-cl (the ClangCL toolset), on the MSVC STL and the UCRT, at /W4 /WX: what a Windows user's strict
+    # build sees of dreamor's headers. /O1 without NDEBUG, so the debug checks and contract_fail run. The compile_fail
+    # cases and syntax checks run the compiler themselves (tests/cases.py), so Visual Studio's environment is loaded
+    # first. Then the CMake package, as a user finds it. ci/local.py cannot run it (docs/dev/ci.md, "Running it
+    # locally").
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: windows-2025, preset: windows-cl, generator: Visual Studio 18 2026 }
+          - { runner: windows-2025, preset: windows-clang-cl, generator: Visual Studio 18 2026, toolset: ClangCL }
+          - { runner: windows-2022, preset: windows-vs2022-cl, generator: Visual Studio 17 2022 }
+          - { runner: windows-2022, preset: windows-vs2022-clang-cl, generator: Visual Studio 17 2022, toolset: ClangCL }
+    env:
+      ORTOOLS_URL: https://github.com/google/or-tools/releases/download/v9.15/or-tools_x64_VisualStudio2022_cpp_v9.15.6755.zip
+    steps:
+      - uses: actions/checkout@v7
+      - name: OR-Tools v9.15 prebuilt, its DLLs on PATH
+        shell: pwsh
+        run: |
+          Invoke-WebRequest $env:ORTOOLS_URL -OutFile "$env:RUNNER_TEMP\ortools.zip"
+          Expand-Archive "$env:RUNNER_TEMP\ortools.zip" -DestinationPath "$env:RUNNER_TEMP\ortools"
+          $dir = (Get-ChildItem "$env:RUNNER_TEMP\ortools" -Directory | Select-Object -First 1).FullName
+          "ORTOOLS_DIR=$($dir.Replace('\', '/'))" >> $env:GITHUB_ENV
+          "$dir\bin" >> $env:GITHUB_PATH
+      - name: Visual Studio's environment, for the cases that run the compiler themselves
+        shell: pwsh
+        run: |
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          cmd /c "`"$vs\VC\Auxiliary\Build\vcvars64.bat`" > nul && set" | ForEach-Object {
+            if ($_ -match '^(INCLUDE|LIB|LIBPATH)=(.*)$') { "$($Matches[1])=$($Matches[2])" >> $env:GITHUB_ENV }
+          }
+      - run: cmake --workflow --preset ${{ matrix.preset }}
+      - name: CMake package
+        shell: bash
+        run: |
+          cmake -S . -B "$RUNNER_TEMP/build" -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/prefix"
+          cmake --install "$RUNNER_TEMP/build"
+          cmake -S tests/cmake_consumer -B "$RUNNER_TEMP/consumer" -G "${{ matrix.generator }}" -A x64 \
+                ${{ matrix.toolset && format('-T {0}', matrix.toolset) || '' }} -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/prefix"
+          cmake --build "$RUNNER_TEMP/consumer" --config Release
+          "$RUNNER_TEMP/consumer/Release/consumer.exe"
+      - name: CMake package with OR-Tools
+        # Not under clang-cl: the prebuilt's target links with /WHOLEARCHIVE:ortools, which lld-link cannot open
+        # (tests/mathopt/CMakeLists.txt works around it for the tests).
+        if: matrix.toolset != 'ClangCL'
+        shell: bash
+        run: |
+          cmake -S tests/cmake_consumer_mathopt -B "$RUNNER_TEMP/consumer_mathopt" -G "${{ matrix.generator }}" -A x64 \
+                ${{ matrix.toolset && format('-T {0}', matrix.toolset) || '' }} -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/prefix;$ORTOOLS_DIR"
+          cmake --build "$RUNNER_TEMP/consumer_mathopt" --config Release
+          "$RUNNER_TEMP/consumer_mathopt/Release/lot_sizing.exe"
+
+  macos:
+    # Stub mode, the HiGHS backend and the MathOpt backend with Apple Clang on Apple's libc++: everything, as
+    # clang-latest runs it, the HiGHS backend on HiGHS from Homebrew and MathOpt on the OR-Tools prebuilt for arm64
+    # macOS (its HiGHS its own); then the CMake package, alone and with OR-Tools. ci/local.py cannot run it either.
+    runs-on: macos-15
+    timeout-minutes: 40
+    env:
+      ORTOOLS_URL: https://github.com/google/or-tools/releases/download/v9.15/or-tools_arm64_macOS-26.2_cpp_v9.15.6755.tar.gz
+    steps:
+      - uses: actions/checkout@v7
+      - run: brew install highs
+      - name: OR-Tools v9.15 prebuilt
+        run: |
+          mkdir -p "$RUNNER_TEMP/ortools"
+          curl -sSfL "$ORTOOLS_URL" | tar xz -C "$RUNNER_TEMP/ortools" --strip-components=1
+      - run: ORTOOLS_DIR="$RUNNER_TEMP/ortools" HIGHS_DIR="$(brew --prefix highs)" cmake --workflow --preset macos
+      - name: CMake package, alone and with OR-Tools
+        run: |
+          cmake -S . -B "$RUNNER_TEMP/build" -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/prefix"
+          cmake --install "$RUNNER_TEMP/build"
+          cmake -S tests/cmake_consumer -B "$RUNNER_TEMP/consumer" -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/prefix"
+          cmake --build "$RUNNER_TEMP/consumer"
+          "$RUNNER_TEMP/consumer/consumer"
+          cmake -S tests/cmake_consumer_mathopt -B "$RUNNER_TEMP/consumer_mathopt" \
+                -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/prefix;$RUNNER_TEMP/ortools"
+          cmake --build "$RUNNER_TEMP/consumer_mathopt" -j3
+          "$RUNNER_TEMP/consumer_mathopt/lot_sizing"
+
   lint:
     # clang-format and ruff at the versions tools/format.sh and ruff.toml pin, the headers' layers
-    # (tools/check_layers.py), then clang-tidy at
+    # (tools/check_layers.py), the API reference as the headers' /// comments make it (tools/gen_reference.py),
+    # the skill's copies of the guide and the reference (tools/sync_skill_docs.py), the generated compile_fail cases
+    # (tools/gen_arity_tests.py), the documentation site at the version
+    # tools/site.sh pins, the benchmarks compiled (tools/check_bench.py, never run), then clang-tidy at
     # the version tools/tidy.sh pins, over the library, the tests and the examples. OR-Tools'
     # headers are needed to see the MathOpt backend, and the HiGHS it ships the HiGHS backend; CPLEX
     # is not, the stub stands in.
@@ -213,9 +331,14 @@ jobs:
       - run: pipx install uv
       - run: tools/format.sh --check
       - run: python3 tools/check_layers.py
+      - run: python3 tools/gen_reference.py --check docs/reference
+      - run: python3 tools/sync_skill_docs.py --check
+      - run: python3 tools/gen_arity_tests.py --check
+      - run: tools/site.sh
       - name: OR-Tools v9.15 prebuilt
         run: |
           mkdir -p "$RUNNER_TEMP/ortools"
           curl -sSfL "$ORTOOLS_URL" | tar xz -C "$RUNNER_TEMP/ortools" --strip-components=1
+      - run: ORTOOLS_DIR="$RUNNER_TEMP/ortools" CXX=g++-13 python3 tools/check_bench.py
       - run: ORTOOLS_DIR="$RUNNER_TEMP/ortools" python3 tools/gen_compile_commands.py
       - run: tools/tidy.sh

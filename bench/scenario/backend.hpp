@@ -2,23 +2,26 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// scenario/backend.hpp - what a scenario is built against, picked when it is compiled (build.sh):
-// the lean Concert stub (SCENARIO_STUB), CPLEX Concert, OR-Tools MathOpt (SCENARIO_MATHOPT), or
-// HiGHS's own C++ API (SCENARIO_HIGHS); on CPLEX, its Callable Library as well (SCENARIO_CALLABLE).
-// kBackend names it; solve() hands a model to the solver and
-// starts it with no time to solve, where the modeling-language benchmarks stop the clock, and
-// checks what the solver was given. Every solver runs on one thread. With SCENARIO_EXPORT=<path>,
-// the model the solver holds is written to <path>.mps once it has started, outside every timer, for
-// a run that only checks that the arms build one model (equivalence.py).
+// scenario/backend.hpp - the backend that a scenario is built against, which build.sh picks at compile time.
 //
-// Each scenario is built twice a backend (build.sh): SCENARIO_DREAMOR=1 is ./<scenario>_<backend>, the
-// dreamor arm alone; 0 is ./<scenario>_<backend>_hand, the hand-written arms, with no dreamor header but
-// the logger - so a change to the library leaves them as they are.
+// The backend is one of these:
+//   - the lean Concert stub, if SCENARIO_STUB is defined;
+//   - OR-Tools MathOpt, if SCENARIO_MATHOPT is defined;
+//   - HiGHS's own C++ API, if SCENARIO_HIGHS is defined;
+//   - CPLEX Concert, if none of the three is defined. CPLEX's Callable Library is then a backend as well, and this
+//     header defines SCENARIO_CALLABLE for it.
+// kBackend names the backend. solve() hands a model to the solver, starts the solver with no time to solve, and checks
+// what the solver was given. The modeling-language benchmarks stop the clock at that start. Every solver runs on one
+// thread. If the environment variable SCENARIO_EXPORT holds a path, the model that the solver holds is written to
+// <path>.mps after the solver has started, outside every timer. equivalence.py sets it, to check that the arms build
+// one model.
+//
+// Both arms of a scenario include this header, so it includes no dreamor header. build.sh builds each scenario twice
+// for each backend:
+//   - <scenario>_dreamor.cpp as ./<scenario>_<backend>, the dreamor arm alone, which includes backend_dreamor.hpp;
+//   - <scenario>_hand.cpp as ./<scenario>_<backend>_hand, the hand-written arms, without dreamor's include path.
+// So a change to the library leaves the hand-written arms as they are.
 #pragma once
-
-#ifndef SCENARIO_DREAMOR
-#  error "Build with -DSCENARIO_DREAMOR=1 (the dreamor arm) or 0 (the hand-written arms), as build.sh does."
-#endif
 
 #include <cmath>
 #include <cstdint>
@@ -30,30 +33,15 @@
 
 #include "../common/result.hpp"
 #if defined(SCENARIO_MATHOPT)
-#  if SCENARIO_DREAMOR
-#    include "dreamor/internal/base/third_party_headers.hpp"
-#    include "dreamor/mathopt.hpp"
-DREAMOR_BEGIN_THIRD_PARTY_HEADERS
-#  endif
 #  include "ortools/math_opt/cpp/math_opt.h"
 #  include "ortools/math_opt/io/mps_converter.h"
-#  if SCENARIO_DREAMOR
-DREAMOR_END_THIRD_PARTY_HEADERS
-#  endif
 #elif defined(SCENARIO_HIGHS)
-#  if SCENARIO_DREAMOR
-#    include "dreamor/highs.hpp"
-#  else
-#    include <Highs.h>
-#  endif
+#  include <Highs.h>
 #else
 #  include <ilcplex/ilocplex.h>
-#  if SCENARIO_DREAMOR
-#    include "dreamor/concert.hpp"
-#  endif
 #endif
 
-// Where SCENARIO_EXPORT asks for the model, or empty.
+// Returns the file that SCENARIO_EXPORT asks the model to be written to, or an empty string if it is not set.
 inline std::string exportPath() {
   const char* path = std::getenv("SCENARIO_EXPORT");
   return path == nullptr ? std::string{} : std::string{path} + ".mps";
@@ -63,7 +51,7 @@ inline std::string exportPath() {
 namespace math_opt                    = operations_research::math_opt;
 inline constexpr const char* kBackend = "mathopt";
 
-// Hands the model to HiGHS and starts it with no time to solve; checks what the solver was given.
+// Hands the model to HiGHS, starts HiGHS with no time to solve, and checks what HiGHS was given.
 inline void solve(math_opt::Model& model, Result& r) {
   std::unique_ptr<math_opt::IncrementalSolver> solver;
   r.measure("extract", [&] { solver = math_opt::NewIncrementalSolver(&model, math_opt::SolverType::kHighs).value(); });
@@ -85,7 +73,8 @@ inline void solve(math_opt::Model& model, Result& r) {
 #elif defined(SCENARIO_HIGHS)
 inline constexpr const char* kBackend = "highs";
 
-// Quiet, one thread, and no time to solve: every arm's Highs takes these before it holds a model.
+// Returns the options that every arm's Highs takes before it holds a model: no output, one thread, and no time to
+// solve.
 inline HighsOptions startOptions() {
   HighsOptions options;
   options.output_flag = false;
@@ -94,7 +83,7 @@ inline HighsOptions startOptions() {
   return options;
 }
 
-// Starts HiGHS with no time to solve on what it holds; checks what it was given.
+// Starts HiGHS with no time to solve on the model that it holds, and checks what it was given.
 inline void start(Highs& highs, Result& r) {
   r.measure("solve0", [&] { r.sink += highs.run() == HighsStatus::kOk ? 1 : 0; });
   if (const std::string path = exportPath(); !path.empty()) { highs.writeModel(path); }
@@ -103,22 +92,13 @@ inline void start(Highs& highs, Result& r) {
   r.check("nonzeros", static_cast<std::uint64_t>(highs.getLp().a_matrix_.numNz()));
 }
 
-#  if SCENARIO_DREAMOR
-// dreamor: the model reaches HiGHS, in one passModel, when the Highs is first reached.
-inline void solve(dreamor::highs::HighsEnv& env, Result& r) {
-  Highs* highs = nullptr;
-  r.measure("extract", [&] { highs = &env.highs(); });
-  start(*highs, r);
-}
-#  endif
-
-// By hand: the model written into a HighsModel, handed over in one passModel.
+// Hands over a model that an arm wrote into a HighsModel, in one passModel, and starts HiGHS.
 inline void solve(Highs& highs, HighsModel model, Result& r) {
   r.measure("extract", [&] { r.sink += highs.passModel(std::move(model)) == HighsStatus::kOk ? 1 : 0; });
   start(highs, r);
 }
 
-// By hand, a call a row: the Highs already holds the model.
+// Starts HiGHS on a model that an arm handed over a row at a time, so the Highs already holds it.
 inline void solve(Highs& highs, Result& r) {
   r.measure("extract", [] {});
   start(highs, r);
@@ -126,8 +106,8 @@ inline void solve(Highs& highs, Result& r) {
 #elif defined(SCENARIO_STUB)
 inline constexpr const char* kBackend = "stub";
 
-// No solver: what the model holds is the check - its rows and nonzeros, the objective's
-// coefficients and the constraints' finite bounds, each summed.
+// The stub has no solver, so the checks are what the model holds: its rows, its nonzeros, the sum of the objective's
+// coefficients, and the sum of the constraints' finite bounds.
 inline void solve(IloEnv /*env*/, const IloModel& model, Result& r) {
   double coefficients = 0, bounds = 0;
   for (const double coef : model.objective()->coefs) {
@@ -146,8 +126,8 @@ inline void solve(IloEnv /*env*/, const IloModel& model, Result& r) {
 inline constexpr const char* kBackend = "cplex";
 #  define SCENARIO_CALLABLE 1
 
-// CPLEX's Callable Library, the C API under Concert: an environment and a problem, set as solve()
-// sets IloCplex - quiet, one thread, no time to solve.
+// CPLEX's Callable Library, the C API under Concert: an environment and a problem. The environment takes the
+// settings that solve() gives IloCplex: no output, one thread, and no time to solve.
 class Callable {
  public:
   Callable() {
@@ -158,13 +138,17 @@ class Callable {
     CPXsetdblparam(env_, CPXPARAM_TimeLimit, 0);
     lp_ = CPXcreateprob(env_, &status, "scenario");
   }
+
   Callable(const Callable&)            = delete;
   Callable& operator=(const Callable&) = delete;
+
   ~Callable() {
     CPXfreeprob(env_, &lp_);
     CPXcloseCPLEX(&env_);
   }
+
   [[nodiscard]] CPXENVptr env() const { return env_; }
+
   [[nodiscard]] CPXLPptr lp() const { return lp_; }
 
  private:
@@ -172,7 +156,7 @@ class Callable {
   CPXLPptr lp_   = nullptr;
 };
 
-// Starts CPLEX with no time to solve on what the problem holds; checks what it was given.
+// Starts CPLEX with no time to solve on the model that the problem holds, and checks what CPLEX was given.
 inline void start(const Callable& cpx, Result& r) {
   r.measure("solve0", [&] { r.sink += CPXmipopt(cpx.env(), cpx.lp()) == 0 ? 1 : 0; });
   if (const std::string path = exportPath(); !path.empty()) {
@@ -183,7 +167,7 @@ inline void start(const Callable& cpx, Result& r) {
   r.check("nonzeros", static_cast<std::uint64_t>(CPXgetnumnz(cpx.env(), cpx.lp())));
 }
 
-// Hands the model to CPLEX and starts it with no time to solve; checks what the solver was given.
+// Hands the model to CPLEX, starts CPLEX with no time to solve, and checks what CPLEX was given.
 inline void solve(IloEnv env, const IloModel& model, Result& r) {
   IloCplex cplex(env);
   cplex.setOut(env.getNullStream());

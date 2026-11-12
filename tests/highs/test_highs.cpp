@@ -2,11 +2,13 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// The HiGHS backend (run_tests.sh --highs): VarTable and sumExpr as test_vartable and test_sum check
+// The HiGHS backend (DREAMOR_HIGHS_DIR): VarTable and sumExpr as test_vartable and test_sum check
 // them for Concert, the expressions and rows of highspy's interface, the objective with its
-// Hessian, small models solved, and the code of README.md and highs.hpp's comments as written there.
+// Hessian, small models solved.
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
+#include <format>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -16,15 +18,17 @@
 #include <vector>
 
 #include "Highs.h"
-#include "check.hpp"
 #include "dreamor/highs.hpp"
 #include "dreamor/index_set.hpp"
-#include "float_compare.hpp"
+#include "support/check.hpp"
+#include "support/float_compare.hpp"
 
 namespace hs = dreamor::highs;
 
-using cI = dreamor::Col<std::size_t, "i">;
-using cJ = dreamor::Col<std::size_t, "j">;
+namespace {
+DREAMOR_VALUE_COLUMN(cI, std::size_t);
+DREAMOR_VALUE_COLUMN(cJ, std::size_t);
+}  // namespace
 
 namespace {
 
@@ -75,7 +79,7 @@ static void varTable() {
   const Highs& highs = quiet(env);
   const std::vector<std::size_t> I{3, 1, 2};
   const std::vector<std::size_t> J{10, 20};
-  const auto IJ = dreamor::makeSet<cI, cJ>(I, J).build();
+  const auto IJ = dreamor::index_set::relational::from<cI>(I).cross<cJ>(J).build();
 
   static_assert(!std::is_copy_constructible_v<hs::VarTable<cI, cJ>>);
   static_assert(std::is_nothrow_move_constructible_v<hs::VarTable<cI, cJ>>);
@@ -142,7 +146,7 @@ static void expressions() {
   hs::HighsEnv env;
   const Highs& highs = quiet(env);
   const std::vector<std::size_t> I{1, 2};
-  const hs::VarTable<cI> v{env, dreamor::makeSet<cI>(I).build(), -10, 10};
+  const hs::VarTable<cI> v{env, dreamor::index_set::relational::from<cI>(I).build(), -10, 10};
   const hs::HighsVar x = v(cI{1});
   const hs::HighsVar y = v(cI{2});
 
@@ -221,6 +225,83 @@ static void expressions() {
   // a quadratic term is stored in the lower triangle
   const hs::HighsQuadraticExpression cross = x * y + y * x;
   DREAMOR_CHECK(cross.first()[0] == y.index() && cross.second()[0] == x.index() && cross.first()[1] == y.index());
+
+  // a term times a variable, either way round, or times a term, is a quadratic term
+  const hs::HighsQuadraticTerm termTimesVar = (3 * x) * y;
+  const hs::HighsQuadraticTerm varTimesTerm = y * (3 * x);
+  DREAMOR_CHECK(exactlyEqual(termTimesVar.coefficient, 3) && termTimesVar.first.index() == x.index() &&
+                termTimesVar.second.index() == y.index());
+  DREAMOR_CHECK(exactlyEqual(varTimesTerm.coefficient, 3) && varTimesTerm.first.index() == y.index() &&
+                varTimesTerm.second.index() == x.index());
+  const hs::HighsQuadraticTerm termTimesTerm = (2 * x) * (3 * y);
+  DREAMOR_CHECK(exactlyEqual(termTimesTerm.coefficient, 6) && termTimesTerm.first.index() == x.index() &&
+                termTimesTerm.second.index() == y.index());
+
+  // negation flips every coefficient and the constant; *= and /= scale them
+  const hs::HighsLinearTerm minusVar  = -x;
+  const hs::HighsLinearTerm minusTerm = -(3 * x);
+  DREAMOR_CHECK(minusVar.variable.index() == x.index() && exactlyEqual(minusVar.coefficient, -1) &&
+                exactlyEqual(minusTerm.coefficient, -3));
+  const hs::HighsLinearExpression minusSum = -(2 * x + y + 1);
+  DREAMOR_CHECK(exactlyEqual(minusSum.coefficients()[0], -2) && exactlyEqual(minusSum.coefficients()[1], -1) &&
+                exactlyEqual(minusSum.constant(), -1));
+  hs::HighsLinearExpression scaled = 2 * x + 4;
+  scaled *= 3;  // 6x + 12
+  scaled /= 2;  // 3x + 6
+  DREAMOR_CHECK(exactlyEqual(scaled.coefficients()[0], 3) && exactlyEqual(scaled.constant(), 6));
+  const hs::HighsQuadraticTerm minusSquare = -(2 * x * y);
+  DREAMOR_CHECK(exactlyEqual(minusSquare.coefficient, -2));
+  const hs::HighsQuadraticExpression minusQuadratic = -(x * y + x + 1);
+  DREAMOR_CHECK(exactlyEqual(minusQuadratic.quadraticCoefficients()[0], -1) &&
+                exactlyEqual(minusQuadratic.linear().coefficients()[0], -1) &&
+                exactlyEqual(minusQuadratic.linear().constant(), -1));
+  hs::HighsQuadraticExpression quadratic = x * y + y;
+  quadratic -= 3 * x * y;  // appended with the opposite sign: xy + y - 3xy
+  quadratic *= 2;          // 2xy + 2y - 6xy
+  quadratic /= 4;          // 0.5xy + 0.5y - 1.5xy
+  DREAMOR_CHECK(quadratic.first().size() == 2 && exactlyEqual(quadratic.quadraticCoefficients()[0], 0.5) &&
+                exactlyEqual(quadratic.quadraticCoefficients()[1], -1.5) &&
+                exactlyEqual(quadratic.linear().coefficients()[0], 0.5));
+
+  // a row with one bound, kept, then taken as a row with two
+  const hs::HighsUpperBoundedLinearExpression atMost  = x + y <= 1;
+  const hs::HighsLowerBoundedLinearExpression atLeast = 1 <= x + y;
+  const hs::HighsBoundedLinearExpression upperRow     = atMost;
+  const hs::HighsBoundedLinearExpression lowerRow     = atLeast;
+  DREAMOR_CHECK(exactlyEqual(upperRow.lower(), -kHighsInf) && exactlyEqual(upperRow.upper(), 1) &&
+                exactlyEqual(lowerRow.lower(), 1) && exactlyEqual(lowerRow.upper(), kHighsInf));
+
+  // a number scales a variable, a term or an expression from either side, and divides it from the right
+  DREAMOR_CHECK(exactlyEqual((x * 2).coefficient, 2) && exactlyEqual((2 * (3 * x)).coefficient, 6) &&
+                exactlyEqual(((3 * x) * 2).coefficient, 6) && exactlyEqual(((3 * x) / 2).coefficient, 1.5));
+  const hs::HighsLinearExpression leftScaled  = 2 * (x + 1);
+  const hs::HighsLinearExpression rightScaled = (x + 1) * 2;
+  const hs::HighsLinearExpression halved      = (x + 1) / 2;
+  DREAMOR_CHECK(exactlyEqual(leftScaled.coefficients()[0], 2) && exactlyEqual(leftScaled.constant(), 2) &&
+                exactlyEqual(rightScaled.coefficients()[0], 2) && exactlyEqual(rightScaled.constant(), 2) &&
+                exactlyEqual(halved.coefficients()[0], 0.5) && exactlyEqual(halved.constant(), 0.5));
+  DREAMOR_CHECK(exactlyEqual((2 * (x * y)).coefficient, 2) && exactlyEqual(((x * y) * 2).coefficient, 2));
+  const hs::HighsQuadraticExpression leftSquares  = 2 * (x * y + 1);
+  const hs::HighsQuadraticExpression rightSquares = (x * y + 1) * 2;
+  const hs::HighsQuadraticExpression halfSquares  = (x * y + 1) / 2;
+  DREAMOR_CHECK(
+      exactlyEqual(leftSquares.quadraticCoefficients()[0], 2) && exactlyEqual(leftSquares.linear().constant(), 2) &&
+      exactlyEqual(rightSquares.quadraticCoefficients()[0], 2) &&
+      exactlyEqual(halfSquares.quadraticCoefficients()[0], 0.5) && exactlyEqual(halfSquares.linear().constant(), 0.5));
+  // a linear expression taken from a quadratic one: its terms and constant with the opposite sign
+  hs::HighsQuadraticExpression lessLinear = x * y;
+  lessLinear -= x + 1;
+  DREAMOR_CHECK(lessLinear.first().size() == 1 && exactlyEqual(lessLinear.linear().coefficients()[0], -1) &&
+                exactlyEqual(lessLinear.linear().constant(), -1));
+
+  // an expression nested 250 additions deep, as a fold writes it out: the terms go into one array, with no
+  // recursion, and the row merges them into one coefficient (Clang stops at 256 levels of nesting, -fbracket-depth)
+  const hs::HighsLinearExpression deep = []<std::size_t... I>(hs::HighsVar var, std::index_sequence<I...>) {
+    return (hs::HighsLinearExpression{var} + ... + (static_cast<void>(I), var));
+  }(x, std::make_index_sequence<250>{});
+  DREAMOR_CHECK(deep.size() == 251);
+  const Row deepRow = rowOf(highs, hs::addConstr(env, deep <= 1).index());
+  DREAMOR_CHECK(deepRow.index.size() == 1 && exactlyEqual(coefficientOf(deepRow, x), 251));
 }
 
 static void objective() {
@@ -228,14 +309,19 @@ static void objective() {
   hs::HighsEnv env;
   const Highs& highs = quiet(env);
   const std::vector<std::size_t> I{1, 2};
-  const hs::VarTable<cI> v{env, dreamor::makeSet<cI>(I).build(), -10, 10};
+  const hs::VarTable<cI> v{env, dreamor::index_set::relational::from<cI>(I).build(), -10, 10};
   const hs::HighsVar x = v(cI{1});
   const hs::HighsVar y = v(cI{2});
   hs::addConstr(env, x + y >= 1);
 
-  DREAMOR_CHECK(hs::minimize(env, (x - y) * (x - y) + (x - 2) * (x - 2) + y * y) == HighsStatus::kOk);
+  const hs::HighsQuadraticExpression cost = (x - y) * (x - y) + (x - 2) * (x - 2) + y * y;
+  DREAMOR_CHECK_THROWS(std::logic_error, hs::val(env, cost));  // not run yet
+  DREAMOR_CHECK(hs::minimize(env, cost) == HighsStatus::kOk);
   DREAMOR_CHECK(highs.getModelStatus() == HighsModelStatus::kOptimal);
   DREAMOR_CHECK(std::abs(highs.getInfo().objective_function_value - (4.0 / 3.0)) < 1e-6);
+  // val of a quadratic expression: the whole objective, as HiGHS reports it, and a term of it, xy = 8/9
+  DREAMOR_CHECK(std::abs(hs::val(env, cost) - highs.getInfo().objective_function_value) < 1e-6);
+  DREAMOR_CHECK(std::abs(hs::val(env, x * y) - (8.0 / 9.0)) < 1e-6);
   const auto plan = v.solution(env);
   DREAMOR_CHECK(std::abs(plan(cI{1}) - (4.0 / 3.0)) < 1e-6 && std::abs(plan(cI{2}) - (2.0 / 3.0)) < 1e-6);
   DREAMOR_CHECK(highs.getModel().hessian_.dim_ == 2);
@@ -264,16 +350,47 @@ static void objective() {
   DREAMOR_CHECK(isExactlyZero(highs.getLp().col_cost_[1]) && exactlyEqual(highs.getLp().offset_, 5));
 }
 
+// The Hessian takes each column's rows in ascending order, whatever order the terms came in: x*z, then x*y, then
+// x*x put rows 2, 1, 0 in x's column. A model with no column and no row hands over its sense and its constant alone.
+static void hessianOrderAndEmptyModel() {
+  HighsOptions options;
+  options.output_flag = false;
+  hs::HighsEnv env{options};
+  const std::vector<std::size_t> K{1, 2, 3};
+  const hs::VarTable<cI> v{env, dreamor::index_set::relational::from<cI>(K).build(), -10, 10};
+  const hs::HighsVar x = v(cI{1});
+  const hs::HighsVar y = v(cI{2});
+  const hs::HighsVar z = v(cI{3});
+  hs::setObjective(env, x * z + x * y + x * x + 2 * y * y + 2 * z * z);
+  const HighsHessian& hessian = env.highs().getModel().hessian_;
+  DREAMOR_CHECK(hessian.start_.size() == 4 && hessian.start_[1] == 3);
+  DREAMOR_CHECK(hessian.index_[0] == x.index() && hessian.index_[1] == y.index() && hessian.index_[2] == z.index());
+  DREAMOR_CHECK(exactlyEqual(hessian.value_[0], 2) && exactlyEqual(hessian.value_[1], 1) &&
+                exactlyEqual(hessian.value_[2], 1));
+
+  hs::HighsEnv empty{options};
+  hs::setObjective(empty, hs::HighsLinearExpression{3.0}, ObjSense::kMaximize);
+  const Highs& handed = empty.highs();
+  DREAMOR_CHECK(handed.getNumCol() == 0 && handed.getLp().sense_ == ObjSense::kMaximize &&
+                exactlyEqual(handed.getLp().offset_, 3));
+}
+
 static void sum() {
   hs::HighsEnv env;  // sums alone: the Highs is never reached
   const std::vector<std::size_t> I{1, 2, 3};
   const std::vector<std::size_t> J{10, 20};
-  const auto IJ = dreamor::makeSet<cI, cJ>(I, J).build();
+  const auto IJ = dreamor::index_set::relational::from<cI>(I).cross<cJ>(J).build();
   const hs::VarTable<cI, cJ> x{env, IJ, 0, 1, HighsVarType::kInteger, "x"};
   const auto var      = [&x](cI i, cJ j) { return x(i, j); };
   const auto weighted = [&x](cI i, cJ j) { return static_cast<double>(i.get()) * x(i, j); };
 
   DREAMOR_CHECK(hs::sumExpr(IJ, var).build().size() == 6);
+
+  // a term that is an integer - a count - adds as a number, converted by the sum, without a warning
+  const auto count_of = [](cI i) { return i.get(); };
+  DREAMOR_CHECK(exactlyEqual(hs::sumExpr(IJ, count_of).build().constant(), 12));
+  const auto counts = hs::sumExpr(IJ, count_of).whereEach([](cJ j) { return j == 10; }).build();
+  DREAMOR_CHECK(exactlyEqual(counts[0].constant(), 6));
   DREAMOR_CHECK(hs::sumExpr(IJ, var).where([](cI i) { return i.get() > 1; }).build().size() == 4);
 
   const auto byJ = IJ.groupBy<cJ>();
@@ -303,7 +420,7 @@ static void sum() {
   DREAMOR_CHECK(exactlyEqual(constants.linear().constant(), 6));
 
   // a plain container as a one-column set
-  const hs::VarTable<cI> y{env, dreamor::makeSet<cI>(I).build(), 0, 1};
+  const hs::VarTable<cI> y{env, dreamor::index_set::relational::from<cI>(I).build(), 0, 1};
   DREAMOR_CHECK(hs::sumExpr<cI>(I, [&y](cI i) { return y(i); }).build().size() == 3);
 
   // linear terms make a HighsLinearExpression, quadratic ones a HighsQuadraticExpression
@@ -334,7 +451,7 @@ static void solution() {
   hs::HighsEnv env;
   Highs& highs = quiet(env);
   const std::vector<std::size_t> I{1, 2, 3};
-  const auto sI = dreamor::makeSet<cI>(I).build();
+  const auto sI = dreamor::index_set::relational::from<cI>(I).build();
   const hs::VarTable<cI> vPick{env, sI, 0, 1, HighsVarType::kInteger, "Pick"};
   DREAMOR_CHECK_THROWS(std::logic_error, vPick.solution(env));  // not run yet
 
@@ -352,6 +469,42 @@ static void solution() {
   DREAMOR_CHECK_THROWS(std::logic_error, vPick.solution(env));
 }
 
+// val(env, x), highspy's: one variable's value - addVariable()'s, or a table's - and a linear expression's; names
+// of any text, a std::string among them.
+static void values() {
+  HighsOptions options;
+  options.output_flag = false;
+  hs::HighsEnv env{options};
+  const std::vector<std::size_t> I{1, 2};
+  const auto sI              = dreamor::index_set::relational::from<cI>(I).build();
+  const std::string makeName = "Make";  // a name held in a std::string, as data or std::format gives one
+  const std::string spanName = "Span";
+  const hs::VarTable<cI> vMake{env, sI, 0, 3, HighsVarType::kContinuous, makeName};
+  const hs::HighsVar span = env.addVariable(0, kHighsInf, HighsVarType::kContinuous, spanName);
+  for (const auto& [i] : sI) {
+    hs::addConstr(env, span >= vMake(i), std::format("Longest_{}", i));
+  }
+  hs::addConstr(env, vMake(cI{1}) + vMake(cI{2}) >= 4);
+  DREAMOR_CHECK_THROWS(std::logic_error, hs::val(env, span));  // not run yet
+  DREAMOR_CHECK(hs::minimize(env, span) == HighsStatus::kOk);
+  DREAMOR_CHECK(env.highs().getLp().integrality_.empty());  // all continuous: no integrality for HiGHS to warn of
+  DREAMOR_CHECK(std::abs(hs::val(env, span) - 2) < 1e-9 && std::abs(hs::val(env, vMake(cI{1})) - 2) < 1e-9);
+  DREAMOR_CHECK(std::abs(hs::val(env, vMake(cI{1}) + vMake(cI{2}) + 1) - 5) < 1e-9 &&
+                std::abs(hs::val(env, 2 * span) - 4) < 1e-9);
+  std::string row;
+  env.highs().getRowName(1, row);
+  DREAMOR_CHECK(colName(env.highs(), span.index()) == "Span" && colName(env.highs(), 0) == "Make_1" &&
+                row == "Longest_2");
+
+  // a re-solve that ends infeasible leaves no solution to read, though HiGHS keeps the point it stopped at
+  env.highs().changeColBounds(vMake(cI{1}).index(), 0, 1);
+  env.highs().changeColBounds(vMake(cI{2}).index(), 0, 1);  // Make_1 + Make_2 <= 2 < 4
+  env.highs().run();
+  DREAMOR_CHECK(env.highs().getModelStatus() == HighsModelStatus::kInfeasible);
+  DREAMOR_CHECK_THROWS(std::logic_error, vMake.solution(env));
+  DREAMOR_CHECK_THROWS(std::logic_error, hs::val(env, span));
+}
+
 static void scalar() {
   // One variable beside a family: min t  s.t.  t >= x(i), x(i) >= i + 1  ->  t = 3. Options alone
   // reach no model, so everything below is collected until minimize().
@@ -359,7 +512,7 @@ static void scalar() {
   options.output_flag = false;
   hs::HighsEnv env{options};
   const std::vector<std::size_t> I{1, 2};
-  const auto sI                = dreamor::makeSet<cI>(I).build();
+  const auto sI                = dreamor::index_set::relational::from<cI>(I).build();
   const auto at_least_i_plus_1 = [](cI i) { return static_cast<double>(i.get()) + 1; };
   const hs::VarTable<cI> x{env, sI, at_least_i_plus_1, 10};
   const hs::HighsVar t = env.addVariable(0, 100, HighsVarType::kContinuous, "t");
@@ -377,6 +530,14 @@ static void scalar() {
   const hs::HighsVar b  = env.addVariable(0, 1, HighsVarType::kInteger, "b");
   DREAMOR_CHECK(b.index() == before && highs.getNumCol() == before + 1);
   DREAMOR_CHECK(highs.getLp().integrality_[static_cast<std::size_t>(b.index())] == HighsVarType::kInteger);
+
+  // bounds of any number type, or a column of one, as a VarTable's
+  const std::size_t capacity = 5;
+  const hs::HighsVar c       = env.addVariable(std::uint8_t{1}, capacity);
+  const hs::HighsVar d       = env.addVariable(cI{2}, 3);
+  DREAMOR_CHECK(exactlyEqual(highs.getLp().col_lower_[static_cast<std::size_t>(c.index())], 1) &&
+                exactlyEqual(highs.getLp().col_upper_[static_cast<std::size_t>(c.index())], 5));
+  DREAMOR_CHECK(exactlyEqual(highs.getLp().col_lower_[static_cast<std::size_t>(d.index())], 2));
 }
 
 static void collected() {
@@ -384,7 +545,7 @@ static void collected() {
   // columns, the merged rows, the names given (and the empty ones), the objective with its Hessian.
   hs::HighsEnv env;
   const std::vector<std::size_t> I{1, 2};
-  const auto sI = dreamor::makeSet<cI>(I).build();
+  const auto sI = dreamor::index_set::relational::from<cI>(I).build();
   const hs::VarTable<cI> x{env, sI, 0, 10, HighsVarType::kContinuous, "x"};
   const hs::VarTable<cI> u{env, sI, -1, 1};
   const hs::HighsVar x1 = x(cI{1});
@@ -475,15 +636,20 @@ static void collected() {
 }
 
 static void errors() {
-  // A HiGHS call that fails throws HighsError with its status: once the Highs is reached, at the call.
+  // A count past what a HighsInt holds stops before HiGHS sees it; a model that size cannot be made in a test.
+  const auto most = static_cast<std::size_t>(std::numeric_limits<HighsInt>::max());
+  DREAMOR_CHECK(dreamor::highs::detail::highsCount(most) == std::numeric_limits<HighsInt>::max());
+  DREAMOR_CHECK_THROWS(std::length_error, dreamor::highs::detail::highsCount(most + 1));
+
+  // A HiGHS call that fails throws HighsCallError with its status: once the Highs is reached, at the call.
   hs::HighsEnv env;
   quiet(env);
   const std::vector<std::size_t> I{1};
-  const auto sI = dreamor::makeSet<cI>(I).build();
+  const auto sI = dreamor::index_set::relational::from<cI>(I).build();
   bool thrown   = false;
   try {
     const hs::VarTable<cI> bad{env, sI, std::numeric_limits<double>::quiet_NaN(), 1};
-  } catch (const hs::HighsError& error) {
+  } catch (const hs::HighsCallError& error) {
     thrown = error.status() == HighsStatus::kError && std::string{error.call()} == "addVars";
   }
   DREAMOR_CHECK(thrown);
@@ -494,10 +660,14 @@ static void errors() {
   bool passed = false;
   try {
     static_cast<void>(collecting.highs());
-  } catch (const hs::HighsError& error) {
+  } catch (const hs::HighsCallError& error) {
     passed = error.status() == HighsStatus::kError && std::string{error.call()} == "passModel";
   }
   DREAMOR_CHECK(passed);
+  // passModel has taken the model, so it cannot be handed over again: every later call throws the same error, and so
+  // do the calls that reach the Highs through it, instead of a Highs without the model.
+  DREAMOR_CHECK_THROWS(hs::HighsCallError, static_cast<void>(collecting.highs()));
+  DREAMOR_CHECK_THROWS(hs::HighsCallError, hs::minimize(collecting, later(cI{1})));
 }
 
 namespace {
@@ -508,55 +678,50 @@ struct Item {
   double time;
   double cost;
 };
+
 struct Machine {
   std::string name;
   double capacity;
-  std::vector<const Item*> items;
+  std::vector<dreamor::Ref<Item>> items;
 };
-inline const std::string& keyName(const Item* i) {
-  return i->name;
+
+inline const std::string& primaryKey(const Item& i) {
+  return i.name;
 }
-inline const std::string& keyName(const Machine* m) {
-  return m->name;
+
+inline const std::string& primaryKey(const Machine& m) {
+  return m.name;
 }
 
 }  // namespace lot
 }  // namespace
 
-using cMachine = dreamor::Col<const lot::Machine*, "machine">;
-using cItem    = dreamor::Col<const lot::Item*, "item">;
-using cPeriod  = dreamor::Col<std::size_t, "period">;
+namespace {
+DREAMOR_ENTITY_COLUMN(cMachine, lot::Machine);
+DREAMOR_ENTITY_COLUMN(cItem, lot::Item);
+DREAMOR_VALUE_COLUMN(cPeriod, std::size_t);
+}  // namespace
 
-// README.md (Backends) and highs.hpp's comments, as written there, on one machine making two items in
-// two periods. Only the lines marked "test only" are not theirs.
-static void docs() {
-  const lot::Item a{"A", 1.0, 2.0};
-  const lot::Item b{"B", 2.0, 1.0};
-  const lot::Machine m1{"M1", 10.0, {&a, &b}};
-  const std::vector<const lot::Machine*> machines{&m1};
+// A small model end to end on one machine making two items in two periods: built, solved, read back.
+static void smallModel() {
+  dreamor::EntityVector<lot::Item> items;
+  static_cast<void>(items.emplace(lot::Item{"A", 1.0, 2.0}));
+  static_cast<void>(items.emplace(lot::Item{"B", 2.0, 1.0}));
+  items.freeze();
+  const dreamor::Ref<lot::Item> a = items.at("A");
+  const dreamor::Ref<lot::Item> b = items.at("B");
+  dreamor::EntityVector<lot::Machine> machines;
+  static_cast<void>(machines.emplace(lot::Machine{"M1", 10.0, {a, b}}));
+  machines.freeze();
+  const dreamor::Ref<lot::Machine> m1 = machines.at("M1");
   const std::vector<std::size_t> periods{1, 2};
-  const auto items_of                = [](cMachine m) -> const std::vector<const lot::Item*>& { return m->items; };
-  const auto sPRODUCE                = dreamor::makeSet<cMachine, cItem, cPeriod>(machines, items_of, periods).build();
+  const auto items_of = [](cMachine m) -> const std::vector<dreamor::Ref<lot::Item>>& { return m->items; };
+  const auto sPRODUCE =
+      dreamor::index_set::relational::from<cMachine>(machines).lateral<cItem>(items_of).cross<cPeriod>(periods).build();
   const auto max_possible_qty        = [](cMachine m, cItem i) { return m->capacity / i->time; };
   const auto producedByMachinePeriod = sPRODUCE.groupBy<cMachine, cPeriod>();
 
-  {  // README.md, Backends
-    hs::HighsEnv env;
-    const hs::VarTable<cMachine, cItem, cPeriod> vYield{
-        env, sPRODUCE, 0, max_possible_qty, HighsVarType::kContinuous, "Yield"};
-    const auto machine_usage = [&](cMachine m, cItem i, cPeriod t) { return i->time * vYield(m, i, t); };
-
-    for (const auto& [machine, period, rows] : producedByMachinePeriod) {
-      hs::addConstr(env, hs::sumExpr(rows, machine_usage).build() <= machine->capacity);
-    }
-
-    quiet(env);  // test only
-    hs::minimize(env, hs::sumExpr(sPRODUCE, vYield).build());
-    const auto yieldPlan = vYield.solution(env);
-    DREAMOR_CHECK(env.highs().getModelStatus() == HighsModelStatus::kOptimal && yieldPlan.size() == sPRODUCE.size());
-    DREAMOR_CHECK(env.highs().getNumRow() == 2 && colName(env.highs(), 0) == "Yield_M1_A_1");
-  }
-  {  // highs.hpp, at the top
+  {  // a row a machine and period, minimized
     hs::HighsEnv env;
     const hs::VarTable<cMachine, cItem, cPeriod> vYield{
         env, sPRODUCE, 0, max_possible_qty, HighsVarType::kContinuous, "Yield"};
@@ -567,16 +732,16 @@ static void docs() {
       hs::addConstr(env, totalLoad <= machine->capacity);
     }
 
-    quiet(env);                                                   // test only
+    quiet(env);
     hs::minimize(env, hs::sumExpr(sPRODUCE, unit_cost).build());  // sets the objective, then run()
     const auto yieldPlan = vYield.solution(env);
     // the most valuable per unit of time: A, 2 a unit at 1 hour, fills each period's 10 hours
-    DREAMOR_CHECK(exactlyEqual(yieldPlan(cMachine{&m1}, cItem{&a}, cPeriod{1}), 10.0));
-    DREAMOR_CHECK(isExactlyZero(yieldPlan(cMachine{&m1}, cItem{&b}, cPeriod{2})));
+    DREAMOR_CHECK(exactlyEqual(yieldPlan(cMachine{m1}, cItem{a}, cPeriod{1}), 10.0));
+    DREAMOR_CHECK(isExactlyZero(yieldPlan(cMachine{m1}, cItem{b}, cPeriod{2})));
   }
-  {  // highs.hpp, HighsEnv
+  {  // a HighsEnv given its options, the model reaching the Highs at minimize()
     const auto& rows      = sPRODUCE;
-    const double capacity = m1.capacity * 2;
+    const double capacity = m1->capacity * 2;
     HighsOptions options;
     options.output_flag = false;
     options.time_limit  = 60;
@@ -600,10 +765,10 @@ static void longRows() {
     for (std::size_t i = 0; i < I.size(); ++i) {
       I[i] = i;
     }
-    const auto sI = dreamor::makeSet<cI>(I).build();
+    const auto sI = dreamor::index_set::relational::from<cI>(I).build();
     const hs::VarTable<cI> x{env, sI};
     if (passed) { (void)env.highs(); }
-    // x3, x0..x11, x3 again, x5 cancelled: 14 terms, 11 columns
+    // x3, x0..x11, x3 again, x5 cancelled: 15 terms, 11 columns
     hs::HighsLinearExpression sum = 2 * x(cI{3});
     for (std::size_t i = 0; i < I.size(); ++i) {
       sum += x(cI{i});
@@ -626,12 +791,14 @@ int main() try {
   varTable();
   expressions();
   objective();
+  hessianOrderAndEmptyModel();
   sum();
   solution();
   scalar();
   collected();
   longRows();
   errors();
-  docs();
+  values();
+  smallModel();
   return report("highs");
 } catch (...) { return ::uncaught(); }

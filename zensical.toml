@@ -1,0 +1,123 @@
+# The documentation site: docs/ through Zensical, at the version tools/site.sh pins. docs/dev/ is for people working
+# on dreamor, and stays out. The sidebar is nav's, in the reading order: the guide's pages as listed here, the
+# reference's as tools/gen_reference.py writes them, then the benchmarks' (docs/bench/, the reference run's results
+# with each release). A guide page's code lives in a test (tests/docs/guide/, and tests/docs/highs/ for what solves), and the page
+# pulls its regions in: --8<-- "tests/docs/guide/model.hpp:entities" between `// --8<-- [start:entities]` and
+# `// --8<-- [end:entities]`, the path from the repository's root.
+[project]
+site_name = "dreamor"
+# Where .github/workflows/site.yml publishes it: the sitemap and every page's canonical link name it.
+site_url = "https://lynth-kr.github.io/dreamor/"
+# The footer: the licenses of what the site shows (README.md, "License").
+copyright = "Copyright 2026 Lynth-KR. Text CC-BY-4.0, code MIT-0, library MPL-2.0."
+extra_css = ["stylesheets/extra.css"]
+exclude_docs = """
+dev/
+"""
+nav = [
+  "index.md",
+  "philosophy.md",
+  {"Guide" = [
+    "guide/index.md",
+    "guide/at-a-glance.md",
+    "guide/entities.md",
+    "guide/columns.md",
+    "guide/relational-algebra.md",
+    "guide/set-builder-notation.md",
+    "guide/sets-from-records.md",
+    "guide/deriving-sets.md",
+    "guide/set-algebra.md",
+    "guide/grouping.md",
+    "guide/ordered-sets.md",
+    "guide/values-over-a-set.md",
+    "guide/data-on-a-set.md",
+    "guide/variable-families.md",
+    "guide/sums.md",
+    "guide/constraints-and-objective.md",
+    "guide/solutions.md",
+    "guide/names-and-logging.md",
+    "guide/backends.md",
+    "guide/cost.md",
+  ]},
+  {"API reference" = [
+    # The reference's pages, in tools/reference_sections.txt's order: tools/gen_reference.py writes the lines down to
+    # the end mark.
+    "reference/index.md",
+    "reference/entities.md",
+    "reference/columns.md",
+    "reference/keys.md",
+    "reference/column-callables.md",
+    "reference/relational-algebra.md",
+    "reference/set-builder-notation.md",
+    "reference/intervals.md",
+    "reference/indexset.md",
+    "reference/set-algebra.md",
+    "reference/membership.md",
+    "reference/grouped.md",
+    "reference/ordered.md",
+    "reference/values-over-a-set.md",
+    "reference/vartable.md",
+    "reference/sums.md",
+    "reference/paramtable.md",
+    "reference/solutiontable.md",
+    "reference/dreamor-highs.md",
+    "reference/dreamor-concert.md",
+    "reference/dreamor-mathopt.md",
+    "reference/names.md",
+    "reference/logger.md",
+    "reference/exceptions.md",
+    "reference/debug-build-checks.md",
+    # (end of the reference's pages)
+  ]},
+  {"Benchmarks" = [
+    "bench/index.md",
+    {"Catalog" = [
+      "bench/catalog/index.md",
+      "bench/catalog/results.md",
+      "bench/catalog/note-hand-lookups.md",
+      "bench/catalog/design.md",
+      "bench/catalog/running.md",
+    ]},
+    {"Scenarios" = [
+      "bench/scenario/index.md",
+      "bench/scenario/results.md",
+      "bench/scenario/design.md",
+      "bench/scenario/running.md",
+    ]},
+    "bench/visit-order.md",
+  ]},
+]
+
+# The top sections as tabs in the header, so that the sidebar shows the current one; a page's previous and next in
+# the footer.
+[project.theme]
+features = ["navigation.tabs", "navigation.footer"]
+
+# Light and dark, following the system, with a toggle: the scheme is also what hides the banner of the other mode
+# (#gh-light-mode-only, #gh-dark-mode-only).
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+[project.markdown_extensions.admonition]
+# The reference's headings name their own ids, {#indexset-select-columns} (tools/gen_reference.py), so that a link
+# keeps its target.
+[project.markdown_extensions.attr_list]
+[project.markdown_extensions.pymdownx.details]
+[project.markdown_extensions.pymdownx.superfences]
+[project.markdown_extensions.pymdownx.highlight]
+[project.markdown_extensions.pymdownx.inlinehilite]
+[project.markdown_extensions.pymdownx.snippets]
+base_path = ["."]
+check_paths = true
+dedent_subsections = true
+[project.markdown_extensions.toc]
+permalink = true

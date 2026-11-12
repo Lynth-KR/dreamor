@@ -3,9 +3,11 @@
 # This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 # not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 #
-# Builds the visit-order studies: ./model, the planner over made-up sets (model.cpp); ./plan
-# times each variant of the three-source experiment (plan.cpp), ./plan_count counts predicate
-# calls instead. CXX picks the compiler (default g++).
+# Builds the visit-order studies:
+#   ./model       runs the planner over made-up sets, from model.cpp.
+#   ./plan        times each variant of the three-source experiment, from plan.cpp.
+#   ./plan_count  counts the predicate calls of each variant instead of timing it.
+# CXX picks the compiler. The default is g++.
 set -e
 cd "$(dirname "$0")"
 CXX=${CXX:-g++}

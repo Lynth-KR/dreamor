@@ -1,0 +1,6 @@
+# Codecov, which the coverage job of ci.yml uploads tools/coverage/lcov.py's lcov files to. Code that runs only at
+# compile time, or that no run may reach, is left out, so that the figure is of what a run can reach;
+# docs/dev/testing.md, "Coverage", names each file and why.
+ignore:
+  - "include/dreamor/internal/index_set/plan.hpp"
+  - "include/dreamor/internal/base/unreachable.hpp"

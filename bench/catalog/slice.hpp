@@ -2,23 +2,25 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// catalog/slice.hpp - the slice family: groups reached from another set's keys, one sum a key
+// catalog/slice.hpp - the slice family: groups reached from the keys of another set, and one sum for each key.
 //
-// Two shapes, as in group: inner (every column but the period: the groups are runs) and lead
-// (every column but k1). Each shape has a driver, the set a model walks to write one expression a
-// key - a balance over ITEMS x PERIODS, say. It holds every key of the shape and, beside each, one
-// no row has (the key's last column swapped for an entity of its own), the two in a random order:
-// half the keys reach an empty slice, as some (item, period) pairs have no production.
-// Phases, the same in every arm: build (the rows and x on them), then for each shape prep_<shape>
-// (the grouping and what a key reaches its group through) and slice_<shape> (one expression a
-// driver key, x over its group's rows); and on the inner shape split (two expressions a key, its
-// rows in even and odd periods, in one pass) and coef (one expression a key, c(t) * x a row).
+// The family has two shapes, as group has. inner keeps every column but the period, so its groups are runs. lead
+// keeps every column but k1. Each shape has a driver: the set that a model walks to write one expression for each
+// key, such as a balance over ITEMS x PERIODS. The driver holds every key of the shape. Beside each key it holds one
+// key that no row has, whose last column is swapped for an entity of its own. The two keys of a pair come in a random
+// order. So half the keys reach an empty slice, as some (item, period) pairs have no production.
+// The phases are the same in every arm. build makes the rows and x on them. Then, for each shape, prep_<shape> makes
+// the grouping and what a key reaches its group through. slice_<shape> makes one expression for each key of the
+// driver: x over the rows of the key's group. On the inner shape, split makes two expressions for each key in one
+// pass, over the rows in even periods and over the rows in odd periods. coef makes one expression for each key, with
+// c(t) * x for each row.
 //
-// dreamor's groupBy, slice and sumExpr are set against hand-written groupings, as in group, each
-// with what a key goes through: the group numbers in a std::unordered_map from the packed key
-// (`identity`, `mixed`); the packed keys sorted, searched with std::lower_bound (`sort`); and the
-// usual code, a std::map from the key's entities to its rows (`map`). The packed arms take the
-// inner shape's groups as runs.
+// dreamor's groupBy, slice and sumExpr are compared with the hand-written groupings of group, each with what a key
+// goes through:
+// - identity and mixed find the number of the group in a std::unordered_map from the packed key.
+// - sort sorts the packed keys and searches them with std::lower_bound.
+// - map, the usual code, keeps a std::map from the entities of the key to the rows.
+// identity, mixed and sort take the groups of the inner shape as runs.
 #pragma once
 
 #include <algorithm>
@@ -39,10 +41,6 @@
 #include "../common/measure.hpp"
 #include "../common/result.hpp"
 #include "data.hpp"
-#if CATALOG_DREAMOR
-#  include "dreamor/concert.hpp"
-#  include "dreamor/index_set.hpp"
-#endif
 #include "group.hpp"
 #include "shared.hpp"
 
@@ -52,23 +50,30 @@ using catalog::consume;
 using catalog::keyOf;
 using catalog::MixedHash;
 using catalog::Packer;
-using Key = std::array<const Ent*, kMaxColumns>;  // a shape's columns at the front
+template <typename Arm>
+using KeyOf = std::array<typename Arm::Handle, kMaxColumns>;  // The columns of a shape's key come first.
 
 inline double coefOf(std::uint32_t period_serial) {
   return 1.0 + static_cast<double>(period_serial % 7);
 }
 
-// A shape's driver: its columns, its keys in the order a model walks them, and the entities of its
-// last column that no row holds, one for each that rows do.
-struct Driver {
+// The driver of a shape: the positions of its columns, its keys in the order in which a model walks them, and the
+// shadows. A shadow is an entity of the key's last column that no row holds. The driver has one shadow for each entity
+// of that column.
+template <typename Arm>
+struct DriverOf {
   std::string shape;
   std::vector<std::size_t> kept;
-  std::vector<Key> keys;
-  std::vector<std::unique_ptr<Ent>> shadows;
+  std::vector<KeyOf<Arm>> keys;
+  typename Arm::Ents shadows;
+  std::vector<typename Arm::Handle> shadow_handles;  // By the serial of the entity that each shadow stands in for.
 };
-using Drivers = std::array<Driver, 2>;  // inner, lead
 
-inline std::uint64_t keyCheck(const Key& key, std::size_t m) {
+template <typename Arm>
+using DriversOf = std::array<DriverOf<Arm>, 2>;  // The driver of inner, then the driver of lead.
+
+template <typename Handle>
+inline std::uint64_t keyCheck(const std::array<Handle, kMaxColumns>& key, std::size_t m) {
   std::array<std::uint32_t, kMaxColumns> s{};
   for (std::size_t i = 0; i < m; ++i) {
     s[i] = key[i]->serial;
@@ -76,8 +81,11 @@ inline std::uint64_t keyCheck(const Key& key, std::size_t m) {
   return keyOf(s, m);
 }
 
-static Driver makeDriver(const Data& d, const std::string& shape, std::uint64_t seed) {
-  Driver dr;
+template <typename Arm>
+static DriverOf<Arm> makeDriver(const DataOf<Arm>& d, const std::string& shape, std::uint64_t seed) {
+  using Handle = typename Arm::Handle;
+  using Key    = KeyOf<Arm>;
+  DriverOf<Arm> dr;
   dr.shape                = shape;
   dr.kept                 = group::keptBy(shape, d.k);
   const std::size_t m     = dr.kept.size();
@@ -86,9 +94,14 @@ static Driver makeDriver(const Data& d, const std::string& shape, std::uint64_t 
   dr.shadows.reserve(count);
   for (std::size_t i = 0; i < count; ++i) {
     const auto s = static_cast<std::uint32_t>(count + i);
-    dr.shadows.push_back(std::make_unique<Ent>(Ent{s, s}));
+    Arm::add(dr.shadows, Ent{s, s});
   }
-  // The distinct keys, found through an open-addressing table of their places in `distinct`.
+  Arm::freeze(dr.shadows);
+  dr.shadow_handles.reserve(count);
+  for (const Ent& e : dr.shadows) {
+    dr.shadow_handles.push_back(Arm::handle(dr.shadows, e));
+  }
+  // The distinct keys of the lead shape, found through an open-addressing table of their places in distinct.
   std::vector<Key> distinct;
   distinct.reserve(inner ? 0 : d.rows);
   dr.keys.reserve(2 * (inner ? d.rows / 2 : d.rows));
@@ -113,361 +126,21 @@ static Driver makeDriver(const Data& d, const std::string& shape, std::uint64_t 
   };
   std::mt19937_64 g(seed * 15485863 + 11);
   Key previous{};
-  d.forEachRow([&](const std::array<const Ent*, kMaxColumns>& row) {
+  d.forEachRow([&](const std::array<Handle, kMaxColumns>& row) {
     Key key{};
     for (std::size_t i = 0; i < m; ++i) {
       key[i] = row[dr.kept[i]];
     }
-    if (inner ? key == previous : !fresh(key)) {
-      return;  // inner keys come as runs
-    }
+    // The keys of the inner shape come as runs, so a key of the inner shape is a repeat if it is the previous key.
+    if (inner ? key == previous : !fresh(key)) { return; }
     previous      = key;
     Key absent    = key;
-    absent[m - 1] = dr.shadows[key[m - 1]->serial].get();
+    absent[m - 1] = dr.shadow_handles[key[m - 1]->serial];
     if ((g() & 1) != 0) { std::swap(key, absent); }
     dr.keys.push_back(key);
     dr.keys.push_back(absent);
   });
   return dr;
-}
-
-#if CATALOG_DREAMOR
-// --- dreamor ---------------------------------------------------------------------------------
-template <typename Seq>
-struct Dreamor;
-template <std::size_t... J>
-struct Dreamor<std::index_sequence<J...>> {
-  using G                            = catalog::Gen<std::index_sequence<J...>>;
-  static constexpr std::size_t kK    = G::kK;
-  static constexpr std::size_t kLast = G::kLast;
-  using Set                          = typename G::Set;
-  using Table                        = typename G::Table;
-
-  struct Even {
-    bool operator()(cK<kLast> t) const { return group::evenPeriod(t.get()); }
-  };
-  struct Odd {
-    bool operator()(cK<kLast> t) const { return !group::evenPeriod(t.get()); }
-  };
-  // A term on the row's columns, as a model writes cost[t] * x[...]: x is found from the row being summed.
-  struct Coef {
-    const Table* x;
-    IloNumExprArg operator()(cK<J>... c) const {
-      const std::array<const Ent*, kK> e{c.get()...};
-      return coefOf(e[kLast]->serial) * (*x)(c...);
-    }
-  };
-
-  static void run(const Data& d, const Drivers& drivers, Result& r) {
-    IloEnv env;
-    Set sX;
-    std::optional<Table> vX;
-    r.measure("build", [&] {
-      sX = G::make(d);
-      vX.emplace(env, sX, 0, typename G::Tag{}, ILOFLOAT);
-    });
-    shape(drivers[0], std::make_index_sequence<kK - 1>{}, sX, *vX, env, r);
-    shape(drivers[1], decltype(group::shifted<1>(std::make_index_sequence<kK - 1>{})){}, sX, *vX, env, r);
-    env.end();
-  }
-
-  template <std::size_t... I>
-  static void shape(
-      const Driver& dr, std::index_sequence<I...>, const Set& sX, const Table& vX, IloEnv env, Result& r) {
-    using Row = std::tuple<cK<I>...>;
-    std::vector<Row> rows;
-    rows.reserve(dr.keys.size());
-    [&]<std::size_t... P>(std::index_sequence<P...>) {
-      for (const Key& key : dr.keys) {
-        rows.emplace_back(cK<I>{key[P]}...);
-      }
-    }(std::make_index_sequence<sizeof...(I)>{});
-    const auto sDriver = dreamor::makeSet<>(rows).build();
-    const auto check   = [](const Row& key) {
-      return keyOf(std::array<std::uint32_t, kMaxColumns>{std::get<cK<I>>(key)->serial...}, sizeof...(I));
-    };
-
-    using Grouped = decltype(sX.template groupBy<cK<I>...>());
-    std::optional<Grouped> groups;
-    r.measure("prep_" + dr.shape, [&] { groups.emplace(sX.template groupBy<cK<I>...>()); });
-    r.measure("slice_" + dr.shape, [&] {
-      std::uint64_t sum = 0;
-      for (const auto& key : sDriver) {
-        IloExpr e = dreamor::concert::sumExpr(env, groups->slice(key), vX).build();
-        sum += consume(e, check(key));
-      }
-      r.check("slice_" + dr.shape, sum);
-    });
-    if (dr.shape != "inner") { return; }
-    r.measure("split", [&] {
-      std::uint64_t sum = 0;
-      for (const auto& key : sDriver) {
-        auto parts            = dreamor::concert::sumExpr(env, groups->slice(key), vX).whereEach(Even{}, Odd{}).build();
-        const std::uint64_t h = check(key);
-        sum += consume(parts[0], h) + consume(parts[1], ~h);
-      }
-      r.check("split", sum);
-    });
-    r.measure("coef", [&] {
-      std::uint64_t sum = 0;
-      for (const auto& key : sDriver) {
-        IloExpr e = dreamor::concert::sumExpr(env, groups->slice(key), Coef{&vX}).build();
-        sum += consume(e, check(key));
-      }
-      r.check("coef", sum);
-    });
-  }
-};
-#endif
-
-#if !CATALOG_DREAMOR
-// --- hand-written ----------------------------------------------------------------------------
-enum class Way { kIdentity, kMixed, kSort, kMap };
-
-static void runHand(Way way, const Data& d, const Drivers& drivers, Result& r) {
-  const std::size_t k = d.k, last = d.last();
-  std::array<Packer, 2> packs;
-  for (std::size_t s = 0; s < drivers.size(); ++s) {
-    const std::vector<std::size_t>& kept = drivers[s].kept;
-    packs[s].k                           = kept.size();
-    for (std::size_t i = 0; i < kept.size(); ++i) {
-      // The last column's ids go on past the entities, for the keys no row has.
-      packs[s].size[i] = d.ents[kept[i]].size() * (i + 1 == kept.size() ? 2 : 1);
-    }
-    if (way != Way::kMap && packs[s].span() >= static_cast<long double>(std::numeric_limits<std::uint64_t>::max())) {
-      r.skip("the ids do not pack into 64 bits");
-      return;
-    }
-  }
-  IloEnv env;
-  std::vector<std::uint32_t> ids;  // k a row
-  std::vector<const Ent*> ents;    // k a row, for the map arm
-  std::vector<IloNumVar> x;
-  std::vector<std::uint32_t> period;  // each row's period serial
-  r.measure("build", [&] {
-    ids.reserve(d.rows * k);
-    if (way == Way::kMap) { ents.reserve(d.rows * k); }
-    x.reserve(d.rows);
-    period.reserve(d.rows);
-    d.forEachRow([&](const std::array<const Ent*, kMaxColumns>& row) {
-      std::array<std::uint32_t, kMaxColumns> serial{};
-      for (std::size_t j = 0; j < k; ++j) {
-        ids.push_back(row[j]->id);
-        serial[j] = row[j]->serial;
-        if (way == Way::kMap) { ents.push_back(row[j]); }
-      }
-      x.emplace_back(env, 0, tagOf(serial, k, 0), ILOFLOAT);
-      period.push_back(serial[last]);
-    });
-  });
-
-  for (std::size_t s = 0; s < drivers.size(); ++s) {
-    const Driver& dr                     = drivers[s];
-    const std::vector<std::size_t>& kept = dr.kept;
-    const std::size_t m                  = kept.size();
-    const Packer& pack                   = packs[s];
-    const auto packedRow                 = [&](std::size_t row) {
-      std::array<std::uint32_t, kMaxColumns> id{};
-      for (std::size_t i = 0; i < m; ++i) {
-        id[i] = ids[row * k + kept[i]];
-      }
-      return pack(id);
-    };
-    const auto packedKey = [&](const Key& key) {
-      std::array<std::uint32_t, kMaxColumns> id{};
-      for (std::size_t i = 0; i < m; ++i) {
-        id[i] = key[i]->id;
-      }
-      return pack(id);
-    };
-
-    // The groups - rows in group order and where each starts - and what a key goes through.
-    std::vector<std::uint32_t> rows, start;
-    std::unordered_map<std::uint64_t, std::uint32_t> by_identity;
-    std::unordered_map<std::uint64_t, std::uint32_t, MixedHash> by_mixed;
-    std::vector<std::pair<std::uint64_t, std::uint32_t>> by_sorted;
-    std::map<Key, std::vector<std::uint32_t>> by_map;
-    const auto addGroup = [&](std::uint64_t key, std::uint32_t group) {
-      if (way == Way::kIdentity) { by_identity.emplace(key, group); }
-      if (way == Way::kMixed) { by_mixed.emplace(key, group); }
-      if (way == Way::kSort) { by_sorted.emplace_back(key, group); }
-    };
-    r.measure("prep_" + dr.shape, [&] {
-      const std::size_t n = x.size();
-      if (way == Way::kMap) {
-        for (std::uint32_t i = 0; i < n; ++i) {
-          Key key{};
-          for (std::size_t c = 0; c < m; ++c) {
-            key[c] = ents[i * k + kept[c]];
-          }
-          by_map[key].push_back(i);
-        }
-        return;
-      }
-      if (dr.shape == "inner") {
-        // The period is innermost, so a group's rows come one after another.
-        if (way == Way::kIdentity) { by_identity.reserve(n); }
-        if (way == Way::kMixed) { by_mixed.reserve(n); }
-        std::uint64_t previous = 0;
-        for (std::size_t i = 0; i < n; ++i) {
-          const std::uint64_t key = packedRow(i);
-          if (i == 0 || key != previous) {
-            addGroup(key, static_cast<std::uint32_t>(start.size()));
-            start.push_back(static_cast<std::uint32_t>(i));
-            previous = key;
-          }
-        }
-        rows.resize(n);
-        for (std::uint32_t i = 0; i < n; ++i) {
-          rows[i] = i;
-        }
-        if (way == Way::kSort) { std::sort(by_sorted.begin(), by_sorted.end()); }
-      } else if (way == Way::kSort) {
-        std::vector<std::pair<std::uint64_t, std::uint32_t>> order(n);
-        for (std::uint32_t i = 0; i < n; ++i) {
-          order[i] = {packedRow(i), i};
-        }
-        std::sort(order.begin(), order.end());  // by key, then by row: rows keep their order
-        rows.resize(n);
-        for (std::size_t i = 0; i < n; ++i) {
-          rows[i] = order[i].second;
-          if (i == 0 || order[i].first != order[i - 1].first) {
-            by_sorted.emplace_back(order[i].first, static_cast<std::uint32_t>(start.size()));
-            start.push_back(static_cast<std::uint32_t>(i));
-          }
-        }
-      } else {
-        const auto csr = [&](auto& index) {
-          std::vector<std::uint32_t> group_of(n), count;
-          index.reserve(n);
-          for (std::size_t i = 0; i < n; ++i) {
-            const auto [it, fresh] = index.try_emplace(packedRow(i), static_cast<std::uint32_t>(count.size()));
-            if (fresh) { count.push_back(0); }
-            group_of[i] = it->second;
-            ++count[it->second];
-          }
-          start.resize(count.size());
-          std::uint32_t running = 0;
-          for (std::size_t c = 0; c < count.size(); ++c) {
-            start[c] = std::exchange(running, running + count[c]);
-          }
-          rows.resize(n);
-          std::vector<std::uint32_t> next(start);
-          for (std::uint32_t i = 0; i < n; ++i) {
-            rows[next[group_of[i]]++] = i;
-          }
-        };
-        if (way == Way::kIdentity) {
-          csr(by_identity);
-        } else {
-          csr(by_mixed);
-        }
-      }
-      start.push_back(static_cast<std::uint32_t>(n));
-    });
-
-    // Calls f(row) for every row of key's group; an absent key has none.
-    const auto forRows = [&](const Key& key, auto&& f) {
-      if (way == Way::kMap) {
-        const auto it = by_map.find(key);
-        if (it != by_map.end()) {
-          for (const std::uint32_t i : it->second) {
-            f(i);
-          }
-        }
-        return;
-      }
-      std::uint32_t group        = 0;
-      const std::uint64_t packed = packedKey(key);
-      if (way == Way::kSort) {
-        const auto it = std::lower_bound(by_sorted.begin(), by_sorted.end(), std::pair{packed, std::uint32_t{0}});
-        if (it == by_sorted.end() || it->first != packed) { return; }
-        group = it->second;
-      } else if (way == Way::kIdentity) {
-        const auto it = by_identity.find(packed);
-        if (it == by_identity.end()) { return; }
-        group = it->second;
-      } else {
-        const auto it = by_mixed.find(packed);
-        if (it == by_mixed.end()) { return; }
-        group = it->second;
-      }
-      for (std::uint32_t p = start[group]; p < start[group + 1]; ++p) {
-        f(rows[p]);
-      }
-    };
-
-    r.measure("slice_" + dr.shape, [&] {
-      std::uint64_t sum = 0;
-      for (const Key& key : dr.keys) {
-        IloExpr e(env);
-        forRows(key, [&](std::uint32_t i) { e += x[i]; });
-        sum += consume(e, keyCheck(key, m));
-      }
-      r.check("slice_" + dr.shape, sum);
-    });
-    if (dr.shape != "inner") { continue; }
-    r.measure("split", [&] {
-      std::uint64_t sum = 0;
-      for (const Key& key : dr.keys) {
-        IloExpr even(env), odd(env);
-        forRows(key, [&](std::uint32_t i) { (period[i] % 2 == 0 ? even : odd) += x[i]; });
-        const std::uint64_t h = keyCheck(key, m);
-        sum += consume(even, h) + consume(odd, ~h);
-      }
-      r.check("split", sum);
-    });
-    r.measure("coef", [&] {
-      std::uint64_t sum = 0;
-      for (const Key& key : dr.keys) {
-        IloExpr e(env);
-        forRows(key, [&](std::uint32_t i) { e += coefOf(period[i]) * x[i]; });
-        sum += consume(e, keyCheck(key, m));
-      }
-      r.check("coef", sum);
-    });
-  }
-  env.end();
-}
-#endif
-
-static void run(const std::string& impl, const Data& d, std::uint64_t seed, Result& r) {
-  if (d.k == 1) {
-    r.skip("no k = 1: the family's operations need a period beside k1");
-    return;
-  }
-  Drivers drivers;
-  r.setup("drivers", [&] {
-    drivers[0] = makeDriver(d, "inner", seed);
-    drivers[1] = makeDriver(d, "lead", seed);
-  });
-#if CATALOG_DREAMOR
-  if (impl == "dreamor") {
-    switch (d.k) {
-      case 2: Dreamor<std::make_index_sequence<2>>::run(d, drivers, r); break;
-      case 3: Dreamor<std::make_index_sequence<3>>::run(d, drivers, r); break;
-      case 5: Dreamor<std::make_index_sequence<5>>::run(d, drivers, r); break;
-#  if CATALOG_MAX_COLUMNS >= 8
-      case 8: Dreamor<std::make_index_sequence<8>>::run(d, drivers, r); break;
-#  endif
-      default: r.skip("k must be 2, 3 or 5 (8 on ./catalog8)");
-    }
-  } else {
-    r.skip("no arm " + impl + " in ./catalog: the hand-written arms are ./catalog_hand");
-  }
-#else
-  if (impl == "identity") {
-    runHand(Way::kIdentity, d, drivers, r);
-  } else if (impl == "mixed") {
-    runHand(Way::kMixed, d, drivers, r);
-  } else if (impl == "sort") {
-    runHand(Way::kSort, d, drivers, r);
-  } else if (impl == "map") {
-    runHand(Way::kMap, d, drivers, r);
-  } else {
-    r.skip("no arm " + impl);
-  }
-#endif
 }
 
 }  // namespace slice

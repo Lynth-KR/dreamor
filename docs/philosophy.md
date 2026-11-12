@@ -1,123 +1,159 @@
 # Philosophy
 
+dreamor is small on purpose. This page explains what it holds to and why, so that you know what to expect from it -
+where it will stop you, what it will trust you with, and what it leaves to you. The [guide](guide/index.md) shows how
+to do each thing; this page is about why things are the way they are.
 
-dreamor is small on purpose. This page gathers what it holds to - the principles behind every part, the names it
-recommends, the rules of use, and what it leaves out on purpose - so that a user knows what to expect of it and a
-contributor knows what a change has to keep.
+## What dreamor is
 
-## Design principles
+An optimization model is mostly sets. Which machines can make which items, in which periods, through which routes:
+before a single variable exists, a model decides over which rows each family of variables, each sum and each
+constraint runs. dreamor treats those sets as what they are - relations over your data - and lets you write them
+the way you think of them: from your entities, joined on what they share, narrowed by conditions, grouped and
+ordered.
 
-- **Columns are called by name.** You refer to a column by its column type, such as `cMachine` or `cPeriod`,
-  not by its position in a tuple. Predicates, bound functions, and the terms of a sum are all callables that
-  **take the columns they read as parameters**.
-- **A set is a fact.** Once built, a set cannot be changed (it is read-only). When you need another set, you derive
-  a new one with `where`, `select`, and the like.
-- **A family of rows runs over its set.** Which rows a constraint family has is decided by the set its loop runs
-  over, as which variables exist is decided by a VarTable's set. A condition on a row's keys is a `where` on that
-  set - AMPL's `{(i,t) in STOCK: ord(t) > 1}` - not an `if` around the row in the loop's body. An if-then-else
-  inside a row, choosing a term, is AMPL's own idiom and is written as one.
-- **One VarTable per variable family.** Which variables exist is decided by that table's set. The VarTable
-  constructor is the only place variables are created.
-- **Parameters live on the entities.** A set's rows hold the entities themselves as keys, so a parameter defined as
-  a field of its entity (an array of structs) comes with the key for free: `m->capacity`, not a table looked up by
-  `m`. A value that belongs to a relation makes that relation an entity, and the value its field. A value defined by
-  an expression over each row is a named callable that takes the columns and computes it - AMPL's `param` defined by
-  an expression: `max_possible_qty = [](cMachine m, cItem i) { return m->capacity / i->time; }` is
-  `param max_qty {(m,i) in ROUTES} = cap[m] / time[i]`. A `ValueTable` can hold data on a set, AMPL's `param {S}`,
-  and nothing forbids it; but unless a design has a reason to, dreamor recommends the two above, and keeps
-  `ValueTable` for what a solve produces: solution values, and what an algorithm computes from them between solves.
-- **Clarity is not traded for performance.** Performance work is done only where it adds no concept to the user
-  API (internal hashing, set sharing, and so on).
-- **One tool for each job.** Each tool has one job, and no two tools share one - which is also why there is no
-  second syntax for the same thing (pipe operators, free-function aliases, and so on). Combining tools is never
-  restricted, though. When tools are orthogonal, different combinations reaching the same result is natural, and
-  either way is right: `makeSet<>(sORDER_ITEMS, sPROMO)` and `sORDER_ITEMS.where(sPROMO.membership())` give the
-  same rows.
-- **A set is a set.** No source handed to `makeSet` holds an element twice, and an entity is one object in one
-  container. dreamor's own operations never make a repeat, so a set never holds a row twice and a `VarTable` has
-  exactly one variable per key. This is a precondition, as in the standard library: a debug build checks it and
-  stops on a sentence naming the source; a release build does not pay for the check.
-- **A set never owns its sources.** A set owns its rows, never the container they came from: a container handed
-  to `makeSet` is a named object the model keeps, and a temporary one stops at compile time. The entities are the
-  model's, held once in their own container; neither a set nor its builder ever takes a container over.
-- **The solver's API stays the solver's.** dreamor builds index sets, variable families and sums. Constraints,
-  objectives, solving, bounds after construction and duals are written in the notation of the solver API each
-  backend stands on - Concert's, MathOpt's, highspy's for HiGHS - so everything you know about your solver still
-  applies and nothing stands between you and it.
-- **A mistake stops at compile time, in one sentence.** Misuse - a callable that takes the wrong columns, a sum used
-  before `build()`, a lookup with bare values - is rejected by the compiler with one sentence saying what to write
-  instead, not with a page of template errors.
-- **The standard library is the precedent.** Where the C++ standard library made a similar decision, dreamor
-  follows it: an insert that may not insert returns the element and whether it went in, as `std::set::emplace` does
-  (by its address in an `EntityVector`: `std::pair<const T*, bool>`), lasting as a `std::vector`'s element does; checks
-  that only debug builds pay for work as libstdc++'s assertions do; member types are named as containers name them.
-- **Speed is measured, not claimed.** Claims about performance rest on designed experiments against hand-written
-  code ([benchmarks](../bench/README.md)), and an optimization rests on a guarantee dreamor makes - a contract, the
-  structure of generation - not on how a benchmark draws its data.
+Relations are what SQL is built on, and dreamor is close to it in spirit: a set is a table of rows, a column has a
+name and a type, and sets combine by the relational algebra. What is new is where the rows go next. A set's rows are
+the keys of your variables, the terms of your sums and the rows of your constraints, and the solver you already use
+takes it from there.
 
-## Naming
+## What it aims for
 
-dreamor does not check names: a model's names are its author's. The documentation, the examples and the skill write
-sets and variable families in one shape - the AMPL model's name with one prefix in front - and recommend it, because
-the AMPL comments and the code then match once the prefix is dropped.
+- **Small.** A header-only C++20 library with a handful of ideas: entities, columns, sets, tables of variables and
+  data, and sums. Each idea has one job, and you can hold all of them in your head.
+- **Fast.** Building a model's sets and variables should cost about what the same model written by hand costs, so
+  that you never have to choose between clarity and speed. This is measured, not claimed: the
+  [benchmarks](https://github.com/Lynth-KR/dreamor/tree/main/bench) compare dreamor with the same work written by hand,
+  each operation over the shapes data takes and whole models up to the solver's start, and anyone can run them
+  again.
+- **Predictable.** A mistake dreamor can see from your types stops your build, with one sentence saying what to write
+  instead. What it cannot see is a contract, written down once and checked by a debug build. Nothing is guessed or
+  silently fixed behind your back.
 
-| What | Shape | Example | AMPL |
-|---|---|---|---|
-| Column type | `c` + PascalCase | `cMachine`, `cPeriod` | |
-| Set (`IndexSet`) | `s` + SCREAMING_SNAKE_CASE | `sPRODUCE`, `sPEAK_PRODUCE` | `PRODUCE` |
-| Variable family (`VarTable`) | `v` + PascalCase | `vYield`, `vSetup`, `vStock` | `Yield` |
+## The principles
 
-Sets get a prefix because an all-caps name in C++ looks like a macro or a constant (`ILOFLOAT`, `ILOBOOL`).
+These shape every part of dreamor. Each comes with what it means for the code you write.
 
-The examples in this document also write callables that take columns in snake_case (`items_of`, `machine_usage`)
-and everything else in camelCase (`totalInFlow`, `yieldPlan`); that is only their habit, not a recommendation.
+### Sets are relations over your data
 
-## Rules
+dreamor writes the index sets of LP, QP, QCP and MIP models. If such a formulation writes a set, dreamor should be
+able to write it; one it cannot is a missing feature, whatever field your model comes from. The tools are the
+relational algebra - products, joins, conditions, projections, unions and differences - and the transitive closure
+of a relation, which the algebra alone cannot express (Aho and Ullman, 1979): every part below a product in a bill of
+materials, every node a network reaches.
 
-Three kinds: what the compiler stops, what dreamor takes on trust, and what it recommends.
+A set beyond those - a list of paths, a fixpoint of your own - is computed in C++, where your model already lives, and
+handed to dreamor as records. You never have to bend an algorithm to fit a library.
 
-### Forbidden: a compile error
+### Columns have names
 
-1. Callables (predicates, dependent sources, bound functions, terms of sums) take **column types** as parameters.
-   `[](const Item* i)` or `[](auto i)` is a compile error - the key of `orderBy` included. A function object whose
-   `operator()` is a template, so that its columns cannot be read from its parameters, can still be a predicate:
-   specialize `dreamor::CallableColumns` to declare the columns it reads.
-   ```cpp
-   template <> struct dreamor::CallableColumns<MyFilter> { using type = std::tuple<cMachine, cPeriod>; };
-   ```
-2. A dependent source that yields entities returns a range of **pointers** to them (or a view over them), not the
-   entities themselves; one that yields values (numbers, strings) returns any range of them.
-3. Sets are read-only. Derive instead of modifying.
-4. Look up by key with column values in declaration order (`vYield(m, i, t)`, `slice(i, t)`, `prev(t)`). Braces and
-   bare values are not accepted (see [Columns](guide.md#columns)).
-5. `Grouped`'s `slice()`/`at()` and `Ordered`'s lookups are called on a named object, not on a temporary.
-   Only iterating needs no name: `for (... : S.groupBy<C>())`.
+A column is a type of its own, such as `cMachine` or `cPeriod`, and you refer to it by that name, never by its
+position. A condition, a bound or the term of a sum is a function that takes the columns it reads:
 
-### Contract: undefined behavior if broken
+```cpp
+const auto fits = [](cMachine m, cItem i) { return i->size <= m->capacity; };
+```
 
-6. No source holds an element twice, and an entity is one object in one container. Sets then hold no row twice. A
-   debug build checks it and stops on a sentence naming the source.
-7. A group, a slice or a row is valid only while the object it came from is alive.
-8. Concert: do not `end()` variables, and `env.end()` once, at the end.
+So the code says which data it uses, and reordering a set's columns never silently changes what a function reads.
 
-### Recommended
+### Types identify, and go no further
 
-9. One VarTable per variable family, over the family's **whole set**. Reach parts with `vYield(row)`.
-10. If every key of the driver set needs a constraint, do not iterate the `Grouped`; iterate the driver and call
-    `slice()`.
-11. Handle sets by their concrete types. In generic code (`[](const auto& sANY)`), calling a member that takes
-    columns as template arguments, such as `sANY.select<A>()`, requires `sANY.template select<A>()`.
+dreamor's types tell which entity, which kind of value and which column - nothing more. Your expressions read as
+your formula does: `t >= m->opens`, `t + 1`, `cost * vMake(m, i, t)`. If a type rule ever makes an expression harder
+to write than its formula, that is a bug in dreamor, unless what it stops is a real mix-up, such as two kinds of
+entity compared or a value put in another column's place.
 
-## What dreamor does not do
+### Each kind of data has one home
 
-| Not done | Reason / alternative |
+- An entity's own attributes live on the entity, a plain struct of yours in an `EntityVector`. A set's rows hold the
+  entities themselves, so `m->capacity` is right there with the key.
+- A relation between entities is a set, an `IndexSet`.
+- A value on each row of a set is a `ParamTable` when it is your input, and a `SolutionTable` when a solve produced
+  it. A solve's results carry into the next model as a `ParamTable` built from them.
+
+### A set is a fact
+
+Once built, a set never changes. Every other set is derived from it - by a condition, a projection, a join, the set
+algebra - and the original stays as it was. A variable family is built once over its set, too. This is what makes a
+model easy to reason about: a name means one set from the line it is made to the end.
+
+### A set is a set
+
+A set never holds a row twice, so a table of variables has exactly one variable per key. dreamor's own operations
+never make a repeat; what it asks of you is that a container you hand it does not hold an element twice, and that
+each entity is one object in one container. As in the standard library, this is a precondition: a debug build
+checks every source and stops with a sentence naming it, and a release build does not pay for the check.
+
+### A set holds rows, not your containers
+
+A row copies its values and its references to entities (`Ref`). What those references point to - your entities in
+their `EntityVector`, the characters a `std::string_view` column shows - lives in your containers and has to outlive
+the set, as the elements a `std::span` views outlive the span. Where the types can tell that a container would go
+away too soon, your build stops; where they cannot, the rule is the same one C++ already has for views.
+
+### Your data, as you prepared it
+
+dreamor takes your data as it is, and trusts that it meets the contracts its documentation writes down. It does not
+clean, repair or second-guess your data, and its messages say which contract broke, never how your data ought to be
+prepared - that part is yours, and you know it best. The contracts are listed in one place,
+[Debug-build checks](reference/debug-build-checks.md).
+
+### The solver stays yours
+
+dreamor builds sets, variable families and sums. Constraints, objectives, solving, bounds after construction and
+duals are written in your solver's own notation, so everything you know about your solver still applies and nothing
+stands between you and it. On CPLEX that is Concert, on OR-Tools it is MathOpt. HiGHS's C++ interface has no
+expressions to write a row in, so dreamor brings the few calls highspy has for that - `addConstr`, `setObjective`,
+`minimize`, `maximize` - and leaves the rest to HiGHS.
+
+### Speed adds nothing to learn
+
+dreamor's internals hash, share and lay out memory as they need to, but none of it reaches the API: there is no
+option to tune and no second way to build a set for speed. The fast way is the only way.
+
+### The standard library goes first
+
+Where the C++ standard library made a similar decision, dreamor follows it, so that what you already know carries
+over: an insert that may not insert says whether it did, as `std::set::emplace` does; a frozen `EntityVector`'s
+elements stay where they are, as a `std::vector`'s do until it grows; checks that only debug builds pay for work as
+the standard library's own assertions do.
+
+## Two ways to write a set
+
+You can write a set as a chain of steps, each saying how a source relates to the rows so far, much as SQL's `JOIN ...
+ON` does; or in set-builder notation, close to how a set is first drafted on paper. Both build the same sets, and
+neither is the recommended one: which reads better is yours to decide, set by set. The
+[README](https://github.com/Lynth-KR/dreamor#quick-start) writes one of each, and the guide's pages on
+[relational algebra](guide/relational-algebra.md) and [set-builder notation](guide/set-builder-notation.md) show
+them side by side.
+
+dreamor does not add a second spelling of what one notation already writes - a pipe operator for a member call, a
+free function for a member. A second notation earns its place only by reading at another level.
+
+## Names in these pages
+
+dreamor does not check your names; a model's names are its author's. The documentation writes columns, sets and
+variable families in one shape, and you are welcome to borrow it, because the prefix tells the three apart at a
+glance:
+
+| What | Shape | Example |
+|---|---|---|
+| Column | `c` + PascalCase | `cMachine`, `cPeriod` |
+| Set (`IndexSet`) | `s` + SCREAMING_SNAKE_CASE | `sPRODUCE`, `sPEAK_PRODUCE` |
+| Variable family (`VarTable`) | `v` + PascalCase | `vYield`, `vStock` |
+
+A set's name gets a prefix because an all-caps name alone reads as a macro or a constant in C++.
+
+## What dreamor leaves to you
+
+Some things are left out on purpose, because your solver, C++ or a model of your own already does them well.
+
+| Left out | What to do instead |
 |---|---|
-| Constraint tables (storing constraints per key) | Most constraints are added once and never looked up again. A row is named by its keys with `indexedName`, as `VarTable` names variables, and added through the solver API (Concert `IloRange` + `setName`, MathOpt `AddLinearConstraint(expr, name)`, HiGHS `addConstr(env, row, name)`) |
-| Reading duals / reduced costs by key | A rare task. Use the solver API when needed (Concert `getDuals`, MathOpt `dual_values()`, HiGHS `getSolution().row_dual`, etc.) |
-| Appending variables (column generation) | Structure is immutable. New columns mean a new set + a new VarTable |
-| Pipe syntax (`S \| where(p)`) | No second way to do the same thing |
-| Coefficient arrays (`IloScalProd` style) | Coefficients are computed from entities in the term |
-| Checking for duplicate variable creation | Covered by rules 6 and 9 instead |
-| A temporary container as a source (`makeSet<cNode>(std::array{entr, exit})`) | A set never owns its sources. Name the container (`const std::array ends{entr, exit};`), or leave members out with a predicate: AMPL's `INTER diff {entr, exit}` is `sINTER.where(not_end)` |
-| Constraint programming (interval variables, `noOverlap`, cumulative functions) | Outside the scope of an algebraic modeling layer. The set layer is solver-independent, so when writing scheduling with CP Optimizer or CP-SAT you can still pass rows built with `makeSet`, `groupBy`, and `ordered()` straight to that API |
-
+| Tables of constraints | Most constraints are added once and never looked up again. Name a row by its keys with `indexedName`, as a `VarTable` names its variables, and add it through your solver |
+| Duals and reduced costs by key | Read them from your solver (Concert's `getDuals`, MathOpt's `dual_values()`, HiGHS's `getSolution().row_dual`) |
+| Adding variables to a family (column generation) | A family is built once over its set; new columns are a new set and a new `VarTable` |
+| Arrays of coefficients | A sum's term computes its coefficient from the row's entities |
+| Removing repeats from your containers | A set never holds a row twice, and your sources are trusted not to ("A set is a set") |
+| Constraint programming (interval variables, `noOverlap`, cumulative functions) | The set layer does not depend on a solver, so a CP model can still take its rows from a chain, `groupBy` and `ordered()` |
+| Teaching C++, a solver or how to formulate | These pages show dreamor, and trust that you bring the rest |

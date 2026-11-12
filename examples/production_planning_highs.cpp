@@ -1,9 +1,7 @@
-// SPDX-License-Identifier: MPL-2.0
-// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
-// not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// SPDX-License-Identifier: MIT-0
 //
 // Builds the lot-sizing example on the HiGHS backend, solves it with HiGHS and prints the plan.
-// tests/run_tests.sh --highs [HiGHS dir] builds and runs it.
+// tests/highs/CMakeLists.txt builds and runs it.
 #include <cstdio>
 #include <exception>
 
@@ -15,7 +13,7 @@ int main() try {
   HighsOptions options;
   options.output_flag = false;
   dreamor::highs::HighsEnv env{options};
-  const HighsApiModel lotSizing{env, in};
+  const highs::Model lotSizing{env, in};
   lotSizing.build(env);
 
   Highs& highs = env.highs();
@@ -31,17 +29,14 @@ int main() try {
   const auto yieldPlan = lotSizing.vYield.solution(env);
   const auto stockPlan = lotSizing.vStock.solution(env);
   for (const auto& [period] : lotSizing.sPERIODS) {
-    std::printf("period %zu\n", period.get());
+    std::printf("period %d\n", period.get());
     for (const auto& [row, qty] : yieldPlan) {
-      if (std::get<cPeriod>(row) == period && qty > 1e-6) {
-        std::printf(
-            "  %s makes %6.1f of %s\n", std::get<cMachine>(row)->name.c_str(), qty, std::get<cItem>(row)->name.c_str());
-      }
+      const auto& [m, i, t] = row;
+      if (t == period && qty > 1e-6) { std::printf("  %s makes %6.1f of %s\n", m->name.c_str(), qty, i->name.c_str()); }
     }
     for (const auto& [row, qty] : stockPlan) {
-      if (std::get<cPeriod>(row) == period && qty > 1e-6) {
-        std::printf("  %s: %6.1f in stock\n", std::get<cItem>(row)->name.c_str(), qty);
-      }
+      const auto& [i, t] = row;
+      if (t == period && qty > 1e-6) { std::printf("  %s: %6.1f in stock\n", i->name.c_str(), qty); }
     }
   }
   return 0;

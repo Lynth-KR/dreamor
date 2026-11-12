@@ -2,7 +2,10 @@
 # SPDX-License-Identifier: MPL-2.0
 # This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 # not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""Tests common/machine.py: the CPU choice on fake /sys and /proc trees, and the counters --pmu auto picks. In bench/: python3 -m unittest common.test_machine"""
+"""Tests common/machine.py: the CPU choice on fake /sys and /proc trees, and the counters that --pmu auto picks.
+
+Run the tests in bench/: python3 -m unittest common.test_machine
+"""
 
 import os
 import tempfile
@@ -19,7 +22,11 @@ def write(root, rel, text):
 
 
 def machine(root, cpus, pcores=None, release="6.8.0-generic", flags="fpu sse2 avx2"):
-    """cpus: cpu -> dict(l3='32M', perf=int|None, freq=int|None, core='0,8')."""
+    """Writes a fake machine under `root`.
+
+    `cpus` maps each CPU to a dict(l3='32M', perf=int|None, freq=int|None, core='0,8'). If `pcores` is given, it lists
+    the P-cores of an Intel hybrid part. `release` is the kernel's release, and `flags` the CPU's flags.
+    """
     write(root, "proc/sys/kernel/osrelease", release)
     write(root, "proc/cpuinfo", f"processor\t: 0\nflags\t\t: {flags}")
     write(root, "sys/devices/system/cpu/online", ",".join(str(c) for c in sorted(cpus)))
@@ -47,7 +54,7 @@ class ChooseCpu(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_intel_hybrid_takes_a_pcore_not_cpu0(self):
-        # 4 P-cores with SMT (0/1, 2/3, 4/5, 6/7), 4 E-cores (8..11); E-cores clock lower.
+        # Four P-cores with SMT are CPUs 0 to 7, two to a core. Four E-cores are CPUs 8 to 11, and they clock lower.
         cpus = {c: dict(core=f"{c - c % 2}-{c - c % 2 + 1}", freq=5_400_000) for c in range(8)}
         cpus.update({c: dict(freq=3_900_000) for c in range(8, 12)})
         machine(self.root, cpus, pcores="0-7")
@@ -57,7 +64,7 @@ class ChooseCpu(unittest.TestCase):
         self.assertIn("P-cores", info["reason"])
 
     def test_preferred_core_by_cppc(self):
-        # Homogeneous 8 cores (a 5700X): CPPC ranks cores 3 and 5 highest.
+        # Eight cores of one type, as on a Ryzen 7 5700X. CPPC ranks cores 3 and 5 highest.
         cpus = {c: dict(perf=166 if c in (3, 5) else 150, freq=4_650_000) for c in range(8)}
         machine(self.root, cpus)
         cpu, info = choose_cpu(self.root)
@@ -66,7 +73,7 @@ class ChooseCpu(unittest.TestCase):
         self.assertFalse(info["hybrid"])
 
     def test_x3d_takes_the_vcache_ccd(self):
-        # CCD0 (0..7) has the 96 MB V-cache, CCD1 (8..15) 32 MB and the higher clocks.
+        # CCD0, CPUs 0 to 7, has the 96 MB V-cache. CCD1, CPUs 8 to 15, has 32 MB and the higher clocks.
         cpus = {c: dict(l3="96M", perf=150) for c in range(8)}
         cpus.update({c: dict(l3="32M", perf=170) for c in range(8, 16)})
         machine(self.root, cpus)

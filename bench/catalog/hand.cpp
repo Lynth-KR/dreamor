@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: MPL-2.0
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
+// not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// catalog/hand.cpp - the main of the hand-written arms, which build.sh builds as ./catalog_hand, and as
+// ./catalog_hand8 for k = 8. This file and every header that it includes use no dreamor header, because build.sh
+// compiles them without dreamor's include path.
+#include <string>
+
+#include "../common/result.hpp"
+#include "driver.hpp"
+#include "hand/arm.hpp"
+#include "hand/entities.hpp"
+#include "hand/group.hpp"
+#include "hand/lookup.hpp"
+#include "hand/make.hpp"
+#include "hand/order.hpp"
+#include "hand/setop.hpp"
+#include "hand/slice.hpp"
+
+namespace {
+
+void runFamily(const catalog::Args& a, const Data& d, const Samples& s, Result& r) {
+  if (a.family == "lookup") {
+    lookup::run(a.impl, d, s, r);
+  } else if (a.family == "group") {
+    group::run(a.impl, d, s, r);
+  } else if (a.family == "setop") {
+    setop::run(a.impl, d, s, r);
+  } else if (a.family == "slice") {
+    slice::run(a.impl, d, a.cell.seed, r);
+  } else if (a.family == "make") {
+    make::run(a.impl, d, s, r);
+  } else if (a.family == "order") {
+    order::run(a.impl, d, s, r);
+  } else {
+    entities::run(a.impl, a.key, a.access, a.cell.n_target, a.cell.seed, r);
+  }
+}
+
+}  // namespace
+
+int main(int argc, char** argv) {
+  catalog::runCell<HandArm>(argc, argv, runFamily);
+}

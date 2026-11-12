@@ -1,0 +1,861 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "DREAMOR_BUILD_TESTS": "ON",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_FLAGS_DEBUG": "-O1 -g"
+      }
+    },
+    {
+      "name": "release",
+      "hidden": true,
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "runtime-only",
+      "hidden": true,
+      "description": "The tests that depend on the build and not on the compiler alone",
+      "cacheVariables": {
+        "DREAMOR_TESTS": "unit;stress;contract_fail"
+      }
+    },
+    {
+      "name": "stub-gcc13-release",
+      "displayName": "stub, GCC 13, -O3 -DNDEBUG: everything but contract_fail",
+      "inherits": "release",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "g++-13"
+      }
+    },
+    {
+      "name": "stub-clang18-debug",
+      "displayName": "stub, Clang 18, -O1 -g: the compiler's checks alone",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "clang++-18",
+        "DREAMOR_TESTS": "docs;syntax;compile_fail",
+        "CMAKE_CXX_FLAGS": "--gcc-install-dir=/usr/lib/gcc/x86_64-linux-gnu/13"
+      }
+    },
+    {
+      "name": "stub-clang18-release",
+      "displayName": "stub, Clang 18, -O3 -DNDEBUG: the tests",
+      "inherits": [
+        "release",
+        "runtime-only"
+      ],
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "clang++-18",
+        "CMAKE_CXX_FLAGS": "--gcc-install-dir=/usr/lib/gcc/x86_64-linux-gnu/13"
+      }
+    },
+    {
+      "name": "sanitize-gcc13",
+      "displayName": "GCC 13, AddressSanitizer, UndefinedBehaviorSanitizer, LeakSanitizer",
+      "inherits": [
+        "base",
+        "runtime-only"
+      ],
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "g++-13",
+        "DREAMOR_SANITIZE": "address"
+      }
+    },
+    {
+      "name": "sanitize-clang18",
+      "displayName": "Clang 18, AddressSanitizer, UndefinedBehaviorSanitizer, LeakSanitizer",
+      "inherits": [
+        "base",
+        "runtime-only"
+      ],
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "clang++-18",
+        "DREAMOR_SANITIZE": "address",
+        "CMAKE_CXX_FLAGS": "--gcc-install-dir=/usr/lib/gcc/x86_64-linux-gnu/13"
+      }
+    },
+    {
+      "name": "sanitize-thread-gcc13",
+      "displayName": "GCC 13, ThreadSanitizer",
+      "inherits": [
+        "base",
+        "runtime-only"
+      ],
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "g++-13",
+        "DREAMOR_SANITIZE": "thread"
+      }
+    },
+    {
+      "name": "gcc-latest",
+      "displayName": "stub, the newest GCC (the gcc image's g++): everything",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "g++"
+      }
+    },
+    {
+      "name": "clang-latest",
+      "displayName": "stub, the newest Clang (23): everything",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "clang++-23",
+        "CMAKE_CXX_FLAGS": "--gcc-install-dir=/usr/lib/gcc/x86_64-linux-gnu/13"
+      }
+    },
+    {
+      "name": "libcxx-18",
+      "displayName": "stub, Clang 18 on LLVM's libc++ 18",
+      "inherits": [
+        "base",
+        "runtime-only"
+      ],
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "clang++-18",
+        "CMAKE_CXX_FLAGS": "-stdlib=libc++",
+        "CMAKE_EXE_LINKER_FLAGS": "-stdlib=libc++"
+      }
+    },
+    {
+      "name": "wasm",
+      "displayName": "stub, WebAssembly (wasm32) with Emscripten, run under Node.js: everything",
+      "inherits": "base",
+      "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
+    },
+    {
+      "name": "mathopt-gcc13",
+      "displayName": "MathOpt and HiGHS on the OR-Tools prebuilt ($env{ORTOOLS_DIR}), GCC 13",
+      "inherits": "base",
+      "cacheVariables": {
+        "DREAMOR_TESTS": "",
+        "CMAKE_CXX_COMPILER": "g++-13",
+        "DREAMOR_ORTOOLS_DIR": "$env{ORTOOLS_DIR}",
+        "DREAMOR_HIGHS_DIR": "$env{ORTOOLS_DIR}"
+      }
+    },
+    {
+      "name": "mathopt-clang18",
+      "displayName": "MathOpt and HiGHS on the OR-Tools prebuilt ($env{ORTOOLS_DIR}), Clang 18",
+      "inherits": "base",
+      "cacheVariables": {
+        "DREAMOR_TESTS": "",
+        "CMAKE_CXX_COMPILER": "clang++-18",
+        "DREAMOR_ORTOOLS_DIR": "$env{ORTOOLS_DIR}",
+        "DREAMOR_HIGHS_DIR": "$env{ORTOOLS_DIR}",
+        "CMAKE_CXX_FLAGS": "--gcc-install-dir=/usr/lib/gcc/x86_64-linux-gnu/13"
+      }
+    },
+    {
+      "name": "highs",
+      "displayName": "HiGHS on a HiGHS install ($env{HIGHS_DIR}), GCC 13",
+      "inherits": "base",
+      "cacheVariables": {
+        "DREAMOR_TESTS": "",
+        "CMAKE_CXX_COMPILER": "g++-13",
+        "DREAMOR_HIGHS_DIR": "$env{HIGHS_DIR}"
+      }
+    },
+    {
+      "name": "cplex",
+      "displayName": "Real CPLEX Studio ($env{CPLEX_STUDIO_DIR}), GCC 13 - not on CI",
+      "inherits": "base",
+      "cacheVariables": {
+        "DREAMOR_TESTS": "",
+        "CMAKE_CXX_COMPILER": "g++-13",
+        "DREAMOR_CPLEX_DIR": "$env{CPLEX_STUDIO_DIR}"
+      }
+    },
+    {
+      "name": "libcxx-latest",
+      "displayName": "stub, the newest Clang on its libc++ (the libcxx-latest image's $CXX)",
+      "inherits": [
+        "base",
+        "runtime-only"
+      ],
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS": "-stdlib=libc++",
+        "CMAKE_EXE_LINKER_FLAGS": "-stdlib=libc++"
+      }
+    },
+    {
+      "name": "wasm-highs",
+      "displayName": "HiGHS on WebAssembly: HiGHS built by the same Emscripten, at /opt/highs",
+      "inherits": "base",
+      "cacheVariables": {
+        "DREAMOR_TESTS": "",
+        "DREAMOR_HIGHS_DIR": "/opt/highs"
+      },
+      "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
+    },
+    {
+      "name": "windows-cl",
+      "displayName": "stub, and MathOpt and HiGHS on the OR-Tools prebuilt ($env{ORTOOLS_DIR}), Visual Studio 2026's cl.exe on Windows: everything",
+      "inherits": "base",
+      "generator": "Visual Studio 18 2026",
+      "architecture": "x64",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS_RELEASE": "/O1",
+        "DREAMOR_ORTOOLS_DIR": "$env{ORTOOLS_DIR}",
+        "DREAMOR_HIGHS_DIR": "$env{ORTOOLS_DIR}"
+      }
+    },
+    {
+      "name": "windows-clang-cl",
+      "displayName": "as windows-cl, with Visual Studio 2026's clang-cl",
+      "inherits": "windows-cl",
+      "toolset": "ClangCL"
+    },
+    {
+      "name": "windows-vs2022-cl",
+      "displayName": "as windows-cl, with Visual Studio 2022's cl.exe",
+      "inherits": "windows-cl",
+      "generator": "Visual Studio 17 2022"
+    },
+    {
+      "name": "windows-vs2022-clang-cl",
+      "displayName": "as windows-cl, with Visual Studio 2022's clang-cl",
+      "inherits": "windows-vs2022-cl",
+      "toolset": "ClangCL"
+    },
+    {
+      "name": "macos",
+      "displayName": "stub, HiGHS ($env{HIGHS_DIR}) and MathOpt on the OR-Tools prebuilt ($env{ORTOOLS_DIR}), Apple Clang on macOS: everything",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "clang++",
+        "DREAMOR_HIGHS_DIR": "$env{HIGHS_DIR}",
+        "DREAMOR_ORTOOLS_DIR": "$env{ORTOOLS_DIR}"
+      }
+    },
+    {
+      "name": "coverage",
+      "displayName": "line coverage, Clang 18: stub mode and MathOpt and HiGHS on the OR-Tools prebuilt ($env{ORTOOLS_DIR}); tools/coverage/",
+      "inherits": "base",
+      "cacheVariables": {
+        "DREAMOR_TESTS": "unit;stress;docs;examples;contract_fail",
+        "CMAKE_CXX_COMPILER": "clang++-18",
+        "CMAKE_CXX_FLAGS": "--gcc-install-dir=/usr/lib/gcc/x86_64-linux-gnu/13 -fprofile-instr-generate -fcoverage-mapping -mllvm -runtime-counter-relocation",
+        "CMAKE_EXE_LINKER_FLAGS": "-fprofile-instr-generate",
+        "DREAMOR_ORTOOLS_DIR": "$env{ORTOOLS_DIR}",
+        "DREAMOR_HIGHS_DIR": "$env{ORTOOLS_DIR}"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "stub-gcc13-release",
+      "configurePreset": "stub-gcc13-release"
+    },
+    {
+      "name": "stub-clang18-debug",
+      "configurePreset": "stub-clang18-debug"
+    },
+    {
+      "name": "stub-clang18-release",
+      "configurePreset": "stub-clang18-release"
+    },
+    {
+      "name": "sanitize-gcc13",
+      "configurePreset": "sanitize-gcc13"
+    },
+    {
+      "name": "sanitize-clang18",
+      "configurePreset": "sanitize-clang18"
+    },
+    {
+      "name": "sanitize-thread-gcc13",
+      "configurePreset": "sanitize-thread-gcc13"
+    },
+    {
+      "name": "gcc-latest",
+      "configurePreset": "gcc-latest"
+    },
+    {
+      "name": "clang-latest",
+      "configurePreset": "clang-latest"
+    },
+    {
+      "name": "libcxx-18",
+      "configurePreset": "libcxx-18"
+    },
+    {
+      "name": "wasm",
+      "configurePreset": "wasm"
+    },
+    {
+      "name": "mathopt-gcc13",
+      "configurePreset": "mathopt-gcc13"
+    },
+    {
+      "name": "mathopt-clang18",
+      "configurePreset": "mathopt-clang18"
+    },
+    {
+      "name": "highs",
+      "configurePreset": "highs"
+    },
+    {
+      "name": "cplex",
+      "configurePreset": "cplex"
+    },
+    {
+      "name": "libcxx-latest",
+      "configurePreset": "libcxx-latest"
+    },
+    {
+      "name": "wasm-highs",
+      "configurePreset": "wasm-highs"
+    },
+    {
+      "name": "windows-cl",
+      "configurePreset": "windows-cl",
+      "configuration": "Release"
+    },
+    {
+      "name": "windows-clang-cl",
+      "configurePreset": "windows-clang-cl",
+      "configuration": "Release"
+    },
+    {
+      "name": "windows-vs2022-cl",
+      "configurePreset": "windows-vs2022-cl",
+      "configuration": "Release"
+    },
+    {
+      "name": "windows-vs2022-clang-cl",
+      "configurePreset": "windows-vs2022-clang-cl",
+      "configuration": "Release"
+    },
+    {
+      "name": "macos",
+      "configurePreset": "macos"
+    },
+    {
+      "name": "coverage",
+      "configurePreset": "coverage"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "stub-gcc13-release",
+      "inherits": "base",
+      "configurePreset": "stub-gcc13-release"
+    },
+    {
+      "name": "stub-clang18-debug",
+      "inherits": "base",
+      "configurePreset": "stub-clang18-debug"
+    },
+    {
+      "name": "stub-clang18-release",
+      "inherits": "base",
+      "configurePreset": "stub-clang18-release"
+    },
+    {
+      "name": "sanitize-gcc13",
+      "inherits": "base",
+      "configurePreset": "sanitize-gcc13"
+    },
+    {
+      "name": "sanitize-clang18",
+      "inherits": "base",
+      "configurePreset": "sanitize-clang18"
+    },
+    {
+      "name": "sanitize-thread-gcc13",
+      "inherits": "base",
+      "configurePreset": "sanitize-thread-gcc13"
+    },
+    {
+      "name": "gcc-latest",
+      "inherits": "base",
+      "configurePreset": "gcc-latest"
+    },
+    {
+      "name": "clang-latest",
+      "inherits": "base",
+      "configurePreset": "clang-latest"
+    },
+    {
+      "name": "libcxx-18",
+      "inherits": "base",
+      "configurePreset": "libcxx-18"
+    },
+    {
+      "name": "wasm",
+      "inherits": "base",
+      "configurePreset": "wasm"
+    },
+    {
+      "name": "mathopt-gcc13",
+      "inherits": "base",
+      "configurePreset": "mathopt-gcc13"
+    },
+    {
+      "name": "mathopt-clang18",
+      "inherits": "base",
+      "configurePreset": "mathopt-clang18"
+    },
+    {
+      "name": "highs",
+      "inherits": "base",
+      "configurePreset": "highs"
+    },
+    {
+      "name": "cplex",
+      "inherits": "base",
+      "configurePreset": "cplex"
+    },
+    {
+      "name": "libcxx-latest",
+      "inherits": "base",
+      "configurePreset": "libcxx-latest"
+    },
+    {
+      "name": "wasm-highs",
+      "inherits": "base",
+      "configurePreset": "wasm-highs"
+    },
+    {
+      "name": "windows-cl",
+      "inherits": "base",
+      "configurePreset": "windows-cl",
+      "configuration": "Release"
+    },
+    {
+      "name": "windows-clang-cl",
+      "inherits": "base",
+      "configurePreset": "windows-clang-cl",
+      "configuration": "Release"
+    },
+    {
+      "name": "windows-vs2022-cl",
+      "inherits": "base",
+      "configurePreset": "windows-vs2022-cl",
+      "configuration": "Release"
+    },
+    {
+      "name": "windows-vs2022-clang-cl",
+      "inherits": "base",
+      "configurePreset": "windows-vs2022-clang-cl",
+      "configuration": "Release"
+    },
+    {
+      "name": "macos",
+      "inherits": "base",
+      "configurePreset": "macos"
+    },
+    {
+      "name": "coverage",
+      "inherits": "base",
+      "configurePreset": "coverage",
+      "environment": {
+        "LLVM_PROFILE_FILE": "${sourceDir}/build/coverage/profiles/%c%p-%m.profraw"
+      }
+    }
+  ],
+  "workflowPresets": [
+    {
+      "name": "stub-gcc13-release",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "stub-gcc13-release"
+        },
+        {
+          "type": "build",
+          "name": "stub-gcc13-release"
+        },
+        {
+          "type": "test",
+          "name": "stub-gcc13-release"
+        }
+      ]
+    },
+    {
+      "name": "stub-clang18-debug",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "stub-clang18-debug"
+        },
+        {
+          "type": "build",
+          "name": "stub-clang18-debug"
+        },
+        {
+          "type": "test",
+          "name": "stub-clang18-debug"
+        }
+      ]
+    },
+    {
+      "name": "stub-clang18-release",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "stub-clang18-release"
+        },
+        {
+          "type": "build",
+          "name": "stub-clang18-release"
+        },
+        {
+          "type": "test",
+          "name": "stub-clang18-release"
+        }
+      ]
+    },
+    {
+      "name": "sanitize-gcc13",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "sanitize-gcc13"
+        },
+        {
+          "type": "build",
+          "name": "sanitize-gcc13"
+        },
+        {
+          "type": "test",
+          "name": "sanitize-gcc13"
+        }
+      ]
+    },
+    {
+      "name": "sanitize-clang18",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "sanitize-clang18"
+        },
+        {
+          "type": "build",
+          "name": "sanitize-clang18"
+        },
+        {
+          "type": "test",
+          "name": "sanitize-clang18"
+        }
+      ]
+    },
+    {
+      "name": "sanitize-thread-gcc13",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "sanitize-thread-gcc13"
+        },
+        {
+          "type": "build",
+          "name": "sanitize-thread-gcc13"
+        },
+        {
+          "type": "test",
+          "name": "sanitize-thread-gcc13"
+        }
+      ]
+    },
+    {
+      "name": "gcc-latest",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "gcc-latest"
+        },
+        {
+          "type": "build",
+          "name": "gcc-latest"
+        },
+        {
+          "type": "test",
+          "name": "gcc-latest"
+        }
+      ]
+    },
+    {
+      "name": "clang-latest",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "clang-latest"
+        },
+        {
+          "type": "build",
+          "name": "clang-latest"
+        },
+        {
+          "type": "test",
+          "name": "clang-latest"
+        }
+      ]
+    },
+    {
+      "name": "libcxx-18",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "libcxx-18"
+        },
+        {
+          "type": "build",
+          "name": "libcxx-18"
+        },
+        {
+          "type": "test",
+          "name": "libcxx-18"
+        }
+      ]
+    },
+    {
+      "name": "wasm",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "wasm"
+        },
+        {
+          "type": "build",
+          "name": "wasm"
+        },
+        {
+          "type": "test",
+          "name": "wasm"
+        }
+      ]
+    },
+    {
+      "name": "mathopt-gcc13",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "mathopt-gcc13"
+        },
+        {
+          "type": "build",
+          "name": "mathopt-gcc13"
+        },
+        {
+          "type": "test",
+          "name": "mathopt-gcc13"
+        }
+      ]
+    },
+    {
+      "name": "mathopt-clang18",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "mathopt-clang18"
+        },
+        {
+          "type": "build",
+          "name": "mathopt-clang18"
+        },
+        {
+          "type": "test",
+          "name": "mathopt-clang18"
+        }
+      ]
+    },
+    {
+      "name": "highs",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "highs"
+        },
+        {
+          "type": "build",
+          "name": "highs"
+        },
+        {
+          "type": "test",
+          "name": "highs"
+        }
+      ]
+    },
+    {
+      "name": "cplex",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "cplex"
+        },
+        {
+          "type": "build",
+          "name": "cplex"
+        },
+        {
+          "type": "test",
+          "name": "cplex"
+        }
+      ]
+    },
+    {
+      "name": "libcxx-latest",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "libcxx-latest"
+        },
+        {
+          "type": "build",
+          "name": "libcxx-latest"
+        },
+        {
+          "type": "test",
+          "name": "libcxx-latest"
+        }
+      ]
+    },
+    {
+      "name": "wasm-highs",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "wasm-highs"
+        },
+        {
+          "type": "build",
+          "name": "wasm-highs"
+        },
+        {
+          "type": "test",
+          "name": "wasm-highs"
+        }
+      ]
+    },
+    {
+      "name": "windows-cl",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "windows-cl"
+        },
+        {
+          "type": "build",
+          "name": "windows-cl"
+        },
+        {
+          "type": "test",
+          "name": "windows-cl"
+        }
+      ]
+    },
+    {
+      "name": "windows-clang-cl",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "windows-clang-cl"
+        },
+        {
+          "type": "build",
+          "name": "windows-clang-cl"
+        },
+        {
+          "type": "test",
+          "name": "windows-clang-cl"
+        }
+      ]
+    },
+    {
+      "name": "windows-vs2022-cl",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "windows-vs2022-cl"
+        },
+        {
+          "type": "build",
+          "name": "windows-vs2022-cl"
+        },
+        {
+          "type": "test",
+          "name": "windows-vs2022-cl"
+        }
+      ]
+    },
+    {
+      "name": "windows-vs2022-clang-cl",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "windows-vs2022-clang-cl"
+        },
+        {
+          "type": "build",
+          "name": "windows-vs2022-clang-cl"
+        },
+        {
+          "type": "test",
+          "name": "windows-vs2022-clang-cl"
+        }
+      ]
+    },
+    {
+      "name": "macos",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "macos"
+        },
+        {
+          "type": "build",
+          "name": "macos"
+        },
+        {
+          "type": "test",
+          "name": "macos"
+        }
+      ]
+    },
+    {
+      "name": "coverage",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "coverage"
+        },
+        {
+          "type": "build",
+          "name": "coverage"
+        },
+        {
+          "type": "test",
+          "name": "coverage"
+        }
+      ]
+    }
+  ]
+}

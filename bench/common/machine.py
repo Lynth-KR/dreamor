@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: MPL-2.0
 # This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 # not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""The machine and the code a run measures, for every runner under bench/: which CPU to pin, what the
-machine is set to, and which commit (and uncommitted diff) the binaries were built from."""
+"""The machine and the code that a run measures, for every runner under bench/: which CPU to pin, what the machine is
+set to, and which commit and uncommitted diff the binaries were built from."""
 
 import ctypes
 import ctypes.util
@@ -44,7 +44,7 @@ def parse_cpulist(text):
 
 
 def virtualization(root="/"):
-    """Why pinning would not pin a physical core here, or None on bare metal."""
+    """Returns why pinning would not pin a physical core on this machine, or None on bare metal."""
     release = read_text(os.path.join(root, "proc/sys/kernel/osrelease")) or ""
     if "microsoft" in release.lower():
         return "WSL"
@@ -70,7 +70,10 @@ def online_cpus(root="/"):
 
 
 def last_level_cache(root="/", cpu=0):
-    """Size in bytes of the last-level cache that CPU sees (its CCD's L3 on a split part)."""
+    """Returns the size in bytes of the last-level cache that `cpu` sees, or None if the machine does not say.
+
+    On a part with several CCDs, the last-level cache is the L3 of the CCD that holds `cpu`.
+    """
     best_level, best_size = 0, 0
     base = os.path.join(cpu_dir(root, cpu), "cache")
     try:
@@ -92,14 +95,19 @@ def last_level_cache(root="/", cpu=0):
 
 
 def choose_cpu(root="/"):
-    """The CPU --cpu auto pins to, or None, and how it was chosen.
+    """Returns the CPU that --cpu auto pins to, or None, and how it was chosen.
 
-    Core type is noise, not a factor, so a run stays on one core class:
-      1. Intel hybrid: the P-cores (/sys/devices/cpu_core/cpus);
-      2. the largest last-level cache among those (the V-cache CCD of a dual-CCD X3D part);
-      3. the highest ACPI CPPC highest_perf, else the highest cpuinfo_max_freq (preferred cores);
-      4. the lowest-numbered physical core that is not CPU 0's (CPU 0 takes the interrupts).
-    A virtualized machine gets None: pinning there pins a virtual CPU only.
+    The core type is noise, not a factor, so a run stays on one class of core. The CPU is chosen in four steps:
+
+      1. On an Intel hybrid part, the candidates are the P-cores that /sys/devices/cpu_core/cpus lists.
+      2. If the candidates' last-level caches differ, the candidates with the largest one are kept. On a dual-CCD
+         X3D part, they are the CCD with the V-cache.
+      3. The preferred cores are kept: the highest ACPI CPPC highest_perf, or the highest cpuinfo_max_freq if the
+         candidates do not report highest_perf.
+      4. The CPU is the lowest-numbered candidate of the first physical core that does not hold CPU 0, because CPU 0
+         takes the interrupts. CPU 0's core is chosen only if no other core is left.
+
+    On a virtualized machine, the function returns None, because pinning there pins a virtual CPU only.
     """
     info = {"virtualized": virtualization(root)}
     pcores = read_text(os.path.join(root, "sys/devices/cpu_core/cpus"))
@@ -126,7 +134,7 @@ def choose_cpu(root="/"):
                 top = max(perf.values())
                 candidates = [c for c in candidates if perf[c] == top]
                 reasons.append(f"highest {name}")
-            break  # the first metric the machine has decides
+            break  # The first metric that every candidate reports decides.
 
     def core_of(c):
         topo = os.path.join(cpu_dir(root, c), "topology")
@@ -142,7 +150,7 @@ def choose_cpu(root="/"):
 
 
 def environment(root="/", cpu=None):
-    """What the machine was set to, for the meta file: what the bench cannot set itself."""
+    """Returns what the machine was set to, for the meta file: the settings that the benchmark cannot set itself."""
     c = cpu if cpu is not None else 0
     no_turbo = read_int(os.path.join(root, "sys/devices/system/cpu/intel_pstate/no_turbo"))
     boost = read_int(os.path.join(root, "sys/devices/system/cpu/cpufreq/boost"))
@@ -181,20 +189,22 @@ def cpu_model():
     return platform.processor() or "unknown"
 
 
-PERF_EVENT_OPEN = {"x86_64": 298, "aarch64": 241}  # the syscall's number
+PERF_EVENT_OPEN = {"x86_64": 298, "aarch64": 241}  # The number of the perf_event_open syscall on each machine.
 
 
 def counts_instructions():
-    """(True, None) when this process can count its own user-mode instructions, else (False, why).
+    """Returns (True, None) if this process can count its own user-mode instructions, and (False, the reason) if not.
 
-    Opens the counter the runs would - perf_event_open, PERF_COUNT_HW_INSTRUCTIONS, kernel excluded
-    as perf_event_paranoid 2 asks - and closes it again: a VM or a container may lack it.
+    The function opens the counter that the runs would open, and closes it again, because a virtual machine or a
+    container may lack it. The counter is PERF_COUNT_HW_INSTRUCTIONS from perf_event_open, with the kernel excluded,
+    as perf_event_paranoid 2 requires.
     """
     nr = PERF_EVENT_OPEN.get(platform.machine())
     if nr is None or platform.system() != "Linux":
         return False, f"no perf_event_open on {platform.system()} {platform.machine()}"
-    # perf_event_attr: type, size, config, sample_period, sample_type, read_format, then the flag
-    # bits disabled (0), exclude_kernel (5), exclude_hv (6); the rest of its 128 bytes stays 0.
+    # The fields of perf_event_attr come in this order: type, size, config, sample_period, sample_type, read_format and
+    # the flag bits. The flags set are disabled, bit 0, exclude_kernel, bit 5, and exclude_hv, bit 6. The rest of the
+    # 128 bytes stays 0.
     attr = struct.pack("=IIQQQQQ", 0, 128, 1, 0, 0, 0, 1 | 1 << 5 | 1 << 6).ljust(128, b"\0")
     libc = ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True)
     libc.syscall.restype = ctypes.c_long
@@ -206,7 +216,10 @@ def counts_instructions():
 
 
 def choose_pmu(spec):
-    """The --pmu a run passes on, and why: auto counts instructions wherever the machine can."""
+    """Returns the --pmu value that a run passes on, and why.
+
+    With auto, a run counts instructions if the machine can.
+    """
     if spec == "auto":
         ok, why = counts_instructions()
         return ("instructions", "auto: user-mode instructions") if ok else ("", f"auto: none ({why})")
@@ -223,10 +236,11 @@ def compiler_version(cxx):
 
 
 def code_state():
-    """(commit, dirty, label) of the repository the benchmark builds from, or Nones without git.
+    """Returns (commit, dirty, label) of the repository that the benchmark builds from.
 
-    The label names the code exactly: the short commit, plus a hash of the diff when tracked files
-    have uncommitted changes, so two different uncommitted states never share a results folder.
+    Without git, the function returns (None, None, "nogit"). The label names the code exactly: the short commit, and a
+    hash of the diff if tracked files have uncommitted changes. So two different uncommitted states never share a
+    results folder.
     """
     root = os.path.dirname(os.path.abspath(__file__))
 

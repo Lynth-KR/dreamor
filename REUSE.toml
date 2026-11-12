@@ -1,0 +1,54 @@
+# The copyright and license of every file that does not say them itself (https://reuse.software). A code file says
+# its license in its first lines, which tools/format.sh writes; this file gives its copyright, and the license of a
+# document, a configuration file or an image. tools/format.sh runs `reuse lint` over the whole tree. Where two
+# annotations match a file, the later one holds, whole, so each annotation names the copyright too. README.md,
+# "License", says which part is under which license.
+version = 1
+
+# Every file's copyright. Its license comes from the file's first lines (a code file, which tools/format.sh stamps)
+# or from an annotation below, so that a file of a kind that no annotation names fails `reuse lint`.
+[[annotations]]
+path = "**"
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 Lynth-KR"
+
+# The configuration of the build, the tools, the editor and the repository, and the texts the determinism tests expect,
+# under MPL-2.0 as the library.
+[[annotations]]
+path = [
+  ".clang-format", ".clang-tidy", ".clangd", ".git-blame-ignore-revs", ".gitattributes", ".gitignore",
+  ".github/**", ".vscode/**", "**/.clang-tidy", "**/.clang-format", "CMakePresets.json", "ruff.toml", "zensical.toml",
+  "tools/reference_sections.txt", "tests/**/determinism.txt", "NOTICE",
+]
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 Lynth-KR"
+SPDX-License-Identifier = "MPL-2.0"
+
+# The documents: their text under CC-BY-4.0, and the code in them under MIT-0, so that a reader copies the code
+# without owing an attribution.
+[[annotations]]
+path = "**/*.md"
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 Lynth-KR"
+SPDX-License-Identifier = "CC-BY-4.0 AND MIT-0"
+
+# Adapted from the Contributor Covenant 2.1, which is under CC-BY-4.0; the file names its source.
+[[annotations]]
+path = "CODE_OF_CONDUCT.md"
+precedence = "override"
+SPDX-FileCopyrightText = ["2026 Lynth-KR", "Contributor Covenant contributors"]
+SPDX-License-Identifier = "CC-BY-4.0"
+
+# The banner: dreamor's own artwork, all rights reserved.
+[[annotations]]
+path = "docs/images/**"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Lynth-KR"
+SPDX-License-Identifier = "LicenseRef-dreamor-artwork"
+
+# Google's OR-Tools samples, ported: each source keeps its own header; the README quotes their code.
+[[annotations]]
+path = ["examples/mathopt_samples/README.md", "examples/mathopt_samples/LICENSE"]
+precedence = "override"
+SPDX-FileCopyrightText = ["2010-2025 Google LLC", "2026 Lynth-KR"]
+SPDX-License-Identifier = "Apache-2.0"

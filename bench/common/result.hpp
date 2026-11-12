@@ -2,7 +2,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// common/result.hpp - one run's result: every phase's times, counters and check, as one JSON line
+// common/result.hpp - one run's result: every phase's times, counters and check, written as one JSON line.
 #pragma once
 
 #include <cinttypes>
@@ -17,9 +17,10 @@
 
 class Result {
  public:
-  // --phases: measure these only. The phases later ones stand on - build, collect, load, index, prep_* - run
-  // all the same, and are reported only when chosen.
+  // Measures only the phases that --phases names. The phases that later phases depend on still run if they are not
+  // named, but they are reported only if they are named. They are build, collect, load, index and every prep_* phase.
   void select(std::set<std::string> phases) { chosen_ = std::move(phases); }
+
   [[nodiscard]] bool chosen(const std::string& phase) const { return chosen_.empty() || chosen_.contains(phase); }
 
   template <typename F>
@@ -30,20 +31,26 @@ class Result {
     Phase p = ::measure(std::forward<F>(f));
     if (chosen(phase)) { phases_.emplace_back(phase, p); }
   }
-  // A setup stage before the phases: timed, never part of a ratio.
+
+  // Times a setup stage, which runs before the phases. A setup stage is never part of a ratio.
   template <typename F>
   void setup(const std::string& stage, F&& f) {
     setup_.emplace_back(stage, timeMs(std::forward<F>(f)));
   }
-  // What the phase handed out, folded into one number that every arm must agree on.
+
+  // Records what the phase handed out, folded into one number that every arm must agree on.
   void check(const std::string& phase, std::uint64_t value) {
     if (chosen(phase)) { checks_.emplace_back(phase, value); }
   }
-  // The arm cannot run this cell (an array that does not fit, say): no phase is reported.
+
+  // Records why the arm cannot run this cell, for example because an array does not fit. The arm then measures no
+  // phase.
   void skip(std::string reason) { skipped_ = std::move(reason); }
+
   std::uint64_t sink = 0;
 
-  // {"phases": {...}, "checks": {...}, "skipped": ...} - the caller writes the run's own fields.
+  // Returns the fields "skipped", "phases", "setup_ms", "checks" and "sink" of the JSON line. The caller writes the
+  // run's own fields around them.
   [[nodiscard]] std::string json() const {
     std::string out = "\"skipped\": " + (skipped_.empty() ? std::string("null") : quoted(skipped_));
     out += ", \"phases\": {";
@@ -84,6 +91,7 @@ class Result {
 
  private:
   static std::string quoted(const std::string& s) { return "\"" + s + "\""; }
+
   std::vector<std::pair<std::string, Phase>> phases_;
   std::vector<std::pair<std::string, std::uint64_t>> checks_;
   std::string skipped_;

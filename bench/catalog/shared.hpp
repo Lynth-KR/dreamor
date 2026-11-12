@@ -2,26 +2,20 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// catalog/shared.hpp - what the families share: tags, packed keys, and how an expression is checked
+// catalog/shared.hpp - what the families share: tags, packed keys, and how an expression is checked.
 #pragma once
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <span>
-#include <utility>
+
+#include <ilcplex/ilocplex.h>
 
 #include "data.hpp"
-#if CATALOG_DREAMOR
-#  include "dreamor/concert.hpp"
-#  include "dreamor/index_set.hpp"
-#else
-#  include <ilcplex/ilocplex.h>
-#endif
 
 namespace catalog {
 
-// The serials of a row of entities, for tags.
+// Returns the serials of the first k entities of a row, from which tagOf makes a tag.
 inline std::array<std::uint32_t, kMaxColumns> serialsOf(const std::array<const Ent*, kMaxColumns>& row, std::size_t k) {
   std::array<std::uint32_t, kMaxColumns> s{};
   for (std::size_t j = 0; j < k; ++j) {
@@ -34,16 +28,18 @@ inline std::uint64_t ubOf(const IloNumVar& v) {
   return static_cast<std::uint64_t>(v.getUB());
 }
 
-// MixedHash: every bit of the key in the bucket, so the order of the ids does not show in the
-// order of the buckets.
+// A hash that mixes every bit of the key into the bucket, so that the order of the ids does not show in the order of
+// the buckets.
 struct MixedHash {
   std::size_t operator()(std::uint64_t x) const noexcept { return mix(x); }
 };
 
-// Packs ids into one integer, column 0 most significant: what a hand-coder writes.
+// Packs the ids of a row into one integer, with column 0 the most significant, as a hand-coder writes it. size[j] is
+// the number of ids that column j can hold.
 struct Packer {
   std::array<std::uint64_t, kMaxColumns> size{};
   std::size_t k = 0;
+
   [[nodiscard]] std::uint64_t operator()(const std::array<std::uint32_t, kMaxColumns>& id) const {
     std::uint64_t key = 0;
     for (std::size_t j = 0; j < k; ++j) {
@@ -51,6 +47,7 @@ struct Packer {
     }
     return key;
   }
+
   [[nodiscard]] std::array<std::uint32_t, kMaxColumns> unpack(std::uint64_t key) const {
     std::array<std::uint32_t, kMaxColumns> id{};
     for (std::size_t j = k; j-- > 0;) {
@@ -59,6 +56,7 @@ struct Packer {
     }
     return id;
   }
+
   [[nodiscard]] long double span() const {
     long double p = 1;
     for (std::size_t j = 0; j < k; ++j) {
@@ -68,9 +66,10 @@ struct Packer {
   }
 };
 
-// What every arm does with a finished expression: read its terms (as a solver would when the
-// expression is added), fold them under a hash of the group's key, and end it. The sum over a
-// phase's groups is the phase's check; it does not depend on the order of the groups.
+// Reads the terms of a finished expression, as a solver does when the expression is added, and ends the expression.
+// Every arm does this with each expression that it makes. Returns the sum of each term's upper bound times its
+// coefficient, multiplied by a hash of the group's key, or 0 if the expression has no term. A phase's check is the sum
+// over its groups, so the check does not depend on the order of the groups.
 inline std::uint64_t consume(IloExpr& e, std::uint64_t key) {
   std::uint64_t sum = 0;
   const IloExprI& x = *e.getImpl();
@@ -78,11 +77,11 @@ inline std::uint64_t consume(IloExpr& e, std::uint64_t key) {
     sum += static_cast<std::uint64_t>(x.vars[i]->ub) * static_cast<std::uint64_t>(x.coefs[i]);
   }
   const bool empty = x.vars.empty();
-  e.end();  // frees x
+  e.end();  // x is not valid after this line, because end() frees it.
   return empty ? 0 : sum * (mix(key * 0x9e3779b97f4a7c15ULL) | 1);
 }
 
-// A group's key: the serials of its columns, folded.
+// Returns a hash of the first count serials: the key of a group, or a whole row.
 template <typename Serials>
 inline std::uint64_t keyOf(const Serials& serials, std::size_t count) {
   std::uint64_t h = 0;
@@ -91,40 +90,5 @@ inline std::uint64_t keyOf(const Serials& serials, std::size_t count) {
   }
   return h;
 }
-
-#if CATALOG_DREAMOR
-// The set every dreamor arm builds, for k = sizeof...(J) columns: the k1s, then column j's list of
-// each k1, kept by the predicate when the cell is sparse; x on it, tagged by its rows' serials.
-template <typename Seq>
-struct Gen;
-template <std::size_t... J>
-struct Gen<std::index_sequence<J...>> {
-  static constexpr std::size_t kK    = sizeof...(J);
-  static constexpr std::size_t kLast = kK - 1;
-  using Set                          = dreamor::IndexSet<cK<J>...>;
-  using Table                        = dreamor::concert::VarTable<cK<J>...>;
-
-  // Callables take the columns they read, by type: no generic lambdas.
-  struct Keep {
-    const Data* d;
-    bool operator()(cK<J>... c) const { return d->keep(std::array<std::uint32_t, kMaxColumns>{c->serial...}); }
-  };
-  struct Tag {
-    double operator()(cK<J>... c) const { return tagOf(std::array<std::uint32_t, kMaxColumns>{c->serial...}, kK, 0); }
-  };
-  template <std::size_t I>
-  struct ListOf {
-    const Data* d;
-    std::span<const Ent* const> operator()(cK<0> k1) const { return d->lists[I][k1->serial]; }
-  };
-
-  static Set make(const Data& d) {
-    return [&]<std::size_t... I>(std::index_sequence<I...>) {
-      return d.sparse ? dreamor::makeSet<cK<J>...>(d.k1s, ListOf<I + 1>{&d}...).where(Keep{&d}).build()
-                      : dreamor::makeSet<cK<J>...>(d.k1s, ListOf<I + 1>{&d}...).build();
-    }(std::make_index_sequence<kK - 1>{});
-  }
-};
-#endif
 
 }  // namespace catalog

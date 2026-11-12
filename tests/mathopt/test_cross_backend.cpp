@@ -3,7 +3,7 @@
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
 // The same lot-sizing model built on both backends - Concert (the stub, tests/stub) and
-// MathOpt - must have the same variables and the same constraints: each constraint as
+// MathOpt - must have as many variables and the same constraints: each constraint as
 // lower <= sum(coef * variable) <= upper, variables identified by name, compared as a multiset.
 #include <array>
 #include <cmath>
@@ -15,10 +15,10 @@
 #include <string>
 #include <tuple>
 
-#include "check.hpp"
-#include "float_compare.hpp"
-#include "production_planning.hpp"
+#include "production_planning_concert.hpp"
 #include "production_planning_mathopt.hpp"
+#include "support/check.hpp"
+#include "support/float_compare.hpp"
 
 namespace math_opt = ::operations_research::math_opt;
 
@@ -68,20 +68,20 @@ static std::multiset<std::string> mathoptRows(const math_opt::Model& model) {
 int main() try {
   using namespace planning;
   for (const auto& [M, I, T] : {
-           std::array<std::size_t, 3>{2, 3, 4},
-           std::array<std::size_t, 3>{3, 6, 5},
-           std::array<std::size_t, 3>{5, 12, 8},
+           std::array<int, 3>{2, 3, 4},
+           std::array<int, 3>{3, 6, 5},
+           std::array<int, 3>{5, 12, 8},
        }) {
     const Instance in = Instance::make(M, I, T);
 
     const IloEnv env;
     const IloModel concertModel(env);
-    const Model concert{env, in};
-    concert.build(env, concertModel);
+    const concert::Model lotConcert{env, in};
+    lotConcert.build(env, concertModel);
 
     math_opt::Model mathoptModel("lot sizing");
-    const MathOptModel mathopt{mathoptModel, in};
-    mathopt.build(mathoptModel);
+    const mathopt::Model lotMathopt{mathoptModel, in};
+    lotMathopt.build(mathoptModel);
 
     const auto a = concertRows(concertModel);
     const auto b = mathoptRows(mathoptModel);
@@ -101,7 +101,7 @@ int main() try {
         }
       }
     }
-    DREAMOR_CHECK(concert.vYield.size() + concert.vSetup.size() + concert.vStock.size() ==
+    DREAMOR_CHECK(lotConcert.vYield.size() + lotConcert.vSetup.size() + lotConcert.vStock.size() ==
                   static_cast<std::size_t>(mathoptModel.num_variables()));
   }
   return report("cross_backend");

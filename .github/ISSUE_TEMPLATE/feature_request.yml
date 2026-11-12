@@ -7,19 +7,19 @@ body:
       value: |
         Please write in English. dreamor is small on purpose: a feature is weighed against its
         [philosophy](https://github.com/Lynth-KR/dreamor/blob/main/docs/philosophy.md), and some things are left out by design
-        ([what dreamor does not do](https://github.com/Lynth-KR/dreamor/blob/main/docs/philosophy.md#what-dreamor-does-not-do)).
+        ([what dreamor leaves to you](https://github.com/Lynth-KR/dreamor/blob/main/docs/philosophy.md#what-dreamor-leaves-to-you)).
   - type: checkboxes
     id: philosophy
     attributes:
       label: Before you propose
       options:
-        - label: I have read the philosophy, and this is not on the list of what dreamor does not do.
+        - label: I have read the philosophy, and this is not on the list of what dreamor leaves to you.
           required: true
   - type: textarea
     id: problem
     attributes:
       label: The modeling problem
-      description: What the model says - in AMPL if you can, e.g. `sum {(m,i,t) in PRODUCE} time[i] * Yield[m,i,t]`.
+      description: What the model says - the formula, in math or in words.
     validations:
       required: true
   - type: textarea

@@ -2,24 +2,30 @@
 # This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 # not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 #
-# Sourced by the benchmarks' build.sh: compiles run JOBS at a time, and each repetition's code layout.
+# Sourced by each benchmark's build.sh. It runs the compiles JOBS at a time, and it writes each repetition's code
+# layout. It defines three functions:
 #
-#   spawn <command...>   runs the command in the background, at most $JOBS at once (default: half the cores)
-#   finish               waits for every one; exits 1 if any failed
-#   make_layouts         writes build/layout/<rep>/ for each repetition (layout.py), before any compile reads it: pad.o,
-#                        a padding of the repetition's own size; flags, a response file (no shell expands the
-#                        linker's glob) that puts every function in a section of its own and links with lld
-#                        ($LLD_DIR, default LLVM 18's) with the sections shuffled by the repetition's seed; and
-#                        layout.json, which run.py checks against its --seed. A compile takes @build/layout/<rep>/flags.
+#   spawn <command...>  Runs the command in the background. At most $JOBS commands run at once. The default is half
+#                       the cores.
+#   finish              Waits for every command that spawn started. If any of them failed, it exits with status 1.
+#   make_layouts        Writes build/layout/<rep>/ for each repetition, before any compile reads it. The folder holds
+#                       three files:
+#                       - pad.o, a padding whose size is the repetition's own, from layout.py.
+#                       - flags, a response file for the compiler. It puts every function in a section of its own,
+#                         and it links with the lld in $LLD_DIR, by default LLVM 18's, which shuffles the sections by
+#                         the repetition's seed. The options are in a file so that no shell expands the glob in the
+#                         linker's option.
+#                       - layout.json, which run.py checks against its --seed.
+#                       A compile reads the options as @build/layout/<rep>/flags.
 #
-# LAYOUTS=n builds copies for repetitions 0 .. n-1 (default 0: none), from LAYOUT_SEED (default 20261025, run.py's
-# --seed default).
+# If LAYOUTS=n is set, the build makes copies for repetitions 0 to n-1. The default, 0, makes none. The layouts follow
+# from LAYOUT_SEED, whose default, 20261025, is run.py's default --seed.
 
 JOBS=${JOBS:-$(($(nproc) / 2))}
 LAYOUTS=${LAYOUTS:-0}
 LAYOUT_SEED=${LAYOUT_SEED:-20261025}
 LLD_DIR=${LLD_DIR:-/usr/lib/llvm-18/bin}
-LAYOUT_PY=../common/layout.py  # each build.sh runs in its own folder, bench/<name>
+LAYOUT_PY=../common/layout.py  # Each build.sh runs in its own folder, bench/<name>.
 running=""
 failed=0
 
