@@ -209,7 +209,8 @@ struct FormatSink {
 // "(M1, bolt, 3)". Each argument, and each column of a row, is written by its name, so that a misspelled name in the
 // data can be found. The text is made only when the exception is thrown.
 template <typename... Args>
-[[nodiscard]] std::string keyText(const Args&... key) {
+[[nodiscard]] std::string keyText([[maybe_unused]] const Args&... key) {
+  // key is unused where an argument has no name: cl.exe warns C4100 there, as on a set of a std::optional column.
   if constexpr (sizeof...(Args) == 1 && (IsNameTuple<std::remove_cvref_t<Args>>::value && ...)) {
     return std::apply([](const auto&... columns) { return keyText(columns...); }, key...);
   } else if constexpr ((nameable<Args> && ...)) {

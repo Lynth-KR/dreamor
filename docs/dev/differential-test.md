@@ -103,6 +103,7 @@ entity's address, the hash for the same entities in another order, and a `Ref` o
 | `Ordered` over the set and within groups: steps either way, cyclic, past the span, an absent key, a group's ends | the differential tests |
 | step counts of the extreme integers | `tests/unit/test_index_set.cpp` |
 | a slice's `front()` and `back()` read from a temporary slice inside a callable | `tests/unit/test_index_set.cpp` |
+| a value column of a type that allocates when copied and has no name (`std::optional<std::string>`): a set made from records, a slice's `front()`, a join, `orderedWithin`, a `ParamTable`'s missing key | `tests/unit/test_value_column.cpp` |
 | aggregates over a set, a group's rows, a container of one column, no rows | the differential tests |
 | a sum over a group of the table's own set (by position) or of an equal set made apart (looked up); a table or a callable as the term; `whereEach`; a numeric term | the differential tests, `tests/unit/test_sum.cpp` |
 | a `VarTable` lookup of a missing key | `tests/unit/test_vartable.cpp` |

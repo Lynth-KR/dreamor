@@ -7,15 +7,18 @@
 // column of integers is made explicitly from any integer, compares and orders with any integer, or column of
 // integers, by value whatever its signedness, and takes any integer range as a source. Two columns of one value
 // type compare as their values; a column hashes as its value. A char names and prints as the character, an enum as its
-// number.
+// number. A column of std::optional<std::string>, which allocates when copied and has no name, goes through the set
+// layer's paths: a set made from records, a slice's front(), a join, orderedWithin, a ParamTable's missing key.
 #include <compare>
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <format>
 #include <functional>
+#include <optional>
 #include <ranges>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -26,6 +29,7 @@
 #include <vector>
 
 #include "dreamor/index_set.hpp"
+#include "dreamor/param_table.hpp"
 #include "support/check.hpp"
 
 namespace {
@@ -85,6 +89,8 @@ DREAMOR_VALUE_COLUMN(cCode, Code);
 DREAMOR_VALUE_COLUMN(cGradeOf, Grade);
 DREAMOR_VALUE_COLUMN(cLabel, std::string);  // a text the column holds, rather than shows
 DREAMOR_VALUE_COLUMN(cName, std::string);   // another column of std::string
+DREAMOR_VALUE_COLUMN(cSupplier,
+                     std::optional<std::string>);  // the standard library's, copied with an allocation, no name
 
 // a column of std::string is read by reference, not copied
 static_assert(std::is_same_v<decltype(std::declval<const cLabel&>().get()), const std::string&>);
@@ -253,6 +259,53 @@ int main() try {
   const auto sOF =
       dreamor::index_set::relational::from<cStart>(std::vector<std::uint32_t>{0, 1}).lateral<cGrade>(tools_at).build();
   DREAMOR_CHECK(sNAME.size() == 2 && sSPAN == sNAME && sOF.size() == 3 && std::get<cGrade>(*sNAME.begin()) == "anvil");
+
+  // A column of std::optional<std::string>: a type of the standard library's with == and std::hash, whose copy
+  // allocates and which has no name. Two rows without a value are equal. It goes through a set made from records - from
+  // the groups of another, which fills a column from a column of its own type - select reading a slice's front(), a
+  // join on it, orderedWithin and a lookup; a ParamTable keyed by it names a missing key "(a key)". GCC warned
+  // -Wmaybe-uninitialized (16) and -Wnull-dereference (13, -O3), and cl.exe C4100, on these paths before they were
+  // fixed.
+  {
+    struct Part {
+      std::uint32_t id;
+      std::optional<std::string> supplier;
+    };
+
+    const std::vector<Part> parts{{0, "acme"}, {1, std::nullopt}, {2, "acme"}, {3, std::nullopt}, {4, "bolta"}};
+    const auto part_of = [](const Part& part) { return std::tuple<cStart, cSupplier>{part.id, part.supplier}; };
+    const dreamor::IndexSet<cStart, cSupplier> sPARTS{parts, part_of};
+
+    const auto bySupplier = sPARTS.groupBy<cSupplier>();
+    const auto first_of   = [](const auto& group) {
+      return std::tuple<cSupplier, cPeriod>{std::get<cSupplier>(group.key), std::get<cStart>(group.rows.front()).get()};
+    };
+    const dreamor::IndexSet<cSupplier, cPeriod> sFIRST{bySupplier, first_of};  // each supplier's first part
+    const auto with_first = [&bySupplier](cStart s, const cSupplier& supplier) {
+      return std::tuple<cStart, cPeriod>{s, std::get<cStart>(bySupplier.slice(supplier).front()).get()};
+    };
+    const auto sWITH  = sPARTS.select(with_first);
+    const auto joined = dreamor::index_set::relational::from(sPARTS).join(sFIRST).build();
+    const auto within = sPARTS.orderedWithin<cSupplier>();
+
+    const cSupplier acme{std::string{"acme"}};
+    DREAMOR_CHECK(sPARTS.size() == 5 && sPARTS.contains(cStart{1}, cSupplier{}) && !sPARTS.contains(cStart{1}, acme));
+    DREAMOR_CHECK(sFIRST.size() == 3 && sFIRST.contains(acme, cPeriod{0}) && sFIRST.contains(cSupplier{}, cPeriod{1}) &&
+                  sFIRST.contains(cSupplier{std::string{"bolta"}}, cPeriod{4}));
+    DREAMOR_CHECK(sWITH.size() == 5 && sWITH.contains(cStart{2}, cPeriod{0}) && sWITH.contains(cStart{3}, cPeriod{1}));
+    DREAMOR_CHECK(joined.size() == 5 && within.isFirst(cStart{1}, cSupplier{}) &&
+                  !within.isFirst(cStart{3}, cSupplier{}));
+
+    const std::vector<std::pair<std::optional<std::string>, double>> prices{{"acme", 1.5}, {std::nullopt, 0.0}};
+    const auto price_key   = [](const auto& price) { return cSupplier{price.first}; };
+    const auto price_value = [](const auto& price) { return price.second; };
+    const dreamor::ParamTable<double, cSupplier> price{prices, price_key, price_value};
+    std::string missing;
+    try {
+      static_cast<void>(price(cSupplier{std::string{"zeta"}}));
+    } catch (const std::out_of_range& error) { missing = error.what(); }
+    DREAMOR_CHECK(missing.find("(a key)") != std::string::npos);
+  }
 
   return report("value_column");
 } catch (...) { return ::uncaught(); }
