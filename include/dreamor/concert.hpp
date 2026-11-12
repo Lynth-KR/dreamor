@@ -74,6 +74,10 @@ namespace dreamor::concert {
 /// - A sum builds into an `IloExpr`.
 /// - `solution()` reads the values from an `IloCplex`.
 ///
+/// The header includes Concert's expressions, `<ilconcert/iloexpression.h>`, and no solver. A program that builds an
+/// `IloModel` and solves it with an `IloCplex` includes `<ilcplex/ilocplex.h>` itself. `solution()` takes the
+/// algorithm as a template parameter, so the header does not need the declaration of `IloCplex`.
+///
 /// A table's variables are ordinary Concert objects that belong to their environment. A model changes their bounds
 /// with Concert's own functions, as for any Concert variable.
 ///

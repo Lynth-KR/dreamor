@@ -130,6 +130,9 @@ the groups and the tables of data are the same on every backend. These parts dif
 - On Concert, `sumExpr` takes the `IloEnv` first, and `build()` returns an `IloExpr`. On MathOpt, `build()` returns a
   `math_opt::LinearExpression` for a linear term.
 - On Concert, `solution()` takes the `IloCplex` that solved the model. On MathOpt, it takes the `SolveResult`.
+- The solver's own header is yours to include. `dreamor/concert.hpp` does not include `<ilcplex/ilocplex.h>`, which
+  declares `IloModel` and `IloCplex`. `dreamor/mathopt.hpp` does not include `ortools/math_opt/cpp/solve.h`, which
+  declares `math_opt::Solve`.
 - The rows and the objective are the solver's own calls, such as Concert's `model.add` and MathOpt's
   `AddLinearConstraint`.
 - On Concert, a table does not end its variables, and you end the `IloExpr` that `build()` returns after you use it.

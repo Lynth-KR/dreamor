@@ -46,6 +46,9 @@ namespace dreamor::mathopt {
 /// MathOpt is one modeling API for several solvers, such as HiGHS, SCIP, GLOP, PDLP, CP-SAT, GLPK, Gurobi and Xpress,
 /// so this backend reaches all of them. A MathOpt model has no semi-continuous variables.
 ///
+/// The header includes MathOpt's model, expressions and solve result, and not `math_opt::Solve`. A program that
+/// solves includes `ortools/math_opt/cpp/solve.h`, or `ortools/math_opt/cpp/math_opt.h`, itself.
+///
 /// To build against the prebuilt package of OR-Tools, a program needs these settings:
 ///
 /// - The macro `OR_PROTO_DLL` is defined as empty.
