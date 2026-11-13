@@ -58,7 +58,7 @@ struct GatheredVars {
 
 // A Concert expression that a number can multiply: a variable, a term or an expression.
 template <typename Expr>
-concept concert_expression = !internal::column<Expr> && std::is_convertible_v<const Expr&, IloNumExprArg>;
+concept concert_expression = !internal::column<Expr> && std::is_convertible_v<const Expr&, IloExpr>;
 
 }  // namespace dreamor::concert::detail
 
@@ -345,7 +345,7 @@ namespace dreamor {
 /// would be ambiguous.
 ///
 /// Takes: `C` must be a column whose value type is a number. `Expr` must be a Concert expression that converts to
-/// `IloNumExprArg`, such as a variable, a term or an `IloExpr`.
+/// `IloExpr`, such as a variable, a term or an `IloExpr`.
 template <typename C, typename Expr>
   requires internal::column<C> && std::is_arithmetic_v<typename C::value_type> &&
            concert::detail::concert_expression<Expr>
@@ -364,7 +364,7 @@ template <typename C, typename Expr>
 /// this operator the call would be ambiguous.
 ///
 /// Takes: `C` must be a column whose value type is a number. `Expr` must be a Concert expression that converts to
-/// `IloNumExprArg`, such as a variable, a term or an `IloExpr`.
+/// `IloExpr`, such as a variable, a term or an `IloExpr`.
 template <typename Expr, typename C>
   requires internal::column<C> && std::is_arithmetic_v<typename C::value_type> &&
            concert::detail::concert_expression<Expr>

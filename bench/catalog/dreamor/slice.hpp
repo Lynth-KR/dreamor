@@ -40,7 +40,7 @@ struct Dreamor<std::index_sequence<J...>> {
   struct Coef {
     const Table* x;
 
-    IloNumExprArg operator()(cK<J>... c) const {
+    auto operator()(cK<J>... c) const {
       const std::array<Handle, kK> e{c.get()...};
       return coefOf(e[kLast]->serial) * (*x)(c...);
     }

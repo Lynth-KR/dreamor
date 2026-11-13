@@ -179,7 +179,7 @@ In use: [the guide](../guide/backends.md).
     another type of number, such as `std::uint32_t`, matches none of them exactly, so without this operator the call
     would be ambiguous.
 
-    - **Takes:** `C` must be a column whose value type is a number. `Expr` must be a Concert expression that converts to `IloNumExprArg`, such as a variable, a term or an `IloExpr`.
+    - **Takes:** `C` must be a column whose value type is a number. `Expr` must be a Concert expression that converts to `IloExpr`, such as a variable, a term or an `IloExpr`.
 
 !!! abstract "`dreamor::operator*` - function"
 
@@ -197,4 +197,4 @@ In use: [the guide](../guide/backends.md).
     or an `int`. A column of another type of number, such as `std::uint32_t`, matches none of them exactly, so without
     this operator the call would be ambiguous.
 
-    - **Takes:** `C` must be a column whose value type is a number. `Expr` must be a Concert expression that converts to `IloNumExprArg`, such as a variable, a term or an `IloExpr`.
+    - **Takes:** `C` must be a column whose value type is a number. `Expr` must be a Concert expression that converts to `IloExpr`, such as a variable, a term or an `IloExpr`.
