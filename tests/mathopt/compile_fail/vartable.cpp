@@ -28,6 +28,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_vartable_name_in_the_is_integer_place
 // expect: A VarTable takes is_integer before the variables' name
+// when: `VarTable{model, set, lb, ub, "Make"}` on MathOpt, where the name would convert to `is_integer = true`.
+//
+// fix: `VarTable{model, set, lb, ub, false, "Make"}`.
 int main() {
   math_opt::Model model;
   const dreamor::mathopt::VarTable<cI, cJ> x{model, IJ(), 0, 1, "x"};

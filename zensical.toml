@@ -65,6 +65,7 @@ nav = [
     "reference/dreamor-mathopt.md",
     "reference/names.md",
     "reference/logger.md",
+    "reference/compile-time-messages.md",
     "reference/exceptions.md",
     "reference/debug-build-checks.md",
     # (end of the reference's pages)

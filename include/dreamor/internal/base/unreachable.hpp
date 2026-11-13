@@ -5,6 +5,16 @@
 // C++23's std::unreachable for C++20. A release build reaches it where a debug build would stop on a broken contract.
 #pragma once
 
+/// @section Compile-time messages
+///
+/// This section lists the messages with which dreamor stops a program that does not compile. Where dreamor's types
+/// tell that its API is misused, a `static_assert` stops the build with one sentence: what to write instead. Match the
+/// compiler's first error against the headings, which give each message's words as the compiler writes them.
+///
+/// Under each message are when it comes and what to write instead, and the test cases that pin it: each case is a
+/// program that must stop with that message on every compiler that dreamor is tested on. Last in a group are the
+/// misuses that C++ itself rejects, with an error of its own.
+
 /// @section Debug-build checks
 ///
 /// This section lists dreamor's contracts. A contract is a precondition of an entry. If a program breaks a contract,

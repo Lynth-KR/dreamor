@@ -9,6 +9,9 @@
 
 #ifdef DREAMOR_CASE_constr_without_bounds
 // expect: addConstr takes a row
+// when: `addConstr(env, x + y)`: an expression with no bounds.
+//
+// fix: `addConstr(env, x + y <= 1)`, or `addConstr(env, (0 <= x - y) <= 5)`.
 int main() {
   hs::HighsEnv env;
   const auto sIJ = IJ();
@@ -19,6 +22,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_objective_row
 // expect: An objective is an expression, not a row
+// when: `setObjective(env, x + y <= 1)`.
+//
+// fix: `setObjective(env, x + y)`.
 int main() {
   hs::HighsEnv env;
   const auto sIJ = IJ();
@@ -29,6 +35,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_objective_of_another_backend
 // expect: setObjective takes an expression of this backend's variables
+// when: `setObjective(env, x)` with something that is not a HiGHS expression: a set, another backend's expression.
+//
+// fix: A `HighsVar`, a term, a `HighsLinearExpression` or a `HighsQuadraticExpression`.
 int main() {
   hs::HighsEnv env;
   const auto sIJ = IJ();
@@ -38,6 +47,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_quadratic_row
 // expect: HiGHS takes quadratic terms only in the objective
+// when: A quadratic expression in a row (`x * x <= 1`, a quadratic sum compared).
+//
+// fix: Put the square in `setObjective()`/`minimize()`.
 int main() {
   hs::HighsEnv env;
   const auto sIJ = IJ();

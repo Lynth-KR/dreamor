@@ -195,8 +195,8 @@ the field says what the list does not.
 - **`Takes:`** Everything about the template parameters, the arguments and the object itself (`*this`) beyond what
   their types say, in one place: what they must be ("`T` must satisfy `entity`."), what they may be ("The entity
   type may be incomplete."), what an argument left out means, and the limits on a value. A requirement that, broken,
-  does not compile is stated as a requirement; the error messages themselves are listed in
-  `skills/dreamor/references/diagnostics.md`.
+  does not compile is stated as a requirement; the error messages themselves are listed on the Compile-time
+  messages page, which `tools/gen_reference.py` writes from the compile_fail cases (`diagnostics.md`).
 - **A precondition that no debug build checks** is a sentence of its own that says what happens if it is broken, as
   cppreference does: "If the vector is empty, the behavior is undefined." A precondition that a debug build checks is
   a contract, named in the `Contract:` field.

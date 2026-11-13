@@ -45,9 +45,20 @@ def case(n_direct: bool) -> str:
         body = f"  const auto s64 = {chain(c[:64])}.build();\n  (void)dreamor::index_set::relational::from(s64).cross<C64>(I).build();"
 
     what = "65 columns at once" if n_direct else "a 64-column set spread into a set with one more column"
+    # The first case explains the message, for the Compile-time messages page (docs/dev/diagnostics.md); the blank line
+    # ends the explanation before the case's own comment.
+    explained = (
+        "// when: A set of more than 64 columns, built at once or by spreading a set into a wider one.\n"
+        "//\n"
+        "// fix: Split it into sets that share key columns.\n"
+        "\n"
+        if n_direct
+        else ""
+    )
     return (
         f"#ifdef DREAMOR_CASE_{name}\n"
         "// expect: dreamor stops at 64\n"
+        f"{explained}"
         f"// {what}.\n"
         f"{decls}\n"
         "int main() {\n"

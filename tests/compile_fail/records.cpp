@@ -14,6 +14,9 @@
 
 #ifdef DREAMOR_CASE_indexset_records_columns_not_deduced
 // expect: IndexSet{records, row_of} does not deduce its columns
+// when: `dreamor::IndexSet sROUTES{routes, route_of}`: C++20 cannot read the columns off what `row_of` returns.
+//
+// fix: Name the set's type: `IndexSet<cMachine, cItem> sROUTES{routes, route_of}`.
 int main() {
   const auto row_of = [](std::size_t i) { return cI{i}; };
   const dreamor::IndexSet sI{I, row_of};
@@ -23,6 +26,10 @@ int main() {
 
 #ifdef DREAMOR_CASE_paramtable_records_type_not_deduced
 // expect: ParamTable{records, row_of, value_of} does not deduce its type
+// when: `dreamor::ParamTable capacity{machines, machine_of, capacity_of}`: the key columns cannot be read off what
+// `row_of` returns.
+//
+// fix: Name the table's type: `ParamTable<double, cMachine> capacity{machines, machine_of, capacity_of}`.
 int main() {
   const auto row_of   = [](std::size_t i) { return cI{i}; };
   const auto value_of = [](std::size_t i) { return 2.0 * static_cast<double>(i); };
@@ -33,6 +40,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_indexset_records_not_a_range
 // expect: makes a row of each record: give a range of records
+// when: `IndexSet<...>{x, row_of}` with `x` not a range.
+//
+// fix: Pass a container or a view of the records.
 int main() {
   const auto row_of     = [](std::size_t i) { return cI{i}; };
   const std::size_t one = 1;
@@ -43,6 +53,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_indexset_records_other_columns
 // expect: row_of returns other columns than the set's
+// when: `row_of` returns columns the set does not have, or misses one.
+//
+// fix: Return the set's columns, in any order: `std::tuple<cMachine, cItem>{m, i}`.
 int main() {
   const auto row_of = [](std::size_t i) { return std::tuple<cI, cK>{i, i}; };
   const dreamor::IndexSet<cI, cJ> sIJ{I, row_of};
@@ -52,6 +65,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_indexset_records_row_of_takes_another_type
 // expect: row_of takes one record and returns its row
+// when: `row_of` does not take the records' element type.
+//
+// fix: Take the record's type, or `const auto&`.
 int main() {
   const auto row_of = [](const std::string& name) { return cI{name.size()}; };
   const dreamor::IndexSet<cI> sI{I, row_of};
@@ -61,6 +77,10 @@ int main() {
 
 #ifdef DREAMOR_CASE_indexset_records_values_share_a_type
 // expect: row_of returns plain values, and a value fills the column of its type
+// when: A plain value two columns could take - two columns of its type, or an integer of another type where the set has
+// two columns of integers - or one no column takes.
+//
+// fix: Return the columns by name: `std::tuple<cFrom, cTo>{a, b}`.
 int main() {
   const auto row_of = [](std::size_t i) { return std::tuple{i, i + 1}; };
   const dreamor::IndexSet<cI, cJ> sIJ{I, row_of};
@@ -81,6 +101,10 @@ int main() {
 
 #ifdef DREAMOR_CASE_indexset_records_text_from_a_temporary
 // expect: so the records have to outlive the set
+// when: `IndexSet<cName>{loadRecords(), name_of}`: a set with a text column built from a temporary range of records, a
+// copy, or a range that makes its records.
+//
+// fix: Name the records (`const auto records = loadRecords();`), or hand a view of a named container.
 DREAMOR_VALUE_COLUMN(cLabel, std::string_view);
 
 struct Named {
@@ -96,6 +120,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_indexset_records_text_from_a_copied_record
 // expect: row_of takes each record by value
+// when: `IndexSet<cLabel>{records, [](Record r) { return Label{r.name}; }}` - a text column from a copy of each record.
+//
+// fix: Take the record by reference: `[](const Record& r)`.
 DREAMOR_VALUE_COLUMN(cLabel, std::string_view);
 
 struct Named {
@@ -112,6 +139,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_indexset_of_a_non_column
 // expect: An IndexSet's type lists its columns
+// when: `IndexSet<int>{records, row_of}`, `IndexSet<Machine, Item>`.
+//
+// fix: `IndexSet<cMachine, cItem>`.
 struct Record {
   std::size_t a;
 };
@@ -126,6 +156,10 @@ int main() {
 
 #ifdef DREAMOR_CASE_indexset_records_text_from_a_returned_string
 // expect: row_of returns a std::string for a column of std::string_view
+// when: `row_of` returns text it made (`trim(field)`, `substr`) for a column of `std::string_view`, which would show it
+// after the call.
+//
+// fix: Declare the column over `std::string`, or return the record's own text.
 DREAMOR_VALUE_COLUMN(cLabel, std::string_view);
 
 struct Named {

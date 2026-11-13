@@ -11,6 +11,9 @@
 
 #ifdef DREAMOR_CASE_interval_column_is_not_integer
 // expect: An interval fills a column of integers
+// when: An interval as the source of a column that does not hold an integer.
+//
+// fix: A column of integers: `DREAMOR_VALUE_COLUMN(cPeriod, int)`.
 DREAMOR_VALUE_COLUMN(cName, std::string_view);
 
 int main() {
@@ -20,6 +23,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_interval_ends_are_not_integers
 // expect: An interval counts integers
+// when: `interval::closed(0.0, 160.0)`.
+//
+// fix: Integer ends: `interval::closed(0, 160)`.
 int main() {
   (void)dreamor::index_set::relational::from<cI>(dreamor::interval::closed(0.0, 3.0)).build();
 }

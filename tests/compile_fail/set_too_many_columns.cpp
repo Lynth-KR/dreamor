@@ -9,6 +9,10 @@
 
 #ifdef DREAMOR_CASE_set_too_many_columns
 // expect: dreamor stops at 64
+// when: A set of more than 64 columns, built at once or by spreading a set into a wider one.
+//
+// fix: Split it into sets that share key columns.
+
 // 65 columns at once.
 DREAMOR_VALUE_COLUMN(C0, std::size_t);
 DREAMOR_VALUE_COLUMN(C1, std::size_t);

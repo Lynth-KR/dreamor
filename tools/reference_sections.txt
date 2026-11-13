@@ -20,5 +20,6 @@ dreamor::concert | concert.hpp
 dreamor::mathopt | mathopt.hpp
 Names | internal/index_set/name_token.hpp, format_buffer.hpp
 Logger | logger.hpp
+Compile-time messages | internal/base/unreachable.hpp
 Exceptions | internal/base/flat_index.hpp
 Debug-build checks | internal/base/unreachable.hpp

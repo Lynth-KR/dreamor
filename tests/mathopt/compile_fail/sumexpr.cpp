@@ -9,6 +9,9 @@
 
 #ifdef DREAMOR_CASE_sumexpr_with_model
 // expect: takes no model
+// when: MathOpt `sumExpr(model, rows, term)`.
+//
+// fix: `dreamor::mathopt::sumExpr(rows, term)`.
 int main() {
   math_opt::Model model;
   const auto sIJ = IJ();

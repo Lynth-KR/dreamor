@@ -96,11 +96,11 @@ Several documents are mirrored by code, so they change together:
 | If you change | Also change |
 |---|---|
 | The README's program, or the lines it prints | `docs/guide/at-a-glance.md`, if the program types a name it does not list; nothing else: `tests/docs/readme.py` takes the program out of `README.md` and checks the excerpt above it and the ```text block after it; a HiGHS preset builds and runs it |
-| `skills/dreamor/SKILL.md` | Nothing: it holds no code, and points into the copies, `skills/dreamor/docs/`, and `references/diagnostics.md` - keep the pages it names there |
+| `skills/dreamor/SKILL.md` | Nothing: it holds no code, and points into the copies, `skills/dreamor/docs/` - keep the pages it names there |
 | A guide page's code, or the guide's model (`tests/docs/guide/`, `tests/docs/highs/`) | The pages that pull its regions in (`--8<--` lines naming the file), their sentences about it, and `tools/site.sh` |
 | A guide or reference page (`docs/guide/`, `docs/reference/`), or the code a guide page pulls in | The skill's copies, `skills/dreamor/docs/`: `python3 tools/sync_skill_docs.py` writes them, never by hand |
 | The public API, its defaults, or a runtime exception | its `///` block (`docs/dev/comments.md`) and `docs/reference/`, which `python3 tools/gen_reference.py --out docs/reference` makes from it, then the skill's copies, `python3 tools/sync_skill_docs.py`; the guide page the section's `Guide:` line names, `skills/dreamor/SKILL.md` |
-| A compile-time message | its `// expect:` line and `skills/dreamor/references/diagnostics.md` |
+| A compile-time message | its `// expect:` line, and the `// when:` and `// fix:` lines of the case that explains it (`docs/dev/diagnostics.md`); then `python3 tools/gen_reference.py --out docs/reference` and `python3 tools/sync_skill_docs.py` |
 | What generating a set costs to compile (`set.hpp`, `plan.hpp`) | the compile-cost table in `docs/guide/cost.md`: `python3 tools/measure_compile_cost.py` |
 | A CI job (`.github/workflows/ci.yml`, its preset in `CMakePresets.json`) | the same job in `ci/local.py`, and `docs/dev/ci.md` |
 | The version | `project(... VERSION ...)` in `CMakeLists.txt` (packages use `SameMinorVersion` compatibility), the `find_package(dreamor 0.9 ...)` lines in the README, the skill and `tests/cmake_consumer*`, and the skill's title |

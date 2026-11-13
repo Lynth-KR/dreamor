@@ -12,6 +12,9 @@
 
 #ifdef DREAMOR_CASE_entity_vector_needs_primary_key
 // expect: EntityVector<T> holds each entity once by its primary key
+// when: `EntityVector<T>` for a `T` with no `primaryKey(const T&)`.
+//
+// fix: Define `primaryKey(const T&)` next to `T`, returning its id, code, or a `std::tuple` of them.
 struct Unkeyed {
   std::size_t id;
 };
@@ -21,6 +24,11 @@ const dreamor::EntityVector<Unkeyed> unkeyed;
 
 #ifdef DREAMOR_CASE_entity_vector_key_reaches_itself
 // expect: A primary key must not lead back to its own type
+// when: A primary key that holds a `Ref` to its own type, such as a part keyed by its assembly, or that leads back to
+// it through another entity's key - in an `EntityVector`, a name or `std::format`.
+//
+// fix: Key the entity by a value of its own, such as a code, and keep what it belongs to in a set, such as
+// `IndexSet<cParent, cChild>`.
 struct Part {  // keyed by its assembly, another Part
   dreamor::Ref<Part> assembly;
   std::size_t number;

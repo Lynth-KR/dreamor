@@ -36,8 +36,10 @@ code: it is compiled and checked as written.
 - `docs/reference/` - every public name, its signature, what it takes, throws and costs, a page a topic
   (`index.md`); `debug-build-checks.md`, every contract; `exceptions.md`, what throws what. Read the entry before
   using a member the guide does not show.
-- `references/diagnostics.md` - every compile-time message and debug-build abort, with its cause and fix. Read it
-  whenever a build stops or a debug run aborts in dreamor code.
+- `docs/reference/compile-time-messages.md` - every compile-time message, a heading each in the compiler's words,
+  with when it comes and what to write instead on the two lines below it: search it for the words of the first error
+  whenever a build stops in dreamor code. A debug run that aborts names its contract in `debug-build-checks.md`, and a
+  throw is in `exceptions.md`.
 
 ## Writing a model
 
@@ -59,7 +61,7 @@ backend header brings the set layer with it. CMake: `find_package(dreamor 0.9 CO
 ## What agents get wrong
 
 Each is a rule of the reference or the guide, linked; the compile-time ones stop with a sentence that
-`references/diagnostics.md` explains.
+`docs/reference/compile-time-messages.md` explains.
 
 - **A callable takes the columns it reads**, by value or `const&`, one non-template `operator() const`: no `auto`
   parameter, no `mutable`, no `std::function`, no `Ref<T>` or `int` parameter where a column goes. A generic lambda

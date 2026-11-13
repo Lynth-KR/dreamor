@@ -25,7 +25,7 @@ BinPackParameters: OnePerLine
 SeparateDefinitionBlocks: Always
 
 # A static_assert message stays one literal, so it can be grepped and matched against its
-# // expect: line and skills/dreamor/references/diagnostics.md.
+# // expect: line and docs/reference/compile-time-messages.md.
 BreakStringLiterals: false
 IndentPPDirectives: AfterHash
 # Include groups are by hand (standard, dreamor, wrapped third-party); sort only within each.

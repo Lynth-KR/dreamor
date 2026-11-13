@@ -24,5 +24,6 @@
 - [dreamor::mathopt](dreamor-mathopt.md)
 - [Names](names.md)
 - [Logger](logger.md)
+- [Compile-time messages](compile-time-messages.md)
 - [Exceptions](exceptions.md)
 - [Debug-build checks](debug-build-checks.md)

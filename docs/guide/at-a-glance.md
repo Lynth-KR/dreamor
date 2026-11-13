@@ -38,3 +38,11 @@ Learn the next names when you need them:
 | name a row, log a message | [`indexedName`](names-and-logging.md#name-a-row-by-its-keys), [`DREAMOR_LOG_INFO`](names-and-logging.md#log-a-models-own-messages) |
 
 Every other name is in the [API reference](../reference/index.md), for when a page sends you there.
+
+## When the build stops
+
+When dreamor stops a build, the compiler's first error is one sentence of dreamor's that says what to write instead.
+Search [Compile-time messages](../reference/compile-time-messages.md) for its words: each message is there whole, with
+when it comes, what to write, and the cases that pin it. A debug build that stops at run time names a contract, which
+[Debug-build checks](../reference/debug-build-checks.md) explains, and a call that throws is in
+[Exceptions](../reference/exceptions.md).

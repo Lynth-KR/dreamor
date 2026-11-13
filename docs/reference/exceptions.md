@@ -10,6 +10,10 @@ the entities of an `EntityVector` with 32-bit integers when it indexes them. An 
 entities. Building an index over 2^32 or more rows or entities throws `std::length_error`. dreamor builds such an
 index wherever it finds a row, a group or an entity by its key.
 
+A lookup that finds nothing does not throw where nothing is a result: `Grouped::slice` of a key with no row returns
+an empty `RowSlice`, whose sum is 0; `Ordered`'s `next`, `prev`, `nextCyclic` and `prevCyclic` return a null
+pointer; and `Ordered::positionOf` returns an empty `std::optional`.
+
 ## `HighsCallError` {#highscallerror}
 
 - `dreamor::highs::HighsEnv` if HiGHS rejects the collected model at the first call to `highs()`.

@@ -50,8 +50,8 @@ other files here.
 ## Everything else
 
 - `skills/dreamor/`: Agent Skill for users writing dreamor code: `SKILL.md` (where to look, the order of a model, the
-  rules agents break, a checklist), `references/diagnostics.md` (every compile-time message), and `docs/`, copies of the
-  guide and the reference that `tools/sync_skill_docs.py` writes.
+  rules agents break, a checklist), and `docs/`, copies of the guide and the reference - its compile-time messages,
+  exceptions and debug-build checks included - that `tools/sync_skill_docs.py` writes.
 - `README.md`, `docs/`: Documentation, in English alone (one version to keep true): the README introduces and maps;
   `docs/philosophy.md` what dreamor holds to and why, `docs/guide/` how to do each thing, a page a topic, `docs/reference/` the API, a page a section, generated from the headers' `///` comments; `docs/dev/` the rules for people working on dreamor, a file a topic. `zensical.toml` makes a site of `docs/` but
   `docs/dev/` (`tools/site.sh`).

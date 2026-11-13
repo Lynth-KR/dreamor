@@ -16,6 +16,12 @@
 
 #ifdef DREAMOR_CASE_paramtable_call_raw_values
 // expect: Look a variable or value up by the table's key columns
+// when: `VarTable`/`SolutionTable`/`ParamTable` lookup with a bare value or a column of another name where two key
+// columns share its type (`x(2, 1)` over `cI, cJ` both `std::size_t`), a value of no key column's type, a wrong column,
+// wrong order, or a missing key column.
+//
+// fix: Pass the key's columns in declaration order, or one row; a value goes where its type is one key column's alone -
+// where two share it, name each value's column (`cFrom{a}, cTo{b}`).
 int main() {
   const dreamor::ParamTable<double, cI, cJ> hours{IJ(), 8.0};
   return static_cast<int>(hours(2, 1));
@@ -50,7 +56,7 @@ int main() {
 #endif  // DREAMOR_CASE_paramtable_deduced_from_a_generic_callable_of_some_columns
 
 #ifdef DREAMOR_CASE_paramtable_deduced_from_a_callable_of_another_column
-// expect: This callable takes a column these rows do not have
+// expect: takes a column these rows do not have
 int main() {
   const auto hours_of = [](cK k) { return static_cast<double>(k.get()); };
   const dreamor::ParamTable hours{IJ(), hours_of};
@@ -60,6 +66,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_paramtable_holds_a_pointer
 // expect: A ParamTable refers to an entity by a Ref, not a pointer
+// when: `ParamTable<const Machine*, ...>`.
+//
+// fix: `ParamTable<dreamor::Ref<Machine>, ...>`.
 struct Machine {
   std::size_t id;
 };
@@ -74,6 +83,10 @@ int main() {
 
 #ifdef DREAMOR_CASE_paramtable_holds_a_reference
 // expect: A ParamTable holds a value a row, copied in
+// when: `ParamTable<const double&, ...>`: a reference, an array or a `const` type.
+//
+// fix: The value type itself: a number, a `bool`, an enum, a text, a `Ref`, or a struct of the row's values
+// (`ParamTable<Lane, cFrom, cTo>`).
 int main() {
   const auto hours_of = [](cI, cJ) -> const double& {
     static const double hours = 8.0;
@@ -86,6 +99,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_paramtable_key_order_differs_from_set
 // expect: A ParamTable is built on a set with exactly its key columns
+// when: A ParamTable whose keys differ from the set's columns or their order.
+//
+// fix: Match the table to the set, or `select<...>()` to reorder.
 int main() {
   const dreamor::ParamTable<double, cJ, cI> x{IJ(), 1.0};
 }
@@ -93,6 +109,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_paramtable_value_returns_another_type
 // expect: or a callable over the row's columns that returns a T
+// when: A ParamTable's callable returns something not convertible to its `T`.
+//
+// fix: Return a `T`.
 struct Window {
   std::size_t first, last;
 };
@@ -124,6 +143,10 @@ int main() {
 
 #ifdef DREAMOR_CASE_paramtable_text_from_a_returned_string
 // expect: returns a std::string by value, gone once the call ends
+// when: `ParamTable<std::string_view, cItem>{sITEMS, [](cItem i) { return i->name; }}` - a callable that makes the text
+// it returns.
+//
+// fix: Return a reference to a string that outlives the table: `-> const std::string&`, or a `std::string_view` of it.
 int main() {
   const auto label_of = [](cI i) { return std::to_string(i.get()); };
   const dreamor::ParamTable<std::string_view, cI> labels{IJ().select<cI>(), label_of};
@@ -133,6 +156,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_paramtable_value_from_a_vector
 // expect: not from a container, whose order no row knows
+// when: `ParamTable<double, cMachine>{sMACHINES, hours}` with `hours` a container.
+//
+// fix: A callable over the row's columns that reads it: `[&hours](cMachine m) { return hours.at(m->id); }`.
 int main() {
   const std::vector<double> hours{1, 2, 3, 4};
   const dreamor::ParamTable<double, cI, cJ> table{IJ(), hours};
@@ -142,6 +168,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_paramtable_value_of_another_type
 // expect: This value is not a T, nor a callable
+// when: `ParamTable<std::string_view, cMachine>{sMACHINES, 3}`: one value of another type.
+//
+// fix: One value of the table's `T`, or a callable over the row's columns.
 int main() {
   const dreamor::ParamTable<std::string_view, cI, cJ> table{IJ(), 3};
   return static_cast<int>(table.size());
@@ -150,6 +179,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_paramtable_value_converts_to_the_type
 // expect: One value for every row is a T itself, not a value that converts to one
+// when: `ParamTable<std::string_view, cMachine>{sMACHINES, label}` with `label` a `std::string`.
+//
+// fix: One value of the table's `T`: `std::string_view{label}`, with `label` outliving the table.
 int main() {
   const std::string label = "x";
   const dreamor::ParamTable<std::string_view, cI, cJ> table{IJ(), label};
@@ -159,6 +191,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_paramtable_records_value_of_takes_another_type
 // expect: value_of takes one record and returns its value
+// when: `ParamTable{records, row_of, value_of}` whose `value_of` does not take the records' element type.
+//
+// fix: Take the record's type, or `const auto&`.
 struct Arc {
   std::size_t from, to;
   double cost;
@@ -175,6 +210,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_paramtable_records_value_of_returns_another_type
 // expect: value_of returns something else than the table's T
+// when: `ParamTable{records, row_of, value_of}` whose `value_of` returns what does not convert to `T`.
+//
+// fix: Return a `T`, or a table of the type it returns.
 struct Arc {
   std::size_t from, to;
 };
@@ -194,6 +232,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_paramtable_records_read_once
 // expect: reads the records twice, for the rows and for the values
+// when: `ParamTable{records, row_of, value_of}` over a range read once, such as `std::views::istream`.
+//
+// fix: A container of the records, or a view of one.
 int main() {
   std::istringstream in{"1 2 3"};
   auto records         = std::views::istream<std::size_t>(in);
@@ -206,6 +247,10 @@ int main() {
 
 #ifdef DREAMOR_CASE_paramtable_records_text_from_temporary_records
 // expect: of texts shows each text where value_of found it
+// when: A `std::string_view` table from temporary records, from a `value_of` that takes the record by value, or returns
+// a `std::string`.
+//
+// fix: Named records taken by reference and the record's own text, or a table over `std::string`.
 struct Arc {
   std::size_t from, to;
   std::string label;
@@ -222,6 +267,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_table_key_is_an_entity_primary_key
 // expect: A column of entities takes a Ref to the entity, not its primary key
+// when: A text in an entity column's key place, `hours("M1")`.
+//
+// fix: Look the entity up: `hours(machines.at("M1"))`.
 struct Machine {
   std::string name;
 
@@ -242,6 +290,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_table_key_is_an_entity_object
 // expect: A column of entities takes a Ref to the entity, not the entity object
+// when: An `EntityVector`'s element in an entity column's key place, `for (const Machine& m : machines) hours(m)`.
+//
+// fix: Take its `Ref` from the vector, `machines.ref(m)`, or walk `machines.refs()` or a set of the column.
 struct Machine {
   std::string name;
 

@@ -24,12 +24,18 @@ int main() {
 
 #ifdef DREAMOR_CASE_where_reads_missing_column
 // expect: takes a column this set does not have
+// when: A `where` predicate reads a column absent from the set.
+//
+// fix: Same.
 int main() {
   (void)IJ().where([](cK k) { return k.get() > 1; });
 }
 #endif  // DREAMOR_CASE_where_reads_missing_column
 
 #ifdef DREAMOR_CASE_where_returns_nothing
+// when: A condition that returns nothing (`void`).
+//
+// fix: Return whether the row is kept: `[](cI i) { return i.get() > 1; }`.
 int main() {
   (void)IJ().where([](cI i) { (void)i; });
 }
@@ -67,6 +73,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_where_without_a_predicate
 // expect: where() takes the predicates it applies: S.where(is_open)
+// when: `S.where()` or a chain's `.where()` with no predicate.
+//
+// fix: `S.where(is_open)`, or several at once.
 int main() {
   return static_cast<int>(IJ().where().size());
 }
@@ -74,6 +83,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_chain_where_without_a_predicate
 // expect: where() takes the predicates it applies: .where(is_open)
+// when: A chain's `where()` with no condition.
+//
+// fix: Give it the conditions to apply, `.where(is_open)`, or drop the step.
 int main() {
   return static_cast<int>(dreamor::index_set::relational::from<cI>(I).where().build().size());
 }
@@ -81,6 +93,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_where_reads_no_column
 // expect: The predicate reads no columns, so it would be a constant
+// when: `S.where([] { return true; })`.
+//
+// fix: Take the columns it tests.
 int main() {
   return static_cast<int>(IJ().where([] { return true; }).size());
 }
@@ -88,6 +103,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_where_is_a_function_name
 // expect: is an indirect call per candidate row
+// when: A function name or a `std::function` as a `where` predicate.
+//
+// fix: A lambda or a function object.
 bool keep(cI /*i*/) {
   return true;
 }
@@ -99,6 +117,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_reads_cannot_call
 // expect: dreamor::reads<Columns...>(f) calls f with those columns, in that order, and f cannot be called so
+// when: `reads<cI, cJ>(f)` where `f` takes another number or kind of columns.
+//
+// fix: List the columns that `f` takes, in the order of its parameters.
 int main() {
   const auto one_column = [](const auto& i) { return i.get() > 1; };
   const auto sIJ        = dreamor::index_set::relational::from<cI>(I).cross<cJ>(I).build();
@@ -108,6 +129,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_reads_names_a_column_twice
 // expect: reads<Columns...>(f) names each column once
+// when: A column named twice in `reads<...>`.
+//
+// fix: Name each column once.
 int main() {
   const auto both = [](const auto& a, const auto& b) { return a.get() < b.get(); };
   const auto sI   = dreamor::index_set::relational::from<cI>(I).build();
@@ -117,9 +141,23 @@ int main() {
 
 #ifdef DREAMOR_CASE_reads_takes_columns
 // expect: reads<Columns...>(f) takes columns declared with DREAMOR_ENTITY_COLUMN or DREAMOR_VALUE_COLUMN
+// when: A type that is not a column in `reads<...>`.
+//
+// fix: Name the columns: `reads<cMachine, cPeriod>(f)`.
 int main() {
   const auto positive = [](const auto& v) { return v > 0; };
   const auto sI       = dreamor::index_set::relational::from<cI>(I).build();
   return static_cast<int>(sI.where(dreamor::reads<std::size_t>(positive)).size());
 }
 #endif  // DREAMOR_CASE_reads_takes_columns
+
+#ifdef DREAMOR_CASE_reads_names_no_column
+// expect: reads<Columns...>(f) names the columns that f reads
+// when: `reads<>(f)` or `reads(f)`, with no column.
+//
+// fix: Name the columns that `f` takes: `reads<cMachine>(f)`.
+int main() {
+  const auto any = [](const auto& /*row*/) { return true; };
+  return static_cast<int>(IJ().where(dreamor::reads<>(any)).size());
+}
+#endif  // DREAMOR_CASE_reads_names_no_column

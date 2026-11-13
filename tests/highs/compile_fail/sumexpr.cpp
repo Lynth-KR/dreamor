@@ -9,6 +9,9 @@
 
 #ifdef DREAMOR_CASE_sumexpr_with_highs
 // expect: takes no HighsEnv
+// when: HiGHS `sumExpr(env, rows, term)`.
+//
+// fix: `dreamor::highs::sumExpr(rows, term)`.
 int main() {
   hs::HighsEnv env;
   const auto sIJ = IJ();

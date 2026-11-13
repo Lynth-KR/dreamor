@@ -17,7 +17,24 @@ instead (e.g. `sumExpr(...) is not an expression yet: add .build() - ...`). When
    than the others before a `static_assert` (`platforms.md`), so a check that only it trips shows there first. Arrange overloads so the dreamor message comes first, not a wall of template
    errors.
 3. `control.cc` in each folder must keep compiling; it proves that a rejection comes from the library.
-4. Update the message table in `skills/dreamor/references/diagnostics.md`.
+4. Say when the message comes and what to write instead, on one of the cases that expect it - the same message
+   pinned by several cases is explained once - in two lines after its `// expect:`, a line that is `//` alone between
+   them, so that the formatter's wrapping keeps them apart:
+
+   ```cpp
+   #ifdef DREAMOR_CASE_lateral_reads_a_later_column
+   // expect: lateral and where read only the columns before them in the chain
+   // when: A lateral source or a chain's `where` reads a column no earlier step brings.
+   //
+   // fix: Move the step after the source of that column, or drop the parameter.
+   int main() {
+   ```
+
+   A case that C++ itself rejects, with no `// expect:`, says the same right after its `#ifdef`. A case's own
+   comments come after its first line of code, or after a blank line: the fix runs on over every comment line after
+   it. `tools/gen_reference.py` writes the Compile-time messages page from these lines, a section a topic file
+   (`tools/refgen/messages.py` lists them), and fails a message that no case explains, one that two cases explain, a
+   case with no message and no explanation, and a topic file in no section.
 
 A broken contract - a precondition such as "no source holds an element twice" - is undefined behavior, and only a
 debug build checks it: `DREAMOR_DEBUG_FATAL` prints one sentence naming the contract and aborts, as libstdc++'s

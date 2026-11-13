@@ -93,6 +93,9 @@ int main() {
 #endif  // DREAMOR_CASE_vartable_call_sibling_column_of_one_type
 
 #ifdef DREAMOR_CASE_vartable_has_no_add
+// when: A variable added to a `VarTable` after its construction.
+//
+// fix: Build the family over a set that holds every row; a new row is a new set and a new `VarTable`.
 int main() {
   IloEnv env;
   dreamor::concert::VarTable<cI, cJ> x{env, IJ()};
@@ -101,6 +104,9 @@ int main() {
 #endif  // DREAMOR_CASE_vartable_has_no_add
 
 #ifdef DREAMOR_CASE_vartable_is_not_copyable
+// when: A `VarTable` copied.
+//
+// fix: Refer to the table, or move it: a copy would be a second table on the same variables.
 int main() {
   IloEnv env;
   const dreamor::concert::VarTable<cI, cJ> x{env, IJ()};
@@ -111,6 +117,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_vartable_key_order_differs_from_set
 // expect: A VarTable is built on a set with exactly its key columns
+// when: The table's keys differ from the set's columns or their order.
+//
+// fix: Match the table to the set, or `select<...>()` to reorder.
 int main() {
   IloEnv env;
   const dreamor::concert::VarTable<cJ, cI> x{env, IJ()};
@@ -119,6 +128,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_vartable_key_twice
 // expect: names one key column twice
+// when: `VarTable<cI, cI>`.
+//
+// fix: Give each key its own column type.
 int main() {
   IloEnv env;
   const dreamor::concert::VarTable<cI, cI> x{env, IJ(), 0, 1};
@@ -127,6 +139,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_vartable_scaled
 // expect: Scale the sum, not the table
+// when: `100 * vYield` or `vYield * 100`.
+//
+// fix: `100 * sumExpr(env, rows, vYield).build()`, or multiply inside a term.
 int main() {
   IloEnv env;
   const dreamor::concert::VarTable<cI, cJ> x{env, IJ(), 0, 1};
@@ -135,6 +150,9 @@ int main() {
 #endif  // DREAMOR_CASE_vartable_scaled
 
 #ifdef DREAMOR_CASE_vartable_type_is_not_bool
+// when: `true` or `false` as the Concert variable type.
+//
+// fix: `ILOFLOAT`, `ILOINT` or `ILOBOOL`, the `IloNumVar::Type` that Concert takes.
 int main() {
   IloEnv env;
   const dreamor::concert::VarTable<cI, cJ> x{env, IJ(), 0, 1, true, "x"};
@@ -143,6 +161,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_vartable_bound_returns_a_ref
 // expect: A VarTable's bound is a number, and this callable returns something else
+// when: A bound callable returns a `Ref` or an entity's column: `[](cMachine m) { return m; }`.
+//
+// fix: Return the number: `[](cMachine m) { return m->capacity; }`.
 struct Gear {
   std::size_t id;
 
@@ -163,6 +184,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_vartable_bound_from_a_vector
 // expect: A VarTable's bound is a number or a callable over the row's columns
+// when: `VarTable{env, s, 0, upper}` with `upper` a container.
+//
+// fix: A callable over the row's columns, or a `ParamTable` on the set.
 int main() {
   IloEnv env;
   const std::vector<double> upper{1, 2, 3, 4};
@@ -172,6 +196,10 @@ int main() {
 
 #ifdef DREAMOR_CASE_vartable_name_in_the_type_place
 // expect: A VarTable takes the variables' type before their name
+// when: `VarTable{env, set, lb, ub, "Make"}` on Concert or HiGHS: the name where the type goes.
+//
+// fix: `VarTable{env, set, lb, ub, ILOFLOAT, "Make"}` (Concert), `VarTable{env, set, lb, ub, HighsVarType::kContinuous,
+// "Make"}` (HiGHS).
 int main() {
   IloEnv env;
   const dreamor::concert::VarTable<cI, cJ> x{env, IJ(), 0, 1, "x"};
@@ -181,6 +209,10 @@ int main() {
 
 #ifdef DREAMOR_CASE_vartable_null_name
 // expect: A name is text, and nullptr is not one
+// when: `nullptr` as a name - a `VarTable`'s on every backend, HiGHS's `addVariable` or `addConstr`: the name is a
+// `std::string_view`, which a null pointer would crash.
+//
+// fix: Leave the name out, or pass `{}`, for no name.
 int main() {
   IloEnv env;
   const dreamor::concert::VarTable<cI, cJ> x{env, IJ(), 0, 1, ILOFLOAT, nullptr};

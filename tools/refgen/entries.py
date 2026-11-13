@@ -12,13 +12,14 @@ import re
 from pathlib import Path
 
 from refgen.common import IDENT, INCLUDE, ROOT, TITLE_ID, Problems, page_name
+from refgen.messages import MessageSection, read_messages
 from refgen.scan import Decl, Doc, Scanner, strip_template_header
 
 SECTIONS = ROOT / "tools" / "reference_sections.txt"
 CONTRACT_CASES = (ROOT / "tests" / "contract_fail", ROOT / "tests" / "highs" / "contract_fail")
 FIELDS = ("Takes", "Returns", "Throws", "Contract", "Cost")
 MARKERS = ("@overload", "@hidden", "@section", "@contract", "@exposed", "@anchor")
-GATHERED = ("Exceptions", "Debug-build checks")
+GATHERED = ("Compile-time messages", "Exceptions", "Debug-build checks")
 # A box heading's id spells an operator's symbol in words: the site's own ids drop the symbol, so that every operator
 # on a page would be #operator, #operator_1, ... by order. A conversion function's id is its type's.
 OPERATOR_WORDS = {
@@ -189,6 +190,7 @@ class Reference:
         self.sections = read_sections(problems)
         self.by_title = {s.title: s for s in self.sections}
         self.contracts: dict[str, Contract] = {}
+        self.messages: list[MessageSection] = read_messages(problems)
         self.mains: dict[tuple[str, str], list[Entry]] = {}
         self.classes: dict[str, Entry] = {}
         self.declared: list[Decl] = []

@@ -9,6 +9,9 @@
 
 #ifdef DREAMOR_CASE_ordered_at_takes_a_position
 // expect: at() takes a position, 0 to size() - 1, not a column
+// when: `orderedPeriods.at(t)` with a column: it would be read as a position.
+//
+// fix: `orderedPeriods.positionOf(t)` for its position; `at(n)` with a number.
 int main() {
   const auto sIJ  = IJ();
   const auto byIJ = sIJ.ordered();
@@ -18,6 +21,10 @@ int main() {
 
 #ifdef DREAMOR_CASE_ordered_first_values_of_one_type
 // expect: Name the group by the columns orderedWithin<Columns...>() groups by
+// when: `first(1, 2)` where two group columns share the values' type, a value of no group column's type, or a column
+// that is not a group key.
+//
+// fix: Pass the group's columns in order; where two share a type, name each value's column (`cFrom{a}, cTo{b}`).
 int main() {
   const auto sIJK = dreamor::index_set::relational::from<cI>(I).cross<cJ>(I).cross<cK>(I).build();
   const auto byIJ = sIJK.orderedWithin<cI, cJ>();
@@ -35,6 +42,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_ordered_needs_a_name
 // expect: Name the Ordered first
+// when: `S.ordered().prev(t)`.
+//
+// fix: `const auto orderedT = S.ordered();` then `orderedT.prev(t)`.
 int main() {
   const auto sI = dreamor::index_set::relational::from<cI>(I).build();
   (void)sI.ordered().prev(cI{1});
@@ -43,6 +53,10 @@ int main() {
 
 #ifdef DREAMOR_CASE_ordered_prev_values_of_one_type
 // expect: Name an element of the ordered set
+// when: `ordered.prev(1, 2)` where two columns share the values' type, or a value of no column's type
+// (`positionOf("1")`).
+//
+// fix: Name the columns: `ordered.prev(cI{1}, cJ{2})`.
 int main() {
   const auto sIJ       = IJ();
   const auto orderedIJ = sIJ.ordered();
@@ -61,6 +75,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_ordered_takes_no_columns
 // expect: ordered() takes no columns
+// when: `S.ordered<cMachine>()`, positions within groups.
+//
+// fix: `S.orderedWithin<cMachine>()`.
 int main() {
   const auto sIJ = IJ();
   (void)sIJ.ordered<cI>();
@@ -69,6 +86,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_ordered_whole_set_first_takes_no_group
 // expect: first(m) and last(m) name a group's ends
+// when: `orderedS.first(a)` on a named `const auto orderedS = S.ordered();`.
+//
+// fix: `first()` over the whole set, or `S.orderedWithin<A>().first(a)`.
 int main() {
   const auto all = IJ().ordered();
   static_cast<void>(all.first(cI{1}));
@@ -77,6 +97,10 @@ int main() {
 
 #ifdef DREAMOR_CASE_ordered_within_has_no_first
 // expect: orderedWithin<Columns...>() orders within each group
+// when: `byA.first()`, `at()`, `last()` on a named `const auto byA = S.orderedWithin<A>();`.
+//
+// fix: `first(a)`, `last(a)` for a group's ends, `positionOf()`, `isFirst()`, `isLast()` within a group, or
+// `S.ordered()` for the whole set.
 int main() {
   const auto byI = IJ().orderedWithin<cI>();
   static_cast<void>(byI.first());
@@ -85,6 +109,9 @@ int main() {
 
 #ifdef DREAMOR_CASE_ordered_within_without_columns
 // expect: orderedWithin<Columns...>() names the columns
+// when: `S.orderedWithin<>()`.
+//
+// fix: `S.orderedWithin<cMachine>()`, or `S.ordered()` for the whole set.
 int main() {
   const auto sIJ = IJ();
   return static_cast<int>(sIJ.orderedWithin<>().size());
