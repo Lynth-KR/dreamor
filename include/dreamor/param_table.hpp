@@ -54,6 +54,97 @@ inline constexpr bool kKeepsText =
     std::is_reference_v<Returned> || std::is_same_v<std::remove_cv_t<Returned>, std::string_view> ||
     std::is_pointer_v<Returned>;
 
+// The type in which ParamTable{keys, value} holds text of the type Given, as a forwarding reference deduces it, so
+// that a const array is told from one that is not: std::string_view for a const array of char, a string literal's
+// type, which lives as long as the program; std::string, a copy, for text whose life cannot be known - an array of
+// char that is not const, such as a buffer of a function, and a pointer to char; void for any other type. A
+// deduction is a safe choice, not a risky one: a view is deduced only for text that outlives any table.
+template <typename Given>
+[[nodiscard]] consteval auto textOf() {
+  using Plain = std::remove_reference_t<Given>;
+  if constexpr (std::is_array_v<Plain> && std::is_same_v<std::remove_cv_t<std::remove_extent_t<Plain>>, char>) {
+    if constexpr (std::is_const_v<std::remove_extent_t<Plain>>) {
+      return std::type_identity<std::string_view>{};
+    } else {
+      return std::type_identity<std::string>{};
+    }
+  } else if constexpr (std::is_pointer_v<std::remove_cv_t<Plain>> &&
+                       std::is_same_v<std::remove_cv_t<std::remove_pointer_t<std::remove_cv_t<Plain>>>, char>) {
+    return std::type_identity<std::string>{};
+  } else {
+    return std::type_identity<void>{};
+  }
+}
+
+// The type that a value of the type Given is held in: its text type, else the type itself without const or a
+// reference.
+template <typename Given>
+using HeldAs = std::conditional_t<std::is_void_v<typename decltype(textOf<Given>())::type>,
+                                  std::remove_cvref_t<Given>,
+                                  typename decltype(textOf<Given>())::type>;
+
+// Whether a class has an operator() of any kind, a template one included, which &T::operator() cannot name: a class
+// derived from T and from one with an operator() makes the name ambiguous exactly when T has one. A final class is
+// taken as having none.
+struct CallProbe {
+  void operator()() const {}
+};
+
+template <typename T>
+struct WithCallProbe : T, CallProbe {};
+
+template <typename T>
+concept has_call_operator = std::is_class_v<T> && !std::is_final_v<T> && !requires { &WithCallProbe<T>::operator(); };
+
+// Whether a value is held as text or a string, which is a range of characters, not a container of row values.
+template <typename T>
+concept text_value = std::is_same_v<T, std::string> || std::is_same_v<T, std::string_view>;
+
+// The value type that ParamTable{keys, value} deduces, in the order in which the constructor reads its value: text as
+// textOf holds it; for a column callable whose columns are the set's, what it returns, held as a value of that type
+// is; for a container, its element type, so that the constructor reports the container as it does with the type
+// named; the value's own type otherwise. A callable that the constructor will reject - its columns not the set's, a
+// parameter list it cannot read, a function pointer - deduces double, a placeholder, so that the constructor reports
+// it with its own sentence rather than a deduced type failing first.
+template <typename Value, typename Key>
+struct DeducedValueOf;
+
+template <typename Value, typename... Keys>
+struct DeducedValueOf<Value, std::tuple<Keys...>> {
+  using Bare = std::remove_cvref_t<Value>;
+  using Key  = std::tuple<Keys...>;
+
+  [[nodiscard]] static consteval auto deduce() {
+    if constexpr (!std::is_void_v<typename decltype(textOf<Value>())::type>) {
+      return textOf<Value>();
+    } else if constexpr (internal::ColumnsOfPredicate<Bare>::known) {
+      if constexpr (internal::no_indirect_call<Bare> && internal::PlacementOf<Bare, Key>::all_named &&
+                    internal::PlacementOf<Bare, Key>::all_present &&
+                    internal::ColumnsOfPredicate<Bare>::no_mutable_reference) {
+        using Returned = decltype(internal::callColumnsOf(std::declval<const Bare&>(), std::declval<const Key&>()));
+        return std::type_identity<HeldAs<Returned>>{};
+      } else {
+        return std::type_identity<double>{};
+      }
+    } else if constexpr (has_call_operator<Bare> || !internal::no_indirect_call<Bare>) {
+      if constexpr (has_call_operator<Bare> && std::is_invocable_v<const Bare&, const Keys&...>) {
+        return std::type_identity<HeldAs<std::invoke_result_t<const Bare&, const Keys&...>>>{};
+      } else {
+        return std::type_identity<double>{};
+      }
+    } else if constexpr (std::ranges::range<const Bare&> && !text_value<Bare>) {
+      return std::type_identity<std::remove_cvref_t<std::ranges::range_value_t<const Bare&>>>{};
+    } else {
+      return std::type_identity<Bare>{};
+    }
+  }
+
+  using type = decltype(deduce())::type;
+};
+
+template <typename Value, typename Key>
+using DeducedValue = DeducedValueOf<Value, Key>::type;
+
 }  // namespace dreamor::detail
 
 namespace dreamor {
@@ -85,6 +176,10 @@ namespace dreamor {
 /// `const` or `volatile` type. To refer to an entity, `T` must be a `Ref`, not a pointer.
 template <typename T, typename... Keys>
 class ParamTable {
+  static_assert(!std::is_same_v<T, internal::ColumnsNotDeduced>,
+                "ParamTable{records, row_of, value_of} does not deduce its type: name it - ParamTable<double, "
+                "cMachine> capacity{machines, machine_of, capacity_of}. The columns cannot be read from what row_of "
+                "returns.");
   static_assert(!std::is_pointer_v<T>,
                 "A ParamTable refers to an entity by a Ref, not a pointer: ParamTable<Ref<Machine>, cItem> holds "
                 "the machine of each item.");
@@ -114,6 +209,16 @@ class ParamTable {
   ///
   /// A container of values does not compile, because the table cannot tell which value belongs to which row.
   ///
+  /// The declaration may leave the table's type to the compiler, as in `ParamTable demand{sPLAN, demand_of}`. The key
+  /// columns are those of `keys`, and `T` is the type of `value`: what a callable returns, without `const` or a
+  /// reference; the value type of another table; `std::string_view` for a string literal, which lives as long as the
+  /// program; `std::string`, a copy, for a `const char*`, a `char*` or an array of `char` that is not `const`, such as
+  /// a buffer, whose text may not outlive the table; the value's own type otherwise. A `const` array of `char` that is
+  /// not a literal deduces `std::string_view` too, and must outlive the table. As with the deduction of `std::tuple`,
+  /// `T` is the argument's type, not the one the model may mean: `0` gives `int`, and a callable that returns
+  /// `const std::string&` gives `std::string`, a copy of each text. Name the type where another is wanted:
+  /// `ParamTable<double, cMachine, cPeriod> crew{sSHIFTS, 2}`.
+  ///
   /// Takes: `keys` must have exactly the columns `Keys`, in the same order. A set with other columns, or with the
   /// columns in another order, does not compile. If `T` is `std::string_view` and `value` is a callable, the callable
   /// must return a reference, a pointer or a `std::string_view` to text that outlives the table. A callable that
@@ -131,6 +236,9 @@ class ParamTable {
   ///
   /// The table holds a copy of each value. If `T` is `std::string_view`, each value is a view of text inside a record,
   /// so the records must outlive the table.
+  ///
+  /// The declaration names the table's type: `ParamTable{records, row_of, value_of}` does not compile, because the
+  /// key columns cannot be read from what `row_of` returns.
   ///
   /// Takes: `records` must be a forward range, such as a container or a view of one, because it is read twice.
   /// `records` may be a temporary container, unless `T` or a column of `Keys` holds `std::string_view`. `row_of` must
@@ -297,6 +405,17 @@ class ParamTable {
 
   Values values_;
 };
+
+// ParamTable{keys, value} takes its key columns from the set and its value type from the value, as
+// detail::DeducedValueOf says.
+template <typename Value, typename... Keys>
+ParamTable(const IndexSet<Keys...>&, Value&&) -> ParamTable<detail::DeducedValue<Value, std::tuple<Keys...>>, Keys...>;
+
+// ParamTable{records, row_of, value_of} deduces ParamTable<ColumnsNotDeduced, ColumnsNotDeduced>, and the first
+// static_assert in ParamTable reports the error.
+template <typename Range, typename RowOf, typename ValueOf>
+ParamTable(Range&&, const RowOf&, const ValueOf&)
+    -> ParamTable<internal::ColumnsNotDeduced, internal::ColumnsNotDeduced>;
 
 }  // namespace dreamor
 

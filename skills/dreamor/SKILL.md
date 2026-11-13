@@ -79,7 +79,10 @@ Each is a rule of the reference or the guide, linked; the compile-time ones stop
   (`docs/guide/variable-families.md`).
 - **One `VarTable` a family**, its keys its set's columns in the same order; reach a subset's variables through it.
   Tables are built after their sets: in the initializer list, or declared empty and a family moved in once
-  (`docs/guide/variable-families.md`).
+  (`docs/guide/variable-families.md`). A `VarTable`'s type may be left out, `VarTable vMake{env, sPRODUCE, ...}`, and so
+  may a `ParamTable`'s on a set, `ParamTable demand{sPLAN, demand_of}` - its value type is the argument's own (`0` is
+  `int`, a string literal `std::string_view`, a `const char*` or a `char` buffer `std::string`); name it for another
+  (`docs/guide/data-on-a-set.md`).
 - **`sumExpr(...)` is a builder until `.build()`**; on Concert it takes the environment first,
   `sumExpr(env, rows, term)` (`docs/reference/sums.md`).
 - **Name a `Grouped` or an `Ordered`** before `slice`, `at`, `next`, `prev`, `first` (`docs/reference/grouped.md`,

@@ -296,6 +296,44 @@ void movedFrom(const IloEnv& env) {
   // NOLINTEND(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
 }
 
+// ParamTable{set, value} deduces the type from the value, as std::tuple does: a number its type (0 is int), a string
+// literal std::string_view, a pointer to char or a char buffer std::string (a copy: their text's life is unknown), a
+// callable what it returns without const or a reference, another table its value type.
+void deducedParamTypes() {
+  const std::vector<std::size_t> I{1, 2, 3};
+  const auto sI                   = dreamor::index_set::relational::from<cI>(I).build();
+  static const std::string kLabel = "label";
+  const auto label_of             = [](cI /*i*/) -> const std::string& { return kLabel; };
+  const auto half_of              = [](cI i) { return static_cast<float>(i.get()) / 2; };
+  const dreamor::ParamTable count{sI, 0};
+  const dreamor::ParamTable hours{sI, 2.5};
+  const dreamor::ParamTable name{sI, "none"};
+  const dreamor::ParamTable label{sI, label_of};
+  const dreamor::ParamTable half{sI, half_of};
+  const dreamor::ParamTable again{sI, half};
+  static_assert(std::is_same_v<decltype(count), const dreamor::ParamTable<int, cI>>);
+  static_assert(std::is_same_v<decltype(hours), const dreamor::ParamTable<double, cI>>);
+  static_assert(std::is_same_v<decltype(name), const dreamor::ParamTable<std::string_view, cI>>);
+  static_assert(std::is_same_v<decltype(label), const dreamor::ParamTable<std::string, cI>>);
+  static_assert(std::is_same_v<decltype(half), const dreamor::ParamTable<float, cI>>);
+  static_assert(std::is_same_v<decltype(again), const dreamor::ParamTable<float, cI>>);
+  // Text whose life the table cannot know is copied: a pointer to char, and a buffer that is not const.
+  const char* const pointed = kLabel.c_str();
+  char buffer[8]            = "buffer";  // NOLINT(*-avoid-c-arrays): the buffer of a function is the case
+  const dreamor::ParamTable fromPointer{sI, pointed};
+  const dreamor::ParamTable fromBuffer{sI, buffer};
+  static_assert(std::is_same_v<decltype(fromPointer), const dreamor::ParamTable<std::string, cI>>);
+  static_assert(std::is_same_v<decltype(fromBuffer), const dreamor::ParamTable<std::string, cI>>);
+  const auto code_of = [](cI /*i*/) -> const char* { return "code"; };  // text of unknown life, from a callable
+  const dreamor::ParamTable codes{sI, code_of};
+  static_assert(std::is_same_v<decltype(codes), const dreamor::ParamTable<std::string, cI>>);
+  DREAMOR_CHECK(codes(cI{2}) == "code");
+  buffer[0] = 'B';  // the table holds its own copy
+  DREAMOR_CHECK(fromPointer(cI{1}) == "label" && fromBuffer(cI{2}) == "buffer");
+  DREAMOR_CHECK(count(cI{1}) == 0 && exactlyEqual(hours(cI{2}), 2.5) && name(cI{3}) == "none");
+  DREAMOR_CHECK(label(cI{1}) == "label" && exactlyEqual(static_cast<double>(again(cI{3})), 1.5));
+}
+
 // A table constructed with no arguments is empty, as one moved from; a family moved into an empty VarTable, once, is
 // whole there - the table_filled_once contract - and so is a ParamTable or a SolutionTable assigned to an empty one.
 void constructedEmpty(const IloEnv& env) {
@@ -629,5 +667,6 @@ int main() try {
   paramFromRecords();
   movedFrom(env);
   constructedEmpty(env);
+  deducedParamTypes();
   return report("vartable");
 } catch (...) { return ::uncaught(); }

@@ -22,6 +22,42 @@ int main() {
 }
 #endif  // DREAMOR_CASE_paramtable_call_raw_values
 
+#ifdef DREAMOR_CASE_paramtable_deduced_from_a_generic_callable
+// expect: Cannot read this callable's parameter list
+int main() {
+  const auto hours_of = [](auto i, auto j) { return static_cast<double>(i.get() + j.get()); };
+  const dreamor::ParamTable hours{IJ(), hours_of};  // the type deduced: the callable is still read for its columns
+  return static_cast<int>(hours.size());
+}
+#endif  // DREAMOR_CASE_paramtable_deduced_from_a_generic_callable
+
+#ifdef DREAMOR_CASE_paramtable_deduced_from_a_vector
+// expect: not from a container, whose order no row knows
+int main() {
+  const std::vector<double> hours{1, 2, 3, 4};
+  const dreamor::ParamTable table{IJ(), hours};  // the type deduced: the vector is reported, not held in each row
+  return static_cast<int>(table.size());
+}
+#endif  // DREAMOR_CASE_paramtable_deduced_from_a_vector
+
+#ifdef DREAMOR_CASE_paramtable_deduced_from_a_generic_callable_of_some_columns
+// expect: Cannot read this callable's parameter list
+int main() {
+  const auto hours_of = [](auto i) { return static_cast<double>(i.get()); };
+  const dreamor::ParamTable hours{IJ(), hours_of};  // one auto parameter over two columns: not a value to hold
+  return static_cast<int>(hours.size());
+}
+#endif  // DREAMOR_CASE_paramtable_deduced_from_a_generic_callable_of_some_columns
+
+#ifdef DREAMOR_CASE_paramtable_deduced_from_a_callable_of_another_column
+// expect: This callable takes a column these rows do not have
+int main() {
+  const auto hours_of = [](cK k) { return static_cast<double>(k.get()); };
+  const dreamor::ParamTable hours{IJ(), hours_of};
+  return static_cast<int>(hours.size());
+}
+#endif  // DREAMOR_CASE_paramtable_deduced_from_a_callable_of_another_column
+
 #ifdef DREAMOR_CASE_paramtable_holds_a_pointer
 // expect: A ParamTable refers to an entity by a Ref, not a pointer
 struct Machine {

@@ -5,6 +5,7 @@
 #include <format>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <type_traits>
 #include <vector>
@@ -76,6 +77,31 @@ void onEachRow(const Plant& p) {
   DREAMOR_CHECK(!orders.contains(nut, 1) && !orders.contains(nut, 3));
   DREAMOR_CHECK(!orders.contains(bracket, 1) && !orders.contains(bracket, 2) && !orders.contains(bracket, 3));
   DREAMOR_CHECK(exactlyEqual(unitsSold, 10));  // the frame's 1 + 2 + 2 and the nut's 5
+}
+
+// The tables of onEachRow with their types left to the compiler, and two more: a whole number deduces int, a string
+// literal std::string_view.
+void deduced(const Plant& p) {
+  using dreamor::index_set::relational::from;
+  const auto sPERIODS  = from<cPeriod>(dreamor::interval::closed(1, p.periods)).build();
+  const auto sPLAN     = from<cItem>(p.items).cross(sPERIODS).build();
+  const auto sSHIFTS   = from<cMachine>(p.machines).cross(sPERIODS).build();
+  const auto demand_of = [](cItem i, cPeriod t) { return i->demand[t - 1]; };
+
+  // --8<-- [start:deduced]
+  const dreamor::ParamTable demand{sPLAN, demand_of};  // ParamTable<double, cItem, cPeriod>
+  const dreamor::ParamTable overtime{sSHIFTS, 2.0};    // ParamTable<double, cMachine, cPeriod>
+  const dreamor::ParamTable crew{sSHIFTS, 2};          // ParamTable<int, cMachine, cPeriod>: 2 is an int
+  const dreamor::ParamTable shift{sSHIFTS, "day"};     // ParamTable<std::string_view, cMachine, cPeriod>
+  // --8<-- [end:deduced]
+  static_assert(std::is_same_v<decltype(demand), const dreamor::ParamTable<double, cItem, cPeriod>>);
+  static_assert(std::is_same_v<decltype(overtime), const dreamor::ParamTable<double, cMachine, cPeriod>>);
+  static_assert(std::is_same_v<decltype(crew), const dreamor::ParamTable<int, cMachine, cPeriod>>);
+  static_assert(std::is_same_v<decltype(shift), const dreamor::ParamTable<std::string_view, cMachine, cPeriod>>);
+  const auto frame = p.items.at("frame");
+  const auto m1    = p.machines.at("M1");
+  DREAMOR_CHECK(demand.size() == 15 && exactlyEqual(demand(frame, 3), 2) && exactlyEqual(overtime(m1, 2), 2.0));
+  DREAMOR_CHECK(crew(m1, 1) == 2 && shift(m1, 3) == "day" && shift.size() == 6);
 }
 
 void bom(const Plant& p) {
@@ -154,6 +180,7 @@ void severalValues(const Plant& p) {
 int main() try {
   const Plant p = plant();
   onEachRow(p);
+  deduced(p);
   bom(p);
   severalValues(p);
   return ::report("guide/data-on-a-set");

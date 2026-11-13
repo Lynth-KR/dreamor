@@ -84,6 +84,16 @@ void makeFamilies(const Plant& p, const Sets& s, const highs::Plan& plan) {
                 &plan.vStock(frame, 3).env() == &plan.env);
 }
 
+// A family's type deduced from its set: the same type that Plan writes out for vSetup.
+void deduced(const Sets& s) {
+  HighsEnv env{quietOptions()};
+  // --8<-- [start:deduced]
+  const VarTable vRun{env, s.produce, 0, 1, HighsVarType::kInteger, "Run"};  // VarTable<cMachine, cItem, cPeriod>
+  // --8<-- [end:deduced]
+  static_assert(std::is_same_v<decltype(vRun), const VarTable<cMachine, cItem, cPeriod>>);
+  DREAMOR_CHECK(vRun.size() == s.produce.size());
+}
+
 void boundFromData(const Plant& p, const Sets& s) {
   const dreamor::EntityVector<Machine>& machines = p.machines;
   HighsEnv env{quietOptions()};
@@ -222,6 +232,7 @@ int main() try {
   const Sets s            = byChain(p, quantity);
   const highs::Plan plan{s, quantity, quietOptions()};
   makeFamilies(p, s, plan);
+  deduced(s);
   boundFromData(p, s);
   leaveOut(p, s);
   read(p, s, plan);

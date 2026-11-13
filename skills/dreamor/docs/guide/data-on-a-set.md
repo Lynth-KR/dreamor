@@ -1,4 +1,4 @@
-<!-- Copied from docs/guide/data-on-a-set.md (blob 9583519179da), tests/docs/guide/data_on_a_set.cpp (blob 8391c8096309), tests/docs/guide/model.hpp (blob b2d1db7441b4) by tools/sync_skill_docs.py - edit the source, not this copy. -->
+<!-- Copied from docs/guide/data-on-a-set.md (blob 52f2d327c53b), tests/docs/guide/data_on_a_set.cpp (blob 8f78a4f1b0d8), tests/docs/guide/model.hpp (blob b2d1db7441b4) by tools/sync_skill_docs.py - edit the source, not this copy. -->
 
 # Data on a set
 
@@ -51,6 +51,33 @@ can.
 For what a table's value may be, and what the constructor takes, see
 [`ParamTable`](../reference/paramtable.md#paramtable) and its
 [constructor](../reference/paramtable.md#paramtable-constructor).
+
+## Let the compiler name a table's type
+
+The type of a table repeats what its set and its value already say. Leave it out, and the table takes its key columns
+from the set and its value type from the value:
+
+```cpp
+const dreamor::ParamTable demand{sPLAN, demand_of};  // ParamTable<double, cItem, cPeriod>
+const dreamor::ParamTable overtime{sSHIFTS, 2.0};    // ParamTable<double, cMachine, cPeriod>
+const dreamor::ParamTable crew{sSHIFTS, 2};          // ParamTable<int, cMachine, cPeriod>: 2 is an int
+const dreamor::ParamTable shift{sSHIFTS, "day"};     // ParamTable<std::string_view, cMachine, cPeriod>
+```
+
+- `demand` and `overtime` are the tables of the section above, with their types left out. `sPLAN` gives `demand` its
+  key columns, `cItem` and `cPeriod`, and `demand_of`, which returns a `double`, gives its value type.
+- `crew{sSHIFTS, 2}` holds an `int` for each row, because `2` is an `int`.
+- `shift{sSHIFTS, "day"}` holds a `std::string_view` for each row. A string literal lives as long as the program, so
+  a view of it stays valid.
+
+Each table holds the rows and values that it holds with its type named. The type is the argument's own, as with
+`std::tuple`'s deduction, not the one your model may mean: write `2.0` for hours, or name the type,
+`ParamTable<double, cMachine, cPeriod> crew{sSHIFTS, 2}`, where you want another. Text whose life the table cannot
+know - a `const char*`, or a buffer of `char` - gives a table of `std::string`, a copy; so does a callable that
+returns `const std::string&`. Name `std::string_view` to keep views of text that outlives the table. A
+table made from records, as in the next section, does not deduce its type: name it there.
+
+For the rule, see the [constructor](../reference/paramtable.md#paramtable-constructor).
 
 ## Make a table from records
 

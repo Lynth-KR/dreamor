@@ -21,6 +21,16 @@ int main() {
 }
 #endif  // DREAMOR_CASE_indexset_records_columns_not_deduced
 
+#ifdef DREAMOR_CASE_paramtable_records_type_not_deduced
+// expect: ParamTable{records, row_of, value_of} does not deduce its type
+int main() {
+  const auto row_of   = [](std::size_t i) { return cI{i}; };
+  const auto value_of = [](std::size_t i) { return 2.0 * static_cast<double>(i); };
+  const dreamor::ParamTable hours{I, row_of, value_of};
+  return static_cast<int>(hours.size());
+}
+#endif  // DREAMOR_CASE_paramtable_records_type_not_deduced
+
 #ifdef DREAMOR_CASE_indexset_records_not_a_range
 // expect: makes a row of each record: give a range of records
 int main() {

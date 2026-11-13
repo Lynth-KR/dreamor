@@ -1,4 +1,4 @@
-<!-- Copied from docs/guide/variable-families.md (blob 591e71ce12e2), tests/docs/highs/plan.hpp (blob af7828ef1f9b), tests/docs/highs/variable_families.cpp (blob c23cdb77570d) by tools/sync_skill_docs.py - edit the source, not this copy. -->
+<!-- Copied from docs/guide/variable-families.md (blob 328f5b5e6638), tests/docs/highs/plan.hpp (blob af7828ef1f9b), tests/docs/highs/variable_families.cpp (blob 7352d3e5f089) by tools/sync_skill_docs.py - edit the source, not this copy. -->
 
 # Variable families
 
@@ -69,6 +69,22 @@ For what the constructor takes, see [`VarTable`](../reference/dreamor-highs.md#v
 value is written in a name, see [Names and logging](names-and-logging.md). On Concert and on MathOpt, `VarTable` takes
 that backend's own model and variable types; see [Concert's `VarTable`](../reference/dreamor-concert.md#vartable-constructor)
 and [MathOpt's `VarTable`](../reference/dreamor-mathopt.md#vartable-constructor).
+
+## Let the compiler name a family's type
+
+The type of a family repeats its set's columns. Leave it out, and the family takes them from the set:
+
+```cpp
+const VarTable vRun{env, s.produce, 0, 1, HighsVarType::kInteger, "Run"};  // VarTable<cMachine, cItem, cPeriod>
+```
+
+- `vRun` names no columns. Its set, `s.produce`, has `cMachine`, `cItem` and `cPeriod`, so `vRun` is a
+  `VarTable<cMachine, cItem, cPeriod>`, as `vSetup` in `Plan` is.
+
+The columns come from the set, so the deduced type is always the one you would write. Write it where a reader should
+see it, as for a member of a class, which C++ does not deduce.
+
+For what the constructor takes, see [`VarTable`](../reference/dreamor-highs.md#vartable-constructor).
 
 ## Take a bound from the data
 

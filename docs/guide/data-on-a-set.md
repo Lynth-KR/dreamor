@@ -43,6 +43,30 @@ For what a table's value may be, and what the constructor takes, see
 [`ParamTable`](../reference/paramtable.md#paramtable) and its
 [constructor](../reference/paramtable.md#paramtable-constructor).
 
+## Let the compiler name a table's type
+
+The type of a table repeats what its set and its value already say. Leave it out, and the table takes its key columns
+from the set and its value type from the value:
+
+```cpp
+--8<-- "tests/docs/guide/data_on_a_set.cpp:deduced"
+```
+
+- `demand` and `overtime` are the tables of the section above, with their types left out. `sPLAN` gives `demand` its
+  key columns, `cItem` and `cPeriod`, and `demand_of`, which returns a `double`, gives its value type.
+- `crew{sSHIFTS, 2}` holds an `int` for each row, because `2` is an `int`.
+- `shift{sSHIFTS, "day"}` holds a `std::string_view` for each row. A string literal lives as long as the program, so
+  a view of it stays valid.
+
+Each table holds the rows and values that it holds with its type named. The type is the argument's own, as with
+`std::tuple`'s deduction, not the one your model may mean: write `2.0` for hours, or name the type,
+`ParamTable<double, cMachine, cPeriod> crew{sSHIFTS, 2}`, where you want another. Text whose life the table cannot
+know - a `const char*`, or a buffer of `char` - gives a table of `std::string`, a copy; so does a callable that
+returns `const std::string&`. Name `std::string_view` to keep views of text that outlives the table. A
+table made from records, as in the next section, does not deduce its type: name it there.
+
+For the rule, see the [constructor](../reference/paramtable.md#paramtable-constructor).
+
 ## Make a table from records
 
 The bill of materials comes as records, one for each line: a parent, a part of it, and the units of the part that a

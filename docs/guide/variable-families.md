@@ -50,6 +50,22 @@ value is written in a name, see [Names and logging](names-and-logging.md). On Co
 that backend's own model and variable types; see [Concert's `VarTable`](../reference/dreamor-concert.md#vartable-constructor)
 and [MathOpt's `VarTable`](../reference/dreamor-mathopt.md#vartable-constructor).
 
+## Let the compiler name a family's type
+
+The type of a family repeats its set's columns. Leave it out, and the family takes them from the set:
+
+```cpp
+--8<-- "tests/docs/highs/variable_families.cpp:deduced"
+```
+
+- `vRun` names no columns. Its set, `s.produce`, has `cMachine`, `cItem` and `cPeriod`, so `vRun` is a
+  `VarTable<cMachine, cItem, cPeriod>`, as `vSetup` in `Plan` is.
+
+The columns come from the set, so the deduced type is always the one you would write. Write it where a reader should
+see it, as for a member of a class, which C++ does not deduce.
+
+For what the constructor takes, see [`VarTable`](../reference/dreamor-highs.md#vartable-constructor).
+
 ## Take a bound from the data
 
 `max_make`, in the section above, works out each row's upper bound from the row's machine and item. Often the bound
