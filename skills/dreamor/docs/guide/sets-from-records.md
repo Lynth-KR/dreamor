@@ -1,4 +1,4 @@
-<!-- Copied from docs/guide/sets-from-records.md (blob 1f2093b45f43), tests/docs/guide/model.hpp (blob b2d1db7441b4), tests/docs/guide/sets_from_records.cpp (blob a1c7c464b1d5) by tools/sync_skill_docs.py - edit the source, not this copy. -->
+<!-- Copied from docs/guide/sets-from-records.md (blob 96d2d237f852), tests/docs/guide/model.hpp (blob b2d1db7441b4), tests/docs/guide/sets_from_records.cpp (blob 3cea23fbaf59) by tools/sync_skill_docs.py - edit the source, not this copy. -->
 
 # Sets from records
 
@@ -84,15 +84,15 @@ struct Bom {
 ```
 
 - `sBOM` is a member of type `IndexSet<cParent, cChild>`.
-- The constructor makes `sBOM` in its member initializer list. A set has no empty state to fill later, because
-  `IndexSet` has no default constructor.
+- The constructor makes `sBOM` in its member initializer list. A set declared with no initializer is empty, and can
+  be assigned in the constructor's body instead.
 - `edges` is a static member function that makes the set from the plant's records. A member initializer list has no
   room for a local variable, and `edges` gives `edge_of` a place to be named.
 
 The `sBOM` of a `Bom` made from the plant holds the same rows as `sBOM` in the section above, in the same order. Its
 `Ref`s refer to the items that `p.items` holds.
 
-For why a set is made where it is declared, see [`IndexSet`](../reference/indexset.md#indexset).
+For the ways a set is made and assigned, see [`IndexSet`](../reference/indexset.md#indexset).
 
 ## Make a set of one column
 

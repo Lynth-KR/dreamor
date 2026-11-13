@@ -73,9 +73,12 @@ template <typename Var>
 ///
 /// The parts of this section look up and iterate a family of variables: one variable for each row of a set. A
 /// backend's `VarTable` constructor makes all of the variables at once. After that, the table's set and its variables
-/// do not change. A table that is moved from is empty: it has no rows and no variables, as a set that is moved from
-/// has no rows. Every backend's `VarTable` derives from `VarTableCore` and has the members of this section. The
-/// constructors and `solution()` of each backend's `VarTable` are in that backend's section.
+/// do not change. A table that is constructed with no arguments, or moved from, is empty: it has no rows and no
+/// variables, as an empty set has none. Such a table gets its family when a table is moved into it, once: a table that
+/// is a member of a class can be made in the class's member initializer list, or assigned in the constructor's body or
+/// by a function that builds the class's families. Every backend's `VarTable` derives from `VarTableCore` and has the
+/// members of this section. The constructors and `solution()` of each backend's `VarTable` are in that backend's
+/// section.
 ///
 /// Each variable is named `<name>_<key0>_<key1>...`: the name given to the constructor, then the value of each
 /// column of the row, each one after `_`. The Names section says how each value is written. If the name given to the
@@ -98,8 +101,9 @@ template <typename Var>
 /// A model calls the members of this class through a backend's `VarTable`, and does not name the class.
 ///
 /// A table cannot be copied, because a copy would refer to the same variables as a second family. A table can be
-/// moved. A table cannot be assigned to, because the variables it held would remain in the model with no table to
-/// reach them. Destroying a table does not remove its variables from the model.
+/// moved, and a family can be moved into a table that holds no variables, once (table_filled_once): moved over a
+/// family, it would leave the rows that use the old variables on them. Destroying a table does not remove its
+/// variables from the model.
 ///
 /// Takes: `Keys` must be one or more distinct columns. Each column of `Keys` must hold a value that can be written in
 /// a name, as the Names section describes.
@@ -193,6 +197,9 @@ class VarTableCore : public VarTableBase {
   }
 
  protected:
+  // The empty set, the empty index and no variable: what a backend's default constructor makes, and a move leaves.
+  VarTableCore() noexcept : index_{emptyRowIndex<key_type>()} {}
+
   explicit VarTableCore(const IndexSet<Keys...>& keys) : keys_{keys}, index_{sharedRowIndex(keys_)} {}
 
   // A move leaves the empty set, the empty index and no variable. A HiGHS table's variables are a first column and a
@@ -203,7 +210,28 @@ class VarTableCore : public VarTableBase {
         index_{std::exchange(other.index_, emptyRowIndex<key_type>())} {}
 
  public:
-  VarTableCore& operator=(VarTableCore&&) = delete;
+  /// Moves the family of `other` into this table, which holds no variables, and leaves `other` empty.
+  ///
+  /// Returns: This table.
+  /// Contract: table_filled_once
+  VarTableCore& operator=(VarTableCore&& other) noexcept {
+    if (this != &other) {
+      if (size() != 0) {
+        DREAMOR_DEBUG_FATAL(
+            "VarTable is assigned over a family of {} variables - a broken contract: a table is filled once. Move a "
+            "family into a table that holds none, one constructed with no arguments, or declare another table.",
+            size());
+      }
+      vars_  = std::exchange(other.vars_, {});
+      keys_  = std::move(other.keys_);
+      index_ = std::exchange(other.index_, emptyRowIndex<key_type>());
+    }
+    return *this;
+  }
+
+  /// @contract table_filled_once: When a table is assigned to, it holds no variables: it was constructed with no
+  /// arguments, moved from, or made on an empty set. A family assigned over another would leave the rows and the
+  /// objective that use the old variables on them, while the table's lookups return the new ones.
 
  protected:
   // Protected, so that no table is destroyed through a pointer to this base. The destructor ends no solver object,

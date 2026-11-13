@@ -1,4 +1,4 @@
-<!-- Copied from docs/guide/ordered-sets.md (blob 76d4f82b02ae), tests/docs/guide/model.hpp (blob b2d1db7441b4), tests/docs/guide/ordered_sets.cpp (blob 3a3d5a88767c) by tools/sync_skill_docs.py - edit the source, not this copy. -->
+<!-- Copied from docs/guide/ordered-sets.md (blob ec32bc8f3cb9), tests/docs/guide/model.hpp (blob b2d1db7441b4), tests/docs/guide/ordered_sets.cpp (blob 17d5ae3b8ec8) by tools/sync_skill_docs.py - edit the source, not this copy. -->
 
 # Ordered sets
 
@@ -182,6 +182,43 @@ M2's plate comes after it in `sMADE`. The nut is M2's last item, so `nutLastOnM2
 For what each lookup takes within groups, see [`orderedWithin`](../reference/indexset.md#indexset-orderedwithin),
 [`first`](../reference/ordered.md#ordered-first), [`next`](../reference/ordered.md#ordered-next) and
 [`isLast`](../reference/ordered.md#ordered-islast).
+
+## Keep an order as a member
+
+A model that reads one order in several places makes it once and keeps it. `Ordered` is a type you can name,
+`dreamor::Ordered<Set, Within...>`, so a class can hold one beside its set and fill both later:
+
+```cpp
+// The machines' items and their order on each machine, kept together.
+struct Routing {
+  dreamor::IndexSet<cMachine, cItem> sMADE;                                       // no rows until assigned
+  dreamor::Ordered<dreamor::IndexSet<cMachine, cItem>, cMachine> itemsOnMachine;  // no rows until assigned
+};
+
+Routing routingOf(const dreamor::EntityVector<Machine>& machines) {
+  using dreamor::index_set::relational::from;
+  const auto items_of = [](cMachine m) -> const auto& { return m->items; };
+
+  Routing routing;
+  routing.sMADE          = from<cMachine>(machines).lateral<cItem>(items_of).build();
+  routing.itemsOnMachine = routing.sMADE.orderedWithin<cMachine>();
+  return routing;
+}
+
+```
+
+- `Routing` holds `sMADE`, from the section above, and `itemsOnMachine`, its order within each machine. The type of
+  `itemsOnMachine` names the set's type and the column whose groups it orders within, as `orderedWithin<cMachine>()`
+  returns it.
+- Neither member has an initializer, so each starts empty: a set with no rows and an `Ordered` over no rows.
+- `routingOf` assigns `sMADE` its rows, then `itemsOnMachine` the order of those rows.
+
+The `Routing` that `routingOf` returns holds the 6 rows of `sMADE` and their order, and its `itemsOnMachine` answers
+the lookups of the section above. A `Grouped` is kept the same way, `dreamor::Grouped<Set, Columns...>`, for the
+groups that `groupBy` returns.
+
+For the type and its constructors, see [`Ordered`](../reference/ordered.md#ordered) and
+[`Grouped`](../reference/grouped.md#grouped).
 
 ## See also
 

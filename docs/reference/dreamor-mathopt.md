@@ -54,6 +54,18 @@ In use: [the guide](../guide/backends.md).
 
     The type of the table's variables, which is MathOpt's `math_opt::Variable`.
 
+### `VarTable` {#vartable-constructor-empty}
+
+!!! abstract "`dreamor::mathopt::VarTable::VarTable` - constructor"
+
+    ```cpp
+    VarTable() noexcept = default
+    ```
+
+    Constructs a table on the empty set, with no variables. A family is moved into it once, by assignment (the VarTable section).
+
+    - **Cost:** No memory is allocated.
+
 ### `VarTable` {#vartable-constructor}
 
 !!! abstract "`dreamor::mathopt::VarTable::VarTable` - constructor"

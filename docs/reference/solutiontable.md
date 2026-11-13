@@ -5,8 +5,9 @@
 The parts of this section hold the values of a solve. A `SolutionTable` holds one `double` for each variable of a
 `VarTable`, and looks a value up by the key of the variable's row. The table holds copies of the values, so it can
 be read after the model, the solver and the environment are gone. On every backend, only the `solution()` member
-of a `VarTable` makes a `SolutionTable`. A table that is moved from is empty: it has no rows and no values, as a
-set that is moved from has no rows.
+of a `VarTable` makes a `SolutionTable` that holds values; another table can be assigned to a table as a whole. A
+table that is constructed with no arguments, or moved from, is empty: it has no rows and no values, as an empty set
+has none.
 
 A `SolutionTable` names its key columns, so it is a column callable. A `ParamTable` built from a `SolutionTable`
 carries the values of a solve into the next model.
@@ -23,6 +24,18 @@ In use: [the guide](../guide/solutions.md).
     ```
 
     The values of a `VarTable`'s variables after a solve: one `double` for each row of the table's set, in the order of the set's rows.
+
+### `SolutionTable` {#solutiontable-constructor}
+
+!!! abstract "`dreamor::SolutionTable::SolutionTable` - constructor"
+
+    ```cpp
+    SolutionTable() noexcept = default
+    ```
+
+    Constructs a table on the empty set, with no values.
+
+    - **Cost:** No memory is allocated.
 
 ### `operator()` {#solutiontable-operator-call}
 

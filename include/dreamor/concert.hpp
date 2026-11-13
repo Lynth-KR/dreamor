@@ -114,6 +114,15 @@ class VarTable : public internal::VarTableCore<IloNumVar, Keys...> {
   using key_type = Core::key_type;
   using Core::Core;
 
+  /// @anchor vartable-constructor-empty
+  /// Constructs a table on the empty set, with no variables. A family is moved into it once, by assignment (the
+  /// VarTable section).
+  ///
+  /// Cost: No memory is allocated.
+  VarTable() noexcept : gathered_{nullptr} {
+    // As a moved-from table holds it: solution() reads gathered_ only when the table has variables.
+  }
+
   /// @hidden - exists only to reject, with a message, a name given in the place of the variables' type
   template <typename Lb, typename Ub, typename Name>
     requires std::is_convertible_v<const Name&, std::string_view>
@@ -150,6 +159,7 @@ class VarTable : public internal::VarTableCore<IloNumVar, Keys...> {
     static_assert(internal::always_false<Lb>, DREAMOR_INTERNAL_NULL_NAME_MESSAGE);
   }
 
+  /// @anchor vartable-constructor
   /// Constructs a table with one variable in `env` for each row of `set`.
   ///
   /// The variables are made in the order of the rows of `set`. Each variable is named `<name>_<key0>_<key1>...`, as

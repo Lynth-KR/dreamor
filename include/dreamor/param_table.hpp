@@ -72,9 +72,10 @@ namespace dreamor {
 
 /// A value of type `T` for each row of a set, in the order of the set's rows.
 ///
-/// The values are set when the table is constructed, and do not change after that. A table that is moved from is
-/// empty: it has no rows and no values, as a set that is moved from has no rows. The table shares one index from
-/// key to row with every other table on the same set, so the index is built once for the set.
+/// The values are set when the table is constructed, and do not change after that; another table can be assigned to
+/// the table as a whole. A table that is constructed with no arguments, or moved from, is empty: it has no rows and no
+/// values, as an empty set has none. The table shares one index from key to row with every other table on the same
+/// set, so the index is built once for the set.
 ///
 /// `T` is typically a number, a `bool`, an enum, a text, a `Ref`, or a struct that holds several values of a row. If
 /// `T` is `std::string`, the table holds a copy of each text. If `T` is `std::string_view`, the table holds a view of
@@ -95,6 +96,13 @@ class ParamTable {
   using key_type   = std::tuple<Keys...>;
   using value_type = T;
 
+  /// @anchor paramtable-constructor-empty
+  /// Constructs a table on the empty set, with no values.
+  ///
+  /// Cost: No memory is allocated.
+  ParamTable() noexcept = default;
+
+  /// @anchor paramtable-constructor
   /// Constructs a table on the set `keys`, with the value of each row taken from `value`.
   ///
   /// `value` is one of these:

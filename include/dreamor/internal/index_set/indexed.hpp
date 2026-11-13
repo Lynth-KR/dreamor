@@ -195,10 +195,10 @@ inline constexpr Descending descending{};  // NOLINT(readability-identifier-nami
 /// An `IndexSet` is a `std::ranges::view`. Copying a set takes constant time, and the copy shares the rows with the
 /// original. The iterators of a set are random-access iterators over `const` rows.
 ///
-/// `IndexSet` has no default constructor, so a set is made where it is declared: from a chain, from a derivation, or
-/// from records. A set that is a member of a class is made in the class's member initializer list. An empty set is
-/// returned by `none()`, or built by a chain over an empty source. A set that is moved from is empty, as a
-/// `std::vector` that is moved from is.
+/// A set that is constructed with no arguments is empty, as `none()` returns, and gets its rows when another set is
+/// assigned to it: a set that is a member of a class can be made in the class's member initializer list, or assigned
+/// in the constructor's body or by a function that builds the class's sets. An empty set is also built by a chain
+/// over an empty source. A set that is moved from is empty, as a `std::vector` that is moved from is.
 ///
 /// Takes: `Columns...` must be at most 64 columns. Each column must be declared by `DREAMOR_ENTITY_COLUMN` or
 /// `DREAMOR_VALUE_COLUMN`.
@@ -219,6 +219,7 @@ class IndexSet : public std::ranges::view_base {
   using const_iterator = internal::Rows<Tup>::const_iterator;
   using iterator       = const_iterator;
 
+  /// @anchor indexset-constructor
   /// Constructs a set with one row for each element of `records`, in the order of `records`.
   ///
   /// For each record, the constructor calls `row_of` with the record, and `row_of` returns the record's row. The row
@@ -249,6 +250,12 @@ class IndexSet : public std::ranges::view_base {
   /// Contract: source_holds_no_repeat, source_holds_no_empty_ref
   template <typename Range, typename RowOf>
   IndexSet(Range&& records, const RowOf& row_of);  // Defined in set.hpp.
+
+  /// @anchor indexset-constructor-empty
+  /// Constructs a set with no rows, as `none()` returns.
+  ///
+  /// Cost: No memory is allocated.
+  IndexSet() noexcept : rows_{internal::SetAccess::emptyRows<Tup>()} {}
 
   /// Returns a set with no rows.
   ///

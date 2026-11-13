@@ -78,11 +78,13 @@ Each is a rule of the reference or the guide, linked; the compile-time ones stop
   of the model left out builds its set as `IndexSet<...>::none()`, and its families, rows and sums are empty with it
   (`docs/guide/variable-families.md`).
 - **One `VarTable` a family**, its keys its set's columns in the same order; reach a subset's variables through it.
-  Tables are built after their sets, as members in the initializer list (`docs/guide/variable-families.md`).
+  Tables are built after their sets: in the initializer list, or declared empty and a family moved in once
+  (`docs/guide/variable-families.md`).
 - **`sumExpr(...)` is a builder until `.build()`**; on Concert it takes the environment first,
   `sumExpr(env, rows, term)` (`docs/reference/sums.md`).
 - **Name a `Grouped` or an `Ordered`** before `slice`, `at`, `next`, `prev`, `first` (`docs/reference/grouped.md`,
-  `ordered.md`).
+  `ordered.md`). Both are public types a class can hold, declared empty and assigned later
+  (`docs/guide/ordered-sets.md`).
 - **A set's order is the order its rows were made in**: read neighbours on a set whose order you made or sorted
   (`orderBy`).
 - **HiGHS**: build the model before `env.highs()` is first reached; give options to `HighsEnv{options}`; one

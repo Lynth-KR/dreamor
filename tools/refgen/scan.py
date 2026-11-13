@@ -544,8 +544,8 @@ class Scanner:
         name = " ".join(rest[name_at.start(1) : name_at.end(1)].split())
         if level[: name_at.start(1)].rstrip().endswith("::") or name.startswith("~"):
             return None  # a member defined outside its class, or a destructor
-        if re.search(r"=\s*(default|delete)\s*$", rest.rstrip()):
-            return None
+        if re.search(r"=\s*(default|delete)\s*$", rest.rstrip()) and not st.doc:
+            return None  # a defaulted or deleted member with no block of its own: no entry; one with a block has one
         if not st.in_class and level[: name_at.start(1)].strip() == "" and "->" in level:
             return st.skip("a deduction guide")
         if re.search(r"(^|\s)friend\s", level[: name_at.start(1)]):  # after a requires-clause, if any

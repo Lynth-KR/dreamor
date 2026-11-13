@@ -330,6 +330,13 @@ class VarTable : public internal::VarTableCore<HighsVar, Keys...> {
   using key_type = Core::key_type;
   using Core::Core;
 
+  /// @anchor vartable-constructor-empty
+  /// Constructs a table on the empty set, with no variables. A family is moved into it once, by assignment (the
+  /// VarTable section).
+  ///
+  /// Cost: No memory is allocated.
+  VarTable() noexcept = default;
+
   /// @hidden - exists only to reject a name in the place of the type with a message
   template <typename Lb, typename Ub, typename Name>
     requires std::is_convertible_v<const Name&, std::string_view>
@@ -352,6 +359,7 @@ class VarTable : public internal::VarTableCore<HighsVar, Keys...> {
     static_assert(internal::always_false<Lb>, DREAMOR_INTERNAL_NULL_NAME_MESSAGE);
   }
 
+  /// @anchor vartable-constructor
   /// Constructs a table with one new variable for each row of `set`, added to the model of `env` in the order of the
   /// set.
   ///

@@ -1,4 +1,4 @@
-<!-- Copied from docs/guide/variable-families.md (blob fb6cb88c092c), tests/docs/highs/plan.hpp (blob af7828ef1f9b), tests/docs/highs/variable_families.cpp (blob bc25092401ce) by tools/sync_skill_docs.py - edit the source, not this copy. -->
+<!-- Copied from docs/guide/variable-families.md (blob 591e71ce12e2), tests/docs/highs/plan.hpp (blob af7828ef1f9b), tests/docs/highs/variable_families.cpp (blob c23cdb77570d) by tools/sync_skill_docs.py - edit the source, not this copy. -->
 
 # Variable families
 
@@ -54,8 +54,8 @@ struct Plan {
   no place to declare a local variable.
 - `vSetup` adds an integer variable for each row of `s.produce`, from 0 to 1.
 - `vStock` adds a continuous variable for each row of `s.stock`, from 0 to `kHighsInf`, which is no upper bound.
-- The three tables are constructed in the initializer list. A `VarTable` has no default constructor, so a class that
-  holds one constructs it there.
+- The three tables are constructed in the initializer list. A table can also be declared with no arguments, empty,
+  and a family moved into it once, in the constructor's body or by a function that builds the class's families.
 - The last argument of each table is the family's name. Each variable is named by the family's name and the values of
   its row, joined by `_`.
 - The constructor's body adds the plan's rows and its cost, which

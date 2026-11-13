@@ -67,6 +67,10 @@ namespace dreamor {
 /// around them. Within groups, `at` does not compile, and neither do `first()` and `last()` without a key, because
 /// they refer to positions of the whole set.
 ///
+/// An `Ordered` is a value: it can be copied and assigned, and its type can be named, as a class member that holds
+/// the order of a set: `dreamor::Ordered<IndexSet<cMachine, cPeriod>, cMachine>`. An `Ordered` constructed with no
+/// arguments, or moved from, is over no rows.
+///
 /// The lookups that return a reference or a pointer to a row do not compile on an rvalue `Ordered`, because the row
 /// may be one that the `Ordered` holds. These lookups are `members`, `at`, `first`, `last`, `next`, `prev`, `nextOf`,
 /// `prevOf`, `nextCyclic` and `prevCyclic`. Call them on an lvalue `Ordered`.
@@ -83,6 +87,14 @@ class Ordered {
   using GroupIndex = std::conditional_t<kWithinGroups, ::dreamor::internal::FlatIndex<GroupKey>, NoGroups>;
 
  public:
+  /// @anchor ordered-constructor-empty
+  /// Constructs an `Ordered` over no rows.
+  ///
+  /// Every lookup in it finds nothing. An `Ordered` that a class holds as a member can start so, and be assigned the
+  /// `Ordered` of a set later, in the constructor's body or by a function that builds the class's members.
+  Ordered() = default;
+
+  /// @anchor ordered-constructor
   /// Constructs an `Ordered` over the rows of `set`.
   ///
   /// `set.ordered()` and `set.orderedWithin<Within...>()` call this constructor. An `Ordered` over the whole set

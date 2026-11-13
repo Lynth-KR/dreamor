@@ -32,7 +32,7 @@ struct Bom {
 
 // --8<-- [end:member]
 
-static_assert(!std::is_default_constructible_v<dreamor::IndexSet<cParent, cChild>>);  // no empty set to fill later
+static_assert(std::is_nothrow_default_constructible_v<dreamor::IndexSet<cParent, cChild>>);  // empty, to assign later
 
 // Whether the set has a row for each record, in the records' order, its parent and child named as the record names
 // them: read off the set's rows, against the records' text.

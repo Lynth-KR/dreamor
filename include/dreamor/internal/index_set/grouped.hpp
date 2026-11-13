@@ -268,7 +268,9 @@ struct Group {
 /// `slice` returns the rows of the group that a key identifies, and `at` returns the group at a position.
 ///
 /// A `Grouped` holds a copy of the set, which shares the rows. For each row, the `Grouped` stores the row's position
-/// in the set as a 4-byte number, not a copy of the row.
+/// in the set as a 4-byte number, not a copy of the row. A `Grouped` is a value: it can be copied and assigned, and
+/// its type can be named, `dreamor::Grouped<IndexSet<cMachine, cPeriod>, cMachine>`. A `Grouped` constructed with no
+/// arguments, or moved from, has no groups.
 ///
 /// A `Grouped` that is an rvalue can be iterated, because a range-based `for` loop keeps it until the loop ends. A
 /// call of `slice` or `at` on an rvalue `Grouped` does not compile. These functions return views into the `Grouped`,
@@ -319,6 +321,14 @@ class Grouped {
     std::size_t group_    = 0;
   };
 
+  /// @anchor grouped-constructor-empty
+  /// Constructs a `Grouped` with no groups.
+  ///
+  /// A `Grouped` that a class holds as a member can start so, and be assigned the groups of a set later, in the
+  /// constructor's body or by a function that builds the class's members.
+  Grouped() = default;
+
+  /// @anchor grouped-constructor
   /// Constructs the groups of the rows of `set` by the columns `Columns...`.
   ///
   /// `IndexSet::groupBy` calls this constructor.

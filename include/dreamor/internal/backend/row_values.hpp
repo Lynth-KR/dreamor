@@ -60,6 +60,9 @@ class RowValues {
 
   static constexpr std::size_t kNotFound = RowIndex<key_type>::kNotFound;
 
+  // The empty set, the empty index and no value: what a move leaves.
+  RowValues() noexcept : index_{emptyRowIndex<key_type>()} {}
+
   RowValues(IndexSet<Keys...> keys, std::shared_ptr<const RowIndex<key_type>> index, std::vector<StoredValue<T>> values)
       : keys_{std::move(keys)}, index_{std::move(index)}, values_{std::move(values)} {}
 

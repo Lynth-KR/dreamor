@@ -3,7 +3,8 @@
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
 // VarTable: built once from a set, bounds as numbers or column callables, names from keys,
-// lookup, iteration in set order, solution(); a table moved from, empty.
+// lookup, iteration in set order, solution(); a table moved from or constructed
+// with no arguments, empty, and a family moved into it once.
 #include <algorithm>
 #include <bit>
 #include <cstddef>
@@ -295,6 +296,30 @@ void movedFrom(const IloEnv& env) {
   // NOLINTEND(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
 }
 
+// A table constructed with no arguments is empty, as one moved from; a family moved into an empty VarTable, once, is
+// whole there - the table_filled_once contract - and so is a ParamTable or a SolutionTable assigned to an empty one.
+void constructedEmpty(const IloEnv& env) {
+  const std::vector<std::size_t> I{1, 2, 3};
+  const auto sI = dreamor::index_set::relational::from<cI>(I).build();
+  static_assert(std::is_nothrow_default_constructible_v<dreamor::ParamTable<double, cI>>);
+  static_assert(std::is_nothrow_default_constructible_v<dreamor::SolutionTable<cI>>);
+  dreamor::ParamTable<double, cI> cost;
+  dreamor::SolutionTable<cI> plan;
+  dreamor::concert::VarTable<cI> x;
+  DREAMOR_CHECK(cost.size() == 0 && !cost.contains(cI{1}) && plan.size() == 0 && !plan.contains(cI{1}));
+  DREAMOR_CHECK(x.size() == 0 && x.keys().empty() && x.begin() == x.end() && !x.contains(cI{1}));
+  DREAMOR_CHECK_THROWS(std::out_of_range, cost(cI{1}));
+  x = dreamor::concert::VarTable<cI>{env, sI, 0, 1, ILOFLOAT, "x"};
+  DREAMOR_CHECK(x.size() == 3 && x.contains(cI{2}) && std::string{x(cI{2}).getName()} == "x_2");
+  cost = dreamor::ParamTable<double, cI>{sI, 2.5};
+  plan = x.solution(FakeAlgorithm{env});
+  DREAMOR_CHECK(exactlyEqual(cost(cI{3}), 2.5) && plan.size() == 3 && plan.contains(cI{3}));
+  // A table moved from takes a family again.
+  const dreamor::concert::VarTable<cI> y{std::move(x)};
+  x = dreamor::concert::VarTable<cI>{env, sI, 0, 1, ILOFLOAT, "z"};
+  DREAMOR_CHECK(y.size() == 3 && x.size() == 3 && std::string{x(cI{1}).getName()} == "z_1");
+}
+
 }  // namespace
 
 int main() try {
@@ -305,7 +330,8 @@ int main() try {
 
   static_assert(!std::is_copy_constructible_v<dreamor::concert::VarTable<cI, cJ>>);
   static_assert(std::is_nothrow_move_constructible_v<dreamor::concert::VarTable<cI, cJ>>);
-  static_assert(!std::is_default_constructible_v<dreamor::concert::VarTable<cI, cJ>>);
+  static_assert(std::is_nothrow_default_constructible_v<dreamor::concert::VarTable<cI, cJ>> &&
+                std::is_nothrow_move_assignable_v<dreamor::concert::VarTable<cI, cJ>>);
 
   // numbers
   const dreamor::concert::VarTable<cI, cJ> x{env, IJ, 0, 1, ILOINT, "x"};
@@ -602,5 +628,6 @@ int main() try {
   unextractedVariables(env);
   paramFromRecords();
   movedFrom(env);
+  constructedEmpty(env);
   return report("vartable");
 } catch (...) { return ::uncaught(); }

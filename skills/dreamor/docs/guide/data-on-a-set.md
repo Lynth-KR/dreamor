@@ -1,4 +1,4 @@
-<!-- Copied from docs/guide/data-on-a-set.md (blob 3ee1a52a7912), tests/docs/guide/data_on_a_set.cpp (blob 8391c8096309), tests/docs/guide/model.hpp (blob b2d1db7441b4) by tools/sync_skill_docs.py - edit the source, not this copy. -->
+<!-- Copied from docs/guide/data-on-a-set.md (blob 9583519179da), tests/docs/guide/data_on_a_set.cpp (blob 8391c8096309), tests/docs/guide/model.hpp (blob b2d1db7441b4) by tools/sync_skill_docs.py - edit the source, not this copy. -->
 
 # Data on a set
 
@@ -44,6 +44,9 @@ const dreamor::ParamTable<double, cMachine, cPeriod> overtime{sSHIFTS, 2.0};  //
 `demand` holds a value for each item in each period: 5 items in 3 periods, 15 rows. The frame's demand is 1, 2 and 2 in
 periods 1, 2 and 3, the nut's is 5 in period 2, and the bracket's is 0 in every period, because no customer buys it.
 `overtime` holds 2 hours for each machine in each period: 2 machines in 3 periods, 6 rows.
+
+A table that a class holds can also start empty, declared with no arguments, and be assigned a table later, as a set
+can.
 
 For what a table's value may be, and what the constructor takes, see
 [`ParamTable`](../reference/paramtable.md#paramtable) and its

@@ -83,7 +83,8 @@ static void varTable() {
 
   static_assert(!std::is_copy_constructible_v<hs::VarTable<cI, cJ>>);
   static_assert(std::is_nothrow_move_constructible_v<hs::VarTable<cI, cJ>>);
-  static_assert(!std::is_default_constructible_v<hs::VarTable<cI, cJ>>);
+  static_assert(std::is_nothrow_default_constructible_v<hs::VarTable<cI, cJ>> &&
+                std::is_nothrow_move_assignable_v<hs::VarTable<cI, cJ>>);
 
   // numbers, integer, names
   const hs::VarTable<cI, cJ> x{env, IJ, 0, 1, HighsVarType::kInteger, "x"};
@@ -802,6 +803,16 @@ static void movedFrom() {
   DREAMOR_CHECK(vMoved.size() == 0 && vMoved.keys().empty() && vMoved.begin() == vMoved.end());
   DREAMOR_CHECK(!vMoved.contains(cI{2}) && vMoved.solution(env).size() == 0);
   // NOLINTEND(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
+  // A family moved into the emptied table, and into one constructed with no arguments: their first columns and
+  // counts come along, and the table moved from is empty again.
+  hs::VarTable<cI> vLater{env, sI, 0, 5, HighsVarType::kContinuous, "y"};
+  vMoved = std::move(vLater);
+  hs::VarTable<cI> vEmpty;
+  vEmpty = hs::VarTable<cI>{env, sI, 0, 7, HighsVarType::kContinuous, "z"};
+  DREAMOR_CHECK(vMoved.size() == 3 && vMoved(cI{1}).index() == 3 && vEmpty.size() == 3 && vEmpty(cI{1}).index() == 6);
+  // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move): what the move left is the test
+  DREAMOR_CHECK(vLater.size() == 0 && !vLater.contains(cI{1}));
+  DREAMOR_CHECK(env.highs().getNumCol() == 9);
 }
 
 int main() try {

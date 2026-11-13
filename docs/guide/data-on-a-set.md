@@ -36,6 +36,9 @@ a period. Make the set of the rows first, and then a table on the set, with the 
 periods 1, 2 and 3, the nut's is 5 in period 2, and the bracket's is 0 in every period, because no customer buys it.
 `overtime` holds 2 hours for each machine in each period: 2 machines in 3 periods, 6 rows.
 
+A table that a class holds can also start empty, declared with no arguments, and be assigned a table later, as a set
+can.
+
 For what a table's value may be, and what the constructor takes, see
 [`ParamTable`](../reference/paramtable.md#paramtable) and its
 [constructor](../reference/paramtable.md#paramtable-constructor).

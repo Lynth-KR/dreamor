@@ -143,6 +143,28 @@ For what each lookup takes within groups, see [`orderedWithin`](../reference/ind
 [`first`](../reference/ordered.md#ordered-first), [`next`](../reference/ordered.md#ordered-next) and
 [`isLast`](../reference/ordered.md#ordered-islast).
 
+## Keep an order as a member
+
+A model that reads one order in several places makes it once and keeps it. `Ordered` is a type you can name,
+`dreamor::Ordered<Set, Within...>`, so a class can hold one beside its set and fill both later:
+
+```cpp
+--8<-- "tests/docs/guide/ordered_sets.cpp:member"
+```
+
+- `Routing` holds `sMADE`, from the section above, and `itemsOnMachine`, its order within each machine. The type of
+  `itemsOnMachine` names the set's type and the column whose groups it orders within, as `orderedWithin<cMachine>()`
+  returns it.
+- Neither member has an initializer, so each starts empty: a set with no rows and an `Ordered` over no rows.
+- `routingOf` assigns `sMADE` its rows, then `itemsOnMachine` the order of those rows.
+
+The `Routing` that `routingOf` returns holds the 6 rows of `sMADE` and their order, and its `itemsOnMachine` answers
+the lookups of the section above. A `Grouped` is kept the same way, `dreamor::Grouped<Set, Columns...>`, for the
+groups that `groupBy` returns.
+
+For the type and its constructors, see [`Ordered`](../reference/ordered.md#ordered) and
+[`Grouped`](../reference/grouped.md#grouped).
+
 ## See also
 
 - [Ordered](../reference/ordered.md): every member of `Ordered`, and the lookups that do not compile on an rvalue

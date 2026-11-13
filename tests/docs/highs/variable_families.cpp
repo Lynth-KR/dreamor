@@ -75,9 +75,9 @@ void makeFamilies(const Plant& p, const Sets& s, const highs::Plan& plan) {
   DREAMOR_CHECK(!isInteger(plan.env, plan.vStock(frame, 3).index()));
   DREAMOR_CHECK(boundsAre(plan.env, plan.vStock(frame, 3).index(), 0, kHighsInf));
 
-  // A VarTable has no default constructor: a class that holds one makes it in its initializer list.
-  static_assert(!std::is_default_constructible_v<VarTable<cMachine, cItem, cPeriod>>);
-  static_assert(!std::is_default_constructible_v<VarTable<cItem, cPeriod>>);
+  // A VarTable constructed with no arguments is empty; a family is moved into it once.
+  static_assert(std::is_default_constructible_v<VarTable<cMachine, cItem, cPeriod>>);
+  static_assert(std::is_nothrow_move_assignable_v<VarTable<cItem, cPeriod>>);
 
   // Every table's variables belong to the environment declared before them.
   DREAMOR_CHECK(&plan.vMake(m1, frame, 1).env() == &plan.env && &plan.vSetup(m2, bolt, 2).env() == &plan.env &&

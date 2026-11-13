@@ -55,6 +55,18 @@ In use: [the guide](../guide/backends.md).
 
     - **Takes:** `Keys` must be one or more distinct columns. Each column of `Keys` must hold a value that can be written in a name, as the Names section describes.
 
+### `VarTable` {#vartable-constructor-empty}
+
+!!! abstract "`dreamor::concert::VarTable::VarTable` - constructor"
+
+    ```cpp
+    VarTable() noexcept
+    ```
+
+    Constructs a table on the empty set, with no variables. A family is moved into it once, by assignment (the VarTable section).
+
+    - **Cost:** No memory is allocated.
+
 ### `VarTable` {#vartable-constructor}
 
 !!! abstract "`dreamor::concert::VarTable::VarTable` - constructor"

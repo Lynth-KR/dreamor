@@ -188,6 +188,7 @@ and aborts after one line:
 | `Ordered::nextOf has no row to return` (or `prevOf`) | `nextOf`/`prevOf` are asked of an element that has the neighbour in its set or group |
 | `Ordered::first has no row to return` (or `last`) | `first(m)`/`last(m)` are asked of a group with a row in the set, `first()`/`last()` of a set with rows |
 | `RowSlice::front has no row to return` (or `back`) | `front()`/`back()` are asked of a slice with rows: a key with a row in the set, or a slice that `empty()` says is not empty |
+| `VarTable is assigned over a family` | a family is moved only into a `VarTable` that holds no variables: one constructed with no arguments, or moved from |
 | `interval: closed at its integer type's largest value` | an interval's closed last end is below its integer type's largest value |
 | `interval: an end its interval's integer type cannot hold` | an interval's ends fit its integer type |
 | `maxOf has no value to return` (or `minOf`) | `maxOf`/`minOf` take rows that are not empty |

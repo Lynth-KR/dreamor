@@ -149,3 +149,11 @@ No source of a set holds an element twice. The sources include each range that t
 - **Named by:** `dreamor::internal::index_set::Chain::build`, `dreamor::internal::index_set::SetOf::build`, `dreamor::IndexSet::IndexSet`, `dreamor::ParamTable::ParamTable`
 - **A debug build stops with:** `building a set: lateral source 2 returned one element twice, at 0 and 1`; `building a set: source 1 holds one element twice, at 1 and 2`; `building a set: source 1 holds one row twice, at 0 and 1`; `building a set: source 2 holds one element twice, at 0 and 2`; `records 0 and 2 (counting from 0) both give the row`
 - **Cases:** `container_repeats_a_value` (tests/contract_fail/sources.cpp), `container_repeats_an_entity` (tests/contract_fail/sources.cpp), `dependent_borrows_a_repeat` (tests/contract_fail/sources.cpp), `dependent_returns_a_repeat` (tests/contract_fail/sources.cpp), `indexset_records_give_one_row_twice` (tests/contract_fail/sources.cpp), `spread_repeats_a_row` (tests/contract_fail/sources.cpp)
+
+## table_filled_once {#table_filled_once}
+
+When a table is assigned to, it holds no variables: it was constructed with no arguments, moved from, or made on an empty set. A family assigned over another would leave the rows and the objective that use the old variables on them, while the table's lookups return the new ones.
+
+- **Named by:** `dreamor::internal::backend::VarTableCore::operator=`
+- **A debug build stops with:** `VarTable is assigned over a family of 3 variables - a broken contract: a table is filled once`
+- **Cases:** `var_table_assigned_over_a_family` (tests/contract_fail/var_table.cpp)

@@ -32,7 +32,8 @@ tests a change must pass, the places they fix, and what stays out.
 - **Sets are sets, by contract** ("A set is a set"). No user-facing check or deduplication (`distinct`,
   `assertUnique`); a debug build checks every source in a chain's `build()` (`diagnostics.md`).
 - **One VarTable per variable family.** A family of variables is created only in a `VarTable` constructor, and a
-  table's structure never changes after construction. A single variable is the solver's own (`IloNumVar`, MathOpt's
+  table's family never changes once it holds one: a table constructed empty takes a family by move assignment, once
+  (`table_filled_once`). A single variable is the solver's own (`IloNumVar`, MathOpt's
   `AddVariable`), or `HighsEnv::addVariable` on HiGHS, whose environment collects the model and so owns the call.
 - **No new user-facing concept for performance** ("Speed adds nothing to learn"). Internal hashing and set sharing
   are fine; new knobs in the API are not. How a performance change is judged is `benchmark.md`'s, "A performance

@@ -73,9 +73,10 @@ entity compared or a value put in another column's place.
 
 ### A set is a fact
 
-Once built, a set never changes. Every other set is derived from it - by a condition, a projection, a join, the set
-algebra - and the original stays as it was. A variable family is built once over its set, too. This is what makes a
-model easy to reason about: a name means one set from the line it is made to the end.
+Once built, a set's rows never change. Every other set is derived from it - by a condition, a projection, a join, the
+set algebra - and the original stays as it was. A variable family is built once over its set, too. A name may be
+assigned another set as a whole, as any C++ value may, but nothing changes the rows that a set holds: whatever holds
+a set, or a table built on it, reads the same rows to the end. This is what makes a model easy to reason about.
 
 ### A set is a set
 

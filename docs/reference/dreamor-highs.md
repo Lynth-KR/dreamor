@@ -149,6 +149,18 @@ In use: [the guide](../guide/backends.md).
     - **Takes:** `Keys` must be one or more distinct columns whose values can be written in a name.
     - **Cost:** The columns of a table are consecutive. The table therefore stores only the index of the first column, and no data for each variable.
 
+### `VarTable` {#vartable-constructor-empty}
+
+!!! abstract "`dreamor::highs::VarTable::VarTable` - constructor"
+
+    ```cpp
+    VarTable() noexcept = default
+    ```
+
+    Constructs a table on the empty set, with no variables. A family is moved into it once, by assignment (the VarTable section).
+
+    - **Cost:** No memory is allocated.
+
 ### `VarTable` {#vartable-constructor}
 
 !!! abstract "`dreamor::highs::VarTable::VarTable` - constructor"

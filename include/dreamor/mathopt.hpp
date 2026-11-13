@@ -78,6 +78,13 @@ class VarTable : public internal::VarTableCore<::operations_research::math_opt::
   using Variable = ::operations_research::math_opt::Variable;
   using Core::Core;
 
+  /// @anchor vartable-constructor-empty
+  /// Constructs a table on the empty set, with no variables. A family is moved into it once, by assignment (the
+  /// VarTable section).
+  ///
+  /// Cost: No memory is allocated.
+  VarTable() noexcept = default;
+
   /// @hidden - exists only to reject, with a message, a name given in the place of is_integer
   template <typename Lb, typename Ub, typename Name>
     requires std::is_convertible_v<const Name&, std::string_view>
@@ -106,6 +113,7 @@ class VarTable : public internal::VarTableCore<::operations_research::math_opt::
     static_assert(internal::always_false<Lb>, DREAMOR_INTERNAL_NULL_NAME_MESSAGE);
   }
 
+  /// @anchor vartable-constructor
   /// Constructs a table with one variable in `model` for each row of `set`.
   ///
   /// The variables are made in the order of the rows of `set`. Each variable is named `<name>_<key0>_<key1>...`, as

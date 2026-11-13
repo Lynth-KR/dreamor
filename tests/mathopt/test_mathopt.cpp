@@ -40,7 +40,8 @@ static void varTable() {
 
   static_assert(!std::is_copy_constructible_v<dreamor::mathopt::VarTable<cI, cJ>>);
   static_assert(std::is_nothrow_move_constructible_v<dreamor::mathopt::VarTable<cI, cJ>>);
-  static_assert(!std::is_default_constructible_v<dreamor::mathopt::VarTable<cI, cJ>>);
+  static_assert(std::is_nothrow_default_constructible_v<dreamor::mathopt::VarTable<cI, cJ>> &&
+                std::is_nothrow_move_assignable_v<dreamor::mathopt::VarTable<cI, cJ>>);
 
   // numbers, integer, names
   const dreamor::mathopt::VarTable<cI, cJ> x{model, IJ, 0, 1, true, "x"};
@@ -232,11 +233,29 @@ static void example() {
   }
 }
 
+// A table moved from is empty, and takes a family moved into it, as one constructed with no arguments does.
+static void movedFrom() {
+  math_opt::Model model("moved");
+  const std::vector<std::size_t> I{1, 2, 3};
+  const auto sI = dreamor::index_set::relational::from<cI>(I).build();
+  dreamor::mathopt::VarTable<cI> x{model, sI, 0, 1, false, "x"};
+  const dreamor::mathopt::VarTable<cI> kept{std::move(x)};
+  // NOLINTBEGIN(bugprone-use-after-move,clang-analyzer-cplusplus.Move): reading what a move leaves is the test
+  DREAMOR_CHECK(kept.size() == 3 && x.size() == 0 && x.keys().empty() && x.begin() == x.end() && !x.contains(cI{2}));
+  // NOLINTEND(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
+  x = dreamor::mathopt::VarTable<cI>{model, sI, 0, 2, false, "y"};
+  dreamor::mathopt::VarTable<cI> later;
+  later = dreamor::mathopt::VarTable<cI>{model, sI, 0, 3, false, "z"};
+  DREAMOR_CHECK(x.size() == 3 && x(cI{2}).name() == "y_2" && later.size() == 3 && later(cI{3}).name() == "z_3");
+  DREAMOR_CHECK(model.num_variables() == 9);
+}
+
 int main() try {
   varTable();
   sum();
   quadraticObjective();
   solution();
   example();
+  movedFrom();
   return report("mathopt");
 } catch (...) { return ::uncaught(); }

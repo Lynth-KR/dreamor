@@ -16,6 +16,34 @@ namespace {
 
 using namespace guide;
 
+// --8<-- [start:member]
+// The machines' items and their order on each machine, kept together.
+struct Routing {
+  dreamor::IndexSet<cMachine, cItem> sMADE;                                       // no rows until assigned
+  dreamor::Ordered<dreamor::IndexSet<cMachine, cItem>, cMachine> itemsOnMachine;  // no rows until assigned
+};
+
+Routing routingOf(const dreamor::EntityVector<Machine>& machines) {
+  using dreamor::index_set::relational::from;
+  const auto items_of = [](cMachine m) -> const auto& { return m->items; };
+
+  Routing routing;
+  routing.sMADE          = from<cMachine>(machines).lateral<cItem>(items_of).build();
+  routing.itemsOnMachine = routing.sMADE.orderedWithin<cMachine>();
+  return routing;
+}
+
+// --8<-- [end:member]
+
+void member(const Plant& p) {
+  const Routing empty;
+  DREAMOR_CHECK(empty.sMADE.empty() && empty.itemsOnMachine.empty());
+  const Routing routing = routingOf(p.machines);
+  const cMachine m1     = p.machines.at("M1");
+  DREAMOR_CHECK(routing.sMADE.size() == 6 && routing.itemsOnMachine.size() == 6);
+  DREAMOR_CHECK(routing.itemsOnMachine.first(m1) == std::tuple<cMachine, cItem>{m1, p.items.at("frame")});
+}
+
 void orderedSets(const Plant& p) {
   const dreamor::EntityVector<Item>& items       = p.items;
   const dreamor::EntityVector<Machine>& machines = p.machines;
@@ -133,5 +161,6 @@ void orderedSets(const Plant& p) {
 int main() try {
   const Plant p = plant();
   orderedSets(p);
+  member(p);
   return ::report("guide/ordered-sets");
 } catch (...) { return ::uncaught(); }

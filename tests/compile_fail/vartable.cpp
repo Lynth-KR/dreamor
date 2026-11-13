@@ -125,13 +125,6 @@ int main() {
 }
 #endif  // DREAMOR_CASE_vartable_key_twice
 
-#ifdef DREAMOR_CASE_vartable_needs_env_and_set
-int main() {
-  dreamor::concert::VarTable<cI, cJ> x;
-  (void)x;
-}
-#endif  // DREAMOR_CASE_vartable_needs_env_and_set
-
 #ifdef DREAMOR_CASE_vartable_scaled
 // expect: Scale the sum, not the table
 int main() {

@@ -154,7 +154,8 @@ and [`indexedName`](../reference/names.md#indexedname).
 
 - [Grouped](../reference/grouped.md): every member of `Grouped`, `Group` and `RowSlice`, and the calls that do not
   compile on an rvalue `Grouped`.
-- [Ordered sets](ordered-sets.md): positions and neighbours within each group.
+- [Ordered sets](ordered-sets.md): positions and neighbours within each group, and an order kept as a member of a
+  class, as a `Grouped` is kept.
 - [Values over a set](values-over-a-set.md): a value taken over a group's rows.
 - [Deriving sets](deriving-sets.md): a set derived from one set.
 - Debug-build checks: [`front()` or `back()` of an empty slice](../reference/debug-build-checks.md#slice_has_row).

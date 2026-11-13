@@ -4,9 +4,12 @@
 
 The parts of this section look up and iterate a family of variables: one variable for each row of a set. A
 backend's `VarTable` constructor makes all of the variables at once. After that, the table's set and its variables
-do not change. A table that is moved from is empty: it has no rows and no variables, as a set that is moved from
-has no rows. Every backend's `VarTable` derives from `VarTableCore` and has the members of this section. The
-constructors and `solution()` of each backend's `VarTable` are in that backend's section.
+do not change. A table that is constructed with no arguments, or moved from, is empty: it has no rows and no
+variables, as an empty set has none. Such a table gets its family when a table is moved into it, once: a table that
+is a member of a class can be made in the class's member initializer list, or assigned in the constructor's body or
+by a function that builds the class's families. Every backend's `VarTable` derives from `VarTableCore` and has the
+members of this section. The constructors and `solution()` of each backend's `VarTable` are in that backend's
+section.
 
 Each variable is named `<name>_<key0>_<key1>...`: the name given to the constructor, then the value of each
 column of the row, each one after `_`. The Names section says how each value is written. If the name given to the
@@ -37,8 +40,9 @@ In use: [the guide](../guide/variable-families.md).
     A model calls the members of this class through a backend's `VarTable`, and does not name the class.
 
     A table cannot be copied, because a copy would refer to the same variables as a second family. A table can be
-    moved. A table cannot be assigned to, because the variables it held would remain in the model with no table to
-    reach them. Destroying a table does not remove its variables from the model.
+    moved, and a family can be moved into a table that holds no variables, once (table_filled_once): moved over a
+    family, it would leave the rows that use the old variables on them. Destroying a table does not remove its
+    variables from the model.
 
     - **Takes:** `Keys` must be one or more distinct columns. Each column of `Keys` must hold a value that can be written in a name, as the Names section describes.
 
@@ -114,3 +118,16 @@ In use: [the guide](../guide/variable-families.md).
     ```
 
     Returns an iterator past the last pair of a row and its variable.
+
+### `operator=` {#vartablecore-operator-assign}
+
+!!! abstract "`dreamor::internal::backend::VarTableCore::operator=` - member function"
+
+    ```cpp
+    VarTableCore& operator=(VarTableCore&& other) noexcept
+    ```
+
+    Moves the family of `other` into this table, which holds no variables, and leaves `other` empty.
+
+    - **Returns:** This table.
+    - **Contract:** When a table is assigned to, it holds no variables: it was constructed with no arguments, moved from, or made on an empty set. ([checked in a debug build](debug-build-checks.md#table_filled_once))

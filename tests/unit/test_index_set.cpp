@@ -263,8 +263,38 @@ void movedFrom() {
   // NOLINTEND(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
 }
 
-// none(): a set of the type's columns with no rows, allocating nothing. Every derivation and operation takes it, and
-// it equals an empty set built otherwise; the empty storage it shares, index included, serves every none() alike.
+// A set, a Grouped and an Ordered constructed with no arguments are empty, as moved-from ones: every member works
+// and finds nothing; one assigned a set, or the grouping or order of a set, is whole. A set so made is none().
+// Apart from noRows: GCC 16 at -O1 -g warned -Wuninitialized on an SR.* temporary of noRows's Membership copy when
+// these lines were there (a false positive: not at -g0 or -g1; PR 123651's family).
+void constructedEmpty() {
+  namespace rel = dreamor::index_set::relational;
+  const std::vector<std::size_t> as{1, 2, 3};
+  const auto sIJ = rel::from<cI>(as).cross<cJ>(as).build();
+  using Set      = dreamor::IndexSet<cI, cJ>;
+  static_assert(std::is_nothrow_default_constructible_v<Set>);
+  Set sLATER;
+  DREAMOR_CHECK(sLATER.empty() && sLATER == Set::none() && !sLATER.contains(cI{1}, cJ{1}));
+  sLATER = sIJ;
+  DREAMOR_CHECK(sLATER == sIJ && sLATER.contains(cI{1}, cJ{1}));
+  dreamor::Grouped<Set, cI> byI;
+  dreamor::Ordered<Set> whole;
+  dreamor::Ordered<Set, cI> withinI;
+  DREAMOR_CHECK(byI.empty() && byI.begin() == byI.end() && byI.slice(cI{1}).empty());
+  DREAMOR_CHECK(!byI.contains(cI{1}) && whole.empty() && !whole.contains(cI{1}, cJ{1}));
+  DREAMOR_CHECK(!whole.positionOf(cI{1}, cJ{1}).has_value() && whole.next(cI{1}, cJ{1}) == nullptr);
+  DREAMOR_CHECK(withinI.empty() && withinI.next(cI{1}, cJ{1}) == nullptr && !withinI.isFirst(cI{1}, cJ{1}));
+  byI     = sIJ.groupBy<cI>();
+  whole   = sIJ.ordered();
+  withinI = sIJ.orderedWithin<cI>();
+  DREAMOR_CHECK(byI.size() == 3 && byI.slice(cI{2}).size() == 3);
+  DREAMOR_CHECK(whole.size() == 9 && whole.positionOf(cI{2}, cJ{1}) == std::optional<std::size_t>{3});
+  DREAMOR_CHECK(withinI.positionOf(cI{2}, cJ{3}) == std::optional<std::size_t>{2} && withinI.isFirst(cI{3}, cJ{1}));
+}
+
+// none(): a set of the type's columns with no rows, allocating nothing. Every
+// derivation and operation takes it, and it equals an empty set built otherwise; the empty storage it shares, index
+// included, serves every none() alike.
 void noRows() {
   namespace rel = dreamor::index_set::relational;
   const std::vector<std::size_t> as{1, 2, 3};
@@ -715,6 +745,7 @@ int main() try {
   valuesInBraces();
   rowsInADeclaredOrder();
   movedFrom();
+  constructedEmpty();
   noRows();
   frontOfSlices();
   extremeSteps();

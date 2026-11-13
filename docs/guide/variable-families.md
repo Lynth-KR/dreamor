@@ -34,8 +34,8 @@ whether the machine is set up for that item in that period, and how much of an i
   no place to declare a local variable.
 - `vSetup` adds an integer variable for each row of `s.produce`, from 0 to 1.
 - `vStock` adds a continuous variable for each row of `s.stock`, from 0 to `kHighsInf`, which is no upper bound.
-- The three tables are constructed in the initializer list. A `VarTable` has no default constructor, so a class that
-  holds one constructs it there.
+- The three tables are constructed in the initializer list. A table can also be declared with no arguments, empty,
+  and a family moved into it once, in the constructor's body or by a function that builds the class's families.
 - The last argument of each table is the family's name. Each variable is named by the family's name and the values of
   its row, joined by `_`.
 - The constructor's body adds the plan's rows and its cost, which

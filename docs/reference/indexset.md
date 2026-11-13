@@ -56,10 +56,10 @@ In use: [the guide](../guide/deriving-sets.md).
     An `IndexSet` is a `std::ranges::view`. Copying a set takes constant time, and the copy shares the rows with the
     original. The iterators of a set are random-access iterators over `const` rows.
 
-    `IndexSet` has no default constructor, so a set is made where it is declared: from a chain, from a derivation, or
-    from records. A set that is a member of a class is made in the class's member initializer list. An empty set is
-    returned by `none()`, or built by a chain over an empty source. A set that is moved from is empty, as a
-    `std::vector` that is moved from is.
+    A set that is constructed with no arguments is empty, as `none()` returns, and gets its rows when another set is
+    assigned to it: a set that is a member of a class can be made in the class's member initializer list, or assigned
+    in the constructor's body or by a function that builds the class's sets. An empty set is also built by a chain
+    over an empty source. A set that is moved from is empty, as a `std::vector` that is moved from is.
 
     - **Takes:** `Columns...` must be at most 64 columns. Each column must be declared by `DREAMOR_ENTITY_COLUMN` or `DREAMOR_VALUE_COLUMN`.
 
@@ -94,6 +94,18 @@ In use: [the guide](../guide/deriving-sets.md).
 
     - **Takes:** `records` must be an input range. A `const` `std::views::filter` is not an input range, because it cannot be iterated. `records` may be a temporary container, unless the set has a column of `std::string_view`. `row_of` must be callable with one element of `records`. It must return a value for each column of the set, and each value must fill a different column. If two columns hold the same type, `row_of` must return their values as those columns. If the set has a column of `std::string_view`, `records` must be an lvalue or a borrowed view that does not make its records as it is read, `row_of` must take each record by reference, and `row_of` must not return a `std::string` for that column.
     - **Contract:** No source of a set holds an element twice. ([checked in a debug build](debug-build-checks.md#source_holds_no_repeat)) No source fills an entity column with an empty `Ref`. ([checked in a debug build](debug-build-checks.md#source_holds_no_empty_ref))
+
+### `IndexSet` {#indexset-constructor-empty}
+
+!!! abstract "`dreamor::IndexSet::IndexSet` - constructor"
+
+    ```cpp
+    IndexSet() noexcept
+    ```
+
+    Constructs a set with no rows, as `none()` returns.
+
+    - **Cost:** No memory is allocated.
 
 ### `none` {#indexset-none}
 

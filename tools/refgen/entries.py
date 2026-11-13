@@ -42,6 +42,7 @@ OPERATOR_WORDS = {
     "-=": "minus-eq",
     "*=": "star-eq",
     "/=": "slash-eq",
+    "=": "assign",
 }
 ANCHOR = re.compile(r"[a-z0-9][a-z0-9_-]*")
 # A field's name after the start of a line: a field that a reflow pulled into the paragraph above it.

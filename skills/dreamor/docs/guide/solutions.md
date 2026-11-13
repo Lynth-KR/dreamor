@@ -1,4 +1,4 @@
-<!-- Copied from docs/guide/solutions.md (blob 4fc9e5b0421d), tests/docs/highs/solutions.cpp (blob faddd8871e3f) by tools/sync_skill_docs.py - edit the source, not this copy. -->
+<!-- Copied from docs/guide/solutions.md (blob a41aad86bfda), tests/docs/highs/solutions.cpp (blob faddd8871e3f) by tools/sync_skill_docs.py - edit the source, not this copy. -->
 
 # Solutions
 
@@ -124,7 +124,8 @@ const dreamor::ParamTable<double, cItem, cPeriod> opening{sOPENING, kept};  // t
 `opening` holds the stock of the frame, the plate, the bolt and the nut at the end of period 1. The plan keeps 4
 plates and nothing else: M1 makes 6 plates in period 1, as the section above shows, and the frame made in period 1
 takes 2 of them. The code is in `openingStock`, which returns `opening`. `opening` keeps its values after the plan
-and its solver are destroyed.
+and its solver are destroyed. A `ParamTable` or a `SolutionTable` that a class holds can start empty, declared with
+no arguments, and take its values by assignment.
 
 For what the constructor takes, see [`ParamTable`](../reference/paramtable.md#paramtable-constructor), and for a
 `SolutionTable` as a column callable, see [SolutionTable](../reference/solutiontable.md).
