@@ -27,11 +27,12 @@
 #define DREAMOR_INTERNAL_TOO_MANY_COLUMNS_MESSAGE                                                                   \
   "Congratulations on a set of more than 64 dimensions - dreamor stops at 64, and even 16 is a lot: split it into " \
   "sets that share key columns, or put a hand on your heart and ask whether the model needs them all."
-// The message for a lateral source or a predicate that reads a column that no earlier step binds.
+// The message for a lateral source or a predicate that reads a column that no earlier step binds. At the step, the
+// chain cannot know whether a later step brings the column or none does, so the message names the ways out of both.
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage): a static_assert message has to be a string literal
-#define DREAMOR_INTERNAL_COLUMNS_BEFORE_MESSAGE                                                                      \
-  "lateral and where read only the columns before them in the chain: move this step after the source of the column " \
-  "it takes."
+#define DREAMOR_INTERNAL_COLUMNS_BEFORE_MESSAGE                                                                  \
+  "lateral and where read only the columns before them in the chain: move this step after the step that brings " \
+  "the column it takes, bring that column in an earlier step, or take it out of the parameters."
 // The message for a step or build() called on an lvalue chain that holds a temporary container.
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage): a static_assert message has to be a string literal
 #define DREAMOR_INTERNAL_CHAIN_OUTLIVES_MESSAGE                                                             \
