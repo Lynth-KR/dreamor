@@ -30,14 +30,14 @@ void model() {
   const Sets chain        = byChain(p, quantity);
   const Sets setBuilder   = bySetBuilder(p, quantity);
 
-  DREAMOR_CHECK(chain.needed == setBuilder.needed);
-  DREAMOR_CHECK(chain.needed.size() == 4 && !chain.needed.contains(p.items.at("bracket")));
+  DREAMOR_CHECK(chain.NEEDED == setBuilder.NEEDED);
+  DREAMOR_CHECK(chain.NEEDED.size() == 4 && !chain.NEEDED.contains(p.items.at("bracket")));
   DREAMOR_CHECK(dreamor::transitiveClosure(quantity.keys()).size() == 8);  // frame -> bolt once, by two paths
-  DREAMOR_CHECK(chain.periods == setBuilder.periods);
-  DREAMOR_CHECK(chain.produce == setBuilder.produce);
-  DREAMOR_CHECK(chain.stock == setBuilder.stock);
-  DREAMOR_CHECK(chain.consume == setBuilder.consume);
-  DREAMOR_CHECK(chain.consume.size() == 18);  // a period: frame's 2 lines on M1, plate's 2 on M1 and on M2
+  DREAMOR_CHECK(chain.PERIODS == setBuilder.PERIODS);
+  DREAMOR_CHECK(chain.PRODUCE == setBuilder.PRODUCE);
+  DREAMOR_CHECK(chain.STOCK == setBuilder.STOCK);
+  DREAMOR_CHECK(chain.CONSUME == setBuilder.CONSUME);
+  DREAMOR_CHECK(chain.CONSUME.size() == 18);  // a period: frame's 2 lines on M1, plate's 2 on M1 and on M2
 
   // The plan HiGHS finds, costed by hand: setups 70 (M1 frame in each period, M1 plate in 1, M2 plate in 3, bolt in
   // each period, nut in 1 and 2) and holding 5.4 (4 plates after period 1, 6 bolts and 8 nuts after period 2).

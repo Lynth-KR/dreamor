@@ -1,4 +1,4 @@
-<!-- Copied from docs/guide/deriving-sets.md (blob 2ff67a84806c), tests/docs/guide/deriving_sets.cpp (blob 744ad6c08225) by tools/sync_skill_docs.py - edit the source, not this copy. -->
+<!-- Copied from docs/guide/deriving-sets.md (blob a50c0113b8b1), tests/docs/guide/deriving_sets.cpp (blob c37a028e1cdf) by tools/sync_skill_docs.py - edit the source, not this copy. -->
 
 # Deriving sets
 
@@ -95,7 +95,7 @@ row:
 const auto as_parent   = [](cItem i) { return cParent{i}; };
 const auto next_period = [](cItem i, cPeriod t) { return std::tuple<cItem, cPeriod>{i, t + 1}; };
 
-const auto sMADE_PARENTS = sMAKE.select(as_parent);    // each item made, as a parent in the bill of materials
+const auto sPARENTS_made = sMAKE.select(as_parent);    // each item made, as a parent in the bill of materials
 const auto sNEXT         = sMAKE.select(next_period);  // each item made in a period, in the period after
 ```
 
@@ -106,7 +106,7 @@ const auto sNEXT         = sMAKE.select(next_period);  // each item made in a pe
   repeats an earlier one is dropped, as with `select` of columns.
 - `sMAKE.select(next_period)` returns a set of the rows that `next_period` returns.
 
-`sMADE_PARENTS` is an `IndexSet<cParent>` of the five items that `sMADE` holds. As parents, the items can match the
+`sPARENTS_made` is an `IndexSet<cParent>` of the five items that `sMADE` holds. As parents, the items can match the
 bill of materials' lines in a join, which [Match rows with a set](relational-algebra.md#match-rows-with-a-set) shows.
 `sNEXT` is an `IndexSet<cItem, cPeriod>`. M1's plate and M2's plate in one period make the same row, which `sNEXT`
 holds once. So `sNEXT` holds the five items in periods 2, 3 and 4: 15 rows. Period 4 is not a period of the plan:
@@ -125,9 +125,9 @@ to sort by:
 const auto time_of         = [](cItem i) { return i->time; };
 const auto item_then_maker = [](cMachine m, cItem i) { return std::tuple{i, m}; };
 
-const auto sQUICK_FIRST = sMADE.orderBy(time_of);
-const auto sSLOW_FIRST  = sMADE.orderBy(time_of, dreamor::descending);
-const auto sBY_ITEM     = sROUTES.orderBy(item_then_maker);
+const auto sMADE_quick_first = sMADE.orderBy(time_of);
+const auto sMADE_slow_first  = sMADE.orderBy(time_of, dreamor::descending);
+const auto sROUTES_by_item   = sROUTES.orderBy(item_then_maker);
 ```
 
 - `time_of` returns the hours that a unit of the item takes. `item_then_maker` returns a `std::tuple` of the item and
@@ -140,9 +140,9 @@ Rows whose keys are equal keep the order that they have in the set. A `Ref` comp
 which is the name for an item and for a machine.
 
 A unit of the bolt or the nut takes 0.1 hours, a unit of the plate or the bracket 0.5 hours, and a unit of the frame
-1 hour. `sQUICK_FIRST` holds the bolt, the nut, the plate, the bracket and the frame, in that order. The bolt comes
-before the nut, and the plate before the bracket, because `sMADE` holds them in that order. `sSLOW_FIRST` holds the
-frame, the plate, the bracket, the bolt and the nut, with the equal times in the order of `sMADE` too. `sBY_ITEM` holds
+1 hour. `sMADE_quick_first` holds the bolt, the nut, the plate, the bracket and the frame, in that order. The bolt comes
+before the nut, and the plate before the bracket, because `sMADE` holds them in that order. `sMADE_slow_first` holds the
+frame, the plate, the bracket, the bolt and the nut, with the equal times in the order of `sMADE` too. `sROUTES_by_item` holds
 the pairs in the order of the items' names: M2's bolt, M1's bracket, M1's frame, M2's nut, M1's plate and M2's plate.
 M1's plate comes before M2's, because "M1" comes before "M2".
 
@@ -180,7 +180,7 @@ const auto as_item = [](cChild c) { return cItem{c}; };
 
 const auto sPARTS        = quantity.keys().select(as_item);     // the items another item takes
 const auto sPRODUCTS     = sMADE.where(!sPARTS.membership());   // the items no item takes
-const auto sNEXT_IN_PLAN = sNEXT.where(sPERIODS.membership());  // sNEXT within the plan's periods
+const auto sNEXT_in_plan = sNEXT.where(sPERIODS.membership());  // sNEXT within the plan's periods
 ```
 
 `quantity` is the bill of materials, a `ParamTable<double, cParent, cChild>`. Its `keys()` are its lines, each a
@@ -196,7 +196,7 @@ parent and a child. [Make a table from records](data-on-a-set.md#make-a-table-fr
 
 The lines take the plate, the bolt and the nut, so `sPARTS` holds these three items. `sPRODUCTS` holds the frame and
 the bracket, which no line takes. `sNEXT`, from [Make each row anew](#make-each-row-anew), holds the five items in
-periods 2, 3 and 4, and `sPERIODS` holds the periods 1, 2 and 3. `sNEXT_IN_PLAN` holds the five items in periods 2
+periods 2, 3 and 4, and `sPERIODS` holds the periods 1, 2 and 3. `sNEXT_in_plan` holds the five items in periods 2
 and 3: 10 rows.
 
 For what a membership condition reads, see [`membership`](../reference/indexset.md#indexset-membership) and
@@ -208,13 +208,13 @@ Suppose you want each machine with each item that the machine makes and that ano
 the rows of a chain whose columns are in a set, pass the set's membership to the chain's `where`:
 
 ```cpp
-const auto sPART_ROUTES = from<cMachine>(machines).lateral<cItem>(items_of).where(sPARTS.membership()).build();
+const auto sROUTES_part = from<cMachine>(machines).lateral<cItem>(items_of).where(sPARTS.membership()).build();
 ```
 
 `from<cMachine>(machines).lateral<cItem>(items_of)` makes a row for each machine and each item that the machine
 makes, and `where(sPARTS.membership())` keeps the rows whose item `sPARTS` holds.
 
-`sPARTS`, from the section above, holds the plate, the bolt and the nut. `sPART_ROUTES` holds M1 with the plate, and
+`sPARTS`, from the section above, holds the plate, the bolt and the nut. `sROUTES_part` holds M1 with the plate, and
 M2 with the plate, the bolt and the nut. M1's frame and bracket are not parts of another item, so the chain drops
 them.
 

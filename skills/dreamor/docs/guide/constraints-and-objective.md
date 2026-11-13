@@ -1,4 +1,4 @@
-<!-- Copied from docs/guide/constraints-and-objective.md (blob 9f80e5dadbec), tests/docs/highs/plan.hpp (blob af7828ef1f9b), tests/docs/highs/constraints_and_objective.cpp (blob 6f7e7d8f0197) by tools/sync_skill_docs.py - edit the source, not this copy. -->
+<!-- Copied from docs/guide/constraints-and-objective.md (blob c6231335dace), tests/docs/highs/plan.hpp (blob 001fb40119a6), tests/docs/highs/constraints_and_objective.cpp (blob 85c672b204bc) by tools/sync_skill_docs.py - edit the source, not this copy. -->
 
 # Constraints and objective
 
@@ -24,9 +24,9 @@ struct Plan {
 
   Plan(const Sets& s, const BomTable& quantity, const HighsOptions& options)
       : env{options},
-        vMake{env, s.produce, 0, max_make, HighsVarType::kContinuous, "Make"},
-        vSetup{env, s.produce, 0, 1, HighsVarType::kInteger, "Setup"},
-        vStock{env, s.stock, 0, kHighsInf, HighsVarType::kContinuous, "Stock"} {
+        vMake{env, s.PRODUCE, 0, max_make, HighsVarType::kContinuous, "Make"},
+        vSetup{env, s.PRODUCE, 0, 1, HighsVarType::kInteger, "Setup"},
+        vStock{env, s.STOCK, 0, kHighsInf, HighsVarType::kContinuous, "Stock"} {
     addBalance(s, quantity);
     addHours(s);
     addSetups(s);
@@ -42,8 +42,8 @@ struct Plan {
 
 The page also uses these names:
 
-- `s` holds the model's sets. `s.produce` holds each machine with each needed item that the machine makes, in each
-  period: 15 rows. [Match rows with a set](relational-algebra.md#match-rows-with-a-set) builds it. `s.stock` holds
+- `s` holds the model's sets. `s.PRODUCE` holds each machine with each needed item that the machine makes, in each
+  period: 15 rows. [Match rows with a set](relational-algebra.md#match-rows-with-a-set) builds it. `s.STOCK` holds
   each needed item in each period: the frame, the nut, the plate and the bolt, 12 rows.
 - `m1` and `frame` are `Ref`s to the machine M1 and the frame. [Entities](entities.md#look-an-entity-up-by-its-key)
   looks them up.
@@ -51,20 +51,20 @@ The page also uses these names:
 ## Add a row for each row of a set
 
 A machine makes an item in a period only if it is set up for the item in that period. For each row `(m, i, t)` of
-`s.produce`, the model needs the row `make(m, i, t) <= max_make(m, i) * setup(m, i, t)`. Without a setup, the machine
+`s.PRODUCE`, the model needs the row `make(m, i, t) <= max_make(m, i) * setup(m, i, t)`. Without a setup, the machine
 makes nothing. With a setup, it makes at most what fits in its hours. Loop over the set, and add a row in each pass:
 
 ```cpp
 // Nothing is made without a setup
 void addSetups(const Sets& s) {
-  for (const auto& [m, i, t] : s.produce) {
+  for (const auto& [m, i, t] : s.PRODUCE) {
     addConstr(env, vMake(m, i, t) <= max_make(m, i) * vSetup(m, i, t), dreamor::indexedName("Setup", m, i, t));
   }
 }
 
 ```
 
-- `for (const auto& [m, i, t] : s.produce)` takes each row of `s.produce`, unpacked into its machine, item and period.
+- `for (const auto& [m, i, t] : s.PRODUCE)` takes each row of `s.PRODUCE`, unpacked into its machine, item and period.
 - `vMake(m, i, t) <= max_make(m, i) * vSetup(m, i, t)` makes the row. `max_make`, the upper bound of `vMake`, returns
   the most units of the item that fit in the machine's hours. Both sides hold variables, so the row is
   `make - max_make * setup <= 0`.
@@ -72,7 +72,7 @@ void addSetups(const Sets& s) {
   a `VarTable` names its variables.
 - `addConstr(env, row, name)` adds the row to the model of `env`.
 
-The plan has 15 setup rows, one for each row of `s.produce`. M2 has 3 hours in a period, and a nut takes 0.1 hours, so
+The plan has 15 setup rows, one for each row of `s.PRODUCE`. M2 has 3 hours in a period, and a nut takes 0.1 hours, so
 M2 makes at most 30 nuts in a period. The row `Setup_M2_nut_3` is `make(M2, nut, 3) - 30 * setup(M2, nut, 3) <= 0`.
 
 For what each call takes, see [`addConstr`](../reference/dreamor-highs.md#addconstr),
@@ -83,13 +83,13 @@ how a value is written in a name, see [Names and logging](names-and-logging.md).
 
 Each machine works no more hours in a period than it has. For each machine `m` and period `t`, the model needs the row
 `Σ_{i | (m, i, t) ∈ produce} time(i) * make(m, i, t) <= capacity(m)`. The sum runs over one machine's rows of
-`s.produce` in one period, so loop over the groups of those rows:
+`s.PRODUCE` in one period, so loop over the groups of those rows:
 
 ```cpp
 // The hours each machine works in a period, up to its capacity
 void addHours(const Sets& s) {
   const auto hours = [this](cMachine m, cItem i, cPeriod t) { return i->time * vMake(m, i, t); };
-  for (const auto& [m, t, rows] : s.produce.groupBy<cMachine, cPeriod>()) {
+  for (const auto& [m, t, rows] : s.PRODUCE.groupBy<cMachine, cPeriod>()) {
     addConstr(env, sumExpr(rows, hours).build() <= m->capacity, dreamor::indexedName("Hours", m, t));
   }
 }
@@ -97,7 +97,7 @@ void addHours(const Sets& s) {
 ```
 
 - `hours` returns the hours of one row: the hours that a unit of the item takes, times the units made.
-- `s.produce.groupBy<cMachine, cPeriod>()` groups the rows of `s.produce` by their machine and their period. The loop
+- `s.PRODUCE.groupBy<cMachine, cPeriod>()` groups the rows of `s.PRODUCE` by their machine and their period. The loop
   unpacks each group into its machine `m`, its period `t` and its `rows`.
 - `sumExpr(rows, hours).build() <= m->capacity` makes a row with the machine's hours as its upper bound.
 
@@ -110,7 +110,7 @@ For how to group a set, see [Grouping](grouping.md). For the sum over a group, s
 
 ## Read the period before where there is one
 
-An item's stock carries from one period to the next. For each row `(i, t)` of `s.stock`, the model needs the balance
+An item's stock carries from one period to the next. For each row `(i, t)` of `s.STOCK`, the model needs the balance
 `stock(i, t - 1) + made(i, t) - taken(i, t) - stock(i, t) = demand(i, t)`. `made(i, t)` is what every machine makes
 of `i` in period `t`, and `taken(i, t)` is what the parents made in period `t` take of `i`. Period 1 has no period
 before it, so its balance has no stock carried in:
@@ -118,11 +118,11 @@ before it, so its balance has no stock carried in:
 ```cpp
 // Stock carried in + made - what customers take - what the parents made take = stock carried out
 void addBalance(const Sets& s, const BomTable& quantity) {
-  const auto madeByItemPeriod = s.produce.groupBy<cItem, cPeriod>();
-  const auto takenByChild     = s.consume.groupBy<cChild, cPeriod>();
+  const auto madeByItemPeriod = s.PRODUCE.groupBy<cItem, cPeriod>();
+  const auto takenByChild     = s.CONSUME.groupBy<cChild, cPeriod>();
   const auto taken = [&](cParent a, cChild b, cMachine m, cPeriod t) { return quantity(a, b) * vMake(m, a, t); };
-  const auto orderedPeriods = s.periods.ordered();
-  for (const auto& [i, t] : s.stock) {
+  const auto orderedPeriods = s.PERIODS.ordered();
+  for (const auto& [i, t] : s.STOCK) {
     HighsLinearExpression inflow = sumExpr(madeByItemPeriod.slice(i, t), vMake).build();
     if (const auto* before = orderedPeriods.prev(t)) { inflow += vStock(i, *before); }
     const auto used = sumExpr(takenByChild.slice(i, t), taken).build();
@@ -134,7 +134,7 @@ void addBalance(const Sets& s, const BomTable& quantity) {
 
 - The two sums make `made(i, t)` and `taken(i, t)`.
   [Add up what the parents take](sums.md#add-up-what-the-parents-take) shows how.
-- `s.periods.ordered()` reads the periods in their order. `orderedPeriods.prev(t)` returns a pointer to the period
+- `s.PERIODS.ordered()` reads the periods in their order. `orderedPeriods.prev(t)` returns a pointer to the period
   before `t`, or a null pointer in period 1.
 - `if (const auto* before = ...)` adds `vStock(i, *before)`, the stock carried in, to `inflow` only if there is a
   period before.
@@ -227,14 +227,14 @@ cost of holding, `Σ_{(i, t) ∈ stock} hold(i) * stock(i, t)`, plus the cost of
 void setCost(const Sets& s) {
   const auto holding = [this](cItem i, cPeriod t) { return i->hold * vStock(i, t); };
   const auto setups  = [this](cMachine m, cItem i, cPeriod t) { return m->setup * vSetup(m, i, t); };
-  setObjective(env, sumExpr(s.stock, holding).build() + sumExpr(s.produce, setups).build(), ObjSense::kMinimize);
+  setObjective(env, sumExpr(s.STOCK, holding).build() + sumExpr(s.PRODUCE, setups).build(), ObjSense::kMinimize);
 }
 
 ```
 
-- `holding` returns the cost of one row of `s.stock`: the cost of holding a unit of the item for a period, times the
+- `holding` returns the cost of one row of `s.STOCK`: the cost of holding a unit of the item for a period, times the
   stock.
-- `setups` returns the cost of one row of `s.produce`: the machine's cost of a setup, times the setup variable.
+- `setups` returns the cost of one row of `s.PRODUCE`: the machine's cost of a setup, times the setup variable.
 - Each sum is built, and `+` adds the two expressions.
 - `setObjective(env, ..., ObjSense::kMinimize)` sets the expression as the objective, and has HiGHS minimize it.
 
@@ -248,10 +248,10 @@ For what an objective may be, see [`setObjective`](../reference/dreamor-highs.md
 Suppose you want, instead, the plan that keeps the least stock, and you want to solve the model at once:
 
 ```cpp
-const HighsStatus status = minimize(plan.env, sumExpr(s.stock, plan.vStock).build());  // the least stock held
+const HighsStatus status = minimize(plan.env, sumExpr(s.STOCK, plan.vStock).build());  // the least stock held
 ```
 
-- `sumExpr(s.stock, plan.vStock).build()` adds up every stock variable.
+- `sumExpr(s.STOCK, plan.vStock).build()` adds up every stock variable.
 - `minimize` sets the expression as the objective to minimize, runs HiGHS, and returns the status that `run()`
   returns.
 

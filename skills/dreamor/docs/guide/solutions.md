@@ -1,4 +1,4 @@
-<!-- Copied from docs/guide/solutions.md (blob a41aad86bfda), tests/docs/highs/solutions.cpp (blob faddd8871e3f) by tools/sync_skill_docs.py - edit the source, not this copy. -->
+<!-- Copied from docs/guide/solutions.md (blob eba1627a0842), tests/docs/highs/solutions.cpp (blob 197eb66d0416) by tools/sync_skill_docs.py - edit the source, not this copy. -->
 
 # Solutions
 
@@ -9,8 +9,8 @@ the values, so you can read it after the model and the solver are gone.
 
 The examples solve the [guide's model](index.md) on HiGHS:
 
-- `s` holds the model's sets. `s.produce` holds each machine with each needed item that the machine makes, in each
-  period: 15 rows. [Match rows with a set](relational-algebra.md#match-rows-with-a-set) builds it. `s.stock` holds
+- `s` holds the model's sets. `s.PRODUCE` holds each machine with each needed item that the machine makes, in each
+  period: 15 rows. [Match rows with a set](relational-algebra.md#match-rows-with-a-set) builds it. `s.STOCK` holds
   each needed item in each period. The needed items are the frame, the plate, the bolt and the nut.
 - `quantity` is the bill of materials, a `ParamTable<double, cParent, cChild>`.
 - `highs::Plan` is the guide's plan on HiGHS. Its `env` holds the model, `vMake` holds how much a machine makes of an
@@ -57,10 +57,10 @@ const double same = made(row);  // 2, read by a row of the set
 ```
 
 - `made(m1, frame, 2)` returns the value of the row that M1, the frame and period 2 identify.
-- `row` is a row of `s.produce`: M1, the frame and period 3. `made(row)` reads the value by the whole row,
+- `row` is a row of `s.PRODUCE`: M1, the frame and period 3. `made(row)` reads the value by the whole row,
   of the type that a loop over the set gives you.
 
-`made` holds a value for each of the 15 rows of `s.produce`, the set of `vMake`. M1 is the only machine that makes
+`made` holds a value for each of the 15 rows of `s.PRODUCE`, the set of `vMake`. M1 is the only machine that makes
 the frame. The plan makes each period's frames in that period: 1 frame in period 1, and 2 frames in each of periods
 2 and 3. So `frames` and `same` are both 2.
 
@@ -91,7 +91,7 @@ for (const auto& [row, units] : made) {
 - `std::format` writes each `Ref` as its entity's primary key, and `{:g}` writes a whole number without a decimal
   point.
 
-`lines` follows the order of `s.produce`, which lists M1 before M2 and M1's items in the order of M1's `items`, the
+`lines` follows the order of `s.PRODUCE`, which lists M1 before M2 and M1's items in the order of M1's `items`, the
 frame first. So `lines` starts with M1's frames: `M1 makes 1 frame in period 1`, `M1 makes 2 frame in period 2` and
 `M1 makes 2 frame in period 3`. The next line is `M1 makes 6 plate in period 1`. M1 makes no plates in periods 2 and
 3, so those rows have no line: the next line is `M2 makes 4 plate in period 3`. The last line is
@@ -108,17 +108,17 @@ Here `plan` is a `highs::Plan` that HiGHS has solved:
 ```cpp
 using dreamor::index_set::relational::from;
 const auto after_period_1 = [](cPeriod t) { return t == 1; };
-const auto sOPENING       = from(s.stock).where(after_period_1).build();  // each item at period 1's end
+const auto sSTOCK_opening = from(s.STOCK).where(after_period_1).build();  // each item at period 1's end
 
 const auto kept = plan.vStock.solution(plan.env);
-const dreamor::ParamTable<double, cItem, cPeriod> opening{sOPENING, kept};  // the next plan's opening stock
+const dreamor::ParamTable<double, cItem, cPeriod> opening{sSTOCK_opening, kept};  // the next plan's opening stock
 ```
 
 - `after_period_1` is a column callable, a lambda whose parameters are columns. It is true for period 1.
-- `from(s.stock)` starts a chain with the rows of `s.stock` and its columns, `cItem` and `cPeriod`.
-  `where(after_period_1)` keeps the rows of period 1, so `sOPENING` holds each needed item at the end of period 1.
+- `from(s.STOCK)` starts a chain with the rows of `s.STOCK` and its columns, `cItem` and `cPeriod`.
+  `where(after_period_1)` keeps the rows of period 1, so `sSTOCK_opening` holds each needed item at the end of period 1.
 - `plan.vStock.solution(plan.env)` returns the stock of each needed item at the end of each period.
-- The `ParamTable` constructor calls `kept` with each row of `sOPENING`, and copies the value that `kept` returns. A
+- The `ParamTable` constructor calls `kept` with each row of `sSTOCK_opening`, and copies the value that `kept` returns. A
   `SolutionTable` is a column callable over its key columns, so the constructor takes it where it takes a callable.
 
 `opening` holds the stock of the frame, the plate, the bolt and the nut at the end of period 1. The plan keeps 4

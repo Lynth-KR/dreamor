@@ -106,11 +106,11 @@ inline BomTable bomTable(const Plant& p) {
 // The model's sets, written twice - as chains and in set-builder notation - to the same rows: what each machine makes
 // of what is needed, in each period; what can be kept; what each parent made takes.
 struct Sets {
-  dreamor::IndexSet<cItem> needed;  // what is sold, and every part below it
-  dreamor::IndexSet<cPeriod> periods;
-  dreamor::IndexSet<cMachine, cItem, cPeriod> produce;            // what each machine can make, in each period
-  dreamor::IndexSet<cItem, cPeriod> stock;                        // what can be kept
-  dreamor::IndexSet<cParent, cChild, cMachine, cPeriod> consume;  // a parent made on a machine, and each child it takes
+  dreamor::IndexSet<cItem> NEEDED;  // what is sold, and every part below it
+  dreamor::IndexSet<cPeriod> PERIODS;
+  dreamor::IndexSet<cMachine, cItem, cPeriod> PRODUCE;            // what each machine can make, in each period
+  dreamor::IndexSet<cItem, cPeriod> STOCK;                        // what can be kept
+  dreamor::IndexSet<cParent, cChild, cMachine, cPeriod> CONSUME;  // a parent made on a machine, and each child it takes
 };
 
 inline Sets byChain(const Plant& p, const BomTable& quantity) {

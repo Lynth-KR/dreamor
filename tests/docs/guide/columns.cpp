@@ -153,16 +153,16 @@ void readsColumns(const Plant& p, const MakeSet& sMAKE) {
   // --8<-- [start:reads]
   const auto is_sold = [](const auto& item) { return std::ranges::max(item->demand) > 0; };  // a cItem or a cChild
 
-  const auto sMADE_SOLD = sMAKE.where(dreamor::reads<cItem>(is_sold));             // rows whose item is sold
-  const auto sSOLD_PART = quantity.keys().where(dreamor::reads<cChild>(is_sold));  // parts that are sold too
+  const auto sMAKE_sold     = sMAKE.where(dreamor::reads<cItem>(is_sold));             // rows whose item is sold
+  const auto sBOM_part_sold = quantity.keys().where(dreamor::reads<cChild>(is_sold));  // parts that are sold too
   // --8<-- [end:reads]
   const auto frame = p.items.at("frame");
   const auto nut   = p.items.at("nut");
   // Sold: the frame (1, 2, 2) and the nut (5 in period 2). sMAKE has no frame row (a batch does not fit M1), so its
   // sold rows are the nut's on M2; the nut is the one part that customers also buy.
-  DREAMOR_CHECK(sMADE_SOLD.size() == 3 && sMADE_SOLD.contains(p.machines.at("M2"), nut, 2));
+  DREAMOR_CHECK(sMAKE_sold.size() == 3 && sMAKE_sold.contains(p.machines.at("M2"), nut, 2));
   DREAMOR_CHECK(!sMAKE.contains(p.machines.at("M1"), frame, 1));
-  DREAMOR_CHECK(sSOLD_PART.size() == 1 && std::get<cChild>(*sSOLD_PART.begin()) == nut);
+  DREAMOR_CHECK(sBOM_part_sold.size() == 1 && std::get<cChild>(*sBOM_part_sold.begin()) == nut);
 }
 
 // A row is a std::tuple of its columns: a structured binding names them all, std::get takes one by its type.
@@ -242,19 +242,19 @@ void ownType(const Plant& p) {
   const auto with_hours = [](cItem i) { return std::tuple<cItem, cHours>{i, Hours{i->time}}; };
   const auto by_hours   = [](cHours h) { return h.get().value; };
 
-  const auto sHOURS_OF = from<cItem>(p.items).build().select(with_hours);                    // each item with its hours
-  const auto sSTEPS    = sHOURS_OF.select<cHours>().orderBy(by_hours, dreamor::descending);  // each value once
+  const auto sITEM_HOURS = from<cItem>(p.items).build().select(with_hours);  // each item with its hours
+  const auto sSTEPS      = sITEM_HOURS.select<cHours>().orderBy(by_hours, dreamor::descending);  // each value once
 
-  const auto itemsByHours = sHOURS_OF.groupBy<cHours>();
+  const auto itemsByHours = sITEM_HOURS.groupBy<cHours>();
   const std::size_t quick = itemsByHours.slice(Hours{0.1}).size();
   const std::string top   = dreamor::indexedName("Step", *sSTEPS.begin());
   // --8<-- [end:own-type-sets]
-  static_assert(std::is_same_v<decltype(sHOURS_OF), const dreamor::IndexSet<cItem, cHours>>);
+  static_assert(std::is_same_v<decltype(sITEM_HOURS), const dreamor::IndexSet<cItem, cHours>>);
   static_assert(std::is_same_v<decltype(sSTEPS), const dreamor::IndexSet<cHours>>);
   // Five items: the frame takes 1 hour, the plate and the bracket 0.5, the bolt and the nut 0.1.
-  DREAMOR_CHECK(sHOURS_OF.size() == 5);
-  DREAMOR_CHECK(sHOURS_OF.contains(p.items.at("bolt"), Hours{0.1}) &&
-                sHOURS_OF.contains(p.items.at("frame"), Hours{1.0}));
+  DREAMOR_CHECK(sITEM_HOURS.size() == 5);
+  DREAMOR_CHECK(sITEM_HOURS.contains(p.items.at("bolt"), Hours{0.1}) &&
+                sITEM_HOURS.contains(p.items.at("frame"), Hours{1.0}));
   // Three distinct values, the largest first.
   DREAMOR_CHECK(sSTEPS.size() == 3);
   auto step = sSTEPS.begin();

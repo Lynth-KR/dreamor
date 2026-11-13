@@ -31,7 +31,7 @@ void grouping(const Plant& p) {
   const dreamor::EntityVector<Item>& items       = p.items;
   const dreamor::EntityVector<Machine>& machines = p.machines;
   const Sets sets                                = byChain(p, bomTable(p));
-  const Produce& sPRODUCE                        = sets.produce;
+  const Produce& sPRODUCE                        = sets.PRODUCE;
   const auto m1                                  = machines.at("M1");
   const auto m2                                  = machines.at("M2");
 
@@ -89,11 +89,11 @@ void grouping(const Plant& p) {
   DREAMOR_CHECK_THROWS(std::out_of_range, byMachinePeriod.at(byMachinePeriod.size()));
 
   // --8<-- [start:regrouped]
-  const auto sBY_PERIOD = sPRODUCE.groupBy<cPeriod>().regrouped();  // period 1's rows, then 2's, then 3's
+  const auto sPRODUCE_by_period = sPRODUCE.groupBy<cPeriod>().regrouped();  // period 1's rows, then 2's, then 3's
   // --8<-- [end:regrouped]
-  static_assert(std::is_same_v<decltype(sBY_PERIOD), const Produce>);
-  DREAMOR_CHECK(sBY_PERIOD == sPRODUCE);  // the same rows, in another order
-  const std::vector<Produce::value_type> regrouped(sBY_PERIOD.begin(), sBY_PERIOD.end());
+  static_assert(std::is_same_v<decltype(sPRODUCE_by_period), const Produce>);
+  DREAMOR_CHECK(sPRODUCE_by_period == sPRODUCE);  // the same rows, in another order
+  const std::vector<Produce::value_type> regrouped(sPRODUCE_by_period.begin(), sPRODUCE_by_period.end());
   // 5 rows a period; within a period, the set's order: M1's frame and plate, M2's plate, bolt and nut
   DREAMOR_CHECK(regrouped[0] == Produce::value_type{m1, items.at("frame"), 1});
   DREAMOR_CHECK(regrouped[1] == Produce::value_type{m1, items.at("plate"), 1});

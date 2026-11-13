@@ -51,7 +51,7 @@ void orderedSets(const Plant& p) {
   const Sets s                                   = byChain(p, bomTable(p));
 
   // --8<-- [start:positions]
-  const auto orderedPeriods = s.periods.ordered();
+  const auto orderedPeriods = s.PERIODS.ordered();
 
   const std::optional<std::size_t> position = orderedPeriods.positionOf(2);  // 1: positions count from 0
   const auto& [opening]                     = orderedPeriods.first();        // period 1
@@ -71,7 +71,7 @@ void orderedSets(const Plant& p) {
   // --8<-- [start:prev]
   const auto frame = items.at("frame");
   std::vector<double> soldBy(periods);  // the frames sold up to period t, at [t - 1]
-  for (const auto& [t] : s.periods) {
+  for (const auto& [t] : s.PERIODS) {
     soldBy[t - 1] = frame->demand[t - 1];
     if (const auto* before = orderedPeriods.prev(t)) {
       const auto& [earlier] = *before;
@@ -88,12 +88,12 @@ void orderedSets(const Plant& p) {
   const auto not_first = [&orderedPeriods](cPeriod t) { return !orderedPeriods.isFirst(t); };
 
   std::vector<std::tuple<cItem, cPeriod, double>> changes;  // the change in demand from the period before
-  for (const auto& [i, t] : s.stock.where(not_first)) {     // each item kept, in every period but the first
+  for (const auto& [i, t] : s.STOCK.where(not_first)) {     // each item kept, in every period but the first
     const auto& [earlier] = orderedPeriods.prevOf(t);
     changes.emplace_back(i, t, i->demand[t - 1] - i->demand[earlier - 1]);
   }
   // --8<-- [end:where-neighbour]
-  DREAMOR_CHECK(s.stock.size() == 12);  // the 4 needed items - frame, nut, plate, bolt - in 3 periods each
+  DREAMOR_CHECK(s.STOCK.size() == 12);  // the 4 needed items - frame, nut, plate, bolt - in 3 periods each
   DREAMOR_CHECK(changes.size() == 8);   // the 4 items in periods 2 and 3, frame first
   DREAMOR_CHECK(changes.front() == std::tuple<cItem, cPeriod, double>{items.at("frame"), cPeriod{2}, 1.0});
   const auto has_change = [&changes](const std::tuple<cItem, cPeriod, double>& change) {
@@ -114,7 +114,7 @@ void orderedSets(const Plant& p) {
 
   // --8<-- [start:cyclic]
   std::vector<double> soldBefore(periods);  // the frames sold the period before t; the horizon repeats
-  for (const auto& [t] : s.periods) {
+  for (const auto& [t] : s.PERIODS) {
     const auto& [earlier] = *orderedPeriods.prevCyclic(t);  // before period 1, period 3
     soldBefore[t - 1]     = frame->demand[earlier - 1];
   }

@@ -1,4 +1,4 @@
-<!-- Copied from docs/guide/set-builder-notation.md (blob 7ccb23375c72), tests/docs/guide/set_builder_notation.cpp (blob 5bc81b985dc5), tests/docs/guide/model.hpp (blob b2d1db7441b4) by tools/sync_skill_docs.py - edit the source, not this copy. -->
+<!-- Copied from docs/guide/set-builder-notation.md (blob 45441e64cdbe), tests/docs/guide/set_builder_notation.cpp (blob 919b22a43b4c), tests/docs/guide/model.hpp (blob 906d31015f4d) by tools/sync_skill_docs.py - edit the source, not this copy. -->
 
 # Set-builder notation
 
@@ -110,7 +110,7 @@ columns of the set and their order. Here the generators of `sSERVE`, from the fi
 with the periods first:
 
 ```cpp
-const auto sSERVE_TOO =
+const auto sSERVE_any_order =
     of<cMachine, cItem, cPeriod>(in<cPeriod>(periods), in<cMachine>(p.machines), in<cItem>(items_of))
         .where(in_demand)
         .build();
@@ -120,9 +120,9 @@ const auto sSERVE_TOO =
 still comes after `in<cMachine>(p.machines)`, because a generator whose callable reads a column comes after the
 generator that binds the column.
 
-`sSERVE_TOO` holds the same rows as `sSERVE`, with its columns in the order of the head. `build()` chooses the order in
+`sSERVE_any_order` holds the same rows as `sSERVE`, with its columns in the order of the head. `build()` chooses the order in
 which it reads the sources, whatever the order in which you write the generators: both sets read the periods, then
-the machines, then each machine's items. So even the rows of `sSERVE_TOO` come in the order of the rows of `sSERVE`.
+the machines, then each machine's items. So even the rows of `sSERVE_any_order` come in the order of the rows of `sSERVE`.
 
 For the rules of the head and the generators, see [`of`](../reference/set-builder-notation.md#of) and
 [`in`](../reference/set-builder-notation.md#in). For the order in which `build()` reads the sources, see

@@ -1,4 +1,4 @@
-<!-- Copied from docs/guide/data-on-a-set.md (blob 52f2d327c53b), tests/docs/guide/data_on_a_set.cpp (blob 8f78a4f1b0d8), tests/docs/guide/model.hpp (blob b2d1db7441b4) by tools/sync_skill_docs.py - edit the source, not this copy. -->
+<!-- Copied from docs/guide/data-on-a-set.md (blob 52f2d327c53b), tests/docs/guide/data_on_a_set.cpp (blob 8f78a4f1b0d8), tests/docs/guide/model.hpp (blob 906d31015f4d) by tools/sync_skill_docs.py - edit the source, not this copy. -->
 
 # Data on a set
 

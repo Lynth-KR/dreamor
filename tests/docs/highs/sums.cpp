@@ -81,16 +81,16 @@ void sums(const Plant& p) {
   // --8<-- [start:over-a-set]
   const auto hours = [&vMake](cMachine m, cItem i, cPeriod t) { return i->time * vMake(m, i, t); };
 
-  const HighsLinearExpression totalHours = sumExpr(s.produce, hours).build();  // the hours of every run
+  const HighsLinearExpression totalHours = sumExpr(s.PRODUCE, hours).build();  // the hours of every run
   // --8<-- [end:over-a-set]
-  static_assert(!std::is_convertible_v<decltype(sumExpr(s.produce, hours)), HighsLinearExpression>);
+  static_assert(!std::is_convertible_v<decltype(sumExpr(s.PRODUCE, hours)), HighsLinearExpression>);
   // A term for each of produce's 15 rows, each the item's hours on its variable.
   DREAMOR_CHECK(totalHours.size() == 15 && termsOf(totalHours).size() == 15);
   DREAMOR_CHECK(exactlyEqual(termsOf(totalHours).at(vMake(m1, frame, 1).index()), 1.0));
   DREAMOR_CHECK(exactlyEqual(termsOf(totalHours).at(vMake(m2, nut, 3).index()), 0.1));
 
   // --8<-- [start:slice]
-  const auto byMachinePeriod = s.produce.groupBy<cMachine, cPeriod>();
+  const auto byMachinePeriod = s.PRODUCE.groupBy<cMachine, cPeriod>();
 
   const HighsLinearExpression m2Hours = sumExpr(byMachinePeriod.slice(m2, 1), hours).build();  // M2 in period 1
   // --8<-- [end:slice]
@@ -114,7 +114,7 @@ void sums(const Plant& p) {
   DREAMOR_CHECK(rowBoundsAre(highs, "Hours_M2_1", -kHighsInf, 3.0));  // up to M2's 3 hours
 
   // --8<-- [start:table-term]
-  const auto byMachine = s.produce.groupBy<cMachine>();
+  const auto byMachine = s.PRODUCE.groupBy<cMachine>();
 
   const HighsLinearExpression m2Stock = sumExpr(byMachine.slice(m2), vStock).build();  // what M2 makes, kept
   // --8<-- [end:table-term]
@@ -136,23 +136,23 @@ void sums(const Plant& p) {
   };
   DREAMOR_CHECK(rowNamed(highs, "Balance_plate_1") == plateBalance);
   DREAMOR_CHECK(rowBoundsAre(highs, "Balance_plate_1", 0.0, 0.0));  // customers buy no plates
-  // The bracket is not needed, so s.produce makes none, and s.consume holds none of its lines.
+  // The bracket is not needed, so s.PRODUCE makes none, and s.CONSUME holds none of its lines.
   const auto bracket = p.items.at("bracket");
   bool bracketMade   = false;
-  for (const auto& [parent, child, machine, period] : s.consume) {
+  for (const auto& [parent, child, machine, period] : s.CONSUME) {
     bracketMade = bracketMade || parent == bracket;
   }
-  DREAMOR_CHECK(!bracketMade && !s.consume.contains(cParent{bracket}, cChild{plate}, m1, 1));
+  DREAMOR_CHECK(!bracketMade && !s.CONSUME.contains(cParent{bracket}, cChild{plate}, m1, 1));
 
   // --8<-- [start:where]
   const auto in_period_1 = [](cPeriod t) { return t == 1; };
   const auto is_sold     = [](cItem i) { return std::ranges::max(i->demand) > 0; };
   const auto is_unsold   = [&is_sold](cItem i) { return !is_sold(i); };
 
-  const HighsLinearExpression firstHours = sumExpr(s.produce, hours).where(in_period_1).build();
-  const auto [soldHours, unsoldHours]    = sumExpr(s.produce, hours).whereEach(is_sold, is_unsold).build();
+  const HighsLinearExpression firstHours = sumExpr(s.PRODUCE, hours).where(in_period_1).build();
+  const auto [soldHours, unsoldHours]    = sumExpr(s.PRODUCE, hours).whereEach(is_sold, is_unsold).build();
   // --8<-- [end:where]
-  static_assert(std::is_same_v<decltype(sumExpr(s.produce, hours).whereEach(is_sold, is_unsold).build()),
+  static_assert(std::is_same_v<decltype(sumExpr(s.PRODUCE, hours).whereEach(is_sold, is_unsold).build()),
                                std::array<HighsLinearExpression, 2>>);
   // Period 1: M1's frame and plate, M2's plate, bolt and nut. Sold: the frame (M1) and the nut (M2) in 3 periods;
   // unsold: M1's plate, M2's plate and bolt in 3 periods.

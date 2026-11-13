@@ -38,18 +38,18 @@ void write(const Plant& p) {
 
   // The chain that writes the same set.
   using dreamor::index_set::relational::from;
-  const auto sSERVE_CHAIN =
+  const auto sSERVE_by_chain =
       from<cMachine>(p.machines).lateral<cItem>(items_of).cross<cPeriod>(periods).where(in_demand).build();
-  DREAMOR_CHECK(sSERVE == sSERVE_CHAIN);
+  DREAMOR_CHECK(sSERVE == sSERVE_by_chain);
 
   // --8<-- [start:any-order]
-  const auto sSERVE_TOO =
+  const auto sSERVE_any_order =
       of<cMachine, cItem, cPeriod>(in<cPeriod>(periods), in<cMachine>(p.machines), in<cItem>(items_of))
           .where(in_demand)
           .build();
   // --8<-- [end:any-order]
-  static_assert(std::is_same_v<decltype(sSERVE_TOO), const dreamor::IndexSet<cMachine, cItem, cPeriod>>);
-  DREAMOR_CHECK(sSERVE_TOO == sSERVE);
+  static_assert(std::is_same_v<decltype(sSERVE_any_order), const dreamor::IndexSet<cMachine, cItem, cPeriod>>);
+  DREAMOR_CHECK(sSERVE_any_order == sSERVE);
   // build() reads the sources in one order for both, whatever the order written, so the rows come in one order too.
   using Serve =
       decltype(of<cMachine, cItem, cPeriod>(in<cMachine>(p.machines), in<cItem>(items_of), in<cPeriod>(periods))
@@ -59,7 +59,7 @@ void write(const Plant& p) {
                    .where(in_demand));
   static_assert(Serve::visitOrder() == "cPeriod, cMachine, cItem" &&
                 ServeToo::visitOrder() == "cPeriod, cMachine, cItem");
-  DREAMOR_CHECK(std::ranges::equal(sSERVE_TOO, sSERVE));
+  DREAMOR_CHECK(std::ranges::equal(sSERVE_any_order, sSERVE));
 }
 
 void bindTogether(const Plant& p) {
@@ -117,12 +117,12 @@ void modelSets(const Plant& p) {
   const Sets chains       = byChain(p, quantity);
   const Sets written      = bySetBuilder(p, quantity);
   // Each set equals its namesake in the other notation.
-  DREAMOR_CHECK(chains.needed == written.needed);  // the frame, the nut, the plate and the bolt
-  DREAMOR_CHECK(chains.periods == written.periods && chains.produce == written.produce);
-  DREAMOR_CHECK(chains.stock == written.stock && chains.consume == written.consume);
+  DREAMOR_CHECK(chains.NEEDED == written.NEEDED);  // the frame, the nut, the plate and the bolt
+  DREAMOR_CHECK(chains.PERIODS == written.PERIODS && chains.PRODUCE == written.PRODUCE);
+  DREAMOR_CHECK(chains.STOCK == written.STOCK && chains.CONSUME == written.CONSUME);
 
-  const dreamor::IndexSet<cMachine, cItem, cPeriod>& sPRODUCE           = written.produce;
-  const dreamor::IndexSet<cParent, cChild, cMachine, cPeriod>& sCONSUME = written.consume;
+  const dreamor::IndexSet<cMachine, cItem, cPeriod>& sPRODUCE           = written.PRODUCE;
+  const dreamor::IndexSet<cParent, cChild, cMachine, cPeriod>& sCONSUME = written.CONSUME;
   const cMachine m1                                                     = p.machines.at("M1");
   const cMachine m2                                                     = p.machines.at("M2");
   // The bracket is not needed: M1's frame and plate, M2's plate, bolt and nut, in 3 periods each.

@@ -96,7 +96,10 @@ ported `mathopt_samples/`, the code that uses dreamor, in Google's format by han
 and the benchmarks' dreamor models. Review holds it; `examples/.clang-tidy` turns the library's naming check off.
 
 - **Names.** Columns `cPascalCase`, sets `sSCREAMING_SNAKE`, variable families `vPascalCase`; callables that take
-  columns in `snake_case`; everything else in `camelCase`.
+  columns in `snake_case`; everything else in `camelCase`. A set's name is a base and its qualifiers, `sROUTES_by_item`
+  (philosophy.md, "Names in these pages"). A member of a struct that holds one kind - the guide's
+  `Sets` - drops the prefix and keeps the case (`s.PRODUCE`): the struct says the kind (philosophy.md, "Names in these
+  pages"). A class where kinds meet, such as `Plan` with its environment and families, keeps the prefixes.
 - **Named callables.** The model code here names its callables - a local variable, or a `static constexpr` member
   or namespace-scope constant where there is no local scope (a constructor's member-init list) - and passes them by
   name: to `where`, `sumExpr`, a VarTable's bounds, `IndexSet{records, row_of}`. It shows the form recommended for a

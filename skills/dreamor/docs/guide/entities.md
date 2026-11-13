@@ -1,4 +1,4 @@
-<!-- Copied from docs/guide/entities.md (blob 3203778a36db), tests/docs/guide/model.hpp (blob b2d1db7441b4), tests/docs/guide/entities.cpp (blob 0fdf302ed92b) by tools/sync_skill_docs.py - edit the source, not this copy. -->
+<!-- Copied from docs/guide/entities.md (blob 3203778a36db), tests/docs/guide/model.hpp (blob 906d31015f4d), tests/docs/guide/entities.cpp (blob 0fdf302ed92b) by tools/sync_skill_docs.py - edit the source, not this copy. -->
 
 # Entities
 

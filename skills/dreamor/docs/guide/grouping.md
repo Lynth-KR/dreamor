@@ -1,4 +1,4 @@
-<!-- Copied from docs/guide/grouping.md (blob 17050b88511c), tests/docs/guide/grouping.cpp (blob a82fa97bf089) by tools/sync_skill_docs.py - edit the source, not this copy. -->
+<!-- Copied from docs/guide/grouping.md (blob 03997a9f4580), tests/docs/guide/grouping.cpp (blob b1e2d9d3b20c) by tools/sync_skill_docs.py - edit the source, not this copy. -->
 
 # Grouping
 
@@ -110,15 +110,15 @@ every row of period 3. `sPRODUCE` holds its rows item by item, with each item's 
 out group by group, call `regrouped()`:
 
 ```cpp
-const auto sBY_PERIOD = sPRODUCE.groupBy<cPeriod>().regrouped();  // period 1's rows, then 2's, then 3's
+const auto sPRODUCE_by_period = sPRODUCE.groupBy<cPeriod>().regrouped();  // period 1's rows, then 2's, then 3's
 ```
 
 `groupBy<cPeriod>()` groups the rows by period, and `regrouped()` returns a new set with the rows of each group
 together. The new set does not refer into the `Grouped`, so the `Grouped` needs no variable.
 
-`sBY_PERIOD` holds the five rows of period 1 first: M1's frame and plate, then M2's plate, bolt and nut, in the order
-of `sPRODUCE`. The rows of period 2 come next, then the rows of period 3. `sBY_PERIOD` holds the same rows as
-`sPRODUCE` in another order, so `sBY_PERIOD == sPRODUCE` is true.
+`sPRODUCE_by_period` holds the five rows of period 1 first: M1's frame and plate, then M2's plate, bolt and nut, in the order
+of `sPRODUCE`. The rows of period 2 come next, then the rows of period 3. `sPRODUCE_by_period` holds the same rows as
+`sPRODUCE` in another order, so `sPRODUCE_by_period == sPRODUCE` is true.
 
 For the order of the new set's rows, see [`regrouped`](../reference/grouped.md#grouped-regrouped).
 

@@ -1,4 +1,4 @@
-<!-- Copied from docs/guide/set-algebra.md (blob 4c354edc25ee), tests/docs/guide/set_algebra.cpp (blob 860e834d0d55), tests/docs/guide/model.hpp (blob b2d1db7441b4) by tools/sync_skill_docs.py - edit the source, not this copy. -->
+<!-- Copied from docs/guide/set-algebra.md (blob 4c354edc25ee), tests/docs/guide/set_algebra.cpp (blob e0b5e7d0c1cb), tests/docs/guide/model.hpp (blob 906d31015f4d) by tools/sync_skill_docs.py - edit the source, not this copy. -->
 
 # Set algebra
 

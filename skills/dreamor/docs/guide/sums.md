@@ -1,4 +1,4 @@
-<!-- Copied from docs/guide/sums.md (blob 34f552bfcb72), tests/docs/highs/sums.cpp (blob 9b202fd50bef), tests/docs/highs/plan.hpp (blob af7828ef1f9b) by tools/sync_skill_docs.py - edit the source, not this copy. -->
+<!-- Copied from docs/guide/sums.md (blob 7dec38fc6778), tests/docs/highs/sums.cpp (blob bfe79aee77ea), tests/docs/highs/plan.hpp (blob 001fb40119a6) by tools/sync_skill_docs.py - edit the source, not this copy. -->
 
 # Sums
 
@@ -9,7 +9,7 @@ expression, which on HiGHS is a `HighsLinearExpression`.
 
 The examples use the [guide's model](index.md) on HiGHS:
 
-- `s` holds the model's sets. `s.produce` holds each machine with each needed item that the machine makes, in each
+- `s` holds the model's sets. `s.PRODUCE` holds each machine with each needed item that the machine makes, in each
   period: M1 with the frame and the plate, and M2 with the plate, the bolt and the nut, each in the three periods.
   [Match rows with a set](relational-algebra.md#match-rows-with-a-set) builds it.
 - `vMake` and `vStock` are the plan's variable families. `vMake(m, i, t)` is how much machine `m` makes of item `i` in
@@ -20,7 +20,7 @@ The examples use the [guide's model](index.md) on HiGHS:
 
 ## Add a term up over a set
 
-Suppose you want the hours that the machines work over the whole plan. For each row `(m, i, t)` of `s.produce`, the
+Suppose you want the hours that the machines work over the whole plan. For each row `(m, i, t)` of `s.PRODUCE`, the
 term is the hours that a unit of `i` takes times `vMake(m, i, t)`, and the sum adds the terms of every row:
 `Σ_{(m, i, t) ∈ produce} time(i) * make(m, i, t)`. Write the term as a callable, and pass it with the set to
 `sumExpr`:
@@ -28,15 +28,15 @@ term is the hours that a unit of `i` takes times `vMake(m, i, t)`, and the sum a
 ```cpp
 const auto hours = [&vMake](cMachine m, cItem i, cPeriod t) { return i->time * vMake(m, i, t); };
 
-const HighsLinearExpression totalHours = sumExpr(s.produce, hours).build();  // the hours of every run
+const HighsLinearExpression totalHours = sumExpr(s.PRODUCE, hours).build();  // the hours of every run
 ```
 
 - `hours` is a column callable: a lambda whose parameters are columns. It returns the term of one row, the hours that a
   unit of the item takes times the variable of the units made.
-- `sumExpr(s.produce, hours)` returns a sum that is not built yet.
-- `build()` calls `hours` on each row of `s.produce`, and adds the terms up into a `HighsLinearExpression`.
+- `sumExpr(s.PRODUCE, hours)` returns a sum that is not built yet.
+- `build()` calls `hours` on each row of `s.PRODUCE`, and adds the terms up into a `HighsLinearExpression`.
 
-`totalHours` has a term for each of the 15 rows of `s.produce`. The coefficient of each term is the hours that a unit
+`totalHours` has a term for each of the 15 rows of `s.PRODUCE`. The coefficient of each term is the hours that a unit
 of the row's item takes: 1 on M1's frames in period 1, and 0.1 on M2's nuts in period 3. Until `build()`, the sum is
 not an expression, so that `where` and `whereEach`, in a section below, can still narrow it.
 
@@ -48,16 +48,16 @@ and [MathOpt's `sumExpr`](../reference/dreamor-mathopt.md#sumexpr).
 ## Add a term up over a group's rows
 
 Each machine has a limit on its hours in each period, so the model needs the hours of each machine in each period
-apart: a sum over one machine's rows in one period. Group the rows of `s.produce` by machine and period, and add the
+apart: a sum over one machine's rows in one period. Group the rows of `s.PRODUCE` by machine and period, and add the
 term up over one group:
 
 ```cpp
-const auto byMachinePeriod = s.produce.groupBy<cMachine, cPeriod>();
+const auto byMachinePeriod = s.PRODUCE.groupBy<cMachine, cPeriod>();
 
 const HighsLinearExpression m2Hours = sumExpr(byMachinePeriod.slice(m2, 1), hours).build();  // M2 in period 1
 ```
 
-- `groupBy<cMachine, cPeriod>()` groups the rows of `s.produce` by their machine and their period.
+- `groupBy<cMachine, cPeriod>()` groups the rows of `s.PRODUCE` by their machine and their period.
 - `slice(m2, 1)` returns the rows of the group whose machine is M2 and whose period is 1.
 - `sumExpr` adds `hours`, from the section above, up over those rows.
 
@@ -73,16 +73,16 @@ that writes a row for each group, see
 ## Add a variable family up as the term
 
 Often the term of a row is a variable and nothing more. Suppose you want the stock of every item that M2 makes, in
-every period. The rows are M2's group of `s.produce`, and the term of each row is `vStock` of the row's item and
+every period. The rows are M2's group of `s.PRODUCE`, and the term of each row is `vStock` of the row's item and
 period. Pass the family itself as the term:
 
 ```cpp
-const auto byMachine = s.produce.groupBy<cMachine>();
+const auto byMachine = s.PRODUCE.groupBy<cMachine>();
 
 const HighsLinearExpression m2Stock = sumExpr(byMachine.slice(m2), vStock).build();  // what M2 makes, kept
 ```
 
-- `groupBy<cMachine>()` groups the rows of `s.produce` by their machine, and `slice(m2)` returns M2's rows.
+- `groupBy<cMachine>()` groups the rows of `s.PRODUCE` by their machine, and `slice(m2)` returns M2's rows.
 - `vStock` is the term. A `VarTable` is a column callable over its key columns, so the sum calls it on each row. It
   reads the row's item and period, and leaves out the machine, which is not one of its keys.
 
@@ -96,7 +96,7 @@ For a `VarTable` as a term, see [Sums](../reference/sums.md) and
 
 An item's balance in a period needs two sums. The first adds what every machine makes of the item. The second adds
 what the items made from it take: a frame made takes 2 plates, so the plates that the frames take are 2 times the
-frames made. `s.consume` pairs each line of the bill of materials, a parent and a child, with each row of `s.produce`
+frames made. `s.CONSUME` pairs each line of the bill of materials, a parent and a child, with each row of `s.PRODUCE`
 that makes the parent: a machine and a period. `quantity` holds each line's quantity, by its parent and child.
 [Make a table from records](data-on-a-set.md#make-a-table-from-records) makes it. The plan writes the balance in
 `addBalance`:
@@ -104,11 +104,11 @@ that makes the parent: a machine and a period. `quantity` holds each line's quan
 ```cpp
 // Stock carried in + made - what customers take - what the parents made take = stock carried out
 void addBalance(const Sets& s, const BomTable& quantity) {
-  const auto madeByItemPeriod = s.produce.groupBy<cItem, cPeriod>();
-  const auto takenByChild     = s.consume.groupBy<cChild, cPeriod>();
+  const auto madeByItemPeriod = s.PRODUCE.groupBy<cItem, cPeriod>();
+  const auto takenByChild     = s.CONSUME.groupBy<cChild, cPeriod>();
   const auto taken = [&](cParent a, cChild b, cMachine m, cPeriod t) { return quantity(a, b) * vMake(m, a, t); };
-  const auto orderedPeriods = s.periods.ordered();
-  for (const auto& [i, t] : s.stock) {
+  const auto orderedPeriods = s.PERIODS.ordered();
+  for (const auto& [i, t] : s.STOCK) {
     HighsLinearExpression inflow = sumExpr(madeByItemPeriod.slice(i, t), vMake).build();
     if (const auto* before = orderedPeriods.prev(t)) { inflow += vStock(i, *before); }
     const auto used = sumExpr(takenByChild.slice(i, t), taken).build();
@@ -118,16 +118,16 @@ void addBalance(const Sets& s, const BomTable& quantity) {
 
 ```
 
-- `madeByItemPeriod` groups the rows of `s.produce` by item and period, and
+- `madeByItemPeriod` groups the rows of `s.PRODUCE` by item and period, and
   `sumExpr(madeByItemPeriod.slice(i, t), vMake)` adds up what every machine makes of item `i` in period `t`.
-- `takenByChild` groups the rows of `s.consume` by their child and period.
-- `taken` returns the term of one row of `s.consume`: the line's quantity, `quantity(a, b)`, times what machine `m`
+- `takenByChild` groups the rows of `s.CONSUME` by their child and period.
+- `taken` returns the term of one row of `s.CONSUME`: the line's quantity, `quantity(a, b)`, times what machine `m`
   makes of the parent `a` in period `t`.
 - `sumExpr(takenByChild.slice(i, t), taken)` adds up what every parent made in period `t` takes of item `i`.
 
 The plate's balance in period 1 holds what M1 and M2 make of the plate, less 2 times the frames that M1 makes, less the
 plate's stock at the end of the period. The bracket takes a plate too, but the plan does not need the bracket, so
-`s.consume` holds no line of it. The row is
+`s.CONSUME` holds no line of it. The row is
 `make(M1, plate, 1) + make(M2, plate, 1) - 2 * make(M1, frame, 1) - stock(plate, 1) = 0`, because customers buy no
 plates.
 
@@ -145,8 +145,8 @@ const auto in_period_1 = [](cPeriod t) { return t == 1; };
 const auto is_sold     = [](cItem i) { return std::ranges::max(i->demand) > 0; };
 const auto is_unsold   = [&is_sold](cItem i) { return !is_sold(i); };
 
-const HighsLinearExpression firstHours = sumExpr(s.produce, hours).where(in_period_1).build();
-const auto [soldHours, unsoldHours]    = sumExpr(s.produce, hours).whereEach(is_sold, is_unsold).build();
+const HighsLinearExpression firstHours = sumExpr(s.PRODUCE, hours).where(in_period_1).build();
+const auto [soldHours, unsoldHours]    = sumExpr(s.PRODUCE, hours).whereEach(is_sold, is_unsold).build();
 ```
 
 - `in_period_1`, `is_sold` and `is_unsold` are column callables that return `true` or `false` for a row.

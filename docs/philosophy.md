@@ -133,17 +133,29 @@ free function for a member. A second notation earns its place only by reading at
 
 ## Names in these pages
 
-dreamor does not check your names; a model's names are its author's. The documentation writes columns, sets and
-variable families in one shape, and you are welcome to borrow it, because the prefix tells the three apart at a
-glance:
+dreamor does not check your names; a model's names are its author's. One piece of advice, if you take any: keep sets,
+variable families and data told apart at a glance, because a model reads them side by side in every sum and row. The
+documentation writes them in shapes you are welcome to borrow:
 
 | What | Shape | Example |
 |---|---|---|
 | Column | `c` + PascalCase | `cMachine`, `cPeriod` |
-| Set (`IndexSet`) | `s` + SCREAMING_SNAKE_CASE | `sPRODUCE`, `sPEAK_PRODUCE` |
+| Set (`IndexSet`) | `s` + a base in SCREAMING_SNAKE_CASE, its qualifiers in snake_case | `sPRODUCE`, `sPRODUCE_peak` |
 | Variable family (`VarTable`) | `v` + PascalCase | `vYield`, `vStock` |
+| Data on a set (`ParamTable`) | camelCase | `demand`, `overtime` |
 
-A set's name gets a prefix because an all-caps name alone reads as a macro or a constant in C++.
+A set's name is its base and its qualifiers. The base, in capitals, says what the members are: a name of their own
+(`sSOLD`, `sNEEDED`), or the set they are drawn from (`sPRODUCE`). The qualifiers, in lower case after it, say what
+narrows or varies that set, in the order they apply: `sPRODUCE_peak`, `sROUTES_by_item`, `sSTOCK_opening`. Words that
+together name what the members are stay in the base, `sROUTE_PERIODS`, `sEND_PRODUCTS`, and a set with a name of its own
+may keep it although it narrows another (`sSALES`): either way reads, and the choice is yours. A name is for reading,
+so its length is no reason to shorten it.
+
+The prefix says what a name is where names of every kind meet: in a function, or in a class that holds the model's
+sets and families together. A member of a struct that holds one kind takes its kind from the struct, and keeps only
+the case: `sets.PRODUCE`, `vars.Yield`, `params.demand`. A column keeps its `c` everywhere, because it is a type, and
+the `c` is what tells the column `cMachine` from the entity `Machine`. A set's name gets a prefix in the first place
+because an all-caps name alone reads as a macro or a constant in C++, which a name after `sets.` does not.
 
 ## What dreamor leaves to you
 

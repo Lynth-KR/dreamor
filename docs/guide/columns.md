@@ -123,7 +123,7 @@ take it as a column callable. Name the column where you pass it, with `reads`:
   part is sold.
 
 Customers buy the frame and the nut. No batch of frames fits M1's hours, so `sMAKE` holds no row of the frame:
-`sMADE_SOLD` holds M2's nut in each period, 3 rows. Of the parts, only the nut is also sold, so `sSOLD_PART` holds the
+`sMAKE_sold` holds M2's nut in each period, 3 rows. Of the parts, only the nut is also sold, so `sBOM_part_sold` holds the
 plate's edge to the nut.
 
 `reads<Columns...>` names the columns in the order in which the lambda takes them, and its result goes wherever a
@@ -253,7 +253,7 @@ measured values the members of a set, hold each value in a type of your own, wit
 - `indexedName("Step", ...)` writes the name of the first step, as a `VarTable` names a variable.
 
 The frame takes 1 hour, the plate and the bracket take 0.5 hours each, and the bolt and the nut take 0.1 hours each.
-So `sHOURS_OF` holds 5 rows, and `sSTEPS` holds the three distinct values, 1, 0.5 and 0.1, in that order. `quick` is
+So `sITEM_HOURS` holds 5 rows, and `sSTEPS` holds the three distinct values, 1, 0.5 and 0.1, in that order. `quick` is
 2, for the bolt and the nut, and `top` is `Step_1`.
 
 A row is found by the `==` and the hash of your type, so the values that you mean as one member must be equal to the

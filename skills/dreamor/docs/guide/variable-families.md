@@ -1,4 +1,4 @@
-<!-- Copied from docs/guide/variable-families.md (blob 328f5b5e6638), tests/docs/highs/plan.hpp (blob af7828ef1f9b), tests/docs/highs/variable_families.cpp (blob 7352d3e5f089) by tools/sync_skill_docs.py - edit the source, not this copy. -->
+<!-- Copied from docs/guide/variable-families.md (blob ca02804f8c32), tests/docs/highs/plan.hpp (blob 001fb40119a6), tests/docs/highs/variable_families.cpp (blob fcf1d92c8583) by tools/sync_skill_docs.py - edit the source, not this copy. -->
 
 # Variable families
 
@@ -9,9 +9,9 @@ look a row up in the set.
 
 The examples use the [guide's model](index.md) on HiGHS:
 
-- `s` holds the model's sets. `s.produce` holds each machine with each needed item that the machine makes, in each
-  period: 15 rows. [Match rows with a set](relational-algebra.md#match-rows-with-a-set) builds it. `s.stock` holds
-  each needed item in each period: the frame, the nut, the plate and the bolt, 12 rows. `s.periods` holds the periods
+- `s` holds the model's sets. `s.PRODUCE` holds each machine with each needed item that the machine makes, in each
+  period: 15 rows. [Match rows with a set](relational-algebra.md#match-rows-with-a-set) builds it. `s.STOCK` holds
+  each needed item in each period: the frame, the nut, the plate and the bolt, 12 rows. `s.PERIODS` holds the periods
   1, 2 and 3. [Set-builder notation](set-builder-notation.md) shows the chains that build the model's sets.
 - `m1` and `m2` are `Ref`s to the machines M1 and M2, and `frame`, `plate`, `bolt` and `nut` are `Ref`s to the items.
   [Entities](entities.md#look-an-entity-up-by-its-key) looks them up.
@@ -29,9 +29,9 @@ struct Plan {
 
   Plan(const Sets& s, const BomTable& quantity, const HighsOptions& options)
       : env{options},
-        vMake{env, s.produce, 0, max_make, HighsVarType::kContinuous, "Make"},
-        vSetup{env, s.produce, 0, 1, HighsVarType::kInteger, "Setup"},
-        vStock{env, s.stock, 0, kHighsInf, HighsVarType::kContinuous, "Stock"} {
+        vMake{env, s.PRODUCE, 0, max_make, HighsVarType::kContinuous, "Make"},
+        vSetup{env, s.PRODUCE, 0, 1, HighsVarType::kInteger, "Setup"},
+        vStock{env, s.STOCK, 0, kHighsInf, HighsVarType::kContinuous, "Stock"} {
     addBalance(s, quantity);
     addHours(s);
     addSetups(s);
@@ -47,13 +47,13 @@ struct Plan {
 
 - `env` is the `HighsEnv`. It is declared before the tables, because each table adds its variables to it, and C++
   constructs the members in the order of their declaration.
-- `vMake{env, s.produce, 0, max_make, HighsVarType::kContinuous, "Make"}` adds a continuous variable for each row of
-  `s.produce`. Its lower bound is 0, and its upper bound is what `max_make` returns for the row.
+- `vMake{env, s.PRODUCE, 0, max_make, HighsVarType::kContinuous, "Make"}` adds a continuous variable for each row of
+  `s.PRODUCE`. Its lower bound is 0, and its upper bound is what `max_make` returns for the row.
 - `max_make` is a column callable: a lambda whose parameters are columns. The constructor of `vMake` calls it on each
   row, with the row's machine and item. `max_make` is a `static constexpr` member, because the initializer list has
   no place to declare a local variable.
-- `vSetup` adds an integer variable for each row of `s.produce`, from 0 to 1.
-- `vStock` adds a continuous variable for each row of `s.stock`, from 0 to `kHighsInf`, which is no upper bound.
+- `vSetup` adds an integer variable for each row of `s.PRODUCE`, from 0 to 1.
+- `vStock` adds a continuous variable for each row of `s.STOCK`, from 0 to `kHighsInf`, which is no upper bound.
 - The three tables are constructed in the initializer list. A table can also be declared with no arguments, empty,
   and a family moved into it once, in the constructor's body or by a function that builds the class's families.
 - The last argument of each table is the family's name. Each variable is named by the family's name and the values of
@@ -75,10 +75,10 @@ and [MathOpt's `VarTable`](../reference/dreamor-mathopt.md#vartable-constructor)
 The type of a family repeats its set's columns. Leave it out, and the family takes them from the set:
 
 ```cpp
-const VarTable vRun{env, s.produce, 0, 1, HighsVarType::kInteger, "Run"};  // VarTable<cMachine, cItem, cPeriod>
+const VarTable vRun{env, s.PRODUCE, 0, 1, HighsVarType::kInteger, "Run"};  // VarTable<cMachine, cItem, cPeriod>
 ```
 
-- `vRun` names no columns. Its set, `s.produce`, has `cMachine`, `cItem` and `cPeriod`, so `vRun` is a
+- `vRun` names no columns. Its set, `s.PRODUCE`, has `cMachine`, `cItem` and `cPeriod`, so `vRun` is a
   `VarTable<cMachine, cItem, cPeriod>`, as `vSetup` in `Plan` is.
 
 The columns come from the set, so the deduced type is always the one you would write. Write it where a reader should
@@ -104,7 +104,7 @@ struct OvertimeRecord {  // the extra hours a machine may work in a period, as a
 
 ```cpp
 using dreamor::index_set::relational::from;
-const auto sSHIFTS = from<cMachine>(machines).cross(s.periods).build();  // each machine in each period
+const auto sSHIFTS = from<cMachine>(machines).cross(s.PERIODS).build();  // each machine in each period
 
 const std::vector<OvertimeRecord> agreed = {{"M1", 2.0}, {"M2", 1.0}};
 const auto machine_of = [&machines](const OvertimeRecord& r) { return cMachine{machines.at(r.machine)}; };
@@ -114,7 +114,7 @@ const dreamor::ParamTable<double, cMachine> overtime{agreed, machine_of, hours_o
 const VarTable<cMachine, cPeriod> vOvertime{env, sSHIFTS, 0, overtime, HighsVarType::kContinuous, "Overtime"};
 ```
 
-- `sSHIFTS` pairs each machine with each period of `s.periods`.
+- `sSHIFTS` pairs each machine with each period of `s.PERIODS`.
 - `agreed` holds one record for each machine. `machine_of` looks the record's machine up by its name, and `hours_of`
   returns the record's hours.
 - `overtime` is a `ParamTable` on the machines alone: one value for each record, by the record's machine.
@@ -141,7 +141,7 @@ using dreamor::index_set::relational::from;
 const bool overtime_allowed = false;  // this plan's choice
 
 const dreamor::IndexSet<cMachine, cPeriod> sOVERTIME = overtime_allowed
-                                                           ? from<cMachine>(machines).cross(s.periods).build()
+                                                           ? from<cMachine>(machines).cross(s.PERIODS).build()
                                                            : dreamor::IndexSet<cMachine, cPeriod>::none();
 
 const VarTable<cMachine, cPeriod> vOvertime{env, sOVERTIME, 0, 2, HighsVarType::kContinuous, "Overtime"};
@@ -181,9 +181,9 @@ const auto& sMADE       = plan.vMake.keys();  // the set the family was made ove
 - `plan.vMake.contains(m1, nut, 1)` checks whether the family's set has the row.
 - `size()` returns the number of variables, and `keys()` returns the set that the family was made over.
 
-`name` is `Make_M1_frame_1`. M1 makes no nuts, so `s.produce` has no row with M1 and the nut, and `makesNuts` is false.
+`name` is `Make_M1_frame_1`. M1 makes no nuts, so `s.PRODUCE` has no row with M1 and the nut, and `makesNuts` is false.
 `plan.vMake(m1, nut, 1)` would throw `std::out_of_range`, because the set has no row with that key. `count` is 15,
-one for each row of `s.produce`, and `sMADE` holds the same rows as `s.produce`.
+one for each row of `s.PRODUCE`, and `sMADE` holds the same rows as `s.PRODUCE`.
 
 For each member, see [`operator()`](../reference/vartable.md#vartablecore-operator-call),
 [`contains`](../reference/vartable.md#vartablecore-contains), [`size`](../reference/vartable.md#vartablecore-size),
@@ -203,14 +203,14 @@ for (const auto& [row, stock] : plan.vStock) {
 }
 ```
 
-- `for (const auto& [row, stock] : plan.vStock)` takes each row of `s.stock` with its variable, in the order of the
+- `for (const auto& [row, stock] : plan.vStock)` takes each row of `s.STOCK` with its variable, in the order of the
   set.
 - `const auto& [i, t] = row;` unpacks the row into its item and its period.
 - `std::format` writes the item as its name, and the variable's column as a number.
 
 `columns` holds 12 lines, from `frame in period 1: column 30` to `bolt in period 3: column 41`. The constructor of a
 family adds its variables as consecutive columns of the model, in the order of its set. `vMake` and `vSetup` are made
-first and take columns 0 to 29, so `vStock` takes columns 30 to 41. `s.stock` holds the items in the order of the
+first and take columns 0 to 29, so `vStock` takes columns 30 to 41. `s.STOCK` holds the items in the order of the
 needed items: the frame and the nut, which customers buy, then the plate and the bolt. So the frame's three periods
 take columns 30 to 32, the nut's 33 to 35, the plate's 36 to 38 and the bolt's 39 to 41.
 
@@ -226,14 +226,14 @@ with the variable's column:
 // M2's plate tooling is away
 const auto lacks_tooling = [m2, plate](cMachine m, cItem i) { return m == m2 && i == plate; };
 
-for (const auto& row : s.produce.where(lacks_tooling)) {
+for (const auto& row : s.PRODUCE.where(lacks_tooling)) {
   plan.env.highs().changeColBounds(plan.vMake(row).index(), 0, 0);
 }
 plan.env.highs().run();
 ```
 
 - `lacks_tooling` is true for a row whose machine is M2 and whose item is the plate.
-- `s.produce.where(lacks_tooling)` returns the rows of `s.produce` for which `lacks_tooling` is true.
+- `s.PRODUCE.where(lacks_tooling)` returns the rows of `s.PRODUCE` for which `lacks_tooling` is true.
 - `plan.vMake(row)` looks the variable up by the whole row, not by its columns one by one.
 - `changeColBounds(..., 0, 0)` sets both bounds of the variable's column to 0.
 - `run()` solves the model with the new bounds.

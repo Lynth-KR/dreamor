@@ -54,7 +54,7 @@ void reach(const Plant& p, const BomTable& quantity) {
   guide::highs::Plan plan{s, quantity, quiet};  // written into plan.env: the Highs holds nothing yet
   Highs& highs = plan.env.highs();              // the first reach passes the model whole
 
-  const auto kept = sumExpr(s.stock, plan.vStock).build();
+  const auto kept = sumExpr(s.STOCK, plan.vStock).build();
   addConstr(plan.env, kept <= 10, "StockCap");  // stock over every item and period, at most 10: a row at once
   // --8<-- [end:reach]
   DREAMOR_CHECK(highs.getLp().num_col_ == 42 && highs.getLp().num_row_ == 34);

@@ -1,4 +1,4 @@
-<!-- Copied from docs/guide/sets-from-records.md (blob 96d2d237f852), tests/docs/guide/model.hpp (blob b2d1db7441b4), tests/docs/guide/sets_from_records.cpp (blob 3cea23fbaf59) by tools/sync_skill_docs.py - edit the source, not this copy. -->
+<!-- Copied from docs/guide/sets-from-records.md (blob 96d2d237f852), tests/docs/guide/model.hpp (blob 906d31015f4d), tests/docs/guide/sets_from_records.cpp (blob 3cea23fbaf59) by tools/sync_skill_docs.py - edit the source, not this copy. -->
 
 # Sets from records
 

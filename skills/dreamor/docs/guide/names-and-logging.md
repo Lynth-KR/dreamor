@@ -1,4 +1,4 @@
-<!-- Copied from docs/guide/names-and-logging.md (blob 51fb4bbb231e), tests/docs/guide/names_and_logging.cpp (blob cec17af7c120) by tools/sync_skill_docs.py - edit the source, not this copy. -->
+<!-- Copied from docs/guide/names-and-logging.md (blob e82cc272c575), tests/docs/guide/names_and_logging.cpp (blob efc13fdd8f0b) by tools/sync_skill_docs.py - edit the source, not this copy. -->
 
 # Names and logging
 
@@ -120,17 +120,17 @@ too long for the buffer, see [`OnFormatOverflow`](../reference/names.md#onformat
 ## Log a model's own messages
 
 Your model can say what it built, and warn about data that looks wrong, in dreamor's log, beside dreamor's own
-messages. `Sets` is a struct of the model's sets, which `byChain` builds as chains: `produce` holds each machine with
-each needed item that it makes, in each period, `periods` holds the periods, and `needed` holds the items that the
+messages. `Sets` is a struct of the model's sets, which `byChain` builds as chains: `PRODUCE` holds each machine with
+each needed item that it makes, in each period, `PERIODS` holds the periods, and `NEEDED` holds the items that the
 plant needs. Write a line at the level that the message has:
 
 ```cpp
 void logSets(const Sets& sets, const dreamor::EntityVector<Item>& items) {
-  DREAMOR_LOG_INFO("{} rows of production over {} periods", sets.produce.size(), sets.periods.size());
-  if (sets.needed.size() < items.size()) {
-    DREAMOR_LOG_WARNING("{} of {} items are needed by no one", items.size() - sets.needed.size(), items.size());
+  DREAMOR_LOG_INFO("{} rows of production over {} periods", sets.PRODUCE.size(), sets.PERIODS.size());
+  if (sets.NEEDED.size() < items.size()) {
+    DREAMOR_LOG_WARNING("{} of {} items are needed by no one", items.size() - sets.NEEDED.size(), items.size());
   }
-  if (sets.produce.empty()) { DREAMOR_LOG_ERROR("no machine makes an item that is needed"); }
+  if (sets.PRODUCE.empty()) { DREAMOR_LOG_ERROR("no machine makes an item that is needed"); }
 }
 
 ```
@@ -142,7 +142,7 @@ void logSets(const Sets& sets, const dreamor::EntityVector<Item>& items) {
 
 Over the model's sets, the information line is `15 rows of production over 3 periods`. The warning is
 `1 of 5 items are needed by no one`: the bracket, which no customer buys and no sold item takes. The error line is
-not written, because `produce` has rows. Each line starts with the time since the process wrote its first line, the
+not written, because `PRODUCE` has rows. Each line starts with the time since the process wrote its first line, the
 file and the line of the call, and the level, such as `[INFO]`.
 
 For a line's parts and the levels, see [Logger](../reference/logger.md). To stop the program after an error line,

@@ -58,15 +58,15 @@ reaches the `Highs`:
 - `guide::highs::Plan plan{s, quantity, quiet}` writes the families, the rows and the cost into `plan.env`. The
   `Highs` holds nothing yet.
 - `plan.env.highs()` returns the `Highs`. The first call hands the whole model to the `Highs` in one call to HiGHS.
-- `sumExpr(s.stock, plan.vStock).build()` adds up the stock variables over the rows of `s.stock`.
+- `sumExpr(s.STOCK, plan.vStock).build()` adds up the stock variables over the rows of `s.STOCK`.
   [Sums](sums.md) shows `sumExpr`.
 - `addConstr(plan.env, kept <= 10, "StockCap")` adds the row `kept <= 10`, named `StockCap`. The model has already
   reached the `Highs`, so the row goes to the `Highs` at once.
 
 After the first `highs()`, the `Highs` holds the whole plan. Its columns are the variables, one for each row of a
-family's set: 15 for `vMake` and 15 for `vSetup` over `s.produce`, and 12 for `vStock` over `s.stock`, 42 columns.
+family's set: 15 for `vMake` and 15 for `vSetup` over `s.PRODUCE`, and 12 for `vStock` over `s.STOCK`, 42 columns.
 Its rows are a balance row for each item and period, an hours row for each machine and period, and a setup row for
-each row of `s.produce`: 12, 6 and 15, 33 rows. `StockCap` comes after them, as the 34th row. An option
+each row of `s.PRODUCE`: 12, 6 and 15, 33 rows. `StockCap` comes after them, as the 34th row. An option
 that you set through `highs()` therefore reaches the `Highs` after the model. To have it hold before, pass it to the
 constructor, as the section above does.
 

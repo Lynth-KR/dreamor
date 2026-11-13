@@ -76,14 +76,14 @@ void derivingSets(const Plant& p) {
   const auto as_parent   = [](cItem i) { return cParent{i}; };
   const auto next_period = [](cItem i, cPeriod t) { return std::tuple<cItem, cPeriod>{i, t + 1}; };
 
-  const auto sMADE_PARENTS = sMAKE.select(as_parent);    // each item made, as a parent in the bill of materials
+  const auto sPARENTS_made = sMAKE.select(as_parent);    // each item made, as a parent in the bill of materials
   const auto sNEXT         = sMAKE.select(next_period);  // each item made in a period, in the period after
   // --8<-- [end:select-expr]
-  static_assert(std::is_same_v<decltype(sMADE_PARENTS), const dreamor::IndexSet<cParent>>);
+  static_assert(std::is_same_v<decltype(sPARENTS_made), const dreamor::IndexSet<cParent>>);
   static_assert(std::is_same_v<decltype(sNEXT), const dreamor::IndexSet<cItem, cPeriod>>);
-  DREAMOR_CHECK(rowsOf(sMADE_PARENTS) == "frame, plate, bracket, bolt, nut");
+  DREAMOR_CHECK(rowsOf(sPARENTS_made) == "frame, plate, bracket, bolt, nut");
   // As a cParent it meets the bill of materials' lines on their parent: every line's parent is made, so all 6 match.
-  DREAMOR_CHECK(from(quantity.keys()).join(sMADE_PARENTS).build().size() == 6);
+  DREAMOR_CHECK(from(quantity.keys()).join(sPARENTS_made).build().size() == 6);
   DREAMOR_CHECK(sNEXT.size() == 15);  // 5 items in periods 2 to 4: M2's plate repeats M1's
   DREAMOR_CHECK(rowsOf(sNEXT) ==
                 "frame 2, frame 3, frame 4, plate 2, plate 3, plate 4, bracket 2, bracket 3, bracket 4, "
@@ -93,16 +93,16 @@ void derivingSets(const Plant& p) {
   const auto time_of         = [](cItem i) { return i->time; };
   const auto item_then_maker = [](cMachine m, cItem i) { return std::tuple{i, m}; };
 
-  const auto sQUICK_FIRST = sMADE.orderBy(time_of);
-  const auto sSLOW_FIRST  = sMADE.orderBy(time_of, dreamor::descending);
-  const auto sBY_ITEM     = sROUTES.orderBy(item_then_maker);
+  const auto sMADE_quick_first = sMADE.orderBy(time_of);
+  const auto sMADE_slow_first  = sMADE.orderBy(time_of, dreamor::descending);
+  const auto sROUTES_by_item   = sROUTES.orderBy(item_then_maker);
   // --8<-- [end:order-by]
-  static_assert(std::is_same_v<decltype(sBY_ITEM), const dreamor::IndexSet<cMachine, cItem>>);
+  static_assert(std::is_same_v<decltype(sROUTES_by_item), const dreamor::IndexSet<cMachine, cItem>>);
   // Hours a unit: frame 1.0, plate and bracket 0.5, bolt and nut 0.1; ties keep sMADE's order.
-  DREAMOR_CHECK(rowsOf(sQUICK_FIRST) == "bolt, nut, plate, bracket, frame");
-  DREAMOR_CHECK(rowsOf(sSLOW_FIRST) == "frame, plate, bracket, bolt, nut");
+  DREAMOR_CHECK(rowsOf(sMADE_quick_first) == "bolt, nut, plate, bracket, frame");
+  DREAMOR_CHECK(rowsOf(sMADE_slow_first) == "frame, plate, bracket, bolt, nut");
   // The items by name, and the plate's two machines by theirs.
-  DREAMOR_CHECK(rowsOf(sBY_ITEM) == "M2 bolt, M1 bracket, M1 frame, M2 nut, M1 plate, M2 plate");
+  DREAMOR_CHECK(rowsOf(sROUTES_by_item) == "M2 bolt, M1 bracket, M1 frame, M2 nut, M1 plate, M2 plate");
 
   // --8<-- [start:contains]
   const bool m2_makes_bolts = sROUTES.contains(machines.at("M2"), items.at("bolt"));
@@ -115,20 +115,20 @@ void derivingSets(const Plant& p) {
 
   const auto sPARTS        = quantity.keys().select(as_item);     // the items another item takes
   const auto sPRODUCTS     = sMADE.where(!sPARTS.membership());   // the items no item takes
-  const auto sNEXT_IN_PLAN = sNEXT.where(sPERIODS.membership());  // sNEXT within the plan's periods
+  const auto sNEXT_in_plan = sNEXT.where(sPERIODS.membership());  // sNEXT within the plan's periods
   // --8<-- [end:membership]
   static_assert(std::is_same_v<decltype(sPARTS), const dreamor::IndexSet<cItem>>);
   DREAMOR_CHECK(rowsOf(sPARTS) == "plate, bolt, nut");  // the bill of materials' children, each once
   DREAMOR_CHECK(rowsOf(sPRODUCTS) == "frame, bracket");
-  DREAMOR_CHECK(sNEXT_IN_PLAN.size() == 10);  // sNEXT's 15 rows but the 5 in period 4
-  DREAMOR_CHECK(rowsOf(sNEXT_IN_PLAN) ==
+  DREAMOR_CHECK(sNEXT_in_plan.size() == 10);  // sNEXT's 15 rows but the 5 in period 4
+  DREAMOR_CHECK(rowsOf(sNEXT_in_plan) ==
                 "frame 2, frame 3, plate 2, plate 3, bracket 2, bracket 3, bolt 2, bolt 3, nut 2, nut 3");
 
   // --8<-- [start:membership-chain]
-  const auto sPART_ROUTES = from<cMachine>(machines).lateral<cItem>(items_of).where(sPARTS.membership()).build();
+  const auto sROUTES_part = from<cMachine>(machines).lateral<cItem>(items_of).where(sPARTS.membership()).build();
   // --8<-- [end:membership-chain]
-  static_assert(std::is_same_v<decltype(sPART_ROUTES), const dreamor::IndexSet<cMachine, cItem>>);
-  DREAMOR_CHECK(rowsOf(sPART_ROUTES) == "M1 plate, M2 plate, M2 bolt, M2 nut");
+  static_assert(std::is_same_v<decltype(sROUTES_part), const dreamor::IndexSet<cMachine, cItem>>);
+  DREAMOR_CHECK(rowsOf(sROUTES_part) == "M1 plate, M2 plate, M2 bolt, M2 nut");
 
   // Each derivation left its operand as it was.
   DREAMOR_CHECK(sMAKE.size() == 18 && sMADE.size() == 5 && sROUTES.size() == 6);

@@ -106,7 +106,9 @@ Each is a rule of the reference or the guide, linked; the compile-time ones stop
   special to one set - a projection that builds that set's rows, a condition no other set asks - stays inline where
   the set is defined, rather than declared ahead of it where it breaks the code's flow. Where the user's code shows
   no style of its own, name as dreamor's documentation does: columns `cMachine`, sets `sMAKE`, variable families
-  `vMake`, callables over columns `fits_batch`, everything else `camelCase`.
+  `vMake`, callables over columns `fits_batch`, everything else `camelCase`; a set's base in capitals and what narrows
+  it in lower case after, `sMAKE_peak`; a member of a struct that holds one kind drops the prefix and keeps the case,
+  `sets.MAKE`, `vars.Make` (`docs/philosophy.md`).
 
 ## Before finishing
 

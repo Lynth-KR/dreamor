@@ -37,11 +37,11 @@ class RowNames : dreamor::FormatBuffer<64> {  // inherited privately: format() i
 
 // --8<-- [start:log]
 void logSets(const Sets& sets, const dreamor::EntityVector<Item>& items) {
-  DREAMOR_LOG_INFO("{} rows of production over {} periods", sets.produce.size(), sets.periods.size());
-  if (sets.needed.size() < items.size()) {
-    DREAMOR_LOG_WARNING("{} of {} items are needed by no one", items.size() - sets.needed.size(), items.size());
+  DREAMOR_LOG_INFO("{} rows of production over {} periods", sets.PRODUCE.size(), sets.PERIODS.size());
+  if (sets.NEEDED.size() < items.size()) {
+    DREAMOR_LOG_WARNING("{} of {} items are needed by no one", items.size() - sets.NEEDED.size(), items.size());
   }
-  if (sets.produce.empty()) { DREAMOR_LOG_ERROR("no machine makes an item that is needed"); }
+  if (sets.PRODUCE.empty()) { DREAMOR_LOG_ERROR("no machine makes an item that is needed"); }
 }
 
 // --8<-- [end:log]
@@ -102,8 +102,8 @@ void inABuffer(const Plant& p) {
 void logMessages(const Plant& p) {
   const dreamor::EntityVector<Item>& items = p.items;
   const Sets sets                          = byChain(p, bomTable(p));
-  DREAMOR_CHECK(sets.produce.size() == 15 && sets.periods.size() == 3 && sets.needed.size() == 4);
-  DREAMOR_CHECK(!sets.needed.contains(items.at("bracket")));  // the one item needed by no one
+  DREAMOR_CHECK(sets.PRODUCE.size() == 15 && sets.PERIODS.size() == 3 && sets.NEEDED.size() == 4);
+  DREAMOR_CHECK(!sets.NEEDED.contains(items.at("bracket")));  // the one item needed by no one
 
   const LogCapture log;
   DREAMOR_CHECK(log.isOpen());

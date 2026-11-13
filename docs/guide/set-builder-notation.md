@@ -105,9 +105,9 @@ with the periods first:
 still comes after `in<cMachine>(p.machines)`, because a generator whose callable reads a column comes after the
 generator that binds the column.
 
-`sSERVE_TOO` holds the same rows as `sSERVE`, with its columns in the order of the head. `build()` chooses the order in
+`sSERVE_any_order` holds the same rows as `sSERVE`, with its columns in the order of the head. `build()` chooses the order in
 which it reads the sources, whatever the order in which you write the generators: both sets read the periods, then
-the machines, then each machine's items. So even the rows of `sSERVE_TOO` come in the order of the rows of `sSERVE`.
+the machines, then each machine's items. So even the rows of `sSERVE_any_order` come in the order of the rows of `sSERVE`.
 
 For the rules of the head and the generators, see [`of`](../reference/set-builder-notation.md#of) and
 [`in`](../reference/set-builder-notation.md#in). For the order in which `build()` reads the sources, see

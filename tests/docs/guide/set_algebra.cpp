@@ -98,7 +98,7 @@ void setAlgebra(const Plant& p) {
   // The model's own needed set (model.hpp, needed-chain): the sold frame and nut, and the plate, bolt and nut below
   // the frame.
   const Sets sets = byChain(p, quantity);
-  DREAMOR_CHECK(names(sets.needed) == Names{"frame", "nut", "plate", "bolt"});
+  DREAMOR_CHECK(names(sets.NEEDED) == Names{"frame", "nut", "plate", "bolt"});
 
   // --8<-- [start:reflexive]
   const auto as_self = [](cItem i) { return std::tuple<cParent, cChild>{i, i}; };  // an item and itself

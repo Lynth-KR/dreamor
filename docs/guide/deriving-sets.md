@@ -91,7 +91,7 @@ row:
   repeats an earlier one is dropped, as with `select` of columns.
 - `sMAKE.select(next_period)` returns a set of the rows that `next_period` returns.
 
-`sMADE_PARENTS` is an `IndexSet<cParent>` of the five items that `sMADE` holds. As parents, the items can match the
+`sPARENTS_made` is an `IndexSet<cParent>` of the five items that `sMADE` holds. As parents, the items can match the
 bill of materials' lines in a join, which [Match rows with a set](relational-algebra.md#match-rows-with-a-set) shows.
 `sNEXT` is an `IndexSet<cItem, cPeriod>`. M1's plate and M2's plate in one period make the same row, which `sNEXT`
 holds once. So `sNEXT` holds the five items in periods 2, 3 and 4: 15 rows. Period 4 is not a period of the plan:
@@ -120,9 +120,9 @@ Rows whose keys are equal keep the order that they have in the set. A `Ref` comp
 which is the name for an item and for a machine.
 
 A unit of the bolt or the nut takes 0.1 hours, a unit of the plate or the bracket 0.5 hours, and a unit of the frame
-1 hour. `sQUICK_FIRST` holds the bolt, the nut, the plate, the bracket and the frame, in that order. The bolt comes
-before the nut, and the plate before the bracket, because `sMADE` holds them in that order. `sSLOW_FIRST` holds the
-frame, the plate, the bracket, the bolt and the nut, with the equal times in the order of `sMADE` too. `sBY_ITEM` holds
+1 hour. `sMADE_quick_first` holds the bolt, the nut, the plate, the bracket and the frame, in that order. The bolt comes
+before the nut, and the plate before the bracket, because `sMADE` holds them in that order. `sMADE_slow_first` holds the
+frame, the plate, the bracket, the bolt and the nut, with the equal times in the order of `sMADE` too. `sROUTES_by_item` holds
 the pairs in the order of the items' names: M2's bolt, M1's bracket, M1's frame, M2's nut, M1's plate and M2's plate.
 M1's plate comes before M2's, because "M1" comes before "M2".
 
@@ -171,7 +171,7 @@ parent and a child. [Make a table from records](data-on-a-set.md#make-a-table-fr
 
 The lines take the plate, the bolt and the nut, so `sPARTS` holds these three items. `sPRODUCTS` holds the frame and
 the bracket, which no line takes. `sNEXT`, from [Make each row anew](#make-each-row-anew), holds the five items in
-periods 2, 3 and 4, and `sPERIODS` holds the periods 1, 2 and 3. `sNEXT_IN_PLAN` holds the five items in periods 2
+periods 2, 3 and 4, and `sPERIODS` holds the periods 1, 2 and 3. `sNEXT_in_plan` holds the five items in periods 2
 and 3: 10 rows.
 
 For what a membership condition reads, see [`membership`](../reference/indexset.md#indexset-membership) and
@@ -189,7 +189,7 @@ the rows of a chain whose columns are in a set, pass the set's membership to the
 `from<cMachine>(machines).lateral<cItem>(items_of)` makes a row for each machine and each item that the machine
 makes, and `where(sPARTS.membership())` keeps the rows whose item `sPARTS` holds.
 
-`sPARTS`, from the section above, holds the plate, the bolt and the nut. `sPART_ROUTES` holds M1 with the plate, and
+`sPARTS`, from the section above, holds the plate, the bolt and the nut. `sROUTES_part` holds M1 with the plate, and
 M2 with the plate, the bolt and the nut. M1's frame and bracket are not parts of another item, so the chain drops
 them.
 

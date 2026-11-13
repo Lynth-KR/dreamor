@@ -1,4 +1,4 @@
-<!-- Copied from docs/guide/columns.md (blob 757a25842a5d), tests/docs/guide/model.hpp (blob b2d1db7441b4), tests/docs/guide/columns.cpp (blob bfc093546b77) by tools/sync_skill_docs.py - edit the source, not this copy. -->
+<!-- Copied from docs/guide/columns.md (blob ec6b810111c8), tests/docs/guide/model.hpp (blob 906d31015f4d), tests/docs/guide/columns.cpp (blob 0f0ac2f4271a) by tools/sync_skill_docs.py - edit the source, not this copy. -->
 
 # Columns
 
@@ -134,8 +134,8 @@ take it as a column callable. Name the column where you pass it, with `reads`:
 ```cpp
 const auto is_sold = [](const auto& item) { return std::ranges::max(item->demand) > 0; };  // a cItem or a cChild
 
-const auto sMADE_SOLD = sMAKE.where(dreamor::reads<cItem>(is_sold));             // rows whose item is sold
-const auto sSOLD_PART = quantity.keys().where(dreamor::reads<cChild>(is_sold));  // parts that are sold too
+const auto sMAKE_sold     = sMAKE.where(dreamor::reads<cItem>(is_sold));             // rows whose item is sold
+const auto sBOM_part_sold = quantity.keys().where(dreamor::reads<cChild>(is_sold));  // parts that are sold too
 ```
 
 - `is_sold` is a generic lambda: its parameter is `auto`, so it takes any column that holds an item.
@@ -145,7 +145,7 @@ const auto sSOLD_PART = quantity.keys().where(dreamor::reads<cChild>(is_sold)); 
   part is sold.
 
 Customers buy the frame and the nut. No batch of frames fits M1's hours, so `sMAKE` holds no row of the frame:
-`sMADE_SOLD` holds M2's nut in each period, 3 rows. Of the parts, only the nut is also sold, so `sSOLD_PART` holds the
+`sMAKE_sold` holds M2's nut in each period, 3 rows. Of the parts, only the nut is also sold, so `sBOM_part_sold` holds the
 plate's edge to the nut.
 
 `reads<Columns...>` names the columns in the order in which the lambda takes them, and its result goes wherever a
@@ -305,10 +305,10 @@ DREAMOR_VALUE_COLUMN(cHours, Hours);
 const auto with_hours = [](cItem i) { return std::tuple<cItem, cHours>{i, Hours{i->time}}; };
 const auto by_hours   = [](cHours h) { return h.get().value; };
 
-const auto sHOURS_OF = from<cItem>(p.items).build().select(with_hours);                    // each item with its hours
-const auto sSTEPS    = sHOURS_OF.select<cHours>().orderBy(by_hours, dreamor::descending);  // each value once
+const auto sITEM_HOURS = from<cItem>(p.items).build().select(with_hours);  // each item with its hours
+const auto sSTEPS      = sITEM_HOURS.select<cHours>().orderBy(by_hours, dreamor::descending);  // each value once
 
-const auto itemsByHours = sHOURS_OF.groupBy<cHours>();
+const auto itemsByHours = sITEM_HOURS.groupBy<cHours>();
 const std::size_t quick = itemsByHours.slice(Hours{0.1}).size();
 const std::string top   = dreamor::indexedName("Step", *sSTEPS.begin());
 ```
@@ -325,7 +325,7 @@ const std::string top   = dreamor::indexedName("Step", *sSTEPS.begin());
 - `indexedName("Step", ...)` writes the name of the first step, as a `VarTable` names a variable.
 
 The frame takes 1 hour, the plate and the bracket take 0.5 hours each, and the bolt and the nut take 0.1 hours each.
-So `sHOURS_OF` holds 5 rows, and `sSTEPS` holds the three distinct values, 1, 0.5 and 0.1, in that order. `quick` is
+So `sITEM_HOURS` holds 5 rows, and `sSTEPS` holds the three distinct values, 1, 0.5 and 0.1, in that order. `quick` is
 2, for the bolt and the nut, and `top` is `Step_1`.
 
 A row is found by the `==` and the hash of your type, so the values that you mean as one member must be equal to the

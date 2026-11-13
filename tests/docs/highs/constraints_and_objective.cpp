@@ -177,7 +177,7 @@ void leastStock(const Plant& p) {
   guide::highs::Plan plan{s, q, quietOptions()};
 
   // --8<-- [start:minimize]
-  const HighsStatus status = minimize(plan.env, sumExpr(s.stock, plan.vStock).build());  // the least stock held
+  const HighsStatus status = minimize(plan.env, sumExpr(s.STOCK, plan.vStock).build());  // the least stock held
   // --8<-- [end:minimize]
   DREAMOR_CHECK(status == HighsStatus::kOk);
   DREAMOR_CHECK(plan.env.highs().getModelStatus() == HighsModelStatus::kOptimal);

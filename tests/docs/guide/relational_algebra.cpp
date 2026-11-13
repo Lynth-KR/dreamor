@@ -70,19 +70,19 @@ void relationalAlgebra(const Plant& p) {
 
   const auto sSOLD       = from<cItem>(items).where(is_sold).build();
   const auto sBELOW      = dreamor::transitiveClosure(quantity.keys());  // every (parent, part) a path leads to
-  const auto sSOLD_BELOW = from<cParent>(sSOLD).join(sBELOW).build();    // a sold item and each part below it
-  const auto sNEEDED     = dreamor::unite(sSOLD, sSOLD_BELOW.select(as_item));
+  const auto sBELOW_sold = from<cParent>(sSOLD).join(sBELOW).build();    // a sold item and each part below it
+  const auto sNEEDED     = dreamor::unite(sSOLD, sBELOW_sold.select(as_item));
   // --8<-- [end:needed]
   static_assert(std::is_same_v<decltype(sSOLD), const dreamor::IndexSet<cItem>>);
   DREAMOR_CHECK(sSOLD.size() == 2 && sSOLD.contains(items.at("frame")) && sSOLD.contains(items.at("nut")));
-  static_assert(std::is_same_v<decltype(sSOLD_BELOW), const dreamor::IndexSet<cParent, cChild>>);
+  static_assert(std::is_same_v<decltype(sBELOW_sold), const dreamor::IndexSet<cParent, cChild>>);
   // frame takes plates and bolts, and a plate takes bolts and nuts: frame's parts are plate, bolt and nut; a nut
   // takes nothing.
-  DREAMOR_CHECK(sSOLD_BELOW.size() == 3);
+  DREAMOR_CHECK(sBELOW_sold.size() == 3);
   const cParent frame{items.at("frame")};
-  DREAMOR_CHECK(sSOLD_BELOW.contains(frame, cChild{items.at("plate")}) &&
-                sSOLD_BELOW.contains(frame, cChild{items.at("bolt")}) &&
-                sSOLD_BELOW.contains(frame, cChild{items.at("nut")}));
+  DREAMOR_CHECK(sBELOW_sold.contains(frame, cChild{items.at("plate")}) &&
+                sBELOW_sold.contains(frame, cChild{items.at("bolt")}) &&
+                sBELOW_sold.contains(frame, cChild{items.at("nut")}));
   // No line of the bill of materials has the frame take a nut; the frame takes plates, and a plate takes nuts.
   DREAMOR_CHECK(!quantity.contains(frame, cChild{items.at("nut")}) && sBELOW.contains(frame, cChild{items.at("nut")}));
   DREAMOR_CHECK(sNEEDED.size() == 4 && sNEEDED.contains(items.at("frame")) && sNEEDED.contains(items.at("nut")) &&
@@ -99,11 +99,11 @@ void relationalAlgebra(const Plant& p) {
 
   // --8<-- [start:reuse]
   const auto made       = from<cMachine>(machines).lateral<cItem>(items_of);
-  const auto sMADE_SOLD = made.join(sSOLD).build();  // the items customers buy, on the machine that makes them
+  const auto sMADE_sold = made.join(sSOLD).build();  // the items customers buy, on the machine that makes them
   const auto sMADE      = made.build();              // every item each machine makes
   // --8<-- [end:reuse]
-  DREAMOR_CHECK(sMADE_SOLD.size() == 2 && sMADE_SOLD.contains(m1, items.at("frame")) &&
-                sMADE_SOLD.contains(m2, items.at("nut")));
+  DREAMOR_CHECK(sMADE_sold.size() == 2 && sMADE_sold.contains(m1, items.at("frame")) &&
+                sMADE_sold.contains(m2, items.at("nut")));
   DREAMOR_CHECK(sMADE.size() == 6);  // 3 items on each machine
 
   // --8<-- [start:staged]
@@ -119,8 +119,8 @@ void relationalAlgebra(const Plant& p) {
   // The visit order is a compile-time constant. In one chain, the item is bound last, from its machine's list, so
   // has_demand runs on each machine's item in each period: 6 items of the machines, in 3 periods.
   static_assert(decltype(serve_one_chain)::visitOrder() == "{cPeriod}, cMachine, cItem");
-  const auto sSERVE_ONE_CHAIN = serve_one_chain.build();
-  DREAMOR_CHECK(sSERVE.size() == 4 && sSERVE == sSERVE_ONE_CHAIN);  // M1's frame in 1, 2 and 3, M2's nut in 2
+  const auto sSERVE_one_chain = serve_one_chain.build();
+  DREAMOR_CHECK(sSERVE.size() == 4 && sSERVE == sSERVE_one_chain);  // M1's frame in 1, 2 and 3, M2's nut in 2
   DREAMOR_CHECK(sSERVE.contains(m1, items.at("frame"), 1) && sSERVE.contains(m1, items.at("frame"), 3) &&
                 sSERVE.contains(m2, items.at("nut"), 2));
 

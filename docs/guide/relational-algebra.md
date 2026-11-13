@@ -121,13 +121,13 @@ item. `quantity` is the bill of materials, a `ParamTable<double, cParent, cChild
   plate.
 - `from<cParent>(sSOLD)` fills `cParent` with the items of `sSOLD`. `sSOLD` holds its items in `cItem`, and
   `cParent` holds an item too, so the items move to `cParent`.
-- `join(sBELOW)` matches the rows with the rows of `sBELOW` on `cParent`, and adds `cChild`. `sSOLD_BELOW` pairs
+- `join(sBELOW)` matches the rows with the rows of `sBELOW` on `cParent`, and adds `cChild`. `sBELOW_sold` pairs
   each sold item with each part below it.
-- `select(as_item)` makes each row of `sSOLD_BELOW` anew from its `cChild`, as a `cItem`.
+- `select(as_item)` makes each row of `sBELOW_sold` anew from its `cChild`, as a `cItem`.
 - `unite` returns the rows that are in either set.
 
-`sSOLD` holds the frame and the nut. `sSOLD_BELOW` pairs the frame with the plate, the bolt and the nut. The nut takes
-no part, so `sSOLD_BELOW` pairs it with nothing. `sNEEDED` holds the frame, the nut, the plate and the bolt. The nut
+`sSOLD` holds the frame and the nut. `sBELOW_sold` pairs the frame with the plate, the bolt and the nut. The nut takes
+no part, so `sBELOW_sold` pairs it with nothing. `sNEEDED` holds the frame, the nut, the plate and the bolt. The nut
 is both sold and a part of the frame, and `sNEEDED` holds it once. The bracket is not in `sNEEDED`, because no
 customer buys it and no sold item takes it.
 
@@ -152,7 +152,7 @@ with only the items that customers buy. Keep the shared steps in a variable, and
   items that customers buy.
 - `made.build()` makes the rows of `made` itself.
 
-`sMADE_SOLD` holds M1 with the frame and M2 with the nut. `sMADE` holds every item that each machine makes, 3 on each
+`sMADE_sold` holds M1 with the frame and M2 with the nut. `sMADE` holds every item that each machine makes, 3 on each
 machine: 6 rows. The `join` did not change `made`.
 
 For what a step does to a chain in a variable, see [`Chain`](../reference/relational-algebra.md#chain).

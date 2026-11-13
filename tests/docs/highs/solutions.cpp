@@ -46,10 +46,10 @@ dreamor::ParamTable<double, cItem, cPeriod> openingStock(const Sets& s,
   // --8<-- [start:carry]
   using dreamor::index_set::relational::from;
   const auto after_period_1 = [](cPeriod t) { return t == 1; };
-  const auto sOPENING       = from(s.stock).where(after_period_1).build();  // each item at period 1's end
+  const auto sSTOCK_opening = from(s.STOCK).where(after_period_1).build();  // each item at period 1's end
 
   const auto kept = plan.vStock.solution(plan.env);
-  const dreamor::ParamTable<double, cItem, cPeriod> opening{sOPENING, kept};  // the next plan's opening stock
+  const dreamor::ParamTable<double, cItem, cPeriod> opening{sSTOCK_opening, kept};  // the next plan's opening stock
   // --8<-- [end:carry]
   return opening;
 }
@@ -78,12 +78,12 @@ void read(const Plant& p, const Sets& s, const BomTable& quantity, const HighsOp
   const double same = made(row);  // 2, read by a row of the set
   // --8<-- [end:read]
   static_assert(std::is_same_v<decltype(made), const dreamor::SolutionTable<cMachine, cItem, cPeriod>>);
-  DREAMOR_CHECK(made.size() == 15 && made.keys() == s.produce);  // a value for each row of vMake's set
+  DREAMOR_CHECK(made.size() == 15 && made.keys() == s.PRODUCE);  // a value for each row of vMake's set
   // The cost pins the frames: made on M1 alone, each period's demand in that period.
   DREAMOR_CHECK(near(frames, 2) && near(same, 2) && near(made(m1, frame, 1), 1));
   // row is a row of the set, of the type a loop over the set gives.
-  static_assert(std::is_same_v<std::ranges::range_value_t<decltype(s.produce)>, std::tuple<cMachine, cItem, cPeriod>>);
-  DREAMOR_CHECK(s.produce.contains(row));
+  static_assert(std::is_same_v<std::ranges::range_value_t<decltype(s.PRODUCE)>, std::tuple<cMachine, cItem, cPeriod>>);
+  DREAMOR_CHECK(s.PRODUCE.contains(row));
   DREAMOR_CHECK(made.contains(m1, frame, 1) && !made.contains(m1, p.items.at("nut"), 1));
   DREAMOR_CHECK_THROWS(std::out_of_range, made(m1, p.items.at("nut"), 1));  // M1 makes no nuts
 

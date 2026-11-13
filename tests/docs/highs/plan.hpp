@@ -18,9 +18,9 @@ struct Plan {
 
   Plan(const Sets& s, const BomTable& quantity, const HighsOptions& options)
       : env{options},
-        vMake{env, s.produce, 0, max_make, HighsVarType::kContinuous, "Make"},
-        vSetup{env, s.produce, 0, 1, HighsVarType::kInteger, "Setup"},
-        vStock{env, s.stock, 0, kHighsInf, HighsVarType::kContinuous, "Stock"} {
+        vMake{env, s.PRODUCE, 0, max_make, HighsVarType::kContinuous, "Make"},
+        vSetup{env, s.PRODUCE, 0, 1, HighsVarType::kInteger, "Setup"},
+        vStock{env, s.STOCK, 0, kHighsInf, HighsVarType::kContinuous, "Stock"} {
     addBalance(s, quantity);
     addHours(s);
     addSetups(s);
@@ -38,11 +38,11 @@ struct Plan {
   // --8<-- [start:balance]
   // Stock carried in + made - what customers take - what the parents made take = stock carried out
   void addBalance(const Sets& s, const BomTable& quantity) {
-    const auto madeByItemPeriod = s.produce.groupBy<cItem, cPeriod>();
-    const auto takenByChild     = s.consume.groupBy<cChild, cPeriod>();
+    const auto madeByItemPeriod = s.PRODUCE.groupBy<cItem, cPeriod>();
+    const auto takenByChild     = s.CONSUME.groupBy<cChild, cPeriod>();
     const auto taken = [&](cParent a, cChild b, cMachine m, cPeriod t) { return quantity(a, b) * vMake(m, a, t); };
-    const auto orderedPeriods = s.periods.ordered();
-    for (const auto& [i, t] : s.stock) {
+    const auto orderedPeriods = s.PERIODS.ordered();
+    for (const auto& [i, t] : s.STOCK) {
       HighsLinearExpression inflow = sumExpr(madeByItemPeriod.slice(i, t), vMake).build();
       if (const auto* before = orderedPeriods.prev(t)) { inflow += vStock(i, *before); }
       const auto used = sumExpr(takenByChild.slice(i, t), taken).build();
@@ -56,7 +56,7 @@ struct Plan {
   // The hours each machine works in a period, up to its capacity
   void addHours(const Sets& s) {
     const auto hours = [this](cMachine m, cItem i, cPeriod t) { return i->time * vMake(m, i, t); };
-    for (const auto& [m, t, rows] : s.produce.groupBy<cMachine, cPeriod>()) {
+    for (const auto& [m, t, rows] : s.PRODUCE.groupBy<cMachine, cPeriod>()) {
       addConstr(env, sumExpr(rows, hours).build() <= m->capacity, dreamor::indexedName("Hours", m, t));
     }
   }
@@ -66,7 +66,7 @@ struct Plan {
   // --8<-- [start:setups]
   // Nothing is made without a setup
   void addSetups(const Sets& s) {
-    for (const auto& [m, i, t] : s.produce) {
+    for (const auto& [m, i, t] : s.PRODUCE) {
       addConstr(env, vMake(m, i, t) <= max_make(m, i) * vSetup(m, i, t), dreamor::indexedName("Setup", m, i, t));
     }
   }
@@ -78,7 +78,7 @@ struct Plan {
   void setCost(const Sets& s) {
     const auto holding = [this](cItem i, cPeriod t) { return i->hold * vStock(i, t); };
     const auto setups  = [this](cMachine m, cItem i, cPeriod t) { return m->setup * vSetup(m, i, t); };
-    setObjective(env, sumExpr(s.stock, holding).build() + sumExpr(s.produce, setups).build(), ObjSense::kMinimize);
+    setObjective(env, sumExpr(s.STOCK, holding).build() + sumExpr(s.PRODUCE, setups).build(), ObjSense::kMinimize);
   }
 
   // --8<-- [end:cost]

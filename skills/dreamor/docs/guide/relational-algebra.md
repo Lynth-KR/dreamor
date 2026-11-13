@@ -1,4 +1,4 @@
-<!-- Copied from docs/guide/relational-algebra.md (blob aa75723e3a10), tests/docs/guide/relational_algebra.cpp (blob b7cadc089c19) by tools/sync_skill_docs.py - edit the source, not this copy. -->
+<!-- Copied from docs/guide/relational-algebra.md (blob d6c7397d3131), tests/docs/guide/relational_algebra.cpp (blob ae71944d0ff9) by tools/sync_skill_docs.py - edit the source, not this copy. -->
 
 # Relational algebra
 
@@ -129,8 +129,8 @@ const auto as_item = [](cChild c) { return cItem{c}; };
 
 const auto sSOLD       = from<cItem>(items).where(is_sold).build();
 const auto sBELOW      = dreamor::transitiveClosure(quantity.keys());  // every (parent, part) a path leads to
-const auto sSOLD_BELOW = from<cParent>(sSOLD).join(sBELOW).build();    // a sold item and each part below it
-const auto sNEEDED     = dreamor::unite(sSOLD, sSOLD_BELOW.select(as_item));
+const auto sBELOW_sold = from<cParent>(sSOLD).join(sBELOW).build();    // a sold item and each part below it
+const auto sNEEDED     = dreamor::unite(sSOLD, sBELOW_sold.select(as_item));
 ```
 
 - `sSOLD` holds the items that customers buy. `is_sold` keeps an item if its demand is above 0 in some period.
@@ -139,13 +139,13 @@ const auto sNEEDED     = dreamor::unite(sSOLD, sSOLD_BELOW.select(as_item));
   plate.
 - `from<cParent>(sSOLD)` fills `cParent` with the items of `sSOLD`. `sSOLD` holds its items in `cItem`, and
   `cParent` holds an item too, so the items move to `cParent`.
-- `join(sBELOW)` matches the rows with the rows of `sBELOW` on `cParent`, and adds `cChild`. `sSOLD_BELOW` pairs
+- `join(sBELOW)` matches the rows with the rows of `sBELOW` on `cParent`, and adds `cChild`. `sBELOW_sold` pairs
   each sold item with each part below it.
-- `select(as_item)` makes each row of `sSOLD_BELOW` anew from its `cChild`, as a `cItem`.
+- `select(as_item)` makes each row of `sBELOW_sold` anew from its `cChild`, as a `cItem`.
 - `unite` returns the rows that are in either set.
 
-`sSOLD` holds the frame and the nut. `sSOLD_BELOW` pairs the frame with the plate, the bolt and the nut. The nut takes
-no part, so `sSOLD_BELOW` pairs it with nothing. `sNEEDED` holds the frame, the nut, the plate and the bolt. The nut
+`sSOLD` holds the frame and the nut. `sBELOW_sold` pairs the frame with the plate, the bolt and the nut. The nut takes
+no part, so `sBELOW_sold` pairs it with nothing. `sNEEDED` holds the frame, the nut, the plate and the bolt. The nut
 is both sold and a part of the frame, and `sNEEDED` holds it once. The bracket is not in `sNEEDED`, because no
 customer buys it and no sold item takes it.
 
@@ -163,7 +163,7 @@ with only the items that customers buy. Keep the shared steps in a variable, and
 
 ```cpp
 const auto made       = from<cMachine>(machines).lateral<cItem>(items_of);
-const auto sMADE_SOLD = made.join(sSOLD).build();  // the items customers buy, on the machine that makes them
+const auto sMADE_sold = made.join(sSOLD).build();  // the items customers buy, on the machine that makes them
 const auto sMADE      = made.build();              // every item each machine makes
 ```
 
@@ -172,7 +172,7 @@ const auto sMADE      = made.build();              // every item each machine ma
   items that customers buy.
 - `made.build()` makes the rows of `made` itself.
 
-`sMADE_SOLD` holds M1 with the frame and M2 with the nut. `sMADE` holds every item that each machine makes, 3 on each
+`sMADE_sold` holds M1 with the frame and M2 with the nut. `sMADE` holds every item that each machine makes, 3 on each
 machine: 6 rows. The `join` did not change `made`.
 
 For what a step does to a chain in a variable, see [`Chain`](../reference/relational-algebra.md#chain).

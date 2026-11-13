@@ -1,4 +1,4 @@
-<!-- Copied from docs/guide/ordered-sets.md (blob ec32bc8f3cb9), tests/docs/guide/model.hpp (blob b2d1db7441b4), tests/docs/guide/ordered_sets.cpp (blob 17d5ae3b8ec8) by tools/sync_skill_docs.py - edit the source, not this copy. -->
+<!-- Copied from docs/guide/ordered-sets.md (blob f22937627dd0), tests/docs/guide/model.hpp (blob 906d31015f4d), tests/docs/guide/ordered_sets.cpp (blob 05237ba7d71c) by tools/sync_skill_docs.py - edit the source, not this copy. -->
 
 # Ordered sets
 
@@ -27,7 +27,7 @@ const auto sSTOCK   = from(sNEEDED).cross(sPERIODS).build();
 const auto sCONSUME = from(quantity.keys()).join(sPRODUCE.select(as_parent)).build();
 ```
 
-The examples use two of the sets. `s.periods` is `sPERIODS`, the periods 1, 2 and 3, in that order. `s.stock` is
+The examples use two of the sets. `s.PERIODS` is `sPERIODS`, the periods 1, 2 and 3, in that order. `s.STOCK` is
 `sSTOCK`, each item that the plant needs in each period. `sNEEDED` holds the frame, the nut, the plate and the bolt,
 as [Find the items the products need](set-algebra.md#find-the-items-the-products-need) shows.
 
@@ -37,7 +37,7 @@ A model over periods often needs to know where a period stands: whether it is th
 place in the plan. To read positions in a set's order, call `ordered()` on the set:
 
 ```cpp
-const auto orderedPeriods = s.periods.ordered();
+const auto orderedPeriods = s.PERIODS.ordered();
 
 const std::optional<std::size_t> position = orderedPeriods.positionOf(2);  // 1: positions count from 0
 const auto& [opening]                     = orderedPeriods.first();        // period 1
@@ -46,11 +46,11 @@ const bool opensAtOne                     = orderedPeriods.isFirst(1);     // tr
 const bool closesAtTwo                    = orderedPeriods.isLast(2);      // false
 ```
 
-- `s.periods.ordered()` returns an `Ordered`, which holds the position of each row of `s.periods`. Positions count
+- `s.PERIODS.ordered()` returns an `Ordered`, which holds the position of each row of `s.PERIODS`. Positions count
   from 0.
 - `positionOf(2)` returns the position of the row whose period is 2. A lookup takes a row's key, here the period's
   number. `positionOf` returns a `std::optional`, which is empty if no row has the key.
-- `first()` and `last()` return the first and the last row. A row of `s.periods` is a `std::tuple<cPeriod>`, so a
+- `first()` and `last()` return the first and the last row. A row of `s.PERIODS` is a `std::tuple<cPeriod>`, so a
   structured binding takes the period out of it.
 - `isFirst(1)` and `isLast(2)` check whether the row of a period is the first or the last row.
 
@@ -70,7 +70,7 @@ Period 1 has no period before it. To read the row before a row, where there may 
 ```cpp
 const auto frame = items.at("frame");
 std::vector<double> soldBy(periods);  // the frames sold up to period t, at [t - 1]
-for (const auto& [t] : s.periods) {
+for (const auto& [t] : s.PERIODS) {
   soldBy[t - 1] = frame->demand[t - 1];
   if (const auto* before = orderedPeriods.prev(t)) {
     const auto& [earlier] = *before;
@@ -80,7 +80,7 @@ for (const auto& [t] : s.periods) {
 ```
 
 - `items.at("frame")` returns a `Ref` to the frame. `soldBy` holds a value for each period.
-- The loop visits each period `t` of `s.periods` in order, and starts the value of `t` with the frames sold in `t`.
+- The loop visits each period `t` of `s.PERIODS` in order, and starts the value of `t` with the frames sold in `t`.
 - `orderedPeriods.prev(t)` returns a pointer to the row before `t`, or a null pointer if `t` is the first row. So the
   `if` adds the frames sold up to the period before only where there is a period before.
 - `const auto& [earlier] = *before;` takes the period out of the row.
@@ -101,20 +101,20 @@ so it has no change. Leave period 1 out of the set that the loop runs over, and 
 const auto not_first = [&orderedPeriods](cPeriod t) { return !orderedPeriods.isFirst(t); };
 
 std::vector<std::tuple<cItem, cPeriod, double>> changes;  // the change in demand from the period before
-for (const auto& [i, t] : s.stock.where(not_first)) {     // each item kept, in every period but the first
+for (const auto& [i, t] : s.STOCK.where(not_first)) {     // each item kept, in every period but the first
   const auto& [earlier] = orderedPeriods.prevOf(t);
   changes.emplace_back(i, t, i->demand[t - 1] - i->demand[earlier - 1]);
 }
 ```
 
 - `not_first` is true for a period that is not the first row of `orderedPeriods`.
-- `s.stock.where(not_first)` returns the rows of `s.stock` in every period but the first. The loop runs over these
+- `s.STOCK.where(not_first)` returns the rows of `s.STOCK` in every period but the first. The loop runs over these
   rows.
 - `orderedPeriods.prevOf(t)` returns the row before `t` itself, not a pointer to it. Every period that the loop
   visits has a period before it.
 - `changes.emplace_back` adds the item, the period and the change in the item's demand.
 
-`s.stock` holds the frame, the nut, the plate and the bolt in each period, so the loop visits each of them in periods
+`s.STOCK` holds the frame, the nut, the plate and the bolt in each period, so the loop visits each of them in periods
 2 and 3: 8 changes, starting with the frame's in period 2. The frame's demand goes from 1 to 2 to 2, so its change is
 1 in period 2 and 0 in period 3. The nut's demand goes from 0 to 5 to 0, so its change is 5 in period 2 and -5 in
 period 3. The plate and the bolt have no demand, so their changes are 0. `changes` holds no change for period 1.
@@ -129,14 +129,14 @@ the row before a row, and wrap from the first row to the last, call `prevCyclic`
 
 ```cpp
 std::vector<double> soldBefore(periods);  // the frames sold the period before t; the horizon repeats
-for (const auto& [t] : s.periods) {
+for (const auto& [t] : s.PERIODS) {
   const auto& [earlier] = *orderedPeriods.prevCyclic(t);  // before period 1, period 3
   soldBefore[t - 1]     = frame->demand[earlier - 1];
 }
 ```
 
 - `orderedPeriods.prevCyclic(t)` returns a pointer to the row before `t`, and to the last row if `t` is the first.
-  It returns a null pointer only if no row has the key, so `*` reads a row for every period of `s.periods`.
+  It returns a null pointer only if no row has the key, so `*` reads a row for every period of `s.PERIODS`.
 - `soldBefore[t - 1]` takes the frames sold in the period before `t`.
 
 Before period 1 comes period 3, in which 2 frames are sold. Before period 2 comes period 1, with 1 frame, and before

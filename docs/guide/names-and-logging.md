@@ -108,8 +108,8 @@ too long for the buffer, see [`OnFormatOverflow`](../reference/names.md#onformat
 ## Log a model's own messages
 
 Your model can say what it built, and warn about data that looks wrong, in dreamor's log, beside dreamor's own
-messages. `Sets` is a struct of the model's sets, which `byChain` builds as chains: `produce` holds each machine with
-each needed item that it makes, in each period, `periods` holds the periods, and `needed` holds the items that the
+messages. `Sets` is a struct of the model's sets, which `byChain` builds as chains: `PRODUCE` holds each machine with
+each needed item that it makes, in each period, `PERIODS` holds the periods, and `NEEDED` holds the items that the
 plant needs. Write a line at the level that the message has:
 
 ```cpp
@@ -123,7 +123,7 @@ plant needs. Write a line at the level that the message has:
 
 Over the model's sets, the information line is `15 rows of production over 3 periods`. The warning is
 `1 of 5 items are needed by no one`: the bracket, which no customer buys and no sold item takes. The error line is
-not written, because `produce` has rows. Each line starts with the time since the process wrote its first line, the
+not written, because `PRODUCE` has rows. Each line starts with the time since the process wrote its first line, the
 file and the line of the call, and the level, such as `[INFO]`.
 
 For a line's parts and the levels, see [Logger](../reference/logger.md). To stop the program after an error line,

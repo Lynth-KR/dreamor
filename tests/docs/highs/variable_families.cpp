@@ -60,7 +60,7 @@ void makeFamilies(const Plant& p, const Sets& s, const highs::Plan& plan) {
 
   // produce: M1's frame and plate, M2's plate, bolt and nut, in 3 periods; stock: 4 needed items in 3 periods.
   DREAMOR_CHECK(plan.vMake.size() == 15 && plan.vSetup.size() == 15 && plan.vStock.size() == 12);
-  DREAMOR_CHECK(plan.vMake.keys() == s.produce && plan.vSetup.keys() == s.produce && plan.vStock.keys() == s.stock);
+  DREAMOR_CHECK(plan.vMake.keys() == s.PRODUCE && plan.vSetup.keys() == s.PRODUCE && plan.vStock.keys() == s.STOCK);
   DREAMOR_CHECK(plan.env.highs().getLp().num_col_ == 42);  // 15 + 15 + 12
 
   // vMake: continuous, from 0 to max_make - M1 works 4 hours, a frame takes 1 and a plate 0.5; M2 works 3 hours.
@@ -88,10 +88,10 @@ void makeFamilies(const Plant& p, const Sets& s, const highs::Plan& plan) {
 void deduced(const Sets& s) {
   HighsEnv env{quietOptions()};
   // --8<-- [start:deduced]
-  const VarTable vRun{env, s.produce, 0, 1, HighsVarType::kInteger, "Run"};  // VarTable<cMachine, cItem, cPeriod>
+  const VarTable vRun{env, s.PRODUCE, 0, 1, HighsVarType::kInteger, "Run"};  // VarTable<cMachine, cItem, cPeriod>
   // --8<-- [end:deduced]
   static_assert(std::is_same_v<decltype(vRun), const VarTable<cMachine, cItem, cPeriod>>);
-  DREAMOR_CHECK(vRun.size() == s.produce.size());
+  DREAMOR_CHECK(vRun.size() == s.PRODUCE.size());
 }
 
 void boundFromData(const Plant& p, const Sets& s) {
@@ -100,7 +100,7 @@ void boundFromData(const Plant& p, const Sets& s) {
 
   // --8<-- [start:bound-from-data]
   using dreamor::index_set::relational::from;
-  const auto sSHIFTS = from<cMachine>(machines).cross(s.periods).build();  // each machine in each period
+  const auto sSHIFTS = from<cMachine>(machines).cross(s.PERIODS).build();  // each machine in each period
 
   const std::vector<OvertimeRecord> agreed = {{"M1", 2.0}, {"M2", 1.0}};
   const auto machine_of = [&machines](const OvertimeRecord& r) { return cMachine{machines.at(r.machine)}; };
@@ -131,7 +131,7 @@ void leaveOut(const Plant& p, const Sets& s) {
   const bool overtime_allowed = false;  // this plan's choice
 
   const dreamor::IndexSet<cMachine, cPeriod> sOVERTIME = overtime_allowed
-                                                             ? from<cMachine>(machines).cross(s.periods).build()
+                                                             ? from<cMachine>(machines).cross(s.PERIODS).build()
                                                              : dreamor::IndexSet<cMachine, cPeriod>::none();
 
   const VarTable<cMachine, cPeriod> vOvertime{env, sOVERTIME, 0, 2, HighsVarType::kContinuous, "Overtime"};
@@ -141,7 +141,7 @@ void leaveOut(const Plant& p, const Sets& s) {
   DREAMOR_CHECK(vOvertime.size() == 0 && env.highs().getLp().num_col_ == 0);  // no variable reached the model
   DREAMOR_CHECK(extraHours.size() == 0 && isExactlyZero(extraHours.constant()));
   // With overtime allowed, the same lines make a variable for each machine in each period.
-  const auto sALLOWED = from<cMachine>(machines).cross(s.periods).build();
+  const auto sALLOWED = from<cMachine>(machines).cross(s.PERIODS).build();
   DREAMOR_CHECK(sALLOWED.size() == 6 && dreamor::within(sOVERTIME, sALLOWED));
 }
 
@@ -163,7 +163,7 @@ void read(const Plant& p, const Sets& s, const highs::Plan& plan) {
   DREAMOR_CHECK(!makesNuts && plan.vMake.contains(m2, nut, 1));
   DREAMOR_CHECK_THROWS(std::out_of_range, plan.vMake(m1, nut, 1));
   DREAMOR_CHECK(count == 15);  // 5 machine and item pairs in 3 periods
-  DREAMOR_CHECK(sMADE == s.produce);
+  DREAMOR_CHECK(sMADE == s.PRODUCE);
 }
 
 void walk(const Plant& p, const Sets& s, const highs::Plan& plan) {
@@ -182,7 +182,7 @@ void walk(const Plant& p, const Sets& s, const highs::Plan& plan) {
   // Each row's column is the next: the k-th row of the set has column 30 + k.
   HighsInt expected = 30;
   bool inOrder      = true;
-  for (const auto& row : s.stock) {
+  for (const auto& row : s.STOCK) {
     inOrder = inOrder && plan.vStock(row).index() == expected;
     ++expected;
   }
@@ -200,7 +200,7 @@ void changeBound(const Plant& p, const Sets& s, const BomTable& quantity) {
   // M2's plate tooling is away
   const auto lacks_tooling = [m2, plate](cMachine m, cItem i) { return m == m2 && i == plate; };
 
-  for (const auto& row : s.produce.where(lacks_tooling)) {
+  for (const auto& row : s.PRODUCE.where(lacks_tooling)) {
     plan.env.highs().changeColBounds(plan.vMake(row).index(), 0, 0);
   }
   plan.env.highs().run();

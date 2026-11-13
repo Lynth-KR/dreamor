@@ -103,9 +103,9 @@ out group by group, call `regrouped()`:
 `groupBy<cPeriod>()` groups the rows by period, and `regrouped()` returns a new set with the rows of each group
 together. The new set does not refer into the `Grouped`, so the `Grouped` needs no variable.
 
-`sBY_PERIOD` holds the five rows of period 1 first: M1's frame and plate, then M2's plate, bolt and nut, in the order
-of `sPRODUCE`. The rows of period 2 come next, then the rows of period 3. `sBY_PERIOD` holds the same rows as
-`sPRODUCE` in another order, so `sBY_PERIOD == sPRODUCE` is true.
+`sPRODUCE_by_period` holds the five rows of period 1 first: M1's frame and plate, then M2's plate, bolt and nut, in the order
+of `sPRODUCE`. The rows of period 2 come next, then the rows of period 3. `sPRODUCE_by_period` holds the same rows as
+`sPRODUCE` in another order, so `sPRODUCE_by_period == sPRODUCE` is true.
 
 For the order of the new set's rows, see [`regrouped`](../reference/grouped.md#grouped-regrouped).
 
