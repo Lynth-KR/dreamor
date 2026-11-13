@@ -29,7 +29,8 @@ namespace dreamor {
 /// The parts of this section hold the values of a solve. A `SolutionTable` holds one `double` for each variable of a
 /// `VarTable`, and looks a value up by the key of the variable's row. The table holds copies of the values, so it can
 /// be read after the model, the solver and the environment are gone. On every backend, only the `solution()` member
-/// of a `VarTable` makes a `SolutionTable`.
+/// of a `VarTable` makes a `SolutionTable`. A table that is moved from is empty: it has no rows and no values, as a
+/// set that is moved from has no rows.
 ///
 /// A `SolutionTable` names its key columns, so it is a column callable. A `ParamTable` built from a `SolutionTable`
 /// carries the values of a solve into the next model.

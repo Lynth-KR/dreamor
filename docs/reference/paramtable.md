@@ -23,7 +23,8 @@ In use: [the guide](../guide/data-on-a-set.md).
 
     A value of type `T` for each row of a set, in the order of the set's rows.
 
-    The values are set when the table is constructed, and do not change after that. The table shares one index from
+    The values are set when the table is constructed, and do not change after that. A table that is moved from is
+    empty: it has no rows and no values, as a set that is moved from has no rows. The table shares one index from
     key to row with every other table on the same set, so the index is built once for the set.
 
     `T` is typically a number, a `bool`, an enum, a text, a `Ref`, or a struct that holds several values of a row. If

@@ -73,7 +73,8 @@ template <typename Var>
 ///
 /// The parts of this section look up and iterate a family of variables: one variable for each row of a set. A
 /// backend's `VarTable` constructor makes all of the variables at once. After that, the table's set and its variables
-/// do not change. Every backend's `VarTable` derives from `VarTableCore` and has the members of this section. The
+/// do not change. A table that is moved from is empty: it has no rows and no variables, as a set that is moved from
+/// has no rows. Every backend's `VarTable` derives from `VarTableCore` and has the members of this section. The
 /// constructors and `solution()` of each backend's `VarTable` are in that backend's section.
 ///
 /// Each variable is named `<name>_<key0>_<key1>...`: the name given to the constructor, then the value of each
@@ -194,7 +195,12 @@ class VarTableCore : public VarTableBase {
  protected:
   explicit VarTableCore(const IndexSet<Keys...>& keys) : keys_{keys}, index_{sharedRowIndex(keys_)} {}
 
-  VarTableCore(VarTableCore&&) noexcept = default;
+  // A move leaves the empty set, the empty index and no variable. A HiGHS table's variables are a first column and a
+  // count, which a defaulted move would copy, so they are reset too.
+  VarTableCore(VarTableCore&& other) noexcept
+      : vars_{std::exchange(other.vars_, {})},
+        keys_{std::move(other.keys_)},
+        index_{std::exchange(other.index_, emptyRowIndex<key_type>())} {}
 
  public:
   VarTableCore& operator=(VarTableCore&&) = delete;

@@ -63,6 +63,26 @@ class RowValues {
   RowValues(IndexSet<Keys...> keys, std::shared_ptr<const RowIndex<key_type>> index, std::vector<StoredValue<T>> values)
       : keys_{std::move(keys)}, index_{std::move(index)}, values_{std::move(values)} {}
 
+  RowValues(const RowValues&)            = default;
+  RowValues& operator=(const RowValues&) = default;
+
+  // A move leaves the empty set, the empty index and no value, so that every member still works on what is left.
+  RowValues(RowValues&& other) noexcept
+      : keys_{std::move(other.keys_)},
+        index_{std::exchange(other.index_, emptyRowIndex<key_type>())},
+        values_{std::exchange(other.values_, {})} {}
+
+  RowValues& operator=(RowValues&& other) noexcept {
+    if (this != &other) {
+      keys_   = std::move(other.keys_);
+      index_  = std::exchange(other.index_, emptyRowIndex<key_type>());
+      values_ = std::exchange(other.values_, {});
+    }
+    return *this;
+  }
+
+  ~RowValues() = default;
+
   // Returns the position of a key's value, or kNotFound if the set does not have the key. The key is the columns in
   // the declared order, or one row (internal/index_set/key_args.hpp).
   template <typename... Args>

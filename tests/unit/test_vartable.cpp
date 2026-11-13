@@ -3,7 +3,7 @@
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
 // VarTable: built once from a set, bounds as numbers or column callables, names from keys,
-// lookup, iteration in set order, solution().
+// lookup, iteration in set order, solution(); a table moved from, empty.
 #include <algorithm>
 #include <bit>
 #include <cstddef>
@@ -264,6 +264,35 @@ void entityRowsByAddress(const IloEnv& env) {
   };
   DREAMOR_CHECK(finds_each(by_address) && finds_each(by_hash));
   DREAMOR_CHECK_THROWS(std::out_of_range, by_address(stranger));
+}
+
+// A table moved from is empty, as a moved-from set is - a ParamTable, a SolutionTable and a VarTable alike: every
+// member works on it and finds nothing, a copy of it is empty too, and a table assigned over it is whole again.
+void movedFrom(const IloEnv& env) {
+  const std::vector<std::size_t> I{1, 2, 3};
+  const auto sI = dreamor::index_set::relational::from<cI>(I).build();
+  dreamor::ParamTable<double, cI> cost{sI, 2.5};
+  const auto keptCost = std::move(cost);
+  dreamor::concert::VarTable<cI> x{env, sI, 0, 1, ILOFLOAT, "x"};
+  auto plan           = x.solution(FakeAlgorithm{env});
+  const auto keptPlan = std::move(plan);
+  const dreamor::concert::VarTable<cI> keptX{std::move(x)};
+  // NOLINTBEGIN(bugprone-use-after-move,clang-analyzer-cplusplus.Move): reading what a move leaves is the test
+  DREAMOR_CHECK(keptCost.size() == 3 && cost.size() == 0 && cost.begin() == cost.end() && !cost.contains(cI{2}));
+  DREAMOR_CHECK_THROWS(std::out_of_range, cost(cI{2}));
+  const auto copied = cost;
+  DREAMOR_CHECK(copied.size() == 0 && !copied.contains(cI{2}));
+  cost = keptCost;
+  DREAMOR_CHECK(cost.contains(cI{2}) && exactlyEqual(cost(cI{2}), 2.5));
+  DREAMOR_CHECK(keptPlan.size() == 3 && plan.size() == 0 && plan.begin() == plan.end() && !plan.contains(cI{2}));
+  DREAMOR_CHECK_THROWS(std::out_of_range, plan(cI{2}));
+  plan = keptPlan;
+  DREAMOR_CHECK(plan.contains(cI{2}));
+  DREAMOR_CHECK(keptX.size() == 3 && keptX.contains(cI{2}));
+  DREAMOR_CHECK(x.size() == 0 && x.keys().empty() && x.begin() == x.end() && !x.contains(cI{2}));
+  DREAMOR_CHECK_THROWS(std::out_of_range, x(cI{2}));
+  DREAMOR_CHECK(x.solution(FakeAlgorithm{env}).size() == 0);
+  // NOLINTEND(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
 }
 
 }  // namespace
@@ -572,5 +601,6 @@ int main() try {
   entityRowsByAddress(env);
   unextractedVariables(env);
   paramFromRecords();
+  movedFrom(env);
   return report("vartable");
 } catch (...) { return ::uncaught(); }

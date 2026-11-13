@@ -104,6 +104,10 @@ class RowIndex {
  public:
   static constexpr std::size_t kNotFound = ::dreamor::internal::FlatIndex<Key>::kNotFound;
 
+  // An index over no rows, the one a table that is moved from holds (emptyRowIndex). It checks nothing, so it throws
+  // nothing; a lookup in it builds its empty hash.
+  RowIndex() noexcept = default;
+
   explicit RowIndex(const Rows<Key>& rows) {
     if (rows.size() >= std::numeric_limits<std::uint32_t>::max()) {
       throw std::length_error("dreamor: a table's set has more than 2^32 - 2 rows.");
@@ -320,6 +324,15 @@ template <typename... Keys>
   using Key = std::tuple<Keys...>;
   return SetAccess::indexSlot(keys).template get<RowIndex<Key>>(
       [&keys] { return std::make_shared<const RowIndex<Key>>(SetAccess::rows(keys)); });
+}
+
+// Returns the row index of a set with no rows, which a table that is moved from holds, so that a lookup in it finds
+// nothing rather than reading through a null pointer. It owns nothing, as SetAccess::emptyRows does, and allocates
+// nothing until a lookup builds its empty hash.
+template <typename Key>
+[[nodiscard]] std::shared_ptr<const RowIndex<Key>> emptyRowIndex() noexcept {
+  static const RowIndex<Key> index{};
+  return std::shared_ptr<const RowIndex<Key>>{std::shared_ptr<const void>{}, &index};
 }
 
 }  // namespace dreamor::internal::inline backend

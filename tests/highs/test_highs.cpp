@@ -4,7 +4,7 @@
 //
 // The HiGHS backend (DREAMOR_HIGHS_DIR): VarTable and sumExpr as test_vartable and test_sum check
 // them for Concert, the expressions and rows of highspy's interface, the objective with its
-// Hessian, small models solved.
+// Hessian, small models solved; a table moved from, empty.
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -787,6 +787,23 @@ static void longRows() {
   }
 }
 
+// A table moved from is empty: its first column and count reset with its set, so size(), iteration, lookup and
+// solution() agree on no rows; the table it moved into is whole.
+static void movedFrom() {
+  hs::HighsEnv env;
+  quiet(env);
+  const std::vector<std::size_t> I{1, 2, 3};
+  const auto sI = dreamor::index_set::relational::from<cI>(I).build();
+  hs::VarTable<cI> vMoved{env, sI, 1, 2, HighsVarType::kContinuous, "x"};
+  const hs::VarTable<cI> vKept{std::move(vMoved)};
+  DREAMOR_CHECK(hs::minimize(env, hs::sumExpr(sI, vKept).build()) == HighsStatus::kOk);
+  DREAMOR_CHECK(vKept.size() == 3 && std::abs(vKept.solution(env)(cI{2}) - 1) < 1e-6);
+  // NOLINTBEGIN(bugprone-use-after-move,clang-analyzer-cplusplus.Move): reading what a move leaves is the test
+  DREAMOR_CHECK(vMoved.size() == 0 && vMoved.keys().empty() && vMoved.begin() == vMoved.end());
+  DREAMOR_CHECK(!vMoved.contains(cI{2}) && vMoved.solution(env).size() == 0);
+  // NOLINTEND(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
+}
+
 int main() try {
   varTable();
   expressions();
@@ -800,5 +817,6 @@ int main() try {
   errors();
   values();
   smallModel();
+  movedFrom();
   return report("highs");
 } catch (...) { return ::uncaught(); }
