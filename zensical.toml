@@ -8,6 +8,9 @@
 site_name = "dreamor"
 # Where .github/workflows/site.yml publishes it: the sitemap and every page's canonical link name it.
 site_url = "https://lynth-kr.github.io/dreamor/"
+# The repository, linked at the top right of every page with its name.
+repo_url = "https://github.com/Lynth-KR/dreamor"
+repo_name = "Lynth-KR/dreamor"
 # The footer: the licenses of what the site shows (README.md, "License").
 copyright = "Copyright 2026 Lynth-KR. Text CC-BY-4.0, code MIT-0, library MPL-2.0."
 extra_css = ["stylesheets/extra.css"]
@@ -93,6 +96,8 @@ nav = [
 # the footer.
 [project.theme]
 features = ["navigation.tabs", "navigation.footer"]
+# The repository's link shows GitHub's mark.
+icon.repo = "fontawesome/brands/github"
 
 # Light and dark, following the system, with a toggle: the scheme is also what hides the banner of the other mode
 # (#gh-light-mode-only, #gh-dark-mode-only).
