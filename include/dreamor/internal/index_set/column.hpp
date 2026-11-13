@@ -244,8 +244,8 @@ consteval void checkColumns() {
 // The columns of one of dreamor's own column callables whose operator() is a template, which dreamor cannot read off
 // a parameter list: Membership, ParamTable, SolutionTable and every VarTable take their key in several forms. A
 // specialization defines `type`, a std::tuple of the columns, and takes precedence over the parameter list. A model's
-// callable declares its columns in its signature instead: this trait is internal, so that a generic lambda has no way
-// around that rule.
+// callable declares its columns in its signature, or names them where it is passed through reads: this trait stays
+// internal, so that a model's columns are always stated in one of those two places.
 template <typename Pred>
 struct CallableColumns {};
 

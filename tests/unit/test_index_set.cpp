@@ -292,6 +292,27 @@ void constructedEmpty() {
   DREAMOR_CHECK(withinI.positionOf(cI{2}, cJ{3}) == std::optional<std::size_t>{2} && withinI.isFirst(cI{3}, cJ{1}));
 }
 
+// reads gives a generic callable the columns it names: a condition, a projection that changes the columns'
+// types (one lambda, two projections), a key of orderBy; the columns in the order reads names them.
+void readsColumns() {
+  namespace rel = dreamor::index_set::relational;
+  const std::vector<std::size_t> as{1, 2, 3};
+  const auto sIJ      = rel::from<cI>(as).cross<cJ>(as).build();
+  const auto below    = [](const auto& a, const auto& b) { return a.get() < b.get(); };
+  const auto as_later = [](const auto& c) { return cLater{static_cast<std::uint32_t>(c.get())}; };
+  const auto negative = [](const auto& c) { return -static_cast<long>(c.get()); };
+  const auto sIJ_up   = sIJ.where(dreamor::reads<cI, cJ>(below));  // i < j
+  const auto sJI_up   = sIJ.where(dreamor::reads<cJ, cI>(below));  // j < i: the order reads names
+  DREAMOR_CHECK(sIJ_up.size() == 3 && sIJ_up.contains(cI{1}, cJ{3}) && !sIJ_up.contains(cI{3}, cJ{1}));
+  DREAMOR_CHECK(sJI_up.size() == 3 && sJI_up.contains(cI{3}, cJ{1}));
+  const auto fromI = sIJ.select(dreamor::reads<cI>(as_later));
+  const auto fromJ = sIJ.select(dreamor::reads<cJ>(as_later));
+  static_assert(std::is_same_v<decltype(fromI), const dreamor::IndexSet<cLater>>);
+  DREAMOR_CHECK(fromI.size() == 3 && fromJ.size() == 3 && fromI == fromJ);
+  const auto byJDown = sIJ.orderBy(dreamor::reads<cJ>(negative));
+  DREAMOR_CHECK(std::get<cJ>(*byJDown.begin()) == 3 && std::get<cJ>(*(byJDown.end() - 1)) == 1);
+}
+
 // none(): a set of the type's columns with no rows, allocating nothing. Every
 // derivation and operation takes it, and it equals an empty set built otherwise; the empty storage it shares, index
 // included, serves every none() alike.
@@ -746,6 +767,7 @@ int main() try {
   rowsInADeclaredOrder();
   movedFrom();
   constructedEmpty();
+  readsColumns();
   noRows();
   frontOfSlices();
   extremeSteps();

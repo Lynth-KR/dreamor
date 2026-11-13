@@ -62,8 +62,11 @@ Each is a rule of the reference or the guide, linked; the compile-time ones stop
 `references/diagnostics.md` explains.
 
 - **A callable takes the columns it reads**, by value or `const&`, one non-template `operator() const`: no `auto`
-  parameter, no `mutable`, no `std::function`, no `Ref<T>` or `int` parameter where a column goes
-  (`docs/reference/column-callables.md`).
+  parameter, no `mutable`, no `std::function`, no `Ref<T>` or `int` parameter where a column goes. A generic lambda
+  goes through `dreamor::reads<cMachine, cPeriod>(f)`, which names the columns it is called with
+  (`docs/reference/column-callables.md`, `docs/guide/columns.md`).
+- **A row is a `std::tuple` of its columns**: name them all with a structured binding, or take one with
+  `std::get<cItem>(row)` (`docs/guide/columns.md`).
 - **A lookup takes the key's columns in the table's order, or one row**; where two key columns hold one type
   (`cParent`, `cChild`), name each, `quantity(cParent{a}, cChild{b})`; no braced list (`docs/reference/keys.md`).
 - **A column holds a `Ref` or a plain value** - never floating point (a quantity is an entity's field or a
@@ -106,8 +109,8 @@ Each is a rule of the reference or the guide, linked; the compile-time ones stop
 ## Before finishing
 
 - [ ] The code follows the guide page for each part it writes; every member used is in `docs/reference/`.
-- [ ] Every callable takes columns, with no `auto` parameter; a predicate or term that says something of the model is
-      named, logic special to one set may stay inline.
+- [ ] Every callable takes columns, with no `auto` parameter - a generic one wrapped in `dreamor::reads<...>`; a
+      predicate or term that says something of the model is named, logic special to one set may stay inline.
 - [ ] Every lookup passes the key in the table's order, or one row; where two key columns share a type, each is named.
 - [ ] Entities live in named, frozen `EntityVector`s; fields that refer to another entity are `Ref<T>`; an empty `Ref`
       from `find` is checked.

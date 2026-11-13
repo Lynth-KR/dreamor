@@ -16,6 +16,30 @@ A column callable meets these requirements:
 - Each parameter is taken by value or by `const` reference.
 
 A function pointer, a `std::function`, a generic lambda and a `mutable` lambda do not compile, and neither does any
-callable whose `operator()` is a template: a callable states the columns that it reads in its signature.
+callable whose `operator()` is a template: a callable states the columns that it reads in its signature. A
+callable whose `operator()` is a template, such as a generic lambda, states them through `reads` instead:
+`dreamor::reads<cMachine, cPeriod>(f)` is a column callable of those columns.
 
 In use: [the guide](../guide/columns.md).
+
+## `reads` {#reads}
+
+!!! abstract "`dreamor::reads` - function"
+
+    ```cpp
+    template <typename... Columns, typename Callable>
+    auto reads(Callable callable)
+    ```
+
+    Returns a column callable that reads the columns `Columns...` of a row and passes them to `callable`, in that order.
+
+    A callable whose `operator()` is a template, such as a generic lambda, does not state the columns that it reads, so
+    dreamor cannot take it as a column callable. `reads` states them where the callable is passed: with `is_sold` a
+    generic lambda over an item, `dreamor::reads<cItem>(is_sold)` is a column callable of `cItem`, and
+    `dreamor::reads<cChild>(is_sold)` one of `cChild`. One generic lambda can so serve sets whose columns differ, each
+    call naming the columns that it gives. The result goes wherever
+    a column callable goes: a condition, a term of a sum, a bound of a `VarTable`, a value of a `ParamTable`, an
+    expression of `select`, a key of `orderBy` and a lateral source.
+
+    - **Takes:** `Columns...` must be one or more distinct columns. `callable` must be callable as `const`, with a `const` reference to each column of `Columns...`, in that order.
+    - **Returns:** A function object that holds a copy of `callable`. Its call returns what `callable` returns, a reference as a reference.

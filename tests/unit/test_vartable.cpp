@@ -296,6 +296,33 @@ void movedFrom(const IloEnv& env) {
   // NOLINTEND(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
 }
 
+// reads names the columns of a generic callable wherever a column callable goes: a VarTable's bound, a ParamTable's
+// value (the type deduced), a sum's term, a lateral source, set-builder's in<>; a reference returned stays one.
+void readsColumns(const IloEnv& env) {
+  using dreamor::index_set::relational::from;
+  using dreamor::index_set::set_builder::in;
+  using dreamor::index_set::set_builder::of;
+  const std::vector<std::size_t> I{1, 2, 3};
+  const auto sI       = from<cI>(I).build();
+  const auto times_10 = [](const auto& c) { return 10.0 * static_cast<double>(c.get()); };
+  const dreamor::concert::VarTable<cI> x{env, sI, 0, dreamor::reads<cI>(times_10), ILOFLOAT, "x"};
+  DREAMOR_CHECK(exactlyEqual(x(cI{2}).getUB(), 20.0));
+  const dreamor::ParamTable weight{sI, dreamor::reads<cI>(times_10)};
+  static_assert(std::is_same_v<decltype(weight), const dreamor::ParamTable<double, cI>>);
+  DREAMOR_CHECK(exactlyEqual(weight(cI{3}), 30.0));
+  const auto term   = [&x, &times_10](const auto& i) { return times_10(i) * x(i); };
+  const IloExpr sum = dreamor::concert::sumExpr(env, sI, dreamor::reads<cI>(term)).build();
+  DREAMOR_CHECK(sum.expr_->terms.size() == 3 && exactlyEqual(sum.expr_->terms[1].second, 20.0));  // 20 * x_2
+  static const std::vector<std::size_t> kJs{7, 8};
+  const auto js_of = [](const auto& /*i*/) -> const std::vector<std::size_t>& { return kJs; };
+  const auto sIJ   = from<cI>(I).lateral<cJ>(dreamor::reads<cI>(js_of)).build();
+  const auto sJI   = of<cI, cJ>(in<cI>(I), in<cJ>(dreamor::reads<cI>(js_of))).build();
+  DREAMOR_CHECK(sIJ.size() == 6 && sJI.size() == 6 && sIJ.contains(cI{3}, cJ{8}));
+  static const std::string kName = "machine";
+  const auto name_of             = [](const auto& /*i*/) -> const std::string& { return kName; };
+  static_assert(std::is_same_v<decltype(dreamor::reads<cI>(name_of)(cI{1})), const std::string&>);
+}
+
 // ParamTable{set, value} deduces the type from the value, as std::tuple does: a number its type (0 is int), a string
 // literal std::string_view, a pointer to char or a char buffer std::string (a copy: their text's life is unknown), a
 // callable what it returns without const or a reference, another table its value type.
@@ -667,6 +694,7 @@ int main() try {
   paramFromRecords();
   movedFrom(env);
   constructedEmpty(env);
+  readsColumns(env);
   deducedParamTypes();
   return report("vartable");
 } catch (...) { return ::uncaught(); }

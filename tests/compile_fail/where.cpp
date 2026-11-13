@@ -96,3 +96,30 @@ int main() {
   return static_cast<int>(IJ().where(keep).size());
 }
 #endif  // DREAMOR_CASE_where_is_a_function_name
+
+#ifdef DREAMOR_CASE_reads_cannot_call
+// expect: dreamor::reads<Columns...>(f) calls f with those columns, in that order, and f cannot be called so
+int main() {
+  const auto one_column = [](const auto& i) { return i.get() > 1; };
+  const auto sIJ        = dreamor::index_set::relational::from<cI>(I).cross<cJ>(I).build();
+  return static_cast<int>(sIJ.where(dreamor::reads<cI, cJ>(one_column)).size());  // two columns for one parameter
+}
+#endif  // DREAMOR_CASE_reads_cannot_call
+
+#ifdef DREAMOR_CASE_reads_names_a_column_twice
+// expect: reads<Columns...>(f) names each column once
+int main() {
+  const auto both = [](const auto& a, const auto& b) { return a.get() < b.get(); };
+  const auto sI   = dreamor::index_set::relational::from<cI>(I).build();
+  return static_cast<int>(sI.where(dreamor::reads<cI, cI>(both)).size());
+}
+#endif  // DREAMOR_CASE_reads_names_a_column_twice
+
+#ifdef DREAMOR_CASE_reads_takes_columns
+// expect: reads<Columns...>(f) takes columns declared with DREAMOR_ENTITY_COLUMN or DREAMOR_VALUE_COLUMN
+int main() {
+  const auto positive = [](const auto& v) { return v > 0; };
+  const auto sI       = dreamor::index_set::relational::from<cI>(I).build();
+  return static_cast<int>(sI.where(dreamor::reads<std::size_t>(positive)).size());
+}
+#endif  // DREAMOR_CASE_reads_takes_columns

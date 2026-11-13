@@ -146,6 +146,39 @@ MakeSet callable(const Plant& p) {
   return sMAKE;
 }
 
+// One rule over two columns of items: reads names the column that each call gives the generic lambda.
+void readsColumns(const Plant& p, const MakeSet& sMAKE) {
+  const auto quantity = bomTable(p);
+
+  // --8<-- [start:reads]
+  const auto is_sold = [](const auto& item) { return std::ranges::max(item->demand) > 0; };  // a cItem or a cChild
+
+  const auto sMADE_SOLD = sMAKE.where(dreamor::reads<cItem>(is_sold));             // rows whose item is sold
+  const auto sSOLD_PART = quantity.keys().where(dreamor::reads<cChild>(is_sold));  // parts that are sold too
+  // --8<-- [end:reads]
+  const auto frame = p.items.at("frame");
+  const auto nut   = p.items.at("nut");
+  // Sold: the frame (1, 2, 2) and the nut (5 in period 2). sMAKE has no frame row (a batch does not fit M1), so its
+  // sold rows are the nut's on M2; the nut is the one part that customers also buy.
+  DREAMOR_CHECK(sMADE_SOLD.size() == 3 && sMADE_SOLD.contains(p.machines.at("M2"), nut, 2));
+  DREAMOR_CHECK(!sMAKE.contains(p.machines.at("M1"), frame, 1));
+  DREAMOR_CHECK(sSOLD_PART.size() == 1 && std::get<cChild>(*sSOLD_PART.begin()) == nut);
+}
+
+// A row is a std::tuple of its columns: a structured binding names them all, std::get takes one by its type.
+void oneColumn(const Plant& p, const MakeSet& sMAKE) {
+  // --8<-- [start:one-column]
+  const auto& row                     = *sMAKE.begin();        // M1, the plate, period 1
+  const auto& [machine, item, period] = row;                   // every column, each by a name
+  const cItem first                   = std::get<cItem>(row);  // one column, by its type
+
+  const auto byMachinePeriod = sMAKE.groupBy<cMachine, cPeriod>();
+  const cItem leadOnM2       = std::get<cItem>(byMachinePeriod.slice(p.machines.at("M2"), 1).front());  // the bolt
+  // --8<-- [end:one-column]
+  DREAMOR_CHECK(machine == p.machines.at("M1") && item == p.items.at("plate") && period == 1);
+  DREAMOR_CHECK(first == p.items.at("plate") && leadOnM2 == p.items.at("bolt"));
+}
+
 void key(const Plant& p, const MakeSet& sMAKE) {
   const dreamor::EntityVector<Machine>& machines = p.machines;
   const dreamor::EntityVector<Item>& items       = p.items;
@@ -244,6 +277,8 @@ int main() try {
   read(p);
   twoColumns(p);
   const MakeSet sMAKE = callable(p);
+  readsColumns(p, sMAKE);
+  oneColumn(p, sMAKE);
   key(p, sMAKE);
   namedKey(p);
   enumAndText();

@@ -1,4 +1,4 @@
-<!-- Copied from docs/guide/columns.md (blob 07f43b44548b), tests/docs/guide/model.hpp (blob b2d1db7441b4), tests/docs/guide/columns.cpp (blob bd497296e976) by tools/sync_skill_docs.py - edit the source, not this copy. -->
+<!-- Copied from docs/guide/columns.md (blob 757a25842a5d), tests/docs/guide/model.hpp (blob b2d1db7441b4), tests/docs/guide/columns.cpp (blob bfc093546b77) by tools/sync_skill_docs.py - edit the source, not this copy. -->
 
 # Columns
 
@@ -124,6 +124,58 @@ holds M1 with the plate and the bracket, and M2 with the bolt and the nut, each 
 
 For what a column callable may be, see [Column callables](../reference/column-callables.md).
 [Relational algebra](relational-algebra.md) shows each step of a chain.
+
+## Name the columns of a generic lambda
+
+Suppose one rule applies to columns of several kinds: an item is sold whether it fills `cItem` or `cChild`. A generic
+lambda, `[](const auto& item)`, can hold the rule once, but it does not say which column it reads, so dreamor does not
+take it as a column callable. Name the column where you pass it, with `reads`:
+
+```cpp
+const auto is_sold = [](const auto& item) { return std::ranges::max(item->demand) > 0; };  // a cItem or a cChild
+
+const auto sMADE_SOLD = sMAKE.where(dreamor::reads<cItem>(is_sold));             // rows whose item is sold
+const auto sSOLD_PART = quantity.keys().where(dreamor::reads<cChild>(is_sold));  // parts that are sold too
+```
+
+- `is_sold` is a generic lambda: its parameter is `auto`, so it takes any column that holds an item.
+- `dreamor::reads<cItem>(is_sold)` is a column callable that reads `cItem` and passes it to `is_sold`. `where` keeps
+  the rows of `sMAKE` whose item is sold.
+- `dreamor::reads<cChild>(is_sold)` passes `cChild` instead. `where` keeps the edges of the bill of materials whose
+  part is sold.
+
+Customers buy the frame and the nut. No batch of frames fits M1's hours, so `sMAKE` holds no row of the frame:
+`sMADE_SOLD` holds M2's nut in each period, 3 rows. Of the parts, only the nut is also sold, so `sSOLD_PART` holds the
+plate's edge to the nut.
+
+`reads<Columns...>` names the columns in the order in which the lambda takes them, and its result goes wherever a
+column callable goes. For what it takes, see [`reads`](../reference/column-callables.md#reads).
+
+## Read one column of a row
+
+A row of a set is a `std::tuple` of its columns. To read the columns of a row, name them all with a structured
+binding, or take one by its type with `std::get`:
+
+```cpp
+const auto& row                     = *sMAKE.begin();        // M1, the plate, period 1
+const auto& [machine, item, period] = row;                   // every column, each by a name
+const cItem first                   = std::get<cItem>(row);  // one column, by its type
+
+const auto byMachinePeriod = sMAKE.groupBy<cMachine, cPeriod>();
+const cItem leadOnM2       = std::get<cItem>(byMachinePeriod.slice(p.machines.at("M2"), 1).front());  // the bolt
+```
+
+- `*sMAKE.begin()` is the first row of `sMAKE`.
+- `const auto& [machine, item, period] = row` names each column of the row, in the set's order.
+- `std::get<cItem>(row)` returns the row's `cItem`. A column is found by its type, so no position is counted.
+- `std::get<cItem>(...slice(m2, 1).front())` reads the item of the first row of M2 in period 1.
+
+The first row of `sMAKE` is M1, the plate and period 1, so `first` is the plate. M2's first row in period 1 is the
+bolt's, so `leadOnM2` is the bolt. A structured binding suits a loop or a statement that reads every column;
+`std::get` suits one column of a row that a call returns.
+
+For what a set's iteration and a slice's `front` return, see [`IndexSet`](../reference/indexset.md#indexset) and
+[`front`](../reference/grouped.md#rowslice-front).
 
 ## Look a row up by its key
 

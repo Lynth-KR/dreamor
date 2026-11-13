@@ -32,7 +32,9 @@
 /// - Each parameter is taken by value or by `const` reference.
 ///
 /// A function pointer, a `std::function`, a generic lambda and a `mutable` lambda do not compile, and neither does any
-/// callable whose `operator()` is a template: a callable states the columns that it reads in its signature.
+/// callable whose `operator()` is a template: a callable states the columns that it reads in its signature. A
+/// callable whose `operator()` is a template, such as a generic lambda, states them through `reads` instead:
+/// `dreamor::reads<cMachine, cPeriod>(f)` is a column callable of those columns.
 ///
 /// Guide: guide/columns.md
 
@@ -148,10 +150,11 @@ struct PredicatePlacement<std::tuple<Columns...>, ElemTuple> {
 // read from the type of operator(). If the body does not compile, an auto return type cannot be deduced and the type
 // is unknown, as it is for a template operator(). C++ cannot tell the two cases apart, so the message names both.
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage): a static_assert message has to be a string literal
-#define DREAMOR_INTERNAL_READ_PARAMETERS_MESSAGE                                                                 \
-  "Cannot read this callable's parameter list: its body does not compile - the error above - or its operator() " \
-  "is a template, `[](auto, auto)`, which does not say which columns it reads. Fix the body, or give it one "    \
-  "concrete signature, its columns as its parameters: [](cMachine m, cPeriod t)."
+#define DREAMOR_INTERNAL_READ_PARAMETERS_MESSAGE                                                                  \
+  "Cannot read this callable's parameter list: its body does not compile - the error above - or its operator() "  \
+  "is a template, `[](auto, auto)`, which does not say which columns it reads. Fix the body, or give it one "     \
+  "concrete signature, its columns as its parameters: [](cMachine m, cPeriod t) - or name the columns it reads: " \
+  "dreamor::reads<cMachine, cPeriod>(f)."
 
 // The message for a parameter that is not a column, shared by every place that calls a callable with the columns of
 // a row.
@@ -168,4 +171,52 @@ using PlacementOf = PredicatePlacement<typename ColumnsOfPredicate<Pred>::type, 
 template <typename Source, typename ElemTuple>
 using SourcePlacement = PlacementOf<Source, ElemTuple>;
 
+// The column callable that reads returns: one concrete operator(), whose parameters name the columns, around a
+// callable that may have a template operator(). A reference that the callable returns is returned as is, so that a
+// table of std::string_view can view the text that it refers to.
+template <typename Callable, typename... Columns>
+class Reads {
+ public:
+  explicit Reads(Callable callable) : callable_{std::move(callable)} {}
+
+  decltype(auto) operator()(const Columns&... columns) const { return callable_(columns...); }
+
+ private:
+  Callable callable_;
+};
+
 }  // namespace dreamor::internal::inline index_set
+
+namespace dreamor {
+
+/// Returns a column callable that reads the columns `Columns...` of a row and passes them to `callable`, in that
+/// order.
+///
+/// A callable whose `operator()` is a template, such as a generic lambda, does not state the columns that it reads, so
+/// dreamor cannot take it as a column callable. `reads` states them where the callable is passed: with `is_sold` a
+/// generic lambda over an item, `dreamor::reads<cItem>(is_sold)` is a column callable of `cItem`, and
+/// `dreamor::reads<cChild>(is_sold)` one of `cChild`. One generic lambda can so serve sets whose columns differ, each
+/// call naming the columns that it gives. The result goes wherever
+/// a column callable goes: a condition, a term of a sum, a bound of a `VarTable`, a value of a `ParamTable`, an
+/// expression of `select`, a key of `orderBy` and a lateral source.
+///
+/// Takes: `Columns...` must be one or more distinct columns. `callable` must be callable as `const`, with a `const`
+/// reference to each column of `Columns...`, in that order.
+/// Returns: A function object that holds a copy of `callable`. Its call returns what `callable` returns, a reference
+/// as a reference.
+template <typename... Columns, typename Callable>
+[[nodiscard]] auto reads(Callable callable) {
+  static_assert(sizeof...(Columns) > 0, "reads<Columns...>(f) names the columns that f reads: reads<cMachine>(f).");
+  static_assert((internal::column<Columns> && ...),
+                "reads<Columns...>(f) takes columns declared with DREAMOR_ENTITY_COLUMN or DREAMOR_VALUE_COLUMN: "
+                "reads<cMachine, cPeriod>(f), not reads<Machine, int>(f).");
+  static_assert(internal::allColumnsDistinct<std::tuple<Columns...>>(std::make_index_sequence<sizeof...(Columns)>{}),
+                "reads<Columns...>(f) names each column once: a row holds a column once.");
+  static_assert(std::is_invocable_v<const Callable&, const Columns&...>,
+                "dreamor::reads<Columns...>(f) calls f with those columns, in that order, and f cannot be called so: "
+                "list the columns that f takes, in the order of its parameters, and make f callable as const - no "
+                "mutable lambda.");
+  return internal::Reads<Callable, Columns...>{std::move(callable)};
+}
+
+}  // namespace dreamor
