@@ -91,14 +91,18 @@ Each is a rule of the reference or the guide, linked; the compile-time ones stop
 - **Name rows** with `dreamor::indexedName("Balance", i, t)`, the rule `VarTable` names its variables by. Text is a
   value (`std::format`); what a model has to say goes through `DREAMOR_LOG_INFO`, `_WARNING`, `_ERROR`
   (`docs/guide/names-and-logging.md`).
-- **Name every callable** - no inline lambda - and, where the user's code shows no style of its own, name as dreamor's
-  documentation does: columns `cMachine`, sets `sMAKE`, variable families `vMake`, callables over columns
-  `fits_batch`, everything else `camelCase`.
+- **Name a callable that says something of the model** or that another set, sum or constraint family could take
+  (`fits_batch`, `hours`), and pass it by name. Naming is a recommendation, not a rule: a lambda holding logic
+  special to one set - a projection that builds that set's rows, a condition no other set asks - stays inline where
+  the set is defined, rather than declared ahead of it where it breaks the code's flow. Where the user's code shows
+  no style of its own, name as dreamor's documentation does: columns `cMachine`, sets `sMAKE`, variable families
+  `vMake`, callables over columns `fits_batch`, everything else `camelCase`.
 
 ## Before finishing
 
 - [ ] The code follows the guide page for each part it writes; every member used is in `docs/reference/`.
-- [ ] Every callable takes columns and is named; no inline lambda, no `auto` parameter.
+- [ ] Every callable takes columns, with no `auto` parameter; a predicate or term that says something of the model is
+      named, logic special to one set may stay inline.
 - [ ] Every lookup passes the key in the table's order, or one row; where two key columns share a type, each is named.
 - [ ] Entities live in named, frozen `EntityVector`s; fields that refer to another entity are `Ref<T>`; an empty `Ref`
       from `find` is checked.

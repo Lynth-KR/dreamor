@@ -105,9 +105,9 @@ Three rules decide the cases the table leaves open:
   variable families, rows and cost. A part goes into either only when two pages use it and it belongs to that world;
   anything else a page declares in its own test. `tests/docs/highs/model.cpp` builds the model whole, checks that the
   two notations give the same sets, and solves each to the cost of its plan worked out by hand.
-- **The model code's rules** are `code-style.md`'s, "Model code in this repository": names, no inline lambdas, sets
-  from relations, text and messages (no `std::cout`), plain C++ types. The tests are the code users read: they build
-  with `user`'s flags and `tests/docs/.clang-tidy`.
+- **The model code's rules** are `code-style.md`'s, "Model code in this repository": names, named callables, sets
+  from relations, text and messages (no `std::cout`), plain C++ types. The tests are the code users read:
+  they build with `user`'s flags and `tests/docs/.clang-tidy`.
 
 ## Sentences
 

@@ -97,9 +97,12 @@ and the benchmarks' dreamor models. Review holds it; `examples/.clang-tidy` turn
 
 - **Names.** Columns `cPascalCase`, sets `sSCREAMING_SNAKE`, variable families `vPascalCase`; callables that take
   columns in `snake_case`; everything else in `camelCase`.
-- **No inline lambdas.** Name every callable - a local variable, or a `static constexpr` member or namespace-scope
-  constant where there is no local scope (a constructor's member-init list) - and pass it by name: to `where`,
-  `sumExpr`, a VarTable's bounds, `IndexSet{records, row_of}`.
+- **Named callables.** The model code here names its callables - a local variable, or a `static constexpr` member
+  or namespace-scope constant where there is no local scope (a constructor's member-init list) - and passes them by
+  name: to `where`, `sumExpr`, a VarTable's bounds, `IndexSet{records, row_of}`. It shows the form recommended for a
+  predicate or a term that says something of the model (`fits_batch`, `hours`). Naming is a recommendation, not a
+  rule: in a user's model, a lambda holding logic special to one set may stay inline where that set is defined,
+  rather than declared ahead of it where it breaks the code's flow (the skill says so).
 - **Sets from relations.** A relation is data the builder fills once (a machine's `items`), read through a lateral
   source, not a join that looks a key up again; a projection through `select`. Rows of a set, and functions taking them, use column types (`cMachine`,
   `std::tuple<cMachine, cItem>` for rows gathered before the set exists); an entity field that refers to another
