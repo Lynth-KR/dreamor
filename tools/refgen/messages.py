@@ -23,6 +23,9 @@ import re
 from pathlib import Path
 
 from refgen.common import INCLUDE, ROOT, Problems
+from refgen.common import cases as case_reader
+
+Case = case_reader.Case
 
 TESTS = ROOT / "tests"
 # The page's sections, in reading order, and the topic files of compile_fail cases that each gathers. Every topic
@@ -49,7 +52,6 @@ SECTIONS = (
     ("dreamor::mathopt", ["mathopt/compile_fail/sumexpr.cpp", "mathopt/compile_fail/vartable.cpp"]),
 )
 FOLDERS = ("compile_fail", "mathopt/compile_fail", "highs/compile_fail")
-CASE = re.compile(r"#ifdef DREAMOR_CASE_(\w+)")
 # The static_asserts that no model can reach, which no case can pin: checks of dreamor's own code, each a promise the
 # public checks before it keep. A message's words, and why no model meets it.
 INTERNAL = {
@@ -59,16 +61,6 @@ INTERNAL = {
     "This source reads a column that is not bound when it runs.": "the set engine, after the class-scope checks",
 }
 LITERAL = r'"(?:\\.|[^"\\\n])*"'
-
-
-@dataclasses.dataclass
-class Case:
-    name: str
-    path: Path
-    line: int
-    expect: str | None
-    when: str = ""
-    fix: str = ""
 
 
 @dataclasses.dataclass
@@ -86,39 +78,6 @@ class Message:
 class MessageSection:
     title: str
     messages: list[Message] = dataclasses.field(default_factory=list)
-
-
-def read_case(name: str, path: Path, lines: list[str], at: int, problems: Problems) -> Case:
-    """The case whose #ifdef is lines[at]: its expect line, then its when and fix."""
-    k = at + 1
-    expect = None
-    if k < len(lines) and lines[k].startswith("// expect: "):
-        expect = lines[k].removeprefix("// expect: ").strip()
-        k += 1
-    case = Case(name, path, at + 1, expect)
-    if k < len(lines) and lines[k].startswith("// when:"):
-        when = [lines[k].removeprefix("// when:").strip()]
-        k += 1
-        while k < len(lines) and lines[k].startswith("// ") and not lines[k].startswith("// fix:"):
-            when.append(lines[k].removeprefix("// ").strip())
-            k += 1
-        if k < len(lines) and lines[k] == "//":
-            k += 1
-        else:
-            problems.add(path, k + 1, f"case {name}: a line that is // alone ends its when, before its fix")
-        fix = []
-        if k < len(lines) and lines[k].startswith("// fix:"):
-            fix = [lines[k].removeprefix("// fix:").strip()]
-            k += 1
-            while k < len(lines) and lines[k].startswith("// "):
-                fix.append(lines[k].removeprefix("// ").strip())
-                k += 1
-        else:
-            problems.add(path, k + 1, f"case {name}: a when with no fix after it")
-        case.when, case.fix = " ".join(when), " ".join(fix)
-    elif k < len(lines) and lines[k].startswith("// fix:"):
-        problems.add(path, k + 1, f"case {name}: a fix with no when before it")
-    return case
 
 
 def joined(run: str) -> str:
@@ -160,34 +119,33 @@ def read_messages(problems: Problems) -> list[MessageSection]:
     cases: list[Case] = []
     for folder in FOLDERS:
         for path in sorted((TESTS / folder).glob("*.cpp")):
-            lines = path.read_text(encoding="utf-8").splitlines()
-            for k, line in enumerate(lines):
-                match = CASE.fullmatch(line)
-                if match:
-                    cases.append(read_case(match.group(1), path, lines, k, problems))
+            found, wrong = case_reader.read_cases(path)
+            cases += found
+            for line, text in wrong:
+                problems.add(path, line, text)
     section_of = {}
     for title, files in SECTIONS:
         for file in files:
             if not (TESTS / file).is_file():
                 problems.add(Path(__file__), 1, f"section {title} lists {file}, which is not a topic file of cases")
             section_of[TESTS / file] = title
-    for path in sorted({c.path for c in cases} - set(section_of)):
+    for path in sorted({c.topic for c in cases} - set(section_of)):
         problems.add(path, 1, "a topic file of compile_fail cases in no section of refgen/messages.py")
     explained: dict[str, Case] = {}
     for case in cases:
         if case.expect is None:
             if not case.when:
-                problems.add(case.path, case.line, f"case {case.name} gives no message: say when and fix")
+                problems.add(case.topic, case.line, f"case {case.name} gives no message: say when and fix")
         elif case.when:
             if case.expect in explained:
                 first = explained[case.expect]
-                problems.add(case.path, case.line, f"case {case.name}: its message is explained by {first.name} too")
+                problems.add(case.topic, case.line, f"case {case.name}: its message is explained by {first.name} too")
             else:
                 explained[case.expect] = case
     sections = {title: MessageSection(title) for title, _ in SECTIONS}
     messages: dict[str, Message] = {}
     for case in cases:
-        title = section_of.get(case.path)
+        title = section_of.get(case.topic)
         if case.expect is None:
             if case.when and title:
                 sections[title].messages.append(Message(None, case.when, case.fix, [case]))
@@ -196,11 +154,11 @@ def read_messages(problems: Problems) -> list[MessageSection]:
         if message is None:
             source = explained.get(case.expect)
             if source is None:
-                problems.add(case.path, case.line, f"case {case.name}: no case explains its message - when and fix")
+                problems.add(case.topic, case.line, f"case {case.name}: no case explains its message - when and fix")
                 continue
             message = Message(case.expect, source.when, source.fix)
             messages[case.expect] = message
-            home = section_of.get(source.path)
+            home = section_of.get(source.topic)
             if home:
                 sections[home].messages.append(message)
         message.cases.append(case)

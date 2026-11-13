@@ -40,7 +40,7 @@ nav = [
     "guide/cost.md",
   ]},
   {"API reference" = [
-    # The reference's pages, in tools/reference_sections.txt's order: tools/gen_reference.py writes the lines down to
+    # The reference's pages, in tools/refgen/sections.txt's order: tools/gen_reference.py writes the lines down to
     # the end mark.
     "reference/index.md",
     "reference/entities.md",

@@ -5,7 +5,9 @@
 """The compile_fail and contract_fail cases, and the syntax checks: what CTest runs one at a time.
 
 A case is a block of a topic file - `#ifdef DREAMOR_CASE_<name>` to its `#endif` - built alone with
--DDREAMOR_CASE_<name>; its `// expect: <text>` is the line right after the #ifdef (tests/compile_fail/*.cpp).
+-DDREAMOR_CASE_<name>; its `// expect: <text>` is the line right after the #ifdef (tests/compile_fail/*.cpp). After it
+come, where a case has them, `// contract: <name>` (a contract_fail case) and `// when:`, a line that is `//` alone and
+`// fix:` (docs/dev/diagnostics.md). read_cases reads them, for this runner and for tools/gen_reference.py alike.
 
     cases.py list FOLDER                     every case of FOLDER's topic files: NAME<tab>FILE, a line each
     cases.py prepare CONFIG FOLDER           FOLDER's prelude precompiled, then its control.cc compiled:
@@ -23,6 +25,7 @@ Clang's precompiled headers, and where they go. Under MSVC's options the prelude
 compiled /TP /Zs; cl.exe's first error is "error C<n>:", the others' "error:".
 """
 
+import dataclasses
 import json
 import re
 import subprocess
@@ -33,21 +36,60 @@ CASE = re.compile(r"#ifdef DREAMOR_CASE_(\w+)")
 EXPECT = "// expect: "
 
 
+@dataclasses.dataclass
+class Case:
+    name: str
+    topic: Path
+    line: int  # its #ifdef's, counting from 1
+    expect: str | None = None
+    contract: str = ""
+    when: str = ""
+    fix: str = ""
+
+
+def read_cases(topic: Path) -> tuple[list[Case], list[tuple[int, str]]]:
+    """A topic file's cases, and what is wrong with their lines, as (line, text). A when runs on over the comment lines
+    after it up to a line that is // alone; a fix runs on over the comment lines after it, up to the case's first line
+    that is not a comment - a case's own comments come after its first line of code, or after a blank line."""
+    lines = topic.read_text(encoding="utf-8").splitlines()
+    cases, wrong = [], []
+    for at, line in enumerate(lines):
+        match = CASE.fullmatch(line)
+        if not match:
+            continue
+        case, k = Case(match.group(1), topic, at + 1), at + 1
+        if k < len(lines) and lines[k].startswith(EXPECT):
+            case.expect, k = lines[k][len(EXPECT) :].strip(), k + 1
+        if k < len(lines) and lines[k].startswith("// contract:"):
+            case.contract, k = lines[k].removeprefix("// contract:").strip(), k + 1
+        if k < len(lines) and lines[k].startswith("// when:"):
+            when, k = [lines[k].removeprefix("// when:").strip()], k + 1
+            while k < len(lines) and lines[k].startswith("// ") and not lines[k].startswith("// fix:"):
+                when, k = [*when, lines[k].removeprefix("// ").strip()], k + 1
+            if k < len(lines) and lines[k] == "//":
+                k += 1
+            else:
+                wrong.append((k + 1, f"case {case.name}: a line that is // alone ends its when, before its fix"))
+            fix = []
+            if k < len(lines) and lines[k].startswith("// fix:"):
+                fix, k = [lines[k].removeprefix("// fix:").strip()], k + 1
+                while k < len(lines) and lines[k].startswith("// "):
+                    fix, k = [*fix, lines[k].removeprefix("// ").strip()], k + 1
+            else:
+                wrong.append((k + 1, f"case {case.name}: a when with no fix after it"))
+            case.when, case.fix = " ".join(when), " ".join(fix)
+        elif k < len(lines) and lines[k].startswith("// fix:"):
+            wrong.append((k + 1, f"case {case.name}: a fix with no when before it"))
+        cases.append(case)
+    return cases, wrong
+
+
 def cases_of(folder: Path) -> list[tuple[str, Path]]:
-    found = []
-    for topic in sorted(folder.glob("*.cpp")):
-        for line in topic.read_text().splitlines():
-            m = CASE.fullmatch(line)
-            if m:
-                found.append((m.group(1), topic))
-    return found
+    return [(case.name, topic) for topic in sorted(folder.glob("*.cpp")) for case in read_cases(topic)[0]]
 
 
 def expect_of(topic: Path, name: str) -> str | None:
-    lines = topic.read_text().splitlines()
-    at = lines.index(f"#ifdef DREAMOR_CASE_{name}")
-    after = lines[at + 1] if at + 1 < len(lines) else ""
-    return after[len(EXPECT) :] if after.startswith(EXPECT) else None
+    return next(case.expect for case in read_cases(topic)[0] if case.name == name)
 
 
 ERROR = re.compile(r"error( C\d+)?:")

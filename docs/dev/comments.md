@@ -91,7 +91,7 @@ CI's lint checks that the two agree. A hole the format leaves is fixed here when
     the entry it repeats. No entry; the reason is required.
   - `@section Title` - in a block of its own: the section the entries after it in this header belong to, until the
     next `@section`; an entry before any fails the tool. One header may open several sections, and several headers
-    one section. `tools/reference_sections.txt` holds the page's order, a line a section - `Title | header, header`,
+    one section. `tools/refgen/sections.txt` holds the page's order, a line a section - `Title | header, header`,
     a header named under `include/dreamor/`, a `#` line a comment - the headers in the order their entries come, and must match the `@section`s the headers open, both ways. The
     paragraphs after `@section` introduce the section, and `Guide: guide/<page>.md` links the guide page that shows it in use; at most one
     header gives a section its introduction. Every section has an introduction, and every section but the two

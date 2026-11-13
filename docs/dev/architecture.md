@@ -62,10 +62,15 @@ other files here.
   text of each license in use, and the copyright and license of every file that does not say them itself, which
   `tools/format.sh` checks with `reuse lint`.
 - `cmake/`, `CMakeLists.txt`: `dreamor::dreamor` INTERFACE target and install/package config.
-- `tools/`: `format.sh`, `check_layers.py`, `gen_reference.py` (the API reference from the headers' `///` comments, by `refgen/`; its
-  sections' order in `reference_sections.txt`), `tidy.sh`, `clang-format` (the pinned one, for an editor),
-  `gen_compile_commands.py`, `gen_arity_tests.py`, `measure_compile_cost.py`, `diagnostics_report.py` (how readable the
-  compiler's errors are for the compile_fail mistakes), `tree.sh` (the repository as a tree, without what git ignores).
+- `tools/`: the scripts, a job each.
+  - Style: `format.sh` (clang-format, ruff, `dashes.py`, `reuse lint`), `clang-format` (the pinned one, for an editor),
+    `tidy.sh`.
+  - Checks: `check_layers.py`, `check_bench.py`.
+  - Documents: `gen_reference.py` (the API reference from the headers' `///` comments and the compile_fail cases, by
+    `refgen/`; its sections' order in `refgen/sections.txt`, the compile-time messages' sections in
+    `refgen/messages.py`), `sync_skill_docs.py`, `site.sh`.
+  - Tests and builds: `gen_arity_tests.py`, `gen_compile_commands.py`, `measure_compile_cost.py`, `coverage/`.
+  - `tree.sh` (the repository as a tree, without what git ignores).
 - `ci/`, `CMakePresets.json`: The CI's jobs, a preset each, and `ci/local.py` (the same jobs on this machine, recording
   a pass for `hooks/pre-push`), `containers/` (images `local.py` builds for itself).
 - `.github/`: The CI workflow, issue forms and the pull request template.

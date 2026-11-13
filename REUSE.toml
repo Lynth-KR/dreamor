@@ -18,7 +18,7 @@ SPDX-FileCopyrightText = "2026 Lynth-KR"
 path = [
   ".clang-format", ".clang-tidy", ".clangd", ".git-blame-ignore-revs", ".gitattributes", ".gitignore",
   ".github/**", ".vscode/**", "**/.clang-tidy", "**/.clang-format", "CMakePresets.json", "ruff.toml", "zensical.toml",
-  "tools/reference_sections.txt", "tests/**/determinism.txt", "NOTICE",
+  "tools/refgen/sections.txt", "tests/**/determinism.txt", "NOTICE",
 ]
 precedence = "closest"
 SPDX-FileCopyrightText = "2026 Lynth-KR"

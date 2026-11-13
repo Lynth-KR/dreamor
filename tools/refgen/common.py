@@ -3,6 +3,7 @@
 # not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """What the parts of the reference's generator share: the paths, the problems found, and a page's names."""
 
+import importlib.util
 import re
 from pathlib import Path
 
@@ -22,3 +23,15 @@ class Problems(list):
 def page_name(title: str) -> str:
     """A section's page: its title in lower case, words joined by hyphens - set-algebra.md, dreamor-highs.md."""
     return "-".join(re.findall(r"[a-z0-9]+", title.lower())) + ".md"
+
+
+def load_cases():
+    """tests/cases.py, the reader of the test cases' lines that the cases' runner uses, so that the reference reads a
+    case as the runner does: one reader of the format."""
+    spec = importlib.util.spec_from_file_location("dreamor_cases", ROOT / "tests" / "cases.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+cases = load_cases()

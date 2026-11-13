@@ -2,7 +2,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 # not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """The entries: each /// block split into its summary, body and fields, gathered into the sections of
-reference_sections.txt, with the checks of the format (docs/dev/comments.md), the overloads joined to their entries,
+sections.txt, with the checks of the format (docs/dev/comments.md), the overloads joined to their entries,
 the headings' ids and the contracts linked to their contract_fail cases.
 """
 
@@ -12,10 +12,11 @@ import re
 from pathlib import Path
 
 from refgen.common import IDENT, INCLUDE, ROOT, TITLE_ID, Problems, page_name
+from refgen.common import cases as case_reader
 from refgen.messages import MessageSection, read_messages
 from refgen.scan import Decl, Doc, Scanner, strip_template_header
 
-SECTIONS = ROOT / "tools" / "reference_sections.txt"
+SECTIONS = Path(__file__).resolve().parent / "sections.txt"
 CONTRACT_CASES = (ROOT / "tests" / "contract_fail", ROOT / "tests" / "highs" / "contract_fail")
 FIELDS = ("Takes", "Returns", "Throws", "Contract", "Cost")
 MARKERS = ("@overload", "@hidden", "@section", "@contract", "@exposed", "@anchor")
@@ -165,23 +166,14 @@ def read_sections(problems: Problems) -> list[Section]:
 
 
 def read_cases() -> dict[str, tuple[str, str, Path, int]]:
-    """Every contract_fail case: its name, the sentence its check stops on (`// expect:`, the line after its
-    #ifdef), the contract it checks (`// contract:`, the line after that), its file and line."""
-    cases = {}
+    """Every contract_fail case: its name, the sentence its check stops on (`// expect:`), the contract it checks
+    (`// contract:`, the line after that), its file and line - read as the cases' runner reads them."""
+    found = {}
     for folder in CONTRACT_CASES:
         for path in sorted(folder.glob("*.cpp")):
-            lines = path.read_text(encoding="utf-8").splitlines() + ["", ""]
-            for k, line in enumerate(lines):
-                match = re.match(r"#ifdef DREAMOR_CASE_(\w+)", line)
-                if match:
-                    expect = lines[k + 1].removeprefix("// expect:").strip()
-                    contract = (
-                        lines[k + 2].removeprefix("// contract:").strip()
-                        if lines[k + 2].startswith("// contract:")
-                        else ""
-                    )
-                    cases[match.group(1)] = (expect, contract, path, k + 1)
-    return cases
+            for case in case_reader.read_cases(path)[0]:
+                found[case.name] = (case.expect or "", case.contract, path, case.line)
+    return found
 
 
 class Reference:
