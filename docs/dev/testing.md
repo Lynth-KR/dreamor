@@ -54,7 +54,9 @@ What each configuration runs (the commands are `AGENTS.md`'s, "Build and test"):
 - **Warnings** are what dreamor's own code is held to; the CMake target adds none, so users keep their own flags.
   The library and its tests build with `strict` in `tests/CMakeLists.txt` (`-Wconversion`, `-Wsign-conversion`,
   `-Wold-style-cast`, `-Wfloat-equal`, ... and `-Werror`; with cl.exe and clang-cl, `/W4 /WX`): a header that warns
-  there would warn in a user's strict build. The code users read - the docs' code (the README's program, the guide's under
+  there would warn in a user's strict build. One exception: under GCC 16 and later, `-Wuninitialized` and
+  `-Wmaybe-uninitialized` stay warnings, not errors - their false positives at `-g2` on a `Membership` copied into
+  `where` (GCC PR 123651's family) came and went as unrelated code changed; GCC 13 and Clang keep them errors. The code users read - the docs' code (the README's program, the guide's under
   `tests/docs/guide/` and `tests/docs/highs/`) and
   `examples/` - builds with `user`, `-Wall -Wextra -Werror`, as a user builds it, and `-Wfloat-equal`, so that the
   docs' checks keep the rule below; a library test that includes

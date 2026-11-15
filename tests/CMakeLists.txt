@@ -74,6 +74,13 @@ else()
   endif()
   set(lenient -Wall -Wextra)
   set(user -Wall -Wextra -Wfloat-equal -Werror)  # -Wfloat-equal: the docs' checks compare doubles as tests do (testing.md)
+  # GCC 16 at -O1 -g2 reports uninitialized SR.* temporaries of a Membership copied into where (GCC PR 123651's
+  # family), and not at -g0 or -g1: false positives that came and went with inlining as unrelated code changed. They
+  # stay warnings there, in the log; GCC 13 and Clang keep them errors.
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 16)
+    list(APPEND strict -Wno-error=uninitialized -Wno-error=maybe-uninitialized)
+    list(APPEND user -Wno-error=uninitialized -Wno-error=maybe-uninitialized)
+  endif()
   set(cases_std -std=c++20)
   set(isystem -isystem)
   set(cases_msvc false)

@@ -20,7 +20,7 @@ Every job starts at once, lint among them.
 | stub, Clang 18 Release | `stub-clang18-release` | the runner | unit and stress tests | - |
 | sanitize, GCC 13 and Clang 18 | `sanitize-gcc13`, `sanitize-clang18` | the runner | AddressSanitizer, UndefinedBehaviorSanitizer and LeakSanitizer: unit and stress tests, contract_fail | - |
 | sanitize, GCC 13 thread | `sanitize-thread-gcc13` | the runner | ThreadSanitizer: unit and stress tests | - |
-| gcc-latest | `gcc-latest` | the `gcc:16` image, with Debian's CMake | stub mode, everything | yes |
+| gcc-latest | `gcc-latest` | the `gcc:16` image, with Debian's CMake | stub mode, everything; `-Wuninitialized` and `-Wmaybe-uninitialized` stay warnings, not errors, for their false positives at `-g2` (`testing.md`, "Warnings") | yes |
 | clang-latest | `clang-latest` | the runner, Clang 23 from apt.llvm.org | stub mode, everything | yes |
 | libcxx, 18 and 23 | `libcxx-18`, `libcxx-latest` | the runner, Clang and libc++ of one LLVM version | unit and stress tests, contract_fail | - |
 | wasm | `wasm` | the `emscripten/emsdk:6.0.13` image | stub mode built for wasm32, run under Node.js, everything | yes |
