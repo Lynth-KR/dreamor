@@ -2,6 +2,7 @@
 //
 // docs/guide/names-and-logging.md: the page shows the regions between --8<-- lines, and the checks stay here.
 #include <algorithm>
+#include <cstddef>
 #include <cstdio>
 #include <filesystem>
 #include <format>
@@ -117,6 +118,37 @@ void logMessages(const Plant& p) {
   DREAMOR_CHECK(text.starts_with("[+") && holds(text, "ms] [names_and_logging.cpp:"));
 }
 
+void timeSteps(const Plant& p) {
+  const LogCapture log;
+  DREAMOR_CHECK(log.isOpen());
+
+  // --8<-- [start:time]
+  dreamor::logger::setTimeFormat(dreamor::logger::TimeUnit::kSeconds, 3);  // every thread's lines, from here on
+  dreamor::logger::resetClock();                                           // the time starts again from 0
+  const Sets sets = byChain(p, bomTable(p));
+  DREAMOR_LOG_INFO("built the sets");  // [+0.002s] [names_and_logging.cpp:...] [INFO] built the sets
+  // --8<-- [end:time]
+  DREAMOR_CHECK(!sets.PRODUCE.empty());
+  const std::string text = log.text();
+  const std::size_t unit = text.find("s] [names_and_logging.cpp:");
+  DREAMOR_CHECK(text.starts_with("[+0.") && unit == 7 && holds(text, "[INFO] built the sets\n"));  // 3 digits
+
+  dreamor::logger::setTimeFormat(dreamor::logger::TimeUnit::kSeconds, 0);
+  dreamor::logger::resetClock();
+  DREAMOR_LOG_INFO("no digits");
+  DREAMOR_CHECK(holds(log.text(), "\n[+0s] [names_and_logging.cpp:"));  // no decimal point
+
+  dreamor::logger::setTimeFormat(dreamor::logger::TimeUnit::kNone);
+  DREAMOR_LOG_INFO("no time");
+  DREAMOR_CHECK(holds(log.text(), "\n[names_and_logging.cpp:"));  // the line starts at the file
+
+  dreamor::logger::setTimeFormat(dreamor::logger::TimeUnit::kMilliseconds, 3);  // the default again
+  DREAMOR_LOG_INFO("default");
+  const std::string last = log.text();
+  const std::size_t from = last.rfind("\n[+", last.size() - 2);
+  DREAMOR_CHECK(from != std::string::npos && holds(last.substr(from), "ms] [names_and_logging.cpp:"));
+}
+
 void chooseWhere(const Sets& sets, const dreamor::EntityVector<Item>& items, const std::string& log_path) {
   std::FILE* const before = dreamor::logger::getOutput();
 
@@ -171,6 +203,7 @@ int main() try {
   anotherShape(p);
   inABuffer(p);
   logMessages(p);
+  timeSteps(p);
   levelAndFile(p);
   return ::report("guide/names-and-logging");
 } catch (...) { return ::uncaught(); }

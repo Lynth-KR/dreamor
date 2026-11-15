@@ -123,11 +123,31 @@ plant needs. Write a line at the level that the message has:
 
 Over the model's sets, the information line is `15 rows of production over 3 periods`. The warning is
 `1 of 5 items are needed by no one`: the bracket, which no customer buys and no sold item takes. The error line is
-not written, because `PRODUCE` has rows. Each line starts with the time since the process wrote its first line, the
-file and the line of the call, and the level, such as `[INFO]`.
+not written, because `PRODUCE` has rows. Each line starts with the time since the process wrote its first line, in
+milliseconds, the file and the line of the call, and the level, such as `[INFO]`.
 
 For a line's parts and the levels, see [Logger](../reference/logger.md). To stop the program after an error line,
 see [`DREAMOR_LOG_FATAL`](../reference/logger.md#dreamor_log_fatal).
+
+## Time a step of the run
+
+Suppose that you want to see how long one step of the run takes, such as building the sets, in seconds. Set the
+time's unit and digits, start the clock again, and write a line after the step:
+
+```cpp
+--8<-- "tests/docs/guide/names_and_logging.cpp:time"
+```
+
+- `setTimeFormat(TimeUnit::kSeconds, 3)` writes the time in seconds with 3 digits after the decimal point, in every
+  thread's lines. With 0 digits, the time has no decimal point, such as `[+1s]`. `TimeUnit::kNone` leaves the time
+  out.
+- `resetClock()` starts the clock again from 0, for every thread.
+
+The line after `byChain` starts with the time that the step took, such as `[+0.002s]`. Without these calls, the time
+is in milliseconds with 3 digits, since the process wrote its first line.
+
+For each call, see [`setTimeFormat`](../reference/logger.md#settimeformat) and
+[`resetClock`](../reference/logger.md#resetclock).
 
 ## Choose what is logged and where
 

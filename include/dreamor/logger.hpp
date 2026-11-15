@@ -15,6 +15,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <format>
+#include <limits>
 #include <source_location>
 #include <string_view>
 #include <utility>
@@ -31,8 +32,9 @@
 /// The parts of this section write messages to a log, one line for each call of a `DREAMOR_LOG_` or `DREAMOR_DEBUG_`
 /// macro. A line has the form `[+123.456ms] [file:line] [LEVEL] message`:
 ///
-/// - `+123.456ms` is the time since the process wrote its first line, in milliseconds.
-///   `DREAMOR_LOGGER_ENABLE_TIMESTAMP` can leave it out.
+/// - `+123.456ms` is the time since the clock started: when the process wrote its first line, or at the last call
+///   of `resetClock`. It is in milliseconds with 3 digits after the decimal point until `setTimeFormat` sets
+///   another unit or another number of digits, or leaves the time out.
 /// - `file:line` is the name of the file that holds the call, without its directory, and the line of the call.
 /// - `LEVEL` is `INFO`, `WARN` or `ERROR`.
 /// - `message` is the format string and its arguments, formatted as by `std::format`.
@@ -54,25 +56,27 @@
 ///
 /// Guide: guide/names-and-logging.md
 
-#ifndef DREAMOR_LOGGER_ENABLE_TIMESTAMP
-/// Selects whether a line starts with the time since the process wrote its first line, such as `[+123.456ms]`.
-///
-/// If the macro is 1, which is the default, each line starts with the time. If the macro is 0, no line has the time,
-/// and the logger does not read the clock. To set it to 0, define the macro before the header is included, or on
-/// the compiler's command line. Every translation unit of a program must see the same value.
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage): a switch that users set with -D
-#  define DREAMOR_LOGGER_ENABLE_TIMESTAMP 1
+// The switch that left the time out of every line at compile time is gone: setTimeFormat(TimeUnit::kNone) does it
+// at run time, for the whole process. A program that still defines it is told so, rather than getting the time back
+// in its lines without a word.
+#ifdef DREAMOR_LOGGER_ENABLE_TIMESTAMP
+#  error \
+      "DREAMOR_LOGGER_ENABLE_TIMESTAMP is gone: remove it, and call dreamor::logger::setTimeFormat(dreamor::logger::TimeUnit::kNone) to leave the time out of the lines."
 #endif
 
 namespace dreamor::logger::detail {
 
 enum class Level : std::uint8_t { kInfo = 0, kWarning = 1, kError = 2 };
 
+enum class TimeUnit : std::uint8_t { kMilliseconds = 0, kSeconds = 1, kNone = 2 };
+
 inline constexpr std::uint16_t kBufferSize                   = 1024;
 inline constexpr std::string_view kColorReset                = "\033[0m";
 inline constexpr std::string_view kColorDim                  = "\033[90m";
 inline constexpr std::array<std::string_view, 3> kLevelColor = {"\033[32m", "\033[33m", "\033[31m"};
 inline constexpr std::array<std::string_view, 3> kLevelTag   = {"INFO", "WARN", "ERROR"};
+inline constexpr std::array<std::string_view, 3> kUnitTag    = {"ms", "s", ""};
+inline constexpr int kMaxTimeDigits                          = 9;
 
 // Checks whether `stream` is a terminal, to decide whether to color the output. Each platform has its own function
 // for this. Emscripten's isatty() returns true for its console device wherever the output goes, also to a browser's
@@ -154,18 +158,58 @@ inline bool colorEnabled() noexcept {
 
 // The clock is steady_clock, because the logger shows durations, not the date and time. A change of the system
 // clock, such as a step by NTP, must not change a duration.
-inline std::chrono::steady_clock::time_point startTime() noexcept {
-  static const auto t0 = std::chrono::steady_clock::now();
-  return t0;
+using Clock = std::chrono::steady_clock;
+
+inline constexpr Clock::rep kClockNotStarted = std::numeric_limits<Clock::rep>::min();
+
+// The time at which the clock started, as a count of the clock's ticks: the process's first line sets it, and
+// resetClock sets it again. It is process-wide, as the level is, and atomic, because any thread may reset it while
+// others write lines; relaxed order is enough, because it guards no other data.
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables): process-wide and atomic, by design
+inline constinit std::atomic<Clock::rep> g_clock_start{kClockNotStarted};
+
+inline Clock::rep clockStart() noexcept {
+  Clock::rep start = g_clock_start.load(std::memory_order_relaxed);
+  if (start == kClockNotStarted) {
+    // Of two threads that write the process's first lines at once, the one that stores first starts the clock, and
+    // the other takes its time, which compare_exchange_strong leaves in start.
+    const Clock::rep now = Clock::now().time_since_epoch().count();
+    if (g_clock_start.compare_exchange_strong(start, now, std::memory_order_relaxed)) { start = now; }
+  }
+  return start;
 }
 
-// Returns the milliseconds since the process logged its first line. Two lines around a block of code then show how
-// long the block took, with no std::chrono code at the call site.
-inline double elapsedMs() noexcept {
-  const auto t0  = startTime();  // Read before now, so that t0 <= now and the first line never shows -0.000ms.
-  const auto now = std::chrono::steady_clock::now();
-  return std::chrono::duration<double, std::milli>(now - t0).count();
+// Returns the time since the clock started, in `unit`. Two lines around a block of code then show how long the block
+// took, with no std::chrono code at the call site.
+inline double elapsed(TimeUnit unit) noexcept {
+  // The start is read before now, so that the time is never below 0: if another thread resets the clock in between,
+  // the time is from the start before it, which is earlier still.
+  const Clock::rep start = clockStart();
+  const Clock::duration since{Clock::now().time_since_epoch().count() - start};
+  if (unit == TimeUnit::kSeconds) { return std::chrono::duration<double>(since).count(); }
+  return std::chrono::duration<double, std::milli>(since).count();
 }
+
+// The unit and the number of digits of the time, in one atomic byte - the digits in the low four bits, the unit
+// above them - so that a line never takes the unit of one setTimeFormat call and the digits of another.
+struct TimeFormat {
+  static constexpr unsigned kUnitShift  = 4U;
+  static constexpr unsigned kDigitsMask = (1U << kUnitShift) - 1U;
+
+  TimeUnit unit;
+  int digits;
+
+  [[nodiscard]] static constexpr std::uint8_t pack(TimeUnit unit, int digits) noexcept {
+    return static_cast<std::uint8_t>((static_cast<unsigned>(unit) << kUnitShift) | static_cast<unsigned>(digits));
+  }
+
+  [[nodiscard]] static constexpr TimeFormat unpack(std::uint8_t packed) noexcept {
+    return {.unit = static_cast<TimeUnit>(packed >> kUnitShift), .digits = static_cast<int>(packed & kDigitsMask)};
+  }
+};
+
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables): process-wide and atomic, by design
+inline constinit std::atomic<std::uint8_t> g_time_format{TimeFormat::pack(TimeUnit::kMilliseconds, 3)};
 
 // Relaxed order is enough: the level decides only whether a line is written, and guards no other data.
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables): process-wide and atomic, by design
@@ -195,9 +239,11 @@ inline void log(Level level,
   const std::string_view dim         = color ? kColorDim : std::string_view{};
   const std::string_view reset       = color ? kColorReset : std::string_view{};
   const std::string_view level_color = color ? kLevelColor[idx] : std::string_view{};
-#if DREAMOR_LOGGER_ENABLE_TIMESTAMP
-  const double elapsed_ms = elapsedMs();  // Read before formatting, so that the time does not include it.
-#endif
+  const TimeFormat time_format       = TimeFormat::unpack(g_time_format.load(std::memory_order_relaxed));
+  const bool timed                   = time_format.unit != TimeUnit::kNone;
+  // Read before formatting, which the time leaves out; with no time, the clock is not read at all.
+  const double time_value     = timed ? elapsed(time_format.unit) : 0.0;
+  const std::string_view unit = kUnitTag[static_cast<std::size_t>(time_format.unit)];
 
   std::array<char, kBufferSize> buf{};  // On the stack for each call, so that no thread shares it.
   char* out = buf.data();
@@ -218,12 +264,11 @@ inline void log(Level level,
     cap       = static_cast<std::ptrdiff_t>(kBufferSize) - 1;
     truncated = false;
   };
-  // The only place that DREAMOR_LOGGER_ENABLE_TIMESTAMP changes, so that the normal path and both catch blocks
-  // below do not repeat the #if.
+  // The time, written by the normal path and by both catch blocks below.
   const auto write_timestamp = [&] {
-#if DREAMOR_LOGGER_ENABLE_TIMESTAMP
-    advance(std::format_to_n(out, cap, "{}[+{:.3f}ms]{} ", dim, elapsed_ms, reset));
-#endif
+    if (timed) {
+      advance(std::format_to_n(out, cap, "{}[+{:.{}f}{}]{} ", dim, time_value, time_format.digits, unit, reset));
+    }
   };
 
   // format_to_n is not noexcept, because a user's std::formatter can throw. The exception is caught here, because
@@ -312,6 +357,43 @@ inline void setLevel(Level level) noexcept {
 /// Returns the level below which lines are dropped.
 inline Level getLevel() noexcept {
   return detail::g_min_level.load(std::memory_order_relaxed);
+}
+
+/// The unit of the time at the start of a line: `kMilliseconds` or `kSeconds`, or `kNone`, which leaves the time out.
+using detail::TimeUnit;
+
+/// @contract logger_time_digits: The number of digits that `setTimeFormat` takes is from 0 to 9.
+
+/// Sets the unit of the time at the start of each line, and its number of digits after the decimal point.
+///
+/// The format applies to the lines of every thread, from the next line on. Until `setTimeFormat` is called, the time
+/// is in milliseconds with 3 digits, such as `[+1323.456ms]`. In seconds with 3 digits, the same time is `[+1.323s]`,
+/// and with 0 digits it is `[+1s]`, with no decimal point. The time is rounded to its last digit.
+///
+/// With `TimeUnit::kNone`, no line has the time, and the logger does not read the clock; `digits` is not used.
+///
+/// Takes: `digits` must be from 0 to 9. If `digits` is left out, it is 3. A debug build stops on any other number;
+/// other builds take 0 for a negative number and 9 for a larger one.
+/// Contract: logger_time_digits
+inline void setTimeFormat(TimeUnit unit, int digits = 3) noexcept {
+#ifndef NDEBUG
+  if (digits < 0 || digits > detail::kMaxTimeDigits) {
+    detail::fatal(std::source_location::current(),
+                  "setTimeFormat takes {} digits - a broken contract: the digits are from 0 to {}.",
+                  digits,
+                  detail::kMaxTimeDigits);
+  }
+#endif
+  detail::g_time_format.store(detail::TimeFormat::pack(unit, std::clamp(digits, 0, detail::kMaxTimeDigits)),
+                              std::memory_order_relaxed);
+}
+
+/// Starts the clock of the time at the start of each line again, from 0.
+///
+/// The clock is the process's: the next line of every thread shows the time since this call. Until `resetClock` is
+/// called, the clock starts when the process writes its first line.
+inline void resetClock() noexcept {
+  detail::g_clock_start.store(detail::Clock::now().time_since_epoch().count(), std::memory_order_relaxed);
 }
 
 /// Makes `target` the target of the lines that the calling thread writes after this call.

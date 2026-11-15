@@ -94,6 +94,14 @@ The common type of the two ends can hold the value of each end. For example, the
 - **A debug build stops with:** `interval: an end its interval's integer type cannot hold`
 - **Cases:** `interval_end_out_of_range` (tests/contract_fail/interval.cpp)
 
+## logger_time_digits {#logger_time_digits}
+
+The number of digits that `setTimeFormat` takes is from 0 to 9.
+
+- **Named by:** `dreamor::logger::setTimeFormat`
+- **A debug build stops with:** `setTimeFormat takes 10 digits - a broken contract: the digits are from 0 to 9`
+- **Cases:** `time_format_ten_digits` (tests/contract_fail/logger.cpp)
+
 ## ordered_group_has_row {#ordered_group_has_row}
 
 When `first` or `last` of an `Ordered` is called with a key, at least one row of the set has that key in the columns `Within...`.
