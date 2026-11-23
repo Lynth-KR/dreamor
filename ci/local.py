@@ -96,8 +96,13 @@ def build_images(rev: str, work: Path) -> dict[str, str]:
 
 
 def in_image(image: str, command: str) -> str:
+    # The job runs as the image's root, which rootless podman maps to the user who runs this script, so the files it
+    # writes in the checkout are that user's. A containers.conf of the user's may set another mapping: with keep-id,
+    # the job runs as an unprivileged user, and emcc cannot write the cache that the HiGHS image's build left to root.
+    # --userns=host keeps the mapping this script was written for.
     return (
-        f'podman run --rm -e CMAKE_BUILD_PARALLEL_LEVEL -e CTEST_PARALLEL_LEVEL -v "$PWD":/src -w /src {image} '
+        f"podman run --rm --userns=host -e CMAKE_BUILD_PARALLEL_LEVEL -e CTEST_PARALLEL_LEVEL "
+        f'-v "$PWD":/src -w /src {image} '
         f"sh -c '{command}'"
     )
 
