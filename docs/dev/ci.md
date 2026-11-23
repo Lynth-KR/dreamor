@@ -1,7 +1,8 @@
 # Continuous integration
 
-What runs on every pull request and push to main, and on each release tag, where, and why - and the local run that
-stands for it before a push. For people working on dreamor; using it needs none of this.
+What runs on every pull request and push to main, and on each release tag, where, and why; how main takes a change;
+and the local run that checks a change before its pull request. For people working on dreamor; using it needs none of
+this.
 
 Each job is a workflow preset of `CMakePresets.json` - configure, build and test, `cmake --workflow --preset <name>`:
 the tests are `tests/CMakeLists.txt`'s, run by CTest. Two files run the jobs and say the same thing:
@@ -10,11 +11,12 @@ jobs on one machine, but windows and macos, which need their own systems, and co
 
 ## The jobs
 
-Every job starts at once, lint among them.
+Every job starts at once after `changes`, lint among them.
 
 | Job | Preset | Machine | What it runs | compile_fail |
 |---|---|---|---|---|
-| lint | - | ubuntu-24.04 | `tools/format.sh --check`, `tools/check_layers.py` (the headers keep their layers), `tools/gen_reference.py --check docs/reference` (the API reference's pages are what the headers' `///` comments make), `tools/sync_skill_docs.py --check` (the skill's copies of the guide and the reference are the pages'), `tools/gen_arity_tests.py --check` (the generated compile_fail cases are what the script writes), `tools/check_bench.py` (the benchmarks compile, every variant their `build.sh` builds but CPLEX's; they are never run), `tools/site.sh` (the documentation site builds: each guide page's regions are in its test), then `tools/tidy.sh` (with OR-Tools' headers, for the MathOpt and HiGHS backends) | - |
+| changes | - | ubuntu-24.04 | whether the change reaches past Markdown (below), in seconds | - |
+| lint | - | ubuntu-24.04 | `tools/format.sh --check`, `tools/check_layers.py` (the headers keep their layers), `tools/gen_reference.py --check docs/reference` (the API reference's pages are what the headers' `///` comments make), `tools/sync_skill_docs.py --check` (the skill's copies of the guide and the reference are the pages'), `tools/gen_arity_tests.py --check` (the generated compile_fail cases are what the script writes), `tools/site.sh` (the documentation site builds: each guide page's regions are in its test); then, for a change past Markdown, `tools/check_bench.py` (the benchmarks compile, every variant their `build.sh` builds but CPLEX's; they are never run) and `tools/tidy.sh` (with OR-Tools' headers, for the MathOpt and HiGHS backends) | - |
 | stub, GCC 13 Release | `stub-gcc13-release` | the runner | unit and stress tests, documented code, compile_fail, syntax checks; installs the CMake package and builds `tests/cmake_consumer` with GCC 13 and Clang 18 | yes |
 | stub, Clang 18 `-O1 -g` | `stub-clang18-debug` | the runner | the compiler's checks alone: compile_fail, syntax checks, documented code | yes |
 | stub, Clang 18 Release | `stub-clang18-release` | the runner | unit and stress tests | - |
@@ -29,12 +31,18 @@ Every job starts at once, lint among them.
 | coverage | `coverage` | the runner, Clang 18, the OR-Tools 9.15 C++ prebuilt | stub mode and the MathOpt and HiGHS backends with Clang's source-based coverage: unit, stress, docs, examples, contract_fail; `tools/coverage/lcov.py`'s lcov files uploaded to Codecov (`testing.md`, "Coverage"); not run locally | - |
 | windows, cl.exe and clang-cl | `windows-cl`, `windows-clang-cl`; `windows-vs2022-cl`, `windows-vs2022-clang-cl` | `windows-2025`, Visual Studio 2026; `windows-2022`, Visual Studio 2022; the OR-Tools prebuilt for Visual Studio 2022 | stub mode at `/W4 /WX`, `/O1` with the debug checks, everything, and the MathOpt and HiGHS backends (tests, examples, samples, the README's program, compile_fail, contract_fail); installs the CMake package and builds `tests/cmake_consumer`, and `tests/cmake_consumer_mathopt` with cl.exe; not run locally | yes |
 | macos | `macos` | `macos-15`, Apple Clang, HiGHS from Homebrew, the OR-Tools prebuilt for arm64 macOS | stub mode, everything, the HiGHS backend and the MathOpt backend (tests, examples, samples, compile_fail, contract_fail); installs the CMake package and builds `tests/cmake_consumer` and `tests/cmake_consumer_mathopt`; not run locally | yes |
+| ci-ok | - | ubuntu-24.04 | nothing of its own: passes when every other job passed or was skipped (Merging to main) | - |
 
 The compile_fail cases, the syntax checks and the documented code depend on the compiler alone, so each compiler
 runs them once; the other presets leave them out (`DREAMOR_TESTS`). contract_fail runs in debug builds only
-(`-O1 -g`), where the checks exist. Release is CMake's, `-O3 -DNDEBUG`. CI runs on pushes to main and on pull
-requests, not on a change of Markdown alone - but for the README, whose program the HiGHS jobs take out and run,
-and the site's pages under `docs/` (not `docs/dev/`), whose regions and links lint's site build checks; a work branch runs it by hand (`gh workflow run tests --ref <branch>`).
+(`-O1 -g`), where the checks exist. Release is CMake's, `-O3 -DNDEBUG`.
+
+CI runs on every pull request and every push to main, and a work branch runs it by hand (`gh workflow run tests --ref
+<branch>`). A change of Markdown alone builds nothing - but for the README, whose program the HiGHS jobs take out and
+run, and the site's pages under `docs/` (not `docs/dev/`), whose regions and links lint's site build checks: `changes`
+compares a pull request with its base and a push with what main held before, and for such a change the other jobs are
+skipped and lint runs its quick checks alone, which also hold the Markdown that is generated (the reference, the
+skill's copies). A run by hand builds everything.
 
 ## What the jobs cover
 
@@ -54,6 +62,29 @@ The backends: Concert against the stub in every stub-mode job; MathOpt and HiGHS
 platform in mathopt, coverage and windows; in macos MathOpt on that prebuilt and HiGHS from Homebrew; HiGHS on wasm32
 in wasm-highs. Real CPLEX is not on CI (the `cplex` preset, by hand).
 Performance is measured on Linux x86-64 with libstdc++ alone, and not on CI (`docs/bench/index.md`).
+
+## Merging to main
+
+main takes a change through a pull request alone, merged when CI has passed on it. The repository's ruleset for main
+(Settings > Rules > Rulesets) holds it for the maintainer as for everyone, with no one allowed to bypass it:
+
+- a pull request before merging, with no approval required: the maintainer who merges it is its review;
+- the status check `ci-ok`, from GitHub Actions;
+- no force push and no deletion.
+
+`ci-ok` is a job of `ci.yml` that needs every other job: it passes when each passed or was skipped because the change
+did not need it, and fails when one failed or was cancelled. It runs whatever happened before it, as a required check
+that is skipped counts as passed. One check stands for the jobs so that adding or renaming a job leaves the ruleset as
+it is; a new job goes into its `needs`. For the same reason the workflow has no path filter: a required check that
+never reports holds a pull request forever.
+
+Pull requests are squash-merged (Settings > General > Pull Requests allows squash merging alone), the commit's message
+by default the commits' titles and messages, so that their `Signed-off-by:` lines reach main. A pull request is one
+topic, and becomes one commit on main.
+
+A pull request runs the workflow as the pull request has it, so its own `.github/workflows/` can make `ci-ok` pass: a
+pull request that changes them is read for that before its green check is trusted. A first-time contributor's runs
+wait for the maintainer's approval (Settings > Actions > General, GitHub's default).
 
 ## Images and caches
 
@@ -122,13 +153,8 @@ stopped, the ones waiting never start. Lower both where memory is short: each co
 `--logs DIR`, kept.
 
 The windows and macos jobs run on GitHub's runners alone: a pull request runs them, and a work branch by hand (`gh
-workflow run tests --ref <branch>`). What goes to main passes them, as every other job.
-
-A pass is recorded by the commit's tree (`ci-passed/` under the git directory), and `ci/hooks/pre-push` stops a push
-to main whose tree has none: it looks the record up rather than running the jobs, and a commit reworded or signed again
-keeps its pass. A push of Markdown alone needs no record, as CI does not run for one - but for the README and the
-site's pages under `docs/`. Turn the hook on per clone with
-`git config core.hooksPath ci/hooks`.
+workflow run tests --ref <branch>`). Run `ci/local.py` before opening a pull request or pushing to one: a failure found
+here costs no run on GitHub, whose few macOS runners queue.
 
 On an AMD Ryzen 7 5700X (16 threads, bare metal, Linux, the defaults `CI_JOBS=4 JOBS=4`) the whole run takes about
 18 minutes, tidy the longest job at about 12; a minute more when an image is built.
