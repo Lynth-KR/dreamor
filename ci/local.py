@@ -10,8 +10,8 @@ missing - a partial run is not a pass.
     ci/local.py REV           another commit
     ci/local.py --logs DIR    the jobs' logs kept in DIR, passed or not
 
-A pass is recorded by the commit's tree - the content it tested, whatever the message or the signature - in
-ci-passed/ under the repository's git directory, where ci/hooks/pre-push looks for it before a push to main.
+It checks a change before its pull request, whose CI is the gate main keeps (docs/dev/ci.md, "Merging to main"): a
+failure found here costs no run of GitHub's, whose macOS runners queue.
 
 ORTOOLS_DIR is the OR-Tools C++ prebuilt CI downloads (v9.15; default /opt/ortools). Format and the layer check run
 first, with the CMake package installed - seconds, and nothing else runs if one fails; then tidy and the rest run
@@ -28,14 +28,12 @@ import hashlib
 import os
 import shutil
 import signal
-import socket
 import subprocess
 import sys
 import tempfile
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -265,12 +263,6 @@ def main() -> int:
             shutil.rmtree(work, ignore_errors=True)
     if failed:
         return 1
-    passed = ROOT / git("rev-parse", "--git-common-dir") / "ci-passed"
-    passed.mkdir(exist_ok=True)
-    short = git("rev-parse", "--short", rev)
-    (passed / git("rev-parse", f"{rev}^{{tree}}")).write_text(
-        f"{datetime.now():%Y-%m-%d %H:%M:%S} {socket.gethostname()} {short}\n"
-    )
     print("ci/local: all passed")
     return 0
 

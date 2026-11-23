@@ -49,17 +49,18 @@ python3 tools/check_layers.py        # the headers keep their layers (Layout); r
 tools/tidy.sh                        # clang-tidy; needs compile_commands.json (tools/gen_compile_commands.py)
 python3 tools/check_bench.py         # the benchmarks compile, every variant, syntax only (CI runs it; bench/ runs by hand)
 tools/site.sh                        # the documentation site (zensical.toml) into site/; `serve` previews it
-ci/local.py [REV]                    # what CI runs, on one commit checked out apart; records a pass for the hook
+ci/local.py [REV]                    # what CI runs, on one commit checked out apart: before a pull request
 ```
 
-- **CI** is `docs/dev/ci.md`: the jobs, what they cover, their images and caches, how to bump them, and how to run
-  them locally. It runs on pushes to main and on pull requests, not on a change of Markdown alone but for the README
-  and the site's pages under `docs/`; a work branch runs
-  it by hand (`gh workflow run tests --ref <branch>`). A job is a preset of `CMakePresets.json`, run from two
-  places - `.github/workflows/ci.yml` and `ci/local.py` - and described once, in `docs/dev/ci.md`: change them together.
-- **Local CI** (`ci/local.py`) runs every job over one commit checked out apart, and records a pass by the
-  commit's tree; `ci/hooks/pre-push` stops a push to main whose tree has none. Run it before pushing to main. Turn
-  the hook on per clone with `git config core.hooksPath ci/hooks`.
+- **CI** is `docs/dev/ci.md`: the jobs, what they cover, their images and caches, how to bump them, how main takes a
+  change, and how to run them locally. It runs on every pull request and push to main, building nothing for a change
+  of Markdown alone but for the README and the site's pages under `docs/`; a work branch runs it by hand (`gh workflow
+  run tests --ref <branch>`). A job is a preset of `CMakePresets.json`, run from two places -
+  `.github/workflows/ci.yml` and `ci/local.py` - and described once, in `docs/dev/ci.md`: change them together.
+- **main takes a change through a pull request alone,** squash-merged once its check `ci-ok` passes - every CI job -
+  as the repository's ruleset requires of everyone (`docs/dev/ci.md`, "Merging to main").
+- **Local CI** (`ci/local.py`) runs every job but windows, macos and coverage over one commit checked out apart. Run
+  it before opening a pull request or pushing to one.
 - **Done means** stub mode passes on both compilers, `DREAMOR_ORTOOLS_DIR` passes if you touched anything the
   MathOpt backend or the shared machinery uses, `DREAMOR_HIGHS_DIR` passes if you touched anything the HiGHS backend
   or the shared machinery uses, the `wasm` preset passes, the windows and macos jobs pass if you touched
@@ -102,5 +103,5 @@ Several documents are mirrored by code, so they change together:
 | The public API, its defaults, or a runtime exception | its `///` block (`docs/dev/comments.md`) and `docs/reference/`, which `python3 tools/gen_reference.py --out docs/reference` makes from it, then the skill's copies, `python3 tools/sync_skill_docs.py`; the guide page the section's `Guide:` line names, `skills/dreamor/SKILL.md` |
 | A compile-time message | its `// expect:` line, and the `// when:` and `// fix:` lines of the case that explains it (`docs/dev/diagnostics.md`); then `python3 tools/gen_reference.py --out docs/reference` and `python3 tools/sync_skill_docs.py` |
 | What generating a set costs to compile (`set.hpp`, `plan.hpp`) | the compile-cost table in `docs/guide/cost.md`: `python3 tools/measure_compile_cost.py` |
-| A CI job (`.github/workflows/ci.yml`, its preset in `CMakePresets.json`) | the same job in `ci/local.py`, and `docs/dev/ci.md` |
+| A CI job (`.github/workflows/ci.yml`, its preset in `CMakePresets.json`) | the same job in `ci/local.py`, `ci-ok`'s `needs` for a new job, and `docs/dev/ci.md` |
 | The version | `project(... VERSION ...)` in `CMakeLists.txt` (packages use `SameMinorVersion` compatibility), the `find_package(dreamor 0.9 ...)` lines in the README, the skill and `tests/cmake_consumer*`, and the skill's title |

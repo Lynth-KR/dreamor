@@ -71,8 +71,8 @@ other files here.
     `refgen/messages.py`), `sync_skill_docs.py`, `site.sh`.
   - Tests and builds: `gen_arity_tests.py`, `gen_compile_commands.py`, `measure_compile_cost.py`, `coverage/`.
   - `tree.sh` (the repository as a tree, without what git ignores).
-- `ci/`, `CMakePresets.json`: The CI's jobs, a preset each, and `ci/local.py` (the same jobs on this machine, recording
-  a pass for `hooks/pre-push`), `containers/` (images `local.py` builds for itself).
+- `ci/`, `CMakePresets.json`: The CI's jobs, a preset each, and `ci/local.py` (the same jobs on this machine, before a
+  pull request), `containers/` (images `local.py` builds for itself).
 - `.github/`: The CI workflow, issue forms and the pull request template.
 - `docs/images/`: The banner, the README's and the site's front page's.
 - `docs/stylesheets/`: The site's own styles on top of Zensical's theme (`zensical.toml`, `extra_css`).

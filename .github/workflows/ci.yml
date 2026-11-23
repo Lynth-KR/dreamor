@@ -1,14 +1,12 @@
 name: tests
-# CI is for what is published: pushes to main and pull requests, or a run started by hand
-# (workflow_dispatch) for a work branch. A change of Markdown alone builds nothing, but for the README, whose program
-# the HiGHS jobs take out and run (tests/docs/readme.py), and the site's pages under docs/ (not docs/dev/), whose
-# regions and links lint's site build checks. The same rule is ci/hooks/pre-push's.
+# CI is for what is published: pull requests, pushes to main (each a pull request merged), or a run started by hand
+# (workflow_dispatch) for a work branch. Every run reports ci-ok, the one check main's ruleset requires
+# (docs/dev/ci.md, "Merging to main"), so the workflow runs for every change and no path filter keeps it away: a
+# required check that never reports holds a pull request forever. The changes job decides instead what a change needs.
 on:
   push:
     branches: [main]
-    paths: ["**", "!**/*.md", "README.md", "docs/**", "!docs/dev/**"]
   pull_request:
-    paths: ["**", "!**/*.md", "README.md", "docs/**", "!docs/dev/**"]
   workflow_dispatch:
 # A newer push to the same ref makes the run still going on the older one moot.
 concurrency:
@@ -21,9 +19,41 @@ env:
 # Every Linux job takes under 5 minutes; one past 20 is stuck - on a package mirror that stopped
 # answering, say - and would otherwise hold a runner for GitHub's default of six hours. The Windows and macOS
 # runners are slower, and their jobs get 40.
-# Every job starts at once, lint among them: the runners cost the public repository nothing, so a failure anywhere
-# shows within minutes instead of after lint's tidy, and one run shows every failure.
+# Every job starts at once after changes, which takes seconds, lint among them: the runners cost the public repository
+# nothing, so a failure anywhere shows within minutes instead of after lint's tidy, and one run shows every failure.
 jobs:
+  changes:
+    # Whether the change reaches past Markdown. A change of Markdown alone builds nothing - but for the README, whose
+    # program the HiGHS jobs take out and run (tests/docs/readme.py), and the site's pages under docs/ (not
+    # docs/dev/), whose regions and links lint's site build checks - and runs lint's quick checks alone, which also
+    # hold the Markdown that is generated (the reference, the skill's copies). A pull request is compared with its
+    # base, a push with the commit main held before; a run by hand, or a base that cannot be fetched, builds everything.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2  # a pull request's merge commit and its base, HEAD^1
+      - id: diff
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          case $GITHUB_EVENT_NAME in
+            pull_request) base=HEAD^1 ;;
+            push) base=$BEFORE; git fetch -q --depth=1 origin "$base" || base= ;;
+            *) base= ;;
+          esac
+          [ -n "$base" ] && git cat-file -e "$base^{commit}" || base=
+          code=true
+          if [ -n "$base" ] &&
+            [ -z "$(git diff --name-only "$base" HEAD -- . ':(exclude,glob)**/*.md')" ] &&
+            [ -z "$(git diff --name-only "$base" HEAD -- README.md docs ':(exclude)docs/dev')" ]; then
+            code=false
+          fi
+          echo "code=$code" | tee -a "$GITHUB_OUTPUT"
+
   stub:
     # No CPLEX on CI: tests run against the Concert stub in tests/stub, with GCC and Clang -
     # the compile_fail cases check that both print our message first.
@@ -36,6 +66,8 @@ jobs:
     # its other tests and contract_fail are sanitize-clang18, the same build instrumented.
     # The g++-13 entry also installs the CMake package and builds tests/cmake_consumer through
     # find_package(dreamor), with both compilers, as a user would.
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
@@ -66,6 +98,8 @@ jobs:
     # Clang, which instrument in ways of their own, and Thread on its own (it cannot share a build
     # with ASan) - tables on one set share its row index across threads, and lookups on several
     # threads build it once. The compile-time checks are the stub job's.
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
@@ -85,6 +119,8 @@ jobs:
     # spring, LLVM every March and September; an LLVM bump takes the clang-format and clang-tidy
     # pins along, docs/dev/code-style.md, "Tools"). The official image: Ubuntu 24.04 has no GCC 16. It has
     # no CMake either: Debian's is installed (ci/containers/gcc-latest.Containerfile, locally).
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     container: gcc:16
@@ -95,6 +131,8 @@ jobs:
 
   clang-latest:
     # The newest LLVM release, from apt.llvm.org (see gcc-latest).
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -108,6 +146,8 @@ jobs:
     # in common holds on it (docs/dev/platforms.md). Unit tests and contract_fail; the compile_fail messages are the
     # compiler's, checked by the other jobs. Each runner is a fresh machine, so the two libc++ versions, whose
     # packages conflict, never meet; ci/local.py runs the newest in an image of its own.
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
@@ -132,6 +172,8 @@ jobs:
     # libc++. It checks that dreamor builds and holds there, not how fast - performance is measured
     # on Linux x86-64 with libstdc++ alone. Emscripten has no long-term release, so one version is pinned, as
     # projects pin it; moving it is a tool update, not a bound of support.
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     container: emscripten/emsdk:6.0.13
@@ -144,6 +186,8 @@ jobs:
     # which the local CI's image runs too), kept in the cache by the script's content, and the HiGHS mode's tests,
     # example, compile_fail and contract_fail run under Node.js. A job of its own, so that HiGHS's build stays out of
     # the wasm job's result.
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     container: emscripten/emsdk:6.0.13
@@ -165,6 +209,8 @@ jobs:
     # the example, the ported samples, the Concert-vs-MathOpt comparison of the example's
     # constraints, and the MathOpt compile_fail cases; and the HiGHS backend on the HiGHS the
     # prebuilt ships: its tests, the README's code, its compile_fail and contract_fail cases.
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
@@ -200,6 +246,8 @@ jobs:
     # stub mode and the MathOpt and HiGHS backends on the OR-Tools prebuilt), then tools/coverage/lcov.py's lcov files, one
     # for each test program, which Codecov adds up; .github/codecov.yml leaves out what no run reaches. A failed upload
     # fails nothing. ci/local.py does not run it: the upload is GitHub's alone.
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -234,6 +282,8 @@ jobs:
     # cases and syntax checks run the compiler themselves (tests/cases.py), so Visual Studio's environment is loaded
     # first. Then the CMake package, as a user finds it. ci/local.py cannot run it (docs/dev/ci.md, "Running it
     # locally").
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 40
     strategy:
@@ -288,6 +338,8 @@ jobs:
     # Stub mode, the HiGHS backend and the MathOpt backend with Apple Clang on Apple's libc++: everything, as
     # clang-latest runs it, the HiGHS backend on HiGHS from Homebrew and MathOpt on the OR-Tools prebuilt for arm64
     # macOS (its HiGHS its own); then the CMake package, alone and with OR-Tools. ci/local.py cannot run it either.
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: macos-15
     timeout-minutes: 40
     env:
@@ -320,7 +372,9 @@ jobs:
     # tools/site.sh pins, the benchmarks compiled (tools/check_bench.py, never run), then clang-tidy at
     # the version tools/tidy.sh pins, over the library, the tests and the examples. OR-Tools'
     # headers are needed to see the MathOpt backend, and the HiGHS it ships the HiGHS backend; CPLEX
-    # is not, the stub stands in.
+    # is not, the stub stands in. The quick checks, up to the site, run for every change, a change of Markdown alone
+    # among them; the benchmarks and tidy only for a change past it (changes).
+    needs: changes
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
@@ -336,9 +390,30 @@ jobs:
       - run: python3 tools/gen_arity_tests.py --check
       - run: tools/site.sh
       - name: OR-Tools v9.15 prebuilt
+        if: needs.changes.outputs.code == 'true'
         run: |
           mkdir -p "$RUNNER_TEMP/ortools"
           curl -sSfL "$ORTOOLS_URL" | tar xz -C "$RUNNER_TEMP/ortools" --strip-components=1
-      - run: ORTOOLS_DIR="$RUNNER_TEMP/ortools" CXX=g++-13 python3 tools/check_bench.py
-      - run: ORTOOLS_DIR="$RUNNER_TEMP/ortools" python3 tools/gen_compile_commands.py
-      - run: tools/tidy.sh
+      - if: needs.changes.outputs.code == 'true'
+        run: ORTOOLS_DIR="$RUNNER_TEMP/ortools" CXX=g++-13 python3 tools/check_bench.py
+      - if: needs.changes.outputs.code == 'true'
+        run: ORTOOLS_DIR="$RUNNER_TEMP/ortools" python3 tools/gen_compile_commands.py
+      - if: needs.changes.outputs.code == 'true'
+        run: tools/tidy.sh
+
+  ci-ok:
+    # The one check main's ruleset requires (docs/dev/ci.md, "Merging to main"): it passes when every job passed or
+    # was skipped because the change did not need it, and fails when one failed or was cancelled. It runs whatever
+    # happened before it (always()): a required check that is skipped counts as passed. One check, not each job, so
+    # that adding or renaming a job leaves the ruleset as it is; a new job goes into needs here.
+    if: always()
+    needs: [changes, stub, sanitize, gcc-latest, clang-latest, libcxx, wasm, wasm-highs, mathopt, coverage, windows, macos,
+            lint]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "$RESULTS"
+          case " $RESULTS " in *" failure "* | *" cancelled "*) exit 1 ;; esac

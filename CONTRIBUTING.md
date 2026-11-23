@@ -34,12 +34,13 @@ The tests need CMake 3.25, Python 3.12 and GCC 13 or Clang 18 or newer; the form
 
 ## Commits and pull requests
 
-- **One topic a commit**, with a message that says what and why.
+- **One topic a pull request**, with commit messages that say what and why. A pull request is squash-merged into one
+  commit on main, its message the commits' titles and messages.
 - **Sign off every commit** (`git commit -s`). The `Signed-off-by:` line certifies the
   [Developer Certificate of Origin](https://developercertificate.org/): that you wrote the change or have the right to
   submit it under the project's license, MPL 2.0. A pull request with commits not signed off cannot be merged.
-- **CI** runs on every pull request ([the jobs](docs/dev/ci.md)). CPLEX is not on CI: if you touch code facing Concert
-  and have CPLEX, run the `cplex` preset.
-- The maintainer may squash or reword commits so that the history reads by topic.
+- **CI** runs on every pull request ([the jobs](docs/dev/ci.md)), and a pull request is merged once it passes. CPLEX is
+  not on CI: if you touch code facing Concert and have CPLEX, run the `cplex` preset.
+- The maintainer may reword the squashed commit's message so that the history reads by topic.
 
 Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md).

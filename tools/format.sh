@@ -90,7 +90,7 @@ samples=':!examples/mathopt_samples/*.cc'
 # and the guide's code. Everything else is MPL-2.0.
 mit0='examples/*.hpp examples/*.cpp tests/docs/guide/*.cpp tests/docs/guide/*.hpp tests/docs/highs/*.cpp tests/docs/highs/*.hpp'
 not_mit0=':!examples/*.hpp :!examples/*.cpp :!tests/docs/guide/* :!tests/docs/highs/*'
-scripts='tools/clang-format ci/hooks/pre-push'  # shell scripts without an extension
+scripts='tools/clang-format'  # shell scripts without an extension
 # $scripts is a list of paths: expanded unquoted below.
 missing=$(
   spdx // "$MPL" '*.hpp' '*.cpp' '*.cc' '*.h' "$samples" $not_mit0
