@@ -10,8 +10,8 @@ missing - a partial run is not a pass.
     ci/local.py REV           another commit
     ci/local.py --logs DIR    the jobs' logs kept in DIR, passed or not
 
-It checks a change before its pull request, whose CI is the gate main keeps (docs/dev/ci.md, "Merging to main"): a
-failure found here costs no run of GitHub's, whose macOS runners queue.
+Run it before opening a pull request or pushing to one. The pull request's CI is what main requires (docs/dev/ci.md,
+"Merging to main"). A failure that this script finds first costs no run on GitHub, where the macOS runners queue.
 
 ORTOOLS_DIR is the OR-Tools C++ prebuilt CI downloads (v9.15; default /opt/ortools). Format and the layer check run
 first, with the CMake package installed - seconds, and nothing else runs if one fails; then tidy and the rest run
