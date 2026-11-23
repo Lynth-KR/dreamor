@@ -57,8 +57,9 @@ ci/local.py [REV]                    # what CI runs, on one commit checked out a
   of Markdown alone but for the README and the site's pages under `docs/`; a work branch runs it by hand (`gh workflow
   run tests --ref <branch>`). A job is a preset of `CMakePresets.json`, run from two places -
   `.github/workflows/ci.yml` and `ci/local.py` - and described once, in `docs/dev/ci.md`: change them together.
-- **main takes a change through a pull request alone,** squash-merged once its check `ci-ok` passes - every CI job -
-  as the repository's ruleset requires of everyone (`docs/dev/ci.md`, "Merging to main").
+- **main takes a change through a pull request alone,** merged once its check `ci-ok` passes - every CI job - as the
+  repository's ruleset requires of everyone. Its commits are rebased onto main as they are if each is a topic, and
+  squashed into one otherwise (`docs/dev/ci.md`, "Merging to main").
 - **Local CI** (`ci/local.py`) runs every job but windows, macos and coverage over one commit checked out apart. Run
   it before opening a pull request or pushing to one.
 - **Done means** stub mode passes on both compilers, `DREAMOR_ORTOOLS_DIR` passes if you touched anything the

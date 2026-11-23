@@ -78,9 +78,15 @@ that is skipped counts as passed. One check stands for the jobs so that adding o
 it is; a new job goes into its `needs`. For the same reason the workflow has no path filter: a required check that
 never reports holds a pull request forever.
 
-Pull requests are squash-merged (Settings > General > Pull Requests allows squash merging alone), the commit's message
-by default the commits' titles and messages, so that their `Signed-off-by:` lines reach main. A pull request is one
-topic, and becomes one commit on main.
+The ruleset and Settings > General > Pull Requests allow two ways of merging, and the maintainer picks one for each
+pull request:
+
+- Rebase merging, if each of its commits is a topic with its code, tests and documents, and a message that says what
+  and why. The commits reach main as they are. CI has run on the last of them alone, as it runs on a pull request's
+  head.
+- Squash merging otherwise. The pull request becomes one commit on main. Its message is by default the commits'
+  titles and messages, so that their `Signed-off-by:` lines reach main, and the maintainer may reword it so that the
+  history reads by topic.
 
 A pull request runs the workflow as the pull request has it, so its own `.github/workflows/` can make `ci-ok` pass: a
 pull request that changes them is read for that before its green check is trusted. A first-time contributor's runs
