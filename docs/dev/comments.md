@@ -9,14 +9,15 @@ are formatted by `tools/format.sh` like the code around them, and read as it lea
 A `//` comment says what the code cannot: why it is written so where the obvious way is not taken, what it assumes or
 keeps (an invariant), a workaround and its cause (a compiler's bug number, a standard's clause). A line or two,
 beside the code it speaks of, with no blank line between them. What the code already says is not repeated, nor what a `///` block or another `//`
-comment beside it says; code that needs a paragraph to follow is rewritten instead.
+comment beside it says; code that needs a paragraph to follow is rewritten instead. A `#` comment and a docstring - in
+Python, a shell script, a workflow - follow the same rules as a `//` comment.
 
 Its style follows the part of the code it is in, because each part's comments do another job:
 
-- **The library's implementation** (`include/`), **the tools and the CI** (`tools/`, `ci/`): the reasons and the risks
-  the code cannot state - why the obvious way is not taken, what an invariant keeps, a workaround and its cause. Its
-  reader knows the code around it but is not its author, so it is written by the sentence rules of "Writing a doc
-  comment" below: complete sentences in plain words, conditions with "if", one term for one thing, no idioms, no
+- **The library's implementation** (`include/`), **the tools and the CI** (`tools/`, `ci/`, `.github/`): the reasons and
+  the risks the code cannot state - why the obvious way is not taken, what an invariant keeps, a workaround and its
+  cause. Its reader knows the code around it but is not its author, so it is written by the sentence rules of "Writing a
+  doc comment" below: complete sentences in plain words, conditions with "if", one term for one thing, no idioms, no
   compressed clauses.
 - **The tests** (`tests/`) and **the benchmarks** (`bench/`): the contract a case checks and what it expects, or what
   makes a measurement stand for dreamor's performance without distorting it. Compressed technical prose is right

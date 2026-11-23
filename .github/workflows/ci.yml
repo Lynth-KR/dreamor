@@ -1,8 +1,9 @@
 name: tests
-# CI is for what is published: pull requests, pushes to main (each a pull request merged), or a run started by hand
-# (workflow_dispatch) for a work branch. Every run reports ci-ok, the one check main's ruleset requires
-# (docs/dev/ci.md, "Merging to main"), so the workflow runs for every change and no path filter keeps it away: a
-# required check that never reports holds a pull request forever. The changes job decides instead what a change needs.
+# CI runs for what is published: a pull request, a push to main, and a run started by hand (workflow_dispatch) for a
+# work branch. A push to main is a pull request that was merged.
+# Every run reports ci-ok, the one check that main's ruleset requires (docs/dev/ci.md, "Merging to main"). So no path
+# filter keeps the workflow from running: a required check that never reports holds a pull request forever. The
+# changes job decides what a change needs instead.
 on:
   push:
     branches: [main]
@@ -19,15 +20,19 @@ env:
 # Every Linux job takes under 5 minutes; one past 20 is stuck - on a package mirror that stopped
 # answering, say - and would otherwise hold a runner for GitHub's default of six hours. The Windows and macOS
 # runners are slower, and their jobs get 40.
-# Every job starts at once after changes, which takes seconds, lint among them: the runners cost the public repository
-# nothing, so a failure anywhere shows within minutes instead of after lint's tidy, and one run shows every failure.
+# Every job starts as soon as the changes job ends, which takes seconds. lint starts with the others, because the
+# runners cost the public repository nothing. A failure anywhere then shows within minutes, not after lint's tidy, and
+# one run shows every failure.
 jobs:
   changes:
-    # Whether the change reaches past Markdown. A change of Markdown alone builds nothing - but for the README, whose
-    # program the HiGHS jobs take out and run (tests/docs/readme.py), and the site's pages under docs/ (not
-    # docs/dev/), whose regions and links lint's site build checks - and runs lint's quick checks alone, which also
-    # hold the Markdown that is generated (the reference, the skill's copies). A pull request is compared with its
-    # base, a push with the commit main held before; a run by hand, or a base that cannot be fetched, builds everything.
+    # Whether the change reaches past Markdown. The jobs that build run only if it does. Two kinds of Markdown count as
+    # reaching past it:
+    # - The README. The HiGHS jobs take its program out and run it (tests/docs/readme.py).
+    # - The site's pages under docs/. lint's site build checks their regions and links. docs/dev/ is not on the site.
+    # A change of Markdown alone still runs lint's quick checks, which also check the Markdown that is generated: the
+    # API reference and the skill's copies.
+    # A pull request is compared with its base, and a push with the commit that main held before. A run started by
+    # hand builds everything, and so does a change whose base cannot be fetched.
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
@@ -372,8 +377,9 @@ jobs:
     # tools/site.sh pins, the benchmarks compiled (tools/check_bench.py, never run), then clang-tidy at
     # the version tools/versions.sh pins, over the library, the tests and the examples. OR-Tools'
     # headers are needed to see the MathOpt backend, and the HiGHS it ships the HiGHS backend; CPLEX
-    # is not, the stub stands in. The quick checks, up to the site, run for every change, a change of Markdown alone
-    # among them; the benchmarks and tidy only for a change past it (changes).
+    # is not, the stub stands in. The quick checks, up to the site build, run for every change, a change of Markdown
+    # alone included. The benchmarks and tidy run only for a change that reaches past Markdown, as the changes job
+    # decides.
     needs: changes
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -402,13 +408,15 @@ jobs:
         run: tools/tidy.sh
 
   ci-ok:
-    # The one check main's ruleset requires (docs/dev/ci.md, "Merging to main"): it passes when every job passed or
-    # was skipped because the change did not need it, and fails when one failed or was cancelled. It runs whatever
-    # happened before it (always()): a required check that is skipped counts as passed. One check, not each job, so
-    # that adding or renaming a job leaves the ruleset as it is; a new job goes into needs here.
+    # The one check that main's ruleset requires (docs/dev/ci.md, "Merging to main").
+    # - It passes if every job passed, or was skipped because the change did not need it.
+    # - It fails if a job failed or was cancelled.
+    # It runs whatever happened before it (always()), because a required check that is skipped counts as passed. The
+    # ruleset requires this one check rather than each job, so that adding or renaming a job leaves the ruleset as it
+    # is. A new job goes into the needs list here.
     if: always()
-    needs: [changes, stub, sanitize, gcc-latest, clang-latest, libcxx, wasm, wasm-highs, mathopt, coverage, windows, macos,
-            lint]
+    needs: [changes, stub, sanitize, gcc-latest, clang-latest, libcxx, wasm, wasm-highs, mathopt, coverage, windows,
+            macos, lint]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:

@@ -89,6 +89,7 @@ ci/local.py [REV]                    # what CI runs, on one commit checked out a
 | A new header, a new `#include`, a file moved or split | `docs/dev/architecture.md`, and `docs/dev/code-style.md`, "Library code" |
 | The release notes | `docs/dev/releases.md` |
 | A guide page or its code (`docs/guide/`, `tests/docs/guide/`, `tests/docs/highs/`) | `docs/dev/guide.md`; `docs/dev/code-style.md`, "Model code in this repository" |
+| A comment or a docstring, in any code: C++, Python, a shell script, a workflow | `docs/dev/comments.md`, "Comments for the code": how it is written differs by part |
 
 ## Documentation that mirrors code
 
