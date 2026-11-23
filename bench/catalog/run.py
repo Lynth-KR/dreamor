@@ -16,8 +16,8 @@ Its own two-level factors, the type of the key and the order of access, run in f
 Every repetition runs under a memory layout of its own (Mytkowicz et al., ASPLOS 2009; van Kempen & Berger,
 ISMM '26). An environment padding of its own length moves the stack. A heap seed of its own preconditions the heap
 with holes before the run builds anything. A code layout of its own comes from the copies that LAYOUTS=<reps>
-./build.sh links for the repetition (../common/layout.py). Every arm of a repetition gets the same seeds, so the arms
-stay paired. ASLR stays on. --layout off runs every repetition alike, on the plain binaries of ./build.sh.
+./build.py links for the repetition (../common/layout.py). Every arm of a repetition gets the same seeds, so the arms
+stay paired. ASLR stays on. --layout off runs every repetition alike, on the plain binaries of ./build.py.
 
 Results go to ../results/<date>_<commit>_catalog_<family>_N<levels>_res<4|6>/runs.jsonl, one line for each run, with
 meta.json beside it. The folder of the data family ends in _full instead of _res<4|6>. If the same plan runs again,
@@ -33,7 +33,7 @@ hand-written arm against dreamor. --reuse-arms names the arms to copy instead. A
 30, run again as controls of the machine.
 
 Usage:
-  LAYOUTS=5 ./build.sh
+  LAYOUTS=5 ./build.py
   python3 run.py --family lookup --reps 2                       # N = 1e5, 1e6
   python3 run.py --family lookup --n-levels 100000 --reps 1 --layout off   # quick trial
   python3 report.py ../results/<run>
@@ -214,9 +214,9 @@ def main():
     )
     for name, path in builds.items():
         if not os.path.isfile(path):
-            sys.exit(f"no {path}: run build.sh first." if not name else f"no {path} for build {name}.")
+            sys.exit(f"no {path}: run build.py first." if not name else f"no {path} for build {name}.")
     if not os.path.isfile(HAND):
-        sys.exit(f"no {HAND}: run build.sh first.")
+        sys.exit(f"no {HAND}: run build.py first.")
     impls = args.impls.split(",") if args.impls else FAMILIES[args.family]
     n_levels = [str(int(float(n))) for n in args.n_levels.split(",")]
     own = OWN_FACTORS.get(args.family)
@@ -226,9 +226,9 @@ def main():
     if K_WIDE in k_levels:
         for name, path in builds.items():
             if not os.path.isfile(binary(path, K_WIDE)):
-                sys.exit(f"no {binary(path, K_WIDE)} for k = {K_WIDE}: build.sh builds it beside {path}.")
+                sys.exit(f"no {binary(path, K_WIDE)} for k = {K_WIDE}: build.py builds it beside {path}.")
         if not os.path.isfile(binary(HAND, K_WIDE, "hand")):
-            sys.exit(f"no {binary(HAND, K_WIDE, 'hand')} for k = {K_WIDE}: run build.sh.")
+            sys.exit(f"no {binary(HAND, K_WIDE, 'hand')} for k = {K_WIDE}: run build.py.")
     top_n, top_reps = max(n_levels, key=int), args.reps if args.top_reps is None else args.top_reps
     code_layouts = (
         check_layouts(

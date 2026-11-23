@@ -39,7 +39,7 @@ The reference run measured dreamor 0.9.0 on an AMD Ryzen 7 5700X, under GCC 13 a
 
 ```sh
 cd bench/catalog
-./build.sh
+./build.py
 python3 run.py --family lookup --n-levels 100000 --reps 1 --layout off   # a quick trial: 400 runs
 python3 report.py ../results/<run>                                       # summary.md in the run's folder
 ```

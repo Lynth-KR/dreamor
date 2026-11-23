@@ -4,7 +4,7 @@
 //
 // scenario/lotsizing_dreamor.cpp - lot sizing's dreamor arm, which lotsizing.hpp describes.
 //
-// The arm is the example itself. build.sh builds it as ./lotsizing_<backend>, against dreamor's headers.
+// The arm is the example itself. build.py builds it as ./lotsizing_<backend>, against dreamor's headers.
 #include <optional>
 #include <string>
 

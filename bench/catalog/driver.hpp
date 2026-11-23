@@ -5,7 +5,7 @@
 // catalog/driver.hpp - the driver of a run: one arm of one family, in one cell and one repetition, measured in a
 // process of its own and printed as one JSON line. run.py designs the experiment and reads the lines.
 //
-// The main of each build calls catalog::runCell with the arm's trait and the arm's call into the families. build.sh
+// The main of each build calls catalog::runCell with the arm's trait and the arm's call into the families. build.py
 // builds dreamor.cpp as ./catalog and ./catalog8, and hand.cpp as ./catalog_hand and ./catalog_hand8.
 //
 // A family is a group of operations on the same data, measured as phases one after another, as

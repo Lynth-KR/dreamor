@@ -4,12 +4,12 @@
 # not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """Runs a layer-2 scenario (docs/bench/scenario/): a model built end to end, by dreamor and by hand.
 
-The script runs every backend that build.sh built, out of stub, cplex, mathopt and highs, at every size and in every
+The script runs every backend that build.py built, out of stub, cplex, mathopt and highs, at every size and in every
 arm. Each run is a fresh process, and the runs come in a seeded random order. Every repetition runs under a memory
 layout of its own (Mytkowicz et al., ASPLOS 2009; van Kempen & Berger, ISMM '26): an environment padding of its own
 length and a heap seed of its own. Every repetition also runs under a code layout of its own, on the copies that
-LAYOUTS=<reps> ./build.sh links for it with ../common/layout.py. Every arm of a repetition gets the same seeds, so the
-arms stay paired. ASLR stays on. --layout off runs every repetition alike, on the plain binaries of ./build.sh.
+LAYOUTS=<reps> ./build.py links for it with ../common/layout.py. Every arm of a repetition gets the same seeds, so the
+arms stay paired. ASLR stays on. --layout off runs every repetition alike, on the plain binaries of ./build.py.
 
 The results go to ../results/<date>_<commit>_scenario_<scenario>_<size><levels>/runs.jsonl, one line a run, with
 meta.json beside it. A run's wall_s is the whole process as the runner saw it, including the time to load the
@@ -20,7 +20,7 @@ solver's libraries. Running the same thing again resumes it.
 again as controls of the machine.
 
 Usage:
-  LAYOUTS=5 ./build.sh
+  LAYOUTS=5 ./build.py
   python3 run.py --scenario pmedian                # L from 5000 to 50000, 5 repetitions
   python3 run.py --scenario lotsizing              # 170 and 1700 items, about 1e5 and 1e6 rows
   python3 run.py --scenario pmedian --levels 5000 --reps 1 --layout off   # a quick trial
@@ -116,7 +116,7 @@ SAME = [
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--scenario", required=True, choices=sorted(SCENARIOS))
-    ap.add_argument("--backends", help="comma-separated; default: every one build.sh built")
+    ap.add_argument("--backends", help="comma-separated; default: every one build.py built")
     ap.add_argument("--impls", help="comma-separated arms; default: every arm of the scenario")
     ap.add_argument("--levels", help="sizes, comma-separated; default: the scenario's")
     ap.add_argument("--customers", type=int, default=100, help="pmedian: C")
@@ -154,7 +154,7 @@ def main():
     for b in backends:
         if b not in built:
             sys.exit(
-                f"no {args.scenario}_{b} and {args.scenario}_{b}_hand: run build.sh first (it skips a backend "
+                f"no {args.scenario}_{b} and {args.scenario}_{b}_hand: run build.py first (it skips a backend "
                 "that is not installed)."
             )
     impls = args.impls.split(",") if args.impls else spec["impls"]

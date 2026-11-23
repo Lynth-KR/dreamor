@@ -365,12 +365,12 @@ jobs:
           "$RUNNER_TEMP/consumer_mathopt/lot_sizing"
 
   lint:
-    # clang-format and ruff at the versions tools/format.sh and ruff.toml pin, the headers' layers
+    # clang-format and ruff at the versions tools/versions.sh pins, the headers' layers
     # (tools/check_layers.py), the API reference as the headers' /// comments make it (tools/gen_reference.py),
     # the skill's copies of the guide and the reference (tools/sync_skill_docs.py), the generated compile_fail cases
     # (tools/gen_arity_tests.py), the documentation site at the version
     # tools/site.sh pins, the benchmarks compiled (tools/check_bench.py, never run), then clang-tidy at
-    # the version tools/tidy.sh pins, over the library, the tests and the examples. OR-Tools'
+    # the version tools/versions.sh pins, over the library, the tests and the examples. OR-Tools'
     # headers are needed to see the MathOpt backend, and the HiGHS it ships the HiGHS backend; CPLEX
     # is not, the stub stands in. The quick checks, up to the site, run for every change, a change of Markdown alone
     # among them; the benchmarks and tidy only for a change past it (changes).
@@ -381,7 +381,7 @@ jobs:
       ORTOOLS_URL: https://github.com/google/or-tools/releases/download/v9.15/or-tools_amd64_ubuntu-24.04_cpp_v9.15.6755.tar.gz
     steps:
       - uses: actions/checkout@v7
-      # The scripts run the pinned versions through uvx: the pins live in the scripts and ruff.toml alone.
+      # The scripts run the pinned versions through uvx: the pins live in tools/versions.sh and ruff.toml alone.
       - run: pipx install uv
       - run: tools/format.sh --check
       - run: python3 tools/check_layers.py

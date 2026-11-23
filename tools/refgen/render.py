@@ -31,7 +31,6 @@ def format_signatures(signatures: list[str]) -> list[str]:
     code = [s for s in signatures if not s.startswith("#")]
     pieces = []
     if code:
-        version = re.search(r"^CLANG_FORMAT_VERSION=(\S+)", (ROOT / "tools/format.sh").read_text(), re.M).group(1)
         style = re.sub(
             r"^ColumnLimit:.*$", f"ColumnLimit: {SIGNATURE_COLUMNS}", (ROOT / ".clang-format").read_text(), flags=re.M
         )
@@ -40,7 +39,7 @@ def format_signatures(signatures: list[str]) -> list[str]:
             (Path(tmp) / ".clang-format").write_text(style)
             (Path(tmp) / "signatures.cpp").write_text(source)
             result = subprocess.run(
-                ["uvx", "-q", f"clang-format@{version}", str(Path(tmp) / "signatures.cpp")],
+                [str(ROOT / "tools/clang-format"), str(Path(tmp) / "signatures.cpp")],
                 capture_output=True,
                 text=True,
                 check=True,

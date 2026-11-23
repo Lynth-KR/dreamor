@@ -14,7 +14,7 @@
     "*.hpp": "cpp",
     "*.h": "cpp"
   },
-  // A save formats with tools/clang-format, the version tools/format.sh pins, as CI checks: clangd's own
+  // A save formats with tools/clang-format, the version tools/versions.sh pins, as CI checks: clangd's own
   // formatter would follow clangd's version instead. The extension expands ${workspaceRoot} only.
   "clang-format.executable": "${workspaceRoot}/tools/clang-format",
   "[cpp]": {

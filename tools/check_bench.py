@@ -2,13 +2,15 @@
 # SPDX-License-Identifier: MPL-2.0
 # This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 # not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""The benchmarks still compile against the headers: each source in each variant its build.sh builds, syntax only.
+"""Checks that the benchmarks still compile against the headers. Each source of each variant that a build script
+builds is compiled for its syntax only.
 
     python3 tools/check_bench.py        # CXX (default g++-13), ORTOOLS_DIR for the MathOpt variants and HIGHS_DIR
                                         # (default ORTOOLS_DIR) for the HiGHS ones (each skipped without)
 
-The benchmarks run by hand, never in CI; this keeps a change to the headers from breaking them unseen. CPLEX
-variants are left out: CI has no CPLEX, and the stub variants compile the same model code.
+The benchmarks run by hand, never in CI; this keeps a change to the headers from breaking them unseen. The catalog's
+and the scenarios' variants are their build.py's own targets, with the same flags. CPLEX variants are left out: CI
+has no CPLEX, and the stub variants compile the same model code.
 """
 
 import os
@@ -19,37 +21,29 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 BENCH = ROOT / "bench"
-STUB = ["-I", str(BENCH / "common" / "stub")]
+sys.path.insert(0, str(BENCH))
+from catalog import build as catalog  # noqa: E402
+from scenario import build as scenario  # noqa: E402
+
 BASE = ["-std=c++20", "-fsyntax-only", "-DNDEBUG", "-Wall", "-Wextra", "-Werror"]
-# dreamor's headers, named by each variant that may see them: not the hand-written arms', as their build.sh has it.
 INCLUDE = ["-I", str(ROOT / "include")]
 
 
-def variants() -> list[tuple[str, list[str]]]:
-    """Each source and the flags of one variant its build.sh builds: (label, arguments)."""
-    out = []
-    catalog = BENCH / "catalog"
-    for extra in ([], ["-DCATALOG_MAX_COLUMNS=8"]):
-        out.append((f"catalog dreamor {' '.join(extra)}", [*INCLUDE, *STUB, *extra, str(catalog / "dreamor.cpp")]))
-        out.append((f"catalog hand {' '.join(extra)}", [*STUB, *extra, str(catalog / "hand.cpp")]))
-    ortools = Path(os.environ.get("ORTOOLS_DIR", "/opt/ortools"))
-    mathopt = (ortools / "include" / "ortools" / "math_opt" / "cpp" / "math_opt.h").is_file()
-    mathopt_flags = ["-DOR_PROTO_DLL=", "-isystem", str(ortools / "include")]
-    highs = Path(os.environ.get("HIGHS_DIR", str(ortools))) / "include" / "highs"
-    highs_flags = ["-DSCENARIO_HIGHS", "-isystem", str(highs)] if (highs / "Highs.h").is_file() else None
-    for scenario in ("pmedian", "lotsizing"):
-        for arm, include in (("dreamor", INCLUDE), ("hand", [])):
-            source = str(BENCH / "scenario" / f"{scenario}_{arm}.cpp")
-            out.append((f"{scenario} stub {arm}", [*include, *STUB, "-DSCENARIO_STUB", source]))
-            if mathopt:
-                out.append((f"{scenario} mathopt {arm}", [*include, "-DSCENARIO_MATHOPT", *mathopt_flags, source]))
-            if highs_flags:
-                out.append((f"{scenario} highs {arm}", [*include, *highs_flags, source]))
-    out.append(("plan model", [*INCLUDE, str(BENCH / "plan" / "model.cpp")]))
-    out.append(("plan", [*INCLUDE, str(BENCH / "plan" / "plan.cpp")]))
-    out.append(("plan PLAN_COUNT", [*INCLUDE, "-DPLAN_COUNT", str(BENCH / "plan" / "plan.cpp")]))
-    if not mathopt:
-        print(f"no OR-Tools at {ortools}: the MathOpt variants are skipped", file=sys.stderr)
+def variants() -> list[tuple[str, Path, list[str]]]:
+    """Returns each variant that a build script builds: a label, the folder it compiles in, and the compiler's
+    arguments."""
+    out = [(f"catalog {t.out}", BENCH / "catalog", [*t.flags, t.source]) for t in catalog.targets()]
+    found, missing = scenario.backends()
+    found.pop("cplex", None)
+    for backend, why in missing.items():
+        if backend != "cplex":
+            print(f"{why}: the {backend} variants are skipped", file=sys.stderr)
+    out += [(f"scenario {t.out}", BENCH / "scenario", [*t.flags, t.source]) for t in scenario.targets(found)]
+    # The three programs that bench/plan/build.sh builds.
+    plan = BENCH / "plan"
+    out.append(("plan model", plan, [*INCLUDE, "model.cpp"]))
+    out.append(("plan", plan, [*INCLUDE, "plan.cpp"]))
+    out.append(("plan PLAN_COUNT", plan, [*INCLUDE, "-DPLAN_COUNT", "plan.cpp"]))
     return out
 
 
@@ -57,9 +51,10 @@ def main() -> int:
     cxx = os.environ.get("CXX", "g++-13")
     jobs = int(os.environ.get("JOBS", str(max(1, (os.cpu_count() or 2) // 2))))
 
-    def compile_one(variant: tuple[str, list[str]]) -> tuple[str, subprocess.CompletedProcess]:
-        label, arguments = variant
-        return label, subprocess.run([cxx, *BASE, *arguments], capture_output=True, text=True, check=False)
+    def compile_one(variant: tuple[str, Path, list[str]]) -> tuple[str, subprocess.CompletedProcess]:
+        label, folder, arguments = variant
+        command = [cxx, *BASE, *arguments]
+        return label, subprocess.run(command, cwd=folder, capture_output=True, text=True, check=False)
 
     failed = 0
     with ThreadPoolExecutor(max_workers=jobs) as pool:

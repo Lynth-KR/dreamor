@@ -5,7 +5,7 @@
 // scenario/lotsizing_hand.cpp - lot sizing's hand-written arms, which lotsizing.hpp describes: plain, flat, callable
 // and callable-rows.
 //
-// build.sh builds them as ./lotsizing_<backend>_hand without dreamor's include path, so that no dreamor header reaches
+// build.py builds them as ./lotsizing_<backend>_hand without dreamor's include path, so that no dreamor header reaches
 // them.
 #include <array>
 #include <charconv>

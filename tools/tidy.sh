@@ -12,20 +12,20 @@
 #   tools/tidy.sh --fix     apply clang-tidy's fixes where it has one
 #
 # Needs compile_commands.json: python3 tools/gen_compile_commands.py. Findings differ between
-# versions, so clang-tidy is pinned. uvx runs it, with run-clang-tidy.py and
+# versions, so clang-tidy is pinned (tools/versions.sh). uvx runs it, with run-clang-tidy.py and
 # clang-apply-replacements from the same package (installing nothing on PATH); CLANG_TIDY_RUN=
 # (empty) takes all three from PATH instead (their version must still match). JOBS is how many
 # files run at once (default: every core).
 set -eu
 cd "$(dirname "$0")/.."
-CLANG_TIDY_VERSION=23.1.3
+. tools/versions.sh
 CLANG_TIDY_RUN=${CLANG_TIDY_RUN-uvx -q --from clang-tidy==$CLANG_TIDY_VERSION}
 JOBS=${JOBS:-$(nproc 2>/dev/null || echo 4)}
 
 # CLANG_TIDY_RUN is a command prefix of several words: it is expanded unquoted below.
-found=$($CLANG_TIDY_RUN clang-tidy --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)
-if [ "$found" != "$CLANG_TIDY_VERSION" ]; then
-  echo "clang-tidy $CLANG_TIDY_VERSION needed, found ${found:-none} (${CLANG_TIDY_RUN:-PATH})" >&2
+if ! $CLANG_TIDY_RUN clang-tidy --version | grep -qwF "version $CLANG_TIDY_VERSION"; then
+  echo "clang-tidy $CLANG_TIDY_VERSION needed; ${CLANG_TIDY_RUN:-PATH}'s is:" >&2
+  $CLANG_TIDY_RUN clang-tidy --version >&2
   exit 1
 fi
 if [ ! -f compile_commands.json ]; then

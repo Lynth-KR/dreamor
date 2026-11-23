@@ -21,7 +21,7 @@ Which Concert each file sees:
   - the HiGHS backend and its parts (internal/highs/), its example, tests/highs and the guide's code that solves
     (tests/docs/highs/): HiGHS's include/highs (plus the stub, which
     tests/highs/test_cross_backend.cpp uses for the Concert side);
-  - bench/catalog: the benchmarks' lean stub (bench/common/stub), as bench/catalog/build.sh compiles it; the
+  - bench/catalog: the benchmarks' lean stub (bench/common/stub), as bench/catalog/build.py compiles it; the
     hand-written arms (hand.cpp) without dreamor's include path, so the editor flags a dreamor include there as
     the build does.
 The compile_fail and contract_fail topic files are given with no case defined, so clangd reads each case as

@@ -17,12 +17,12 @@ command below runs there.
   is its main.
 - `hand/` holds the hand-written arms: their trait in `arm.hpp`, and one header for each family. `hand.cpp` is their
   main.
-- `build.sh` builds the binaries. `run.py` runs a family as a designed experiment. `report.py` summarizes a run, and
+- `build.py` builds the binaries. `run.py` runs a family as a designed experiment. `report.py` summarizes a run, and
   `compare.py` compares two builds of dreamor.
 - `bench/common/` holds what every benchmark under `bench/` shares, which the [benchmarks' overview](../index.md),
   "Shared pieces", lists.
 
-The shared headers and the hand-written arms include no dreamor header, and `build.sh` builds them without an include
+The shared headers and the hand-written arms include no dreamor header, and `build.py` builds them without an include
 path to the library (the [benchmarks' overview](../index.md), "Measuring one side alone"). A phase that you add to a
 family goes into both `dreamor/<family>.hpp` and `hand/<family>.hpp` (`entities.hpp` for the data family), under the
 same name, with a check that every arm
@@ -30,11 +30,11 @@ computes in the same way.
 
 ## Build the binaries
 
-Run `build.sh` before any run:
+Run `build.py` before any run:
 
 ```sh
-./build.sh               # build/catalog, catalog8, catalog_hand and catalog_hand8
-LAYOUTS=5 ./build.sh     # the same, and a copy of each for each of 5 repetitions
+./build.py               # build/catalog, catalog8, catalog_hand and catalog_hand8
+LAYOUTS=5 ./build.py     # the same, and a copy of each for each of 5 repetitions
 ```
 
 - `build/catalog` and `build/catalog8` are the dreamor arm, built from `dreamor.cpp` with the library's include path.
@@ -86,7 +86,7 @@ By default, every repetition runs under a layout of its own. To run with `--reps
 - `--cpu` pins the runs to a CPU. The default, `auto`, picks one CPU of a physical core that does not hold CPU 0. On a
   virtual machine `auto` pins nothing, because pinning there pins a virtual CPU only. `none` pins nothing, and a CPU
   list pins to those CPUs.
-- `--layout off` runs every repetition under the same layout, on the plain binaries of `build.sh`. The runs then have
+- `--layout off` runs every repetition under the same layout, on the plain binaries of `build.py`. The runs then have
   no environment padding, and their heap is not preconditioned.
 - `--timeout` sets the seconds that one run may take, 1800 by default.
 - `--out` names the results folder.

@@ -14,7 +14,6 @@
 set -e
 cd "$(git rev-parse --show-toplevel)"
 command -v tree >/dev/null 2>&1 || { echo "tree is not installed (sudo apt install tree)" >&2; exit 1; }
-# A tracked file deleted from the working tree is still in the index; list only what exists.
-git ls-files --cached --others --exclude-standard |
-  while IFS= read -r path; do [ -e "$path" ] && printf '%s\n' "$path"; done |
-  tree -a --fromfile "$@" .
+# A tracked file deleted from the working tree is still in the index. --deleted lists such a file a second time, and
+# uniq -u drops every line that is listed twice. Only the files that exist are left.
+git ls-files --cached --others --deleted --exclude-standard | sort | uniq -u | tree -a --fromfile "$@" .
