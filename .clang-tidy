@@ -1,4 +1,4 @@
-# clang-tidy 23. tools/tidy.sh pins the exact version, and CI checks with the same one.
+# clang-tidy 23. tools/versions.sh pins the exact version, and CI checks with the same one.
 #
 # Off everywhere, and why:
 #   modernize-use-trailing-return-type   style only; the code is Google style

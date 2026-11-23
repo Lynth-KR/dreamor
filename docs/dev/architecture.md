@@ -63,8 +63,8 @@ other files here.
   `tools/format.sh` checks with `reuse lint`.
 - `cmake/`, `CMakeLists.txt`: `dreamor::dreamor` INTERFACE target and install/package config.
 - `tools/`: the scripts, a job each.
-  - Style: `format.sh` (clang-format, ruff, `dashes.py`, `reuse lint`), `clang-format` (the pinned one, for an editor),
-    `tidy.sh`.
+  - Style: `format.sh` (clang-format, ruff, `code_files.py`, `dashes.py`, `reuse lint`), `clang-format` (the pinned
+    one, for an editor), `tidy.sh`; `versions.sh`, the three's pins.
   - Checks: `check_layers.py`, `check_bench.py`.
   - Documents: `gen_reference.py` (the API reference from the headers' `///` comments and the compile_fail cases, by
     `refgen/`; its sections' order in `refgen/sections.txt`, the compile-time messages' sections in

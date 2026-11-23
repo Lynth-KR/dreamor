@@ -18,7 +18,7 @@
 #include <utility>
 #include <vector>
 
-// build.sh compiles this header into both builds: ./catalog, the dreamor arm from dreamor.cpp, and ./catalog_hand,
+// build.py compiles this header into both builds: ./catalog, the dreamor arm from dreamor.cpp, and ./catalog_hand,
 // the hand-written arms from hand.cpp. The hand-written build has no include path to dreamor, so that a change to the
 // library leaves that build as it is. So this header includes no dreamor header, and what differs by arm comes from
 // the arm's trait.
@@ -42,7 +42,7 @@ inline std::uint32_t primaryKey(const Ent& e) {
 // - handle(ents, e) returns the handle of e, which must be an element of ents.
 
 // The widest k that this build runs. The hand-written arms and the samples hold a row in an array this wide, with
-// the columns past k null. So the width is part of what those arms cost. build.sh builds ./catalog with width 5, for
+// the columns past k null. So the width is part of what those arms cost. build.py builds ./catalog with width 5, for
 // k <= 5, and ./catalog8 with width 8, for k = 8 alone. So a run at k <= 5 does not pay for the columns that only
 // k = 8 needs, and a run at k = 8 has no column to spare.
 #ifndef CATALOG_MAX_COLUMNS

@@ -162,7 +162,7 @@ count past the six arguments that x86-64 passes in registers: a lookup passes `t
   So k = 5 and k = 8 differ in their columns alone.
 - **The builds for k = 8.** The hand-written arms and the samples hold a row in an array as wide as the widest k of the
   build, with the columns past k null. So `build/catalog` and `build/catalog_hand` are 5 wide and run k <= 5.
-  `build/catalog8` and `build/catalog_hand8` are 8 wide and run k = 8. `build.sh` builds all four.
+  `build/catalog8` and `build/catalog_hand8` are 8 wide and run k = 8. `build.py` builds all four.
 
 ### The data family
 
@@ -204,11 +204,11 @@ full, 8 cells with the two levels of N:
   - A heap seed of its own preconditions the heap before anything is built. Blocks of random sizes are allocated, and
     a random half of them are freed, because a fresh heap is an allocator's best case (van Kempen and Berger,
     ISMM '26, arXiv:2605.17119).
-  - A code layout of its own comes from a copy of every binary that `LAYOUTS=n ./build.sh` links for the repetition.
+  - A code layout of its own comes from a copy of every binary that `LAYOUTS=n ./build.py` links for the repetition.
     ASLR moves code by whole pages, so the build alone decides where a function falls in its page and which
     functions are next to it. Each copy puts every function in a section of its own, and lld shuffles the sections by
     the repetition's seed, with a padding of the repetition's own size among them (`bench/common/layout.py`).
-- **The seeds.** `run.py` draws each repetition's padding and heap seed from `--seed`. `build.sh` draws each
+- **The seeds.** `run.py` draws each repetition's padding and heap seed from `--seed`. `build.py` draws each
   repetition's code layout from `LAYOUT_SEED`, and `run.py` refuses copies built with another seed than `--seed`. So
   the same seed, compiler and source build the same binaries again. `meta.json` records each copy's seeds and sha256.
   ASLR stays on.

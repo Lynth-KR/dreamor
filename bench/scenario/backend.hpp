@@ -2,7 +2,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// scenario/backend.hpp - the backend that a scenario is built against, which build.sh picks at compile time.
+// scenario/backend.hpp - the backend that a scenario is built against, which build.py picks at compile time.
 //
 // The backend is one of these:
 //   - the lean Concert stub, if SCENARIO_STUB is defined;
@@ -16,7 +16,7 @@
 // <path>.mps after the solver has started, outside every timer. equivalence.py sets it, to check that the arms build
 // one model.
 //
-// Both arms of a scenario include this header, so it includes no dreamor header. build.sh builds each scenario twice
+// Both arms of a scenario include this header, so it includes no dreamor header. build.py builds each scenario twice
 // for each backend:
 //   - <scenario>_dreamor.cpp as ./<scenario>_<backend>, the dreamor arm alone, which includes backend_dreamor.hpp;
 //   - <scenario>_hand.cpp as ./<scenario>_<backend>_hand, the hand-written arms, without dreamor's include path.

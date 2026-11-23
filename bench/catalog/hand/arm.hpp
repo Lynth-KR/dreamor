@@ -3,7 +3,7 @@
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
 // catalog/hand/arm.hpp - the trait of the hand-written arms. Neither this header nor a file that includes it may use a
-// dreamor header, because build.sh gives the hand-written build no include path to one.
+// dreamor header, because build.py gives the hand-written build no include path to one.
 #pragma once
 
 #include <vector>

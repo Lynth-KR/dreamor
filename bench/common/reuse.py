@@ -4,7 +4,7 @@
 # not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """Measures only the arms that changed, against the runs of the others that an earlier run made, for run.py --reuse.
 
-build.sh builds the dreamor arm and the hand-written arms into binaries of their own, and the hand-written ones
+build.py builds the dreamor arm and the hand-written arms into binaries of their own, and the hand-written ones
 without the library. So a change to dreamor leaves the hand-written binaries, and each repetition's copy of them, byte
 for byte as they were, and a change to a hand-written arm leaves dreamor's. run.py --reuse <earlier run> copies the
 earlier run's runs of every arm whose binaries are the ones that run measured, and runs the other arms. When the new

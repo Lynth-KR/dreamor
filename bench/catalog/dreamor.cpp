@@ -2,7 +2,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// catalog/dreamor.cpp - the main of the dreamor arm, which build.sh builds as ./catalog, and as ./catalog8 for k = 8.
+// catalog/dreamor.cpp - the main of the dreamor arm, which build.py builds as ./catalog, and as ./catalog8 for k = 8.
 #include <string>
 
 #include "../common/result.hpp"

@@ -4,7 +4,7 @@
 //
 // scenario/pmedian_dreamor.cpp - p-median's dreamor arm, which pmedian.hpp describes.
 //
-// The arm writes the model with dreamor's sets, VarTables and sumExpr. build.sh builds it as ./pmedian_<backend>,
+// The arm writes the model with dreamor's sets, VarTables and sumExpr. build.py builds it as ./pmedian_<backend>,
 // against dreamor's headers.
 #include <optional>
 #include <string>

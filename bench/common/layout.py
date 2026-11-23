@@ -7,20 +7,18 @@ laid among the sections.
 
 ASLR moves code by whole pages. So the build fixes where a function lands within its page, and which functions lie
 next to it. A repetition that only moves the stack and the heap therefore runs the same code layout every time. If
-LAYOUTS=n is set, build.sh builds one copy of each binary per repetition, and lld links each copy with its sections
-shuffled and a padding of its own. run.py runs repetition r on copy r. The expectation that a run estimates then
-covers code placement as well (Mytkowicz et al., ASPLOS 2009; Curtsinger & Berger, ASPLOS 2013). The shuffle seed and
-the padding follow from the run's seed, so the same seed, compiler and source give the same binaries again.
-
-build.sh runs the module as a script, which prints "<shuffle seed> <padding bytes>":
-
-    python3 layout.py SEED REP
+LAYOUTS=n is set, build.py builds one copy of each binary per repetition, and lld links each copy with its sections
+shuffled and a padding of its own. run.py runs repetition r on copy r. The expectation that a run
+estimates then covers code placement as well (Mytkowicz et al., ASPLOS 2009; Curtsinger & Berger, ASPLOS 2013). The
+shuffle seed and the padding follow from the run's seed, so the same seed, compiler and source give the same binaries
+again.
 """
 
 import hashlib
 import json
 import os
 import random
+import subprocess
 import sys
 
 
@@ -40,7 +38,7 @@ def laid_out(path, rep):
 
 
 def check_layouts(paths, reps, seed):
-    """Returns each repetition's record of its copies of `paths`, as build.sh wrote it in layout.json, with each
+    """Returns each repetition's record of its copies of `paths`, as build.py wrote it in layout.json, with each
     copy's sha256 added.
 
     If a copy or its record is missing, the function exits and says how to build the copies. If a copy was built with
@@ -53,7 +51,7 @@ def check_layouts(paths, reps, seed):
             record = os.path.join(os.path.dirname(copy), "layout.json")
             if not os.path.isfile(copy) or not os.path.isfile(record):
                 sys.exit(
-                    f"no {os.path.relpath(copy)}: LAYOUTS={reps} LAYOUT_SEED={seed} ./build.sh builds a copy per "
+                    f"no {os.path.relpath(copy)}: LAYOUTS={reps} LAYOUT_SEED={seed} ./build.py builds a copy per "
                     "repetition (or run with --layout off)."
                 )
             with open(record) as f:
@@ -66,5 +64,12 @@ def check_layouts(paths, reps, seed):
     return layouts
 
 
-if __name__ == "__main__":
-    print(*code_layout_of(int(sys.argv[1]), int(sys.argv[2])))
+def write_record(seed, rep, folder, lld):
+    """Writes repetition `rep`'s record, the layout.json that check_layouts reads, into `folder`, and returns the
+    repetition's shuffle seed and bytes of padding."""
+    shuffle_seed, pad_bytes = code_layout_of(seed, rep)
+    linker = subprocess.run([lld, "--version"], capture_output=True, text=True, check=True).stdout.strip()
+    record = {"seed": seed, "rep": rep, "shuffle_seed": shuffle_seed, "pad_bytes": pad_bytes, "linker": linker}
+    with open(os.path.join(folder, "layout.json"), "w") as f:
+        f.write(json.dumps(record) + "\n")
+    return shuffle_seed, pad_bytes

@@ -3,13 +3,13 @@
 For people working on dreamor; `AGENTS.md` says when to read it.
 
 `bench/` is not part of the test suite, and CI never runs it; CI does compile it (`tools/check_bench.py`, every
-variant the `build.sh` files build but CPLEX's), so a change to the headers cannot break it unseen. When a change touches what the benchmarks exercise (`AGENTS.md`,
-"Before a change", lists it), check with `bench/catalog/build.sh` and `bench/scenario/build.sh`:
+variant the build scripts build but CPLEX's), so a change to the headers cannot break it unseen. When a change touches what the benchmarks exercise (`AGENTS.md`,
+"Before a change", lists it), check with `bench/catalog/build.py` and `bench/scenario/build.py`:
 - both still build;
 - every arm still does the same work: a quick run of each family the change reaches
   (`python3 run.py --family <family> --n-levels 100000 --reps 1 --layout off` in `bench/catalog/`, then
   `report.py`) and of a scenario (`python3 run.py --scenario lotsizing --levels 170 --reps 1 --layout off` in
-  `bench/scenario/`, then `report.py`) report no check mismatch. `--layout off` because `build.sh` builds no
+  `bench/scenario/`, then `report.py`) report no check mismatch. `--layout off` because `build.py` builds no
   per-repetition copies unless `LAYOUTS` is set.
 
 A timing claim compares builds: the catalog's `run.py --builds base=<old>,head=<new>` and `compare.py`

@@ -5,7 +5,7 @@
 // scenario/pmedian_hand.cpp - p-median's hand-written arms, which pmedian.hpp describes: hand, calls, callable and
 // callable-rows.
 //
-// build.sh builds them as ./pmedian_<backend>_hand without dreamor's include path, so that no dreamor header reaches
+// build.py builds them as ./pmedian_<backend>_hand without dreamor's include path, so that no dreamor header reaches
 // them.
 #include <algorithm>
 #include <array>

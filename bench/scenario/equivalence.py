@@ -11,7 +11,7 @@ with dreamor's by meaning: the bounds, integrality, costs, right-hand sides and 
 relative 1e-12. The names that a solver makes up for what a model left unnamed are compared by what they hold.
 MathOpt writes six significant digits, so on MathOpt the arms are compared to six digits.
 
-    bench/scenario/build.sh && python3 bench/scenario/equivalence.py
+    bench/scenario/build.py && python3 bench/scenario/equivalence.py
 
 If an arm's model differs from dreamor's on some solver, the script exits with status 1.
 """

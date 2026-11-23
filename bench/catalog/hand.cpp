@@ -2,8 +2,8 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was
 // not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// catalog/hand.cpp - the main of the hand-written arms, which build.sh builds as ./catalog_hand, and as
-// ./catalog_hand8 for k = 8. This file and every header that it includes use no dreamor header, because build.sh
+// catalog/hand.cpp - the main of the hand-written arms, which build.py builds as ./catalog_hand, and as
+// ./catalog_hand8 for k = 8. This file and every header that it includes use no dreamor header, because build.py
 // compiles them without dreamor's include path.
 #include <string>
 

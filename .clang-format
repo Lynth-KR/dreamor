@@ -1,4 +1,4 @@
-# clang-format 23. tools/format.sh pins the exact version, and CI checks with the same one.
+# clang-format 23. tools/versions.sh pins the exact version, and CI checks with the same one.
 BasedOnStyle: Google
 Language: Cpp
 Standard: c++20

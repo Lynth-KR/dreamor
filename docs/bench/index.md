@@ -51,11 +51,11 @@ The folder `bench/common/` holds what the experiments share:
   catalog or scenario run. It decides what `--pmu auto` counts, and it names the checkout's commit, with a hash of
   its uncommitted changes, when the run starts. `test_machine.py` tests the CPU choice against fake `/sys` trees.
 - `layout.py` derives each repetition's code layout from the run's seed: the seed with which the linker shuffles the
-  code's sections, and a padding laid among them. A runner checks that every copy of a binary was built with the
-  run's seed, and records each copy's sha256.
-- `build_lib.sh` is sourced by the catalog's and the scenarios' `build.sh`. It runs the compiles `JOBS` at a time,
-  half the cores by default. If `LAYOUTS=n` is set, it writes the link options for repetitions 0 to n-1, which link
-  with the lld in `LLD_DIR`, LLVM 18's by default.
+  code's sections, and a padding laid among them; it writes the repetition's record, `layout.json`. A runner checks that
+  every copy of a binary was built with the run's seed, and records each copy's sha256.
+- `build.py` is what the catalog's and the scenarios' `build.py` share. It runs the compiles `JOBS` at a time, half
+  the cores by default, and names each that fails. If `LAYOUTS=n` is set, it also builds every binary for repetitions
+  0 to n-1, linked by the lld in `LLD_DIR`, LLVM 18's by default.
 - `reuse.py` implements `run.py --reuse`, which "Measuring one side alone" below describes.
 - `compare_mps.py` compares two MPS files by what the models mean, not by how a writer spells them. The scenarios'
   `equivalence.py` uses it.
@@ -99,7 +99,7 @@ would put most of the memory and the time on the solver side here.
   date, so a rerun on another day starts a new folder unless `--out` names the old one. The visit-order study
   overwrites its CSV file instead.
 - **CI does not run the benchmarks.** Shared runners are too noisy for timing. CI checks that they compile:
-  `tools/check_bench.py` parses every variant that the `build.sh` files build, except CPLEX's, and links nothing.
+  `tools/check_bench.py` parses every variant that the build scripts build, except CPLEX's, and links nothing.
 
 ### Measuring one side alone
 

@@ -5,7 +5,7 @@ the commands below say where they run.
 
 ## How a scenario is built
 
-`build.sh` builds each scenario against each backend that is installed:
+`build.py` builds each scenario against each backend that is installed:
 
 - `<scenario>_stub` against the lean Concert stub in `bench/common/stub`, which leaves only the containers to measure.
 - `<scenario>_cplex` against CPLEX Concert, at `$CPLEX_STUDIO_DIR`. The default is
@@ -37,7 +37,7 @@ include hold no dreamor header:
 ## Running
 
 ```sh
-LAYOUTS=5 bench/scenario/build.sh   # every backend installed, plus one copy of each binary per repetition, for 5
+LAYOUTS=5 bench/scenario/build.py   # every backend installed, plus one copy of each binary per repetition, for 5
 cd bench/scenario
 python3 equivalence.py                 # every arm hands each solver dreamor's model
 python3 run.py --scenario pmedian      # every backend built, L = 5000 to 50000, 5 repetitions
@@ -66,10 +66,10 @@ Other options:
 
 - `--levels` picks other sizes.
 - `--backends` and `--impls` pick fewer backends and arms.
-- `--layout off` runs every repetition on `build.sh`'s plain binaries, with no environment padding and no heap
+- `--layout off` runs every repetition on `build.py`'s plain binaries, with no environment padding and no heap
   preconditioning. By default, `run.py` needs the copies that `LAYOUTS` builds.
 - `--seed` sets the seed of the run order, the layouts and p-median's instances. The default is 20261025, which is
-  also `build.sh`'s default `LAYOUT_SEED`.
+  also `build.py`'s default `LAYOUT_SEED`.
 
 `run.py` writes `runs.jsonl`, one line for each run, and `meta.json` to
 `bench/results/<date>_<commit>_scenario_<scenario>_<size><levels>/`. If it finds that folder, it resumes the run. Each

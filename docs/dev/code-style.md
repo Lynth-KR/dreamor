@@ -20,13 +20,13 @@ In `include/` - the code dreamor is made of, and only there - primitive types fo
   `operator++(int)`, the process exit status.
 
 <!-- REUSE-IgnoreStart -->
-Every code file starts with `// SPDX-License-Identifier: MPL-2.0` (`#` in Python, shell, and CMake; after the
-`#!` line in scripts), then MPL's Exhibit A notice on the next two lines and a bare comment line before a comment
-that follows, as Eigen's files do; `tools/format.sh` puts all three there and CI checks them. The code that the
+Every code file starts with `// SPDX-License-Identifier: MPL-2.0` (`#` in Python, shell, and CMake; after the `#!` line
+in scripts), then MPL's Exhibit A notice on the next two lines and a bare comment line before a comment that follows, as
+Eigen's files do; `tools/format.sh` puts all three there (`tools/code_files.py`) and CI checks them. The code that the
 documents show and users copy - `examples/` and the guide's code, `tests/docs/guide/` and `tests/docs/highs/` - starts
 with `// SPDX-License-Identifier: MIT-0` alone. Google's samples in `examples/mathopt_samples/` keep their own
-Apache-2.0 line and header (`examples/mathopt_samples/LICENSE`). Every other file - a document, a configuration
-file, an image - takes its license from `REUSE.toml`, and `tools/format.sh` runs `reuse lint` over all of them.
+Apache-2.0 line and header (`examples/mathopt_samples/LICENSE`). Every other file - a document, a configuration file, an
+image - takes its license from `REUSE.toml`, and `tools/format.sh` runs `reuse lint` over all of them.
 <!-- REUSE-IgnoreEnd -->
 
 Comments - what a `//` comment says and what it leaves to the guide, the reference or the commit message, and the
@@ -136,9 +136,9 @@ and the benchmarks' dreamor models. Review holds it; `examples/.clang-tidy` turn
   `examples/mathopt_samples/` is left as ported, and the code blocks of the README and `docs/` are formatted by
   hand. The script also adds the SPDX license line where it is missing, and writes a hyphen for every dash in the
   Markdown documents: an em dash or a minus sign becomes `-`, as every page writes it (`tools/dashes.py`).
-  CI runs `tools/format.sh --check`. To bump a formatter, change its pin (`CLANG_FORMAT_VERSION` in `tools/format.sh`,
-  `required-version` in `ruff.toml`), run `tools/format.sh`, commit only the reformatting, and add that commit to
-  `.git-blame-ignore-revs`. Time to bump: with CI's clang-latest job, at each LLVM major (March and September) -
+  CI runs `tools/format.sh --check`. To bump a formatter, change its pin in `tools/versions.sh` (ruff's in `ruff.toml`
+  too, whose `required-version` ruff checks), run `tools/format.sh`, commit only the reformatting, and add that commit
+  to `.git-blame-ignore-revs`. Time to bump: with CI's clang-latest job, at each LLVM major (March and September) -
   clang-format and clang-tidy move to that major's newest patch on PyPI, so the newest Clang CI tests and the
   formatter are one major. `tools/clang-format` is the pinned clang-format as one executable, for an editor's
   format-on-save (VS Code: `clang-format.executable`, which the repository's `.vscode` sets).
@@ -154,3 +154,20 @@ and the benchmarks' dreamor models. Review holds it; `examples/.clang-tidy` turn
   NOLINTBEGIN/NOLINTEND around the declaration. Review what
   `tools/tidy.sh --fix` writes: applied from several translation units at once, a fix can land twice or garble a
   call, and const goes on the right.
+- **Shell scripts** - every `*.sh` file and `tools/clang-format` - wrap a tool (pin its version, pass the arguments
+  on), fetch a file and check and unpack it, or chain a build's steps, as Google's Shell Style Guide keeps shell to
+  "small utilities or simple wrapper scripts". They are written with these constructs:
+  - a variable set to a constant, to an argument, to an environment variable or its default (`${JOBS:-4}`), or to a
+    program's whole output (`$(nproc)`); constants several scripts share, in a file they source (`. tools/versions.sh`);
+  - the shell's own setup: `set -eu`, `cd`, `trap` to clean up, `exec`;
+  - a test: `[ ]` on a file, a directory or a variable, `command -v`, or a program's exit status (`grep -q`), stopping
+    with a message when it fails;
+  - a program run with its arguments, its output piped into another program or redirected to a file, chained with `&&`
+    or `||`;
+  - an `if` or a `case` on those tests or on the script's arguments;
+  - a `for` over words written in the script;
+  - a function whose body is one command, as a name for a command line used more than once.
+
+  Reading a value out of a file or out of a program's output, writing a format (JSON, flags made from file names),
+  arithmetic, a loop over a program's output, and running programs side by side go in a Python script, which the
+  shell script calls (`tools/code_files.py` for `tools/format.sh`, `bench/common/build.py` for the benchmarks' builds).
